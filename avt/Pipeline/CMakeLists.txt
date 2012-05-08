@@ -232,6 +232,7 @@ target_link_libraries(avtpipeline_ser
   lightweight_visit_vtk
   vtkRenderingOpenGL
   vtkInteractionStyle
+  vtkRenderingFreeTypeOpenGL
   ${ZLIB_LIB})
 
 VISIT_INSTALL_TARGETS(avtpipeline_ser)
@@ -239,6 +240,12 @@ VISIT_INSTALL_TARGETS(avtpipeline_ser)
 #********************************* PARALLEL **********************************
 IF(VISIT_PARALLEL)
     ADD_PARALLEL_LIBRARY(avtpipeline_par ${ALL_SOURCES})
-    TARGET_LINK_LIBRARIES(avtpipeline_par visitcommon avtmath avtdbatts lightweight_visit_vtk ${ZLIB_LIB})
+    TARGET_LINK_LIBRARIES(avtpipeline_par
+      visitcommon avtmath avtdbatts
+      lightweight_visit_vtk
+      vtkRenderingOpenGL
+      vtkInteractionStyle
+      vtkRenderingFreeTypeOpenGL
+      ${ZLIB_LIB})
     VISIT_INSTALL_TARGETS(avtpipeline_par)
 ENDIF(VISIT_PARALLEL)
