@@ -51,9 +51,9 @@ PVVTK_ADD_LIBRARY(vtkVisItAVTAlgorithms ${Kit_SRCS})
 ## NOTE: Always link to vtkParallel b/c it is needed for using vtkAMRUtilities
 ## When creating vtkOverlappingAMR datasets (especially on windows)
 IF(VISIT_PARALLEL)    
-  TARGET_LINK_LIBRARIES(vtkVisItAVTAlgorithms visitcommon avtdatabase_par avtpipeline_par visit_vtk avtivp vtkAMRCore)
+  TARGET_LINK_LIBRARIES(vtkVisItAVTAlgorithms visitcommon avtdatabase_par avtpipeline_par visit_vtk avtivp vtkFiltersAMR)
 ELSE(VISIT_PARALLEL)	
-  TARGET_LINK_LIBRARIES(vtkVisItAVTAlgorithms visitcommon avtdatabase_ser avtpipeline_ser visit_vtk avtivp vtkAMRCore)
+  TARGET_LINK_LIBRARIES(vtkVisItAVTAlgorithms visitcommon avtdatabase_ser avtpipeline_ser visit_vtk avtivp vtkFiltersAMR)
 ENDIF(VISIT_PARALLEL)
 
 #Wrap for Python
