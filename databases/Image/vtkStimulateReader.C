@@ -60,7 +60,6 @@
   #endif
 #endif
 
-vtkCxxRevisionMacro(vtkStimulateReader, "$Revision: 1.30 $");
 vtkStandardNewMacro(vtkStimulateReader);
 
 vtkStimulateReader::vtkStimulateReader()
