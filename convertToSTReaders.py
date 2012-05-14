@@ -1,6 +1,7 @@
 import os
 import fileinput
-from xml.etree.ElementTree import ElementTree, tostring
+from lxml.etree import ElementTree, tostring, Element
+from copy import deepcopy
 
 #convert xml defintions for ST readers
 #to use a file series reader
@@ -50,18 +51,16 @@ files = [
 "vtkVisItVelodyneReader.h",
 "vtkVisItVsReader.h",
 "vtkVisItXmdvReader.h",
-"vtkVisItSiloReader"
+"vtkVisItSiloReader.h"
 ]
 
-fileSeriesTree = ElementTree();
-fileSeriesTree.parse("FileSeries.xml")
 
 def cleanedPath(x):
   #extract the name without extension and vtk 
   if(x[-2]=="."):
     x=x[:-2]
-  if(x[:3]=="vtk"):
-    x=x[3:]
+  if(x[:3]!="vtk"):
+    x="vtk"+x
   return x
 
 #converts a proxy name to an internal proxy name
@@ -69,32 +68,31 @@ def convertNameToInternalName(x):
   return x + "Core"
 
 #converts an proxy to internal proxy
-def convertProxyToInternalProxy(x):
+def convertProxyToInternalProxy(y):
   #will rename the proxy to use the Core convention
   #will also strip the hints
-  x.remove(x.find("Documentation"))
-  x.remove(x.find("Hints"))
-  n = map(convertNameToInternalName,x.attrib["name"])
-  x.set("name",n)
-  return x;
+  x = deepcopy(y)
+  x.set("base_proxyname","VisItReaderFileSeriesBase")
+  x.set("name",convertNameToInternalName(x.get("name")))
+  return x
 
 #returns if the passes in proxy is in the valid reader list
-def isSingleTimeStepReader(x):
-  return x.attrib["name"] in validReaders
+def isSingleTimeStepReader(x,validReaders):
+  return x.get("class") in validReaders
 
 #returns if an xml element is the internal_readers xml element
 def isInternalReaderGroup(x):
-  return x.attrib["name"] == "internal_readers" 
+  return x.get("name") == "internal_readers" 
 
 #concerts a collection of items into the valid readers
 def buildSTReaderList(f):
   result = map(cleanedPath,files)
   return result
 
-#searchs the given tree for all valid single timestep readers
+#searches the given tree for all valid single timestep readers
 def findValidReaders(tree, validReaders):
   proxies = list(tree.iter("SourceProxy"))
-  return filter(isSingleTimeStepReader,proxies)  
+  return [proxy for proxy in proxies if isSingleTimeStepReader(proxy,validReaders)]
 
 #finds the root of the internal readers xml group
 def findInternalReadersGroup(tree):
@@ -108,31 +106,39 @@ def addReadersToInternalGroup(proxies, convertProxyToInternalProxyGroup):
   iproxies = map(convertProxyToInternalProxy,proxies)
 
   #add proxies to the convertProxyToInternalProxy group
-  convertProxyToInternalProxyGroup.extend(iproxy)
+  convertProxyToInternalProxyGroup.extend(iproxies)
 
-#converts a collection of reader to file series readers
-def makeReaderFileSeries(proxies):
-  #will insert the FileSeries xml code
-  #to the proxy to make it use the proper
-  #internal reader
-  proxy.append(fileSeriesTree.getroot())
-  
-    
+#converts a reader to file series readers
+def makeReaderFileSeries(reader):
+  n = reader.get("name")
+  del reader.attrib["base_proxygroup"]
+  del reader.attrib["base_proxyname"]
+  reader.set("class","vtkFileSeriesReader")
+  reader.set("si_class","vtkSIFileSeriesReaderProxy")
+  reader.set("file_name_method","SetFileName")
+
+  fileSeriesTree = ElementTree();
+  fileSeriesTree.parse("FileSeries.xml")
+  reader.extend(fileSeriesTree.getroot())
+  for p in reader.iter("Proxy"):
+    p.set("proxyname",convertNameToInternalName(n))
+
 def updateXML( validReaders ):
   #read in the xml file
   tree = ElementTree()
   tree.parse("databases/visit_readers.xml")
   
   proxies = findValidReaders(tree, validReaders)
-  addReadersToInternalGroup(proxies,  findInteralReadersGroup(tree) )
-  makeReadersFileSeries(proxies)
+  addReadersToInternalGroup(proxies,  findInternalReadersGroup(tree) )
+  map(makeReaderFileSeries,proxies)
 
-  
-  x = tostring(tree.getroot())
-
-  print x
+  return tostring(tree.getroot(),pretty_print=True)
 
 if __name__ == "__main__":
   readers = buildSTReaderList(files)
-  updateXML(readers)
+  updatedXML = updateXML(readers)
+  #write out pretty xml
+  f = open("test.xml","w")
+  f.write(updatedXML)
+  f.close()
    
