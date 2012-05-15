@@ -304,7 +304,7 @@
      </Hints>
      </SourceProxy>
 
-    <SourceProxy name="VisItGadgetReaderCore" class="vtkVisItGadgetsReader" base_proxygroup="internal_readers" base_proxyname="VisItReaderFileSeriesBase">
+    <SourceProxy name="VisItGadgetReaderCore" class="vtkVisItGadgetReader" base_proxygroup="internal_readers" base_proxyname="VisItReaderFileSeriesBase">
      <Documentation long_help="Gadget 2 cosmological N-body/SPH simulation code reader">
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
        The default file extension is .gadget
