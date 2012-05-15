@@ -9,15 +9,12 @@
       <Property name="MaterialStatus" />
       <Property name="CellArrayStatus" />
       <Property name="PointArrayStatus" />
-      <Property name="MaxLocation" />
-      <Property name="ParticleArrayStatus" />
     </ExposedProperties>
     </SubProxy>
 
     <StringVectorProperty name="FileNameInfo"
       command="GetCurrentFileName"
       information_only="1">
-    <SimpleStringInformationHelper />
     </StringVectorProperty>
 
     <StringVectorProperty
