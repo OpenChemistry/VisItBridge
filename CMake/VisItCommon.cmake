@@ -302,7 +302,7 @@ configure_file(
   
 #generate server manager xml file  
 configure_file(
-  ${VISIT_CMAKE_DIR}/VisItSM.xml.in
+  ${VISIT_CMAKE_DIR}/VisIt{READER_WRAPPER_TYPE}SM.xml.in
   ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}SM.xml @ONLY)
 
 #generate reader xml 

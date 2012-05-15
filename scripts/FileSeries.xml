@@ -1,0 +1,42 @@
+<Series>    
+    <SubProxy>
+      <Proxy name="Reader"
+        proxygroup="internal_readers"
+        proxyname="FakeReader" >
+    </Proxy>
+    <ExposedProperties>
+      <Property name="MeshStatus" />
+      <Property name="MaterialStatus" />
+      <Property name="CellArrayStatus" />
+      <Property name="PointArrayStatus" />
+    </ExposedProperties>
+    </SubProxy>
+
+    <StringVectorProperty name="FileNameInfo"
+      command="GetCurrentFileName"
+      information_only="1">
+    </StringVectorProperty>
+
+    <StringVectorProperty
+    name="FileNames"
+    clean_command="RemoveAllFileNames"
+    command="AddFileName"
+    animateable="0"
+    number_of_elements="0"
+    repeat_command="1">
+    <FileListDomain name="files" />
+    <Documentation>
+    The list of files to be read by the reader.
+    </Documentation>
+    </StringVectorProperty>
+
+    <DoubleVectorProperty
+    name="TimestepValues"
+    repeatable="1"
+    information_only="1">
+    <TimeStepsInformationHelper/>
+    <Documentation>
+    Available timestep values.
+    </Documentation>
+    </DoubleVectorProperty>
+</Series>    
