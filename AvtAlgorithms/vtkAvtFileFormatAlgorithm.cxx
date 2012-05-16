@@ -161,9 +161,9 @@ int vtkAvtFileFormatAlgorithm::ProcessRequest(vtkInformation* request,
   vtkStreamingDemandDrivenPipeline::REQUEST_UPDATE_EXTENT_INFORMATION()))
     {
     vtkInformation *outInfo = outputVector->GetInformationObject(0);
-    this->SetupBlockBoundsInformation(outInfo);    
+    this->SetupBlockBoundsInformation(outInfo);
     }
-    
+
   return this->Superclass::ProcessRequest(request, inputVector, outputVector);
 }
 
@@ -361,11 +361,11 @@ void vtkAvtFileFormatAlgorithm::AssignProperties( vtkDataSet *data,
 }
 
 //-----------------------------------------------------------------------------
-void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data, 
+void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
   const vtkStdString &meshName, const int &timestep, const int &domain )
 {
   //now we check for materials
-  int size = this->MetaData->GetNumMaterials(); 
+  int size = this->MetaData->GetNumMaterials();
   void_ref_ptr vr;
   avtMaterial *material = NULL;
   for ( int i=0; i < size; ++i)
@@ -374,8 +374,8 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
     if ( meshName != materialMetaData->meshName )
       {
       continue;
-      }    
-        
+      }
+
     std::string name = materialMetaData->name;
     //lets first try and see if the data has been cached
     //get the aux data from the cache for the material
@@ -397,12 +397,12 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
       vr = void_ref_ptr(ref,df);
       this->Cache->CacheVoidRef(name.c_str(),AUXILIARY_DATA_MATERIAL, timestep, domain, vr );
       material = reinterpret_cast<avtMaterial*>(*vr);
-      if ( !material)      
+      if ( !material)
         {
         continue;
         }
-      }    
-    
+      }
+
     //decompose the material class into a collection of float arrays
     //that we will than push into vtkFloatArrays and place on the dataset
     int numCells = material->GetNZones();
@@ -412,7 +412,7 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
       {
       materials[i] = new float[numCells];
       for ( int j=0; j < numCells; ++j)
-        {        
+        {
         materials[i][j] = -1.0;
         }
       }
@@ -468,22 +468,22 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
 //-----------------------------------------------------------------------------
 void vtkAvtFileFormatAlgorithm::SetupBlockBoundsInformation(
   vtkInformation *outInfo)
-{ 
+{
   //this allows the VisIt Readers to support individual
-  //domain and block loading  
+  //domain and block loading
   vtkSmartPointer<vtkMultiBlockDataSet> metadata =
       vtkSmartPointer<vtkMultiBlockDataSet>::New();
 
   unsigned int index = 0; //converting the multiblock to a flat index
 
-  int size = this->MetaData->GetNumMeshes();  
+  int size = this->MetaData->GetNumMeshes();
   int timeStep = this->GetCurrentTimeStep(outInfo);
   for ( int i=0; i < size; ++i)
-    {    
+    {
     const avtMeshMetaData *meshMetaData = this->MetaData->GetMesh(i);
 
     int numBlocks = meshMetaData->numBlocks;
-    
+
     //setup the block that represents this mesh
     vtkMultiBlockDataSet* childDS = vtkMultiBlockDataSet::New();
     childDS->SetNumberOfBlocks(numBlocks);
@@ -499,7 +499,7 @@ void vtkAvtFileFormatAlgorithm::SetupBlockBoundsInformation(
       vtkInformation* piece_metadata = childDS->GetMetaData(dom);
 
       double bounds[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
-      bool valid = 
+      bool valid =
         this->GetDataSpatialExtents(meshMetaData->name.c_str(),
         timeStep, dom, bounds);
       if ( valid )
@@ -519,17 +519,17 @@ void vtkAvtFileFormatAlgorithm::SetupBlockBoundsInformation(
 //-----------------------------------------------------------------------------
 bool vtkAvtFileFormatAlgorithm::GetDataSpatialExtents(const char* meshName,
     const int &timestep, const int &domain, double bounds[6])
-{  
+{
     void_ref_ptr vr = this->Cache->GetVoidRef(meshName,
                   AUXILIARY_DATA_SPATIAL_EXTENTS, timestep, domain);
     if (!(*vr))
-      { 
+      {
       //the specfic domain failed, try the global size for the timestep
       void_ref_ptr vr = this->Cache->GetVoidRef(meshName,
         AUXILIARY_DATA_SPATIAL_EXTENTS, timestep, -1);
       }
     if (!(*vr))
-      { 
+      {
       //the specfic timestep failed, try the gloabl extent
       void_ref_ptr vr = this->Cache->GetVoidRef(meshName,
         AUXILIARY_DATA_SPATIAL_EXTENTS, -1, -1);
@@ -542,7 +542,7 @@ bool vtkAvtFileFormatAlgorithm::GetDataSpatialExtents(const char* meshName,
     avtIntervalTree *tree = NULL;
     tree = reinterpret_cast<avtIntervalTree*>(*vr);
     if ( tree )
-      {      
+      {
       tree->GetExtents(bounds);
       return true;
       }
@@ -570,23 +570,23 @@ unsigned int vtkAvtFileFormatAlgorithm::GetCurrentTimeStep(vtkInformation *outIn
     outInfo->Length(vtkStreamingDemandDrivenPipeline::TIME_STEPS());
   double* steps =
     outInfo->Get(vtkStreamingDemandDrivenPipeline::TIME_STEPS());
-  
+
   unsigned int TimeIndex = 0;
   // Check if a particular time was requested by the pipeline.
   // This overrides the ivar.
-  if(outInfo->Has(vtkStreamingDemandDrivenPipeline::UPDATE_TIME_STEPS()) && tsLength>0)
+  if(outInfo->Has(vtkStreamingDemandDrivenPipeline::UPDATE_TIME_STEP()) && tsLength>0)
     {
     // Get the requested time step. We only supprt requests of a single time
     // step in this reader right now
-    double *requestedTimeSteps =
-      outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_TIME_STEPS());
+    double requestedTimeStep =
+      outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_TIME_STEP());
 
     // find the first time value larger than requested time value
     // this logic could be improved
-    while (TimeIndex < tsLength-1 && steps[TimeIndex] < requestedTimeSteps[0])
+    while (TimeIndex < tsLength-1 && steps[TimeIndex] < requestedTimeStep)
       {
       TimeIndex++;
-      }    
+      }
     }
   return TimeIndex;
 }
@@ -764,7 +764,7 @@ void vtkAvtFileFormatAlgorithm::SetupMeshSelections( )
       this->MeshArraySelection->EnableArray(name.c_str());
       }
     else if (!this->MeshArraySelection->ArrayExists(name.c_str()))
-      {      
+      {
       this->MeshArraySelection->DisableArray(name.c_str());
       }
     }
@@ -778,14 +778,14 @@ void vtkAvtFileFormatAlgorithm::SetupMaterialSelections()
     {
     return;
     }
-  //go through the meta data and get all the material names  
+  //go through the meta data and get all the material names
   int size = this->MetaData->GetNumMaterials();
   std::string name;
   for ( int i=0; i < size; ++i)
     {
     const avtMaterialMetaData* matMetaData = this->MetaData->GetMaterial(i);
-    //we are going to decompose the material into a separate array for each 
-    //component in the material collection.    
+    //we are going to decompose the material into a separate array for each
+    //component in the material collection.
     stringVector materials = matMetaData->materialNames;
     for ( int j=0; j < materials.size(); ++j )
       {
@@ -793,8 +793,8 @@ void vtkAvtFileFormatAlgorithm::SetupMaterialSelections()
       if (!this->MaterialArraySelection->ArrayExists(name.c_str()))
         {
         this->MaterialArraySelection->DisableArray(name.c_str());
-        }    
-      }    
+        }
+      }
     }
 }
 
