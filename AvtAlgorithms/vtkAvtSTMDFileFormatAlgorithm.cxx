@@ -73,7 +73,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <set>
 
 struct vtkAvtSTMDFileFormatAlgorithm::vtkAvtSTMDFileFormatAlgorithmInternal
-{  
+{
   unsigned int MinDataset;
   unsigned int MaxDataset;
   bool HasUpdateRestriction;
@@ -83,7 +83,7 @@ struct vtkAvtSTMDFileFormatAlgorithm::vtkAvtSTMDFileFormatAlgorithmInternal
     MaxDataset(0),
     HasUpdateRestriction(false),
     UpdateIndices()
-    {}  
+    {}
 };
 
 vtkStandardNewMacro(vtkAvtSTMDFileFormatAlgorithm);
@@ -94,7 +94,7 @@ vtkAvtSTMDFileFormatAlgorithm::vtkAvtSTMDFileFormatAlgorithm()
   this->UpdatePiece = 0;
   this->UpdateNumPieces = 0;
   this->OutputType = VTK_MULTIBLOCK_DATA_SET;
-  this->Internal = 
+  this->Internal =
     new vtkAvtSTMDFileFormatAlgorithm::vtkAvtSTMDFileFormatAlgorithmInternal();
 }
 
@@ -189,7 +189,7 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
     const avtMeshMetaData meshMetaData = this->MetaData->GetMeshes( 0 );
     vtkHierarchicalBoxDataSet *output = vtkHierarchicalBoxDataSet::
       SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
-    this->FillAMR( output, &meshMetaData, 0, 0 );    
+    this->FillAMR( output, &meshMetaData, 0, 0 );
     }
 
   else if( this->OutputType == VTK_OVERLAPPING_AMR &&
@@ -258,7 +258,7 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
 
 //-----------------------------------------------------------------------------
 int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
-  vtkOverlappingAMR *amr, const avtMeshMetaData *meshMetaData,
+  vtkOverlappingAMR *outputAMR, const avtMeshMetaData *meshMetaData,
   const int &timestep, const int &domain)
 {
   //we first need to determine if this AMR can be safely converted to a
@@ -269,11 +269,13 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     return 0;
     }
 
+  vtkOverlappingAMR *ghostedAMR = vtkOverlappingAMR::New();
+
   this->GetDomainRange(meshMetaData);
 
   //number of levels in the AMR
   int numGroups = meshMetaData->numGroups;
-  amr->SetNumberOfLevels(numGroups);
+  ghostedAMR->SetNumberOfLevels(numGroups);
 
   //TODO: if the cache doesn't have the results we can ask the file format itself
   //determine the ratio for each level
@@ -302,7 +304,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     //TODO: verify this logic
     if ( ratios[0] >= 2 )
       {
-      amr->SetRefinementRatio(i, ratios[0] );
+      ghostedAMR->SetRefinementRatio(i, ratios[0] );
       }
     }
 
@@ -325,7 +327,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
   int meshIndex=0;
   for ( int i=0; i < numGroups; ++i)
     {
-    amr->SetNumberOfDataSets(i,numDataSets[i]);
+    ghostedAMR->SetNumberOfDataSets(i,numDataSets[i]);
     for (int j=0; j < numDataSets[i]; ++j)
       {
       //only load grids inside the domainRange for this processor
@@ -375,7 +377,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
 
         this->AssignProperties( grid, name, timestep, meshIndex);
 
-        amr->SetDataSet(i,j,grid);
+        ghostedAMR->SetDataSet(i,j,grid);
 
         grid->Delete();
         }
@@ -384,8 +386,13 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     }
 
   vtkAMRUtilities::GenerateMetaData(
-      amr,vtkMultiProcessController::GetGlobalController());
-  amr->GenerateVisibilityArrays();
+      ghostedAMR,vtkMultiProcessController::GetGlobalController());
+
+  vtkAMRUtilities::StripGhostLayers(
+      ghostedAMR,outputAMR,vtkMultiProcessController::GetGlobalController());
+  ghostedAMR->Delete();
+
+  outputAMR->GenerateVisibilityArrays();
   delete[] numDataSets;
   return 1;
 
@@ -412,7 +419,7 @@ void vtkAvtSTMDFileFormatAlgorithm::FillBlock(
 
   //set the number of pieces in the block
   block->SetNumberOfBlocks( meshMetaData->numBlocks );
-  
+
   this->GetDomainRange(meshMetaData);
   for ( int i=this->Internal->MinDataset; i < this->Internal->MaxDataset; ++i )
     {
@@ -583,21 +590,21 @@ bool vtkAvtSTMDFileFormatAlgorithm::IsEvenlySpacedDataArray(vtkDataArray *data)
 //----------------------------------------------------------------------------
 //determine which nodes will be read by this processor
 void vtkAvtSTMDFileFormatAlgorithm::GetDomainRange(const avtMeshMetaData *meshMetaData)
-{       
+{
   int numBlock = meshMetaData->numBlocks;
   this->Internal->MinDataset = 0;
   this->Internal->MaxDataset = numBlock;
-    
+
   vtkInformation* outInfo = this->GetOutputPortInformation(0);
   if (outInfo->Has(vtkCompositeDataPipeline::UPDATE_COMPOSITE_INDICES()))
     {
-    //index based data requests    
+    //index based data requests
     this->Internal->UpdateIndices.clear();
     int length = outInfo->Length(vtkCompositeDataPipeline::UPDATE_COMPOSITE_INDICES());
     this->Internal->HasUpdateRestriction = (length > 0);
     if (this->Internal->HasUpdateRestriction)
       {
-      int* idx = outInfo->Get(vtkCompositeDataPipeline::UPDATE_COMPOSITE_INDICES());      
+      int* idx = outInfo->Get(vtkCompositeDataPipeline::UPDATE_COMPOSITE_INDICES());
       this->Internal->UpdateIndices = std::set<int>(idx, idx+length);
       }
     }
@@ -623,7 +630,7 @@ bool vtkAvtSTMDFileFormatAlgorithm::ShouldReadDataSet(const int &index)
   if (shouldRead && this->Internal->HasUpdateRestriction)
     {
     shouldRead = (this->Internal->UpdateIndices.find(index) ==
-        this->Internal->UpdateIndices.end());      
+        this->Internal->UpdateIndices.end());
     }
   return shouldRead;
 }
