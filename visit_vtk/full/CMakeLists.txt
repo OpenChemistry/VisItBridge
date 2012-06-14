@@ -119,7 +119,7 @@ PVVTK_ADD_LIBRARY(visit_vtk ${VISIT_VTK_SOURCES})
 target_link_libraries(visit_vtk
   lightweight_visit_vtk
   vtkIOImage
-  vtkFiltersTracers
+  vtkFiltersFlowPaths
   vtkRenderingOpenGL
   vtkInteractionStyle
   vtkRenderingFreeTypeOpenGL

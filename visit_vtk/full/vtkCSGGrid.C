@@ -940,9 +940,15 @@ vtkCSGGrid::PrintSelf(ostream& os, vtkIndent indent)
                     os << ", is a boolean ";
                     switch (boolFunc->GetOperationType())
                     {
-                        case VTK_INTERSECTION: os << "intersection "; break;
-                        case VTK_UNION:        os << "union "; break;
-                        case VTK_DIFFERENCE:   os << "difference "; break;
+                        case vtkImplicitBoolean::VTK_INTERSECTION:
+                          os << "intersection ";
+                          break;
+                        case vtkImplicitBoolean::VTK_UNION:
+                          os << "union ";
+                          break;
+                        case vtkImplicitBoolean::VTK_DIFFERENCE:
+                          os << "difference ";
+                          break;
                     }
 
                     vtkIdType leftId  = funcMap[leftFunc];
