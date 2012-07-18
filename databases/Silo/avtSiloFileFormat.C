@@ -8743,7 +8743,7 @@ avtSiloFileFormat::ReadInConnectivity(vtkUnstructuredGrid *ugrid,
         ghostZones->SetName("avtGhostZones");
         ugrid->GetCellData()->AddArray(ghostZones);
         ghostZones->Delete();
-        ugrid->SetUpdateGhostLevel(0);
+        // FIXME seb: ugrid->SetUpdateGhostLevel(0);
     }
 }
 
@@ -9413,7 +9413,7 @@ avtSiloFileFormat::ReadInArbConnectivity(const char *meshname,
         ghostZones->SetName("avtGhostZones");
         ugrid->GetCellData()->AddArray(ghostZones);
         ghostZones->Delete();
-        ugrid->SetUpdateGhostLevel(0);
+        // FIXME seb: ugrid->SetUpdateGhostLevel(0);
     }
 
     //
@@ -10284,7 +10284,7 @@ avtSiloFileFormat::GetQuadGhostZones(DBquadmesh *qm, vtkDataSet *ds)
         ds->GetFieldData()->CopyFieldOn("avtRealDims");
         realDims->Delete();
 
-        ds->SetUpdateGhostLevel(0);
+        // FIXME seb: ds->SetUpdateGhostLevel(0);
     }
 }
 
