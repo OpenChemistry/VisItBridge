@@ -32,11 +32,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _@PLUGIN_NAME@_h
 #define _@PLUGIN_NAME@_h
-#include "@PLUGIN_NAME@Export.h"
+#include "vtkIOVisItBridgeModule.h" //for export macro
 #include "vtkAvt@ARG_VISIT_READER_TYPE@FileFormatAlgorithm.h"
 #cmakedefine VISIT_READER_USES_INTERFACE
 
-class @PLUGIN_NAME@_EXPORT @PLUGIN_NAME@ : public vtkAvt@ARG_VISIT_READER_TYPE@FileFormatAlgorithm
+class VTKIOVISITBRIDGE_EXPORT @PLUGIN_NAME@ : public vtkAvt@ARG_VISIT_READER_TYPE@FileFormatAlgorithm
 {
 public:
   static @PLUGIN_NAME@ *New();

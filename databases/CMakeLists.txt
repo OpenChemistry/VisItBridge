@@ -1,11 +1,13 @@
-MACRO(VISIT_INCLUDE_READER_SOURCE name state)
+#get same cmake config as visitlib itself does
+include(${CMAKE_CURRENT_SOURCE_DIR}/../Library/VisItLib/visitcommoncmake.cmake)
+include(${VISIT_BINARY_DIR}/VisItBridgeUse.cmake)
+
+macro(VISIT_INCLUDE_READER_SOURCE name state)
 option(VISIT_BUILD_READER_${name} "Build VisIt Reader ${name}" ${state})
 if (VISIT_BUILD_READER_${name})
-  ADD_SUBDIRECTORY(${name})
+  add_subdirectory(${name})
 endif()
-ENDMACRO(VISIT_INCLUDE_READER_SOURCE name)
-
-PROJECT(vtkVisItDatabases)
+endmacro(VISIT_INCLUDE_READER_SOURCE name)
 
 #these are used by visit_include_reader
 set(VISIT_DATABASE_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
@@ -80,14 +82,17 @@ if(NOT WIN32)
     )
 endif(NOT WIN32)
 
-#add all the default readers to the library
+#add generic vtkreader interface parent classes
+add_subdirectory(AvtAlgorithms)
+
+#add the default readers to the library
 foreach(db ${DEFAULT_BRIDGE_READERS})
   add_subdirectory(${db})
 endforeach(db)
 
-ADD_DEFINITIONS("-DRC_CPP_VISIT_BUILD")
+add_definitions("-DRC_CPP_VISIT_BUILD")
 
-VISIT_INCLUDE_READER_SOURCE(Silo OFF)
+visit_include_reader_source(Silo OFF)
 if(VISIT_BUILD_READER_Silo)
   if(NOT HAVE_LIBSILO)
     #if we currently don't have silo setup make it required
@@ -100,7 +105,7 @@ if(VISIT_BUILD_READER_Silo)
 endif(VISIT_BUILD_READER_Silo)
 
 
-VISIT_INCLUDE_READER_SOURCE(CGNS OFF)
+visit_include_reader_source(CGNS OFF)
 if(VISIT_BUILD_READER_CGNS)
   if(NOT HAVE_LIBCGNS)
     #if we currently don't have silo setup make it required
@@ -112,7 +117,7 @@ if(VISIT_BUILD_READER_CGNS)
   set(VISITBRIDGE_USE_CGNS ${CGNS_FOUND} PARENT_SCOPE)
 endif(VISIT_BUILD_READER_CGNS)
 
-VISIT_INCLUDE_READER_SOURCE(Mili OFF)
+visit_include_reader_source(Mili OFF)
 if(VISIT_BUILD_READER_Mili)
   if(NOT HAVE_LIBMILI)
     #if we currently don't have silo setup make it required
@@ -123,9 +128,6 @@ if(VISIT_BUILD_READER_Mili)
   endif(NOT MILI_FOUND)
   set(VISITBRIDGE_USE_MILI ${MILI_FOUND} PARENT_SCOPE)
 endif(VISIT_BUILD_READER_Mili)
-
-SET(KIT VisItDatabases)
-SET(KIT_UPCASE "VISITDATABASES")
 
 #include all the db directores before
 #the visit files
@@ -150,66 +152,37 @@ if(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
   include_directories(${MILI_INCLUDE_DIR})
 endif(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
 
-SET(Kit_SRCS
+set(Module_SRCS
   ${VISIT_SERVER_SOURCES}
   )
 
-SET_SOURCE_FILES_PROPERTIES(
+set_source_files_properties(
   ${VISIT_DB_SOURCES}
   WRAP_EXCLUDE
   )
 
-#setup the kit so we get client server bindings
-SET(VTK_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
-INCLUDE(${ParaView_CMAKE_DIR}/VTKMono/vtkExportKit.cmake)
-VTK_EXPORT_KIT("${KIT}" "${KIT_UPCASE}" "${Kit_SRCS}")
+set(vtkIOVisItBridge_INCLUDE_DIRS "${vtkIOVisItBridge_INCLUDE_DIRS};${CMAKE_CURRENT_SOURCE_DIR}/AvtAlgorithms")
+vtk_module_library(vtkIOVisItBridge ${Module_SRCS} ${VISIT_DB_SOURCES})
 
-#build all the readers into a single library
-pvvtk_add_library(vtk${KIT} ${Kit_SRCS} ${VISIT_DB_SOURCES})
+if(VISIT_PARALLEL)
+   target_link_libraries(vtkIOVisItBridge visitcommon avtdatabase_par avtpipeline_par visit_vtk avtivp)
+else(VISIT_PARALLEL)
+  target_link_libraries(vtkIOVisItBridge visitcommon avtdatabase_ser avtpipeline_ser visit_vtk avtivp)
+endif(VISIT_PARALLEL)
 
-target_link_libraries(vtk${KIT} vtkVisItAVTAlgorithms vtkNetCDF)
+target_link_libraries(vtkIOVisItBridge vtkNetCDF)
 if(PARAVIEW_HDF5_LIBRARIES)
-  target_link_libraries(vtk${KIT} ${PARAVIEW_HDF5_LIBRARIES})
+  target_link_libraries(vtkIOVisItBridge ${PARAVIEW_HDF5_LIBRARIES})
 endif(PARAVIEW_HDF5_LIBRARIES)
 
 if(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
-  target_link_libraries(vtk${KIT} ${SILO_LIBRARIES})
+  target_link_libraries(vtkIOVisItBridge ${SILO_LIBRARIES})
 endif(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
 
 if(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
-  target_link_libraries(vtk${KIT} ${CGNS_LIBRARIES})
+  target_link_libraries(vtkIOVisItBridge ${CGNS_LIBRARIES})
 endif(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
 
 if(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
-  target_link_libraries(vtk${KIT} ${MILI_LIBRARIES})
+  target_link_libraries(vtkIOVisItBridge ${MILI_LIBRARIES})
 endif(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
-
-#Wrap for Python
-#-------------------------------------------------------------------------------------------------
-IF (PARAVIEW_ENABLE_PYTHON)
-  SET(Kit_PYTHON_EXTRA_SRCS)
-  SET(KIT_PYTHON_LIBS vtk${KIT}PythonD vtk${KIT}CS
-    vtkVisItAVTAlgorithmsPythonD vtkVisItAVTAlgorithmsCS)
-  # Tell vtkWrapPython.cmake to set VTK_PYTHON_LIBRARIES for us.
-  SET(VTK_WRAP_PYTHON_FIND_LIBS 1)
-  SET(VTK_WRAP_INCLUDE_DIRS ${VTK_INCLUDE_DIR})
-  INCLUDE("${VTK_CMAKE_DIR}/vtkWrapPython.cmake")
-  INCLUDE_DIRECTORIES(${PYTHON_INCLUDE_PATH})
-  SET(KIT_PYTHON_DEPS)
-  SET(VTK_INSTALL_NO_LIBRARIES 1)
-  IF(VTKPythonWrapping_INSTALL_BIN_DIR)
-    SET(VTK_INSTALL_NO_LIBRARIES)
-  ENDIF(VTKPythonWrapping_INSTALL_BIN_DIR)
-
-  SET(VTK_INSTALL_LIB_DIR "${VTKPythonWrapping_INSTALL_LIB_DIR}")
-  SET(VTK_INSTALL_BIN_DIR "${VTKPythonWrapping_INSTALL_BIN_DIR}")
-  SET(VTK_INSTALL_LIB_DIR_CM24 "${VTKPythonWrapping_INSTALL_LIB_DIR}")
-  SET(VTK_INSTALL_BIN_DIR_CM24 "${VTKPythonWrapping_INSTALL_BIN_DIR}")
-
-  # include python wrapping from VTK
-  INCLUDE(KitCommonPythonWrapBlock)
-ENDIF (PARAVIEW_ENABLE_PYTHON)
-
-#Install
-#-------------------------------------------------------------------------------------------------
-VISIT_INSTALL_TARGETS(vtk${KIT})

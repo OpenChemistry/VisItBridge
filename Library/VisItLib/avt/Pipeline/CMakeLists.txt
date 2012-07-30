@@ -223,7 +223,7 @@ LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS})
 
 
 #********************************* SERIAL ************************************
-PVVTK_ADD_LIBRARY(avtpipeline_ser ${ALL_SOURCES})
+VTK_ADD_LIBRARY(avtpipeline_ser ${ALL_SOURCES})
 
 target_link_libraries(avtpipeline_ser
   visitcommon

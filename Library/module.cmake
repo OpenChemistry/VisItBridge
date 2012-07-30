@@ -1,0 +1,15 @@
+vtk_module(VisItLib
+  DEPENDS
+  vtkCommonDataModel
+  vtkCommonExecutionModel
+  vtkCommonMisc
+  vtkFiltersAMR
+  vtkFiltersFlowPaths
+  vtkImagingHybrid
+  vtkIOGeometry
+  vtkIOImage
+  vtkParallelCore
+  vtkRenderingFreeTypeOpenGL
+  vtkRenderingVolumeOpenGL
+  EXCLUDE_FROM_WRAPPING
+  )

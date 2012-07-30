@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _vtkAvtSTSDFileFormatAlgorithm_h
 #define _vtkAvtSTSDFileFormatAlgorithm_h
+#include "vtkIOVisItBridgeModule.h" //for export macro
 #include "vtkAvtFileFormatAlgorithm.h"
 #include "vtkAvtAlgorithmsExport.h"
 
@@ -42,7 +43,7 @@ class avtDatabaseMetaData;
 class avtVariableCache;
 //ETX
 
-class AVTALGORITHMS_EXPORT vtkAvtSTSDFileFormatAlgorithm : public vtkAvtFileFormatAlgorithm
+class VTKIOVISITBRIDGE_EXPORT vtkAvtSTSDFileFormatAlgorithm : public vtkAvtFileFormatAlgorithm
 {
 public:
   static vtkAvtSTSDFileFormatAlgorithm *New();

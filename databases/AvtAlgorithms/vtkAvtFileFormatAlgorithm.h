@@ -32,6 +32,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _vtkVisItReader_h
 #define _vtkVisItReader_h
+
+#include "vtkIOVisItBridgeModule.h" //for export macro
+
 #include "vtkCompositeDataSetAlgorithm.h"
 #include "vtkAvtAlgorithmsExport.h"
 #include "vtkStdString.h"
@@ -48,7 +51,7 @@ class avtVariableCache;
 class avtMeshMetaData;
 //ETX
 
-class AVTALGORITHMS_EXPORT vtkAvtFileFormatAlgorithm : public vtkCompositeDataSetAlgorithm
+class VTKIOVISITBRIDGE_EXPORT vtkAvtFileFormatAlgorithm : public vtkCompositeDataSetAlgorithm
 {
 public:
   static vtkAvtFileFormatAlgorithm *New();

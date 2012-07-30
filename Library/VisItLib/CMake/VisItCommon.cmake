@@ -1,33 +1,36 @@
 
-MACRO(VISIT_INSTALL_TARGETS target)     
-  if(NOT PV_INSTALL_NO_LIBRARIES)    
-    install(TARGETS ${target}
-      EXPORT ${PV_INSTALL_EXPORT_NAME}
-      RUNTIME DESTINATION ${PV_INSTALL_BIN_DIR} COMPONENT Runtime
-      LIBRARY DESTINATION ${PV_INSTALL_LIB_DIR} COMPONENT Runtime
-      ARCHIVE DESTINATION ${PV_INSTALL_LIB_DIR} COMPONENT Development)
-  endif(NOT PV_INSTALL_NO_LIBRARIES)
-  # Development
-  if(NOT PV_INSTALL_NO_DEVELOPMENT)
-   #VisIt has subdirectories so we need
-   #to glob everything in the root directory
-   #and all the headers in all the subdirectores
-    GLOB_RECURSIVE_INSTALL_DEVELOPMENT(
-      ${CMAKE_CURRENT_SOURCE_DIR}
-      ${PV_INSTALL_INCLUDE_DIR}
-      "*.h;*.hxx;*.txx")
-    if(dynamicHeaders)
-      INSTALL(
-        FILES ${dynamicHeaders}
-        DESTINATION ${PV_INSTALL_INCLUDE_DIR}
-        COMPONENT Development)
-    endif(dynamicHeaders)
-  endif(NOT PV_INSTALL_NO_DEVELOPMENT) 
-  
+MACRO(VISIT_INSTALL_TARGETS target)
+# DDM - Removed to let vtk modular take care of installation
+#  if(NOT PV_INSTALL_NO_LIBRARIES)
+#    install(TARGETS ${target}
+#      EXPORT ${PV_INSTALL_EXPORT_NAME}
+#      RUNTIME DESTINATION ${PV_INSTALL_BIN_DIR} COMPONENT Runtime
+#      LIBRARY DESTINATION ${PV_INSTALL_LIB_DIR} COMPONENT Runtime
+#      ARCHIVE DESTINATION ${PV_INSTALL_LIB_DIR} COMPONENT Development)
+#  endif(NOT PV_INSTALL_NO_LIBRARIES)
+#  # Development
+#  if(NOT PV_INSTALL_NO_DEVELOPMENT)
+#   #VisIt has subdirectories so we need
+#   #to glob everything in the root directory
+#   #and all the headers in all the subdirectores
+#   if (0)
+#    GLOB_RECURSIVE_INSTALL_DEVELOPMENT(
+#      ${CMAKE_CURRENT_SOURCE_DIR}
+#      ${PV_INSTALL_INCLUDE_DIR}
+#      "*.h;*.hxx;*.txx")
+#    if(dynamicHeaders)
+#      INSTALL(
+#        FILES ${dynamicHeaders}
+#        DESTINATION ${PV_INSTALL_INCLUDE_DIR}
+#        COMPONENT Development)
+#    endif(dynamicHeaders)
+#    endif()
+#  endif(NOT PV_INSTALL_NO_DEVELOPMENT)
+#
 ENDMACRO(VISIT_INSTALL_TARGETS)
 
 FUNCTION(ADD_PARALLEL_LIBRARY target)
-    PVVTK_ADD_LIBRARY(${target} ${ARGN})
+    VTK_ADD_LIBRARY(${target} ${ARGN})
     IF(VISIT_PARALLEL_CXXFLAGS)
         SET(PAR_COMPILE_FLAGS "")
         FOREACH (X ${VISIT_PARALLEL_CXXFLAGS})
@@ -145,7 +148,6 @@ FUNCTION(ADD_VISIT_READER NAME VERSION)
     CACHE INTERNAL "visit sources for readers") 
   set(VISIT_DB_INC_DIRS ${VISIT_DB_INC_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}
     CACHE INTERNAL "include directories")  
-  
 ENDFUNCTION(ADD_VISIT_READER)
 
 #called from readers that are being built into paraview

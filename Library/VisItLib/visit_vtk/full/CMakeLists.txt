@@ -114,7 +114,7 @@ get_directory_property(tmp_include_dirs INCLUDE_DIRECTORIES)
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES
   "${VISIT_SOURCE_DIR}/parser;${tmp_include_dirs}")
 
-PVVTK_ADD_LIBRARY(visit_vtk ${VISIT_VTK_SOURCES})
+VTK_ADD_LIBRARY(visit_vtk ${VISIT_VTK_SOURCES})
 
 target_link_libraries(visit_vtk
   lightweight_visit_vtk
