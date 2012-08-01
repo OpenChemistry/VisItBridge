@@ -35,7 +35,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "vtkIOVisItBridgeModule.h" //for export macro
 #include "vtkAvtSTSDFileFormatAlgorithm.h"
-#include "vtkAvtAlgorithmsExport.h"
 
 //BTX
 class avtDatabaseMetaData;

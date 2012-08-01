@@ -36,7 +36,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "vtkIOVisItBridgeModule.h" //for export macro
 
 #include "vtkCompositeDataSetAlgorithm.h"
-#include "vtkAvtAlgorithmsExport.h"
 #include "vtkStdString.h"
 
 class vtkDataArraySelection;
@@ -50,6 +49,24 @@ class avtDatabaseMetaData;
 class avtVariableCache;
 class avtMeshMetaData;
 //ETX
+
+//Call a VisitMethod that returns a vtkObject
+//if the call throws an exception we delete the object
+//and set it to NULL
+#define CATCH_VISIT_EXCEPTIONS( vtkObj,function) \
+try \
+  { \
+  vtkObj = function; \
+  } \
+catch(...) \
+  { \
+  vtkErrorMacro("VisIt Exception caught.")\
+  if ( vtkObj ) \
+    { \
+    vtkObj->Delete(); \
+    } \
+  vtkObj = NULL; \
+  }
 
 class VTKIOVISITBRIDGE_EXPORT vtkAvtFileFormatAlgorithm : public vtkCompositeDataSetAlgorithm
 {

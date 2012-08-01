@@ -34,7 +34,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _vtkAvtSTSDFileFormatAlgorithm_h
 #include "vtkIOVisItBridgeModule.h" //for export macro
 #include "vtkAvtFileFormatAlgorithm.h"
-#include "vtkAvtAlgorithmsExport.h"
 
 class vtkMultiBlockDataSet;
 
