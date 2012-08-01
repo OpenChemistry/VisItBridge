@@ -1677,7 +1677,7 @@ avtMFIXFileFormat::BuildMesh(int xDomain, int yDomain, int zDomain)
             }
         rgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
-        rgrid->SetUpdateGhostLevel(0);
+        //rgrid->SetUpdateGhostLevel(0);
 
         return rgrid;
 
@@ -1743,7 +1743,7 @@ avtMFIXFileFormat::BuildMesh(int xDomain, int yDomain, int zDomain)
 
         rgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
-        rgrid->SetUpdateGhostLevel(0);
+        //rgrid->SetUpdateGhostLevel(0);
 
         return rgrid;
     }
@@ -1818,7 +1818,7 @@ avtMFIXFileFormat::BuildMesh(int xDomain, int yDomain, int zDomain)
 
         sgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
-        sgrid->SetUpdateGhostLevel(0);
+        //sgrid->SetUpdateGhostLevel(0);
 
         return sgrid;
     } else {
@@ -1902,7 +1902,7 @@ avtMFIXFileFormat::BuildMesh(int xDomain, int yDomain, int zDomain)
             }
         sgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
-        sgrid->SetUpdateGhostLevel(0);
+        //sgrid->SetUpdateGhostLevel(0);
 
         return sgrid;
     }
