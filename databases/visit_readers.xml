@@ -2,7 +2,7 @@
   <ProxyGroup name="internal_readers">
 
     <!-- ================================================================= -->
-    <Proxy name="VisItReaderBase">      
+    <Proxy name="VisItReaderBase">
       <StringVectorProperty
         name="FileName"
         command="SetFileName"
@@ -135,7 +135,7 @@
     <Documentation
        long_help="Format that stores fMRI data of brain scans">
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
-       The default file extensions are .img and .hdr.       
+       The default file extensions are .img and .hdr.
     </Documentation>
       <Hints>
         <ReaderFactory extensions="img hdr"
@@ -148,7 +148,7 @@
        long_help="ASCII file format used for input to the ANSYS suite">
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
        The default file extension is .inp.
-    </Documentation>       
+    </Documentation>
       <Hints>
         <ReaderFactory extensions="inp"
           file_description="ANSYS Files" />
@@ -157,7 +157,7 @@
 
     <SourceProxy name="VisItAUXFileReader" class="vtkVisItAuxFileReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
-    <Documentation>    
+    <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
        The default file extension is .aux.
     </Documentation>
@@ -319,7 +319,7 @@
      <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
        The default file extension is .exvol.
-     </Documentation>      
+     </Documentation>
      <Hints>
        <ReaderFactory extensions="exvol"
                       file_description="ExtrudedVol Files" />
@@ -383,7 +383,7 @@
     <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
        The default file extension is .h5.
-    </Documentation>      
+    </Documentation>
      <Hints>
        <ReaderFactory extensions="h5"
                       file_description="GTC Files" />
@@ -460,7 +460,7 @@
     <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
        The default file extension is .lines.
-    </Documentation>      
+    </Documentation>
      <Hints>
        <ReaderFactory extensions="lines"
                       file_description="Lines Files" />
@@ -491,6 +491,34 @@
      <Hints>
        <ReaderFactory extensions="h5"
                       file_description="M3DC1 Files" />
+     </Hints>
+    </SourceProxy>
+
+    <SourceProxy name="VisItMFIXReader" class="vtkVisItMFIXReader"
+      base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
+      <Documentation
+       long_help="Multiphase Flow with Interphase eXchanges(MFiX) reader for result files.">
+       Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
+       The default file extensions are .RES
+      </Documentation>
+
+     <Hints>
+       <ReaderFactory extensions="RES"
+                      file_description="MFiX Res Files (VisIt)" />
+     </Hints>
+    </SourceProxy>
+
+    <SourceProxy name="VisItMFIXCDFReader" class="vtkVisItMFIXCDFReader"
+      base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
+      <Documentation
+       long_help="Multiphase Flow with Interphase eXchanges(MFiX) reader for new netcdf based format.">
+       Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
+       The default file extensions are .nc
+      </Documentation>
+
+     <Hints>
+       <ReaderFactory extensions="nc"
+                      file_description="MFiX netcdf Files" />
      </Hints>
     </SourceProxy>
 
@@ -749,7 +777,7 @@
      <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
        The default file extension is .h5.
-     </Documentation>      
+     </Documentation>
      <Hints>
        <ReaderFactory extensions="h5"
                       file_description="PFLOTRAN Files" />
@@ -774,7 +802,7 @@
      <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
        The default file extensions are .csv, .tsv, and .txt.
-     </Documentation>      
+     </Documentation>
      <Hints>
        <ReaderFactory extensions="csv tsv txt"
                       file_description="Plain Text Files" />
@@ -926,7 +954,7 @@
                       file_description="Tecplot Files (VisIt)" />
      </Hints>
     </SourceProxy>
-	
+
     <SourceProxy name="VisItTecplotBinaryReader" class="vtkVisItTecplotBinaryReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
       <Documentation
@@ -1080,7 +1108,7 @@
      <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
        The default file extension is .xyz.
-     </Documentation>      
+     </Documentation>
      <Hints>
        <ReaderFactory extensions="xyz"
                       file_description="XYZ Files" />
