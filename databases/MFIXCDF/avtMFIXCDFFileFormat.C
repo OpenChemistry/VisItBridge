@@ -1056,7 +1056,7 @@ avtMFIXCDFFileFormat::GetMesh(int domain, const char *meshname)
             }
         rgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
-        rgrid->SetUpdateGhostLevel(0);
+        //rgrid->SetUpdateGhostLevel(0);
 
         return rgrid;
 
@@ -1126,7 +1126,7 @@ avtMFIXCDFFileFormat::GetMesh(int domain, const char *meshname)
 
         rgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
-        rgrid->SetUpdateGhostLevel(0);
+        //rgrid->SetUpdateGhostLevel(0);
 
         return rgrid;
     }
@@ -1206,7 +1206,7 @@ avtMFIXCDFFileFormat::GetMesh(int domain, const char *meshname)
 
         sgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
-        sgrid->SetUpdateGhostLevel(0);
+        //sgrid->SetUpdateGhostLevel(0);
 
         return sgrid;
     }
@@ -1298,7 +1298,7 @@ avtMFIXCDFFileFormat::GetMesh(int domain, const char *meshname)
                 buf[index] |= zRightGhost;
             }
         sgrid->GetCellData()->AddArray(ghostCells);
-        sgrid->SetUpdateGhostLevel(0);
+        //sgrid->SetUpdateGhostLevel(0);
 
         return sgrid;
     }

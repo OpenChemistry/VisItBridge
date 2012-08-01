@@ -44,7 +44,7 @@
 #define AVT_MFIXCDF_FILE_FORMAT_H
 
 #include <avtSTMDFileFormat.h>
-#include <netcdfcpp.h>
+#include <vtk_netcdfcpp.h>
 
 #include <string>
 #include <set>
@@ -109,6 +109,9 @@ public:
     virtual vtkDataSet    *GetMesh(int, const char *);
     virtual vtkDataArray  *GetVar(int, const char *);
     virtual vtkDataArray  *GetVectorVar(int, const char *);
+
+    //not needed as the constructor does the reading
+    virtual void ActivateTimestep() { return; }
 
 protected:
     // DATA MEMBERS
