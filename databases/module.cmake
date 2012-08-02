@@ -5,4 +5,5 @@ vtk_module(vtkIOVisItBridge
     vtknetcdf
     VisItLib
   TEST_DEPENDS
+  EXCLUDE_FROM_WRAP_HIERARCHY
   )
