@@ -31,6 +31,7 @@ set(DEFAULT_BRIDGE_READERS
   Fluent
   Gadget
   GGCM
+  GMV
   GTC
   GULP
   H5Nimrod
@@ -130,6 +131,7 @@ SET(KIT_UPCASE "VISITDATABASES")
 #the visit files
 include_directories(BEFORE
   ${VISIT_DB_INC_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/Common
   )
 
 include_directories(
