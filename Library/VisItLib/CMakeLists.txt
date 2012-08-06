@@ -71,9 +71,10 @@ if (NOT PV_INSTALL_NO_DEVELOPMENT)
     ${VISIT_CMAKE_DIR}/VisItGUI.xml.in
     ${VISIT_CMAKE_DIR}/VisItMT.h.in
     ${VISIT_CMAKE_DIR}/VisItMT.cxx.in
-    ${VISIT_CMAKE_DIR}/VisItSM.xml.in
+    ${VISIT_CMAKE_DIR}/VisItMTSM.xml.in
     ${VISIT_CMAKE_DIR}/VisItST.h.in
-    ${VISIT_CMAKE_DIR}/VisItST.cxx.in)
+    ${VISIT_CMAKE_DIR}/VisItST.cxx.in
+    ${VISIT_CMAKE_DIR}/VisItSTSM.xml.in)
 
   install(
     FILES ${cmakeDevFiles}
