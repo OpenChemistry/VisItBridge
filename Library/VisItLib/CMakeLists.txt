@@ -8,7 +8,7 @@ ENDFOREACH()
 
 project(VisItBridgePlugin)
 
-include(visitcommoncmake.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/VisItCommon.cmake)
 
 #-----------------------------------------------------------------------------
 # Create visit-config.h

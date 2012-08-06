@@ -1,5 +1,5 @@
 #get same cmake config as visitlib itself does
-include(${CMAKE_CURRENT_SOURCE_DIR}/../Library/VisItLib/visitcommoncmake.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../Library/VisItLib/CMake/VisItCommon.cmake)
 include(${VISIT_BINARY_DIR}/VisItBridgeUse.cmake)
 
 macro(VISIT_INCLUDE_READER_SOURCE name state)
