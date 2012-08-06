@@ -23,6 +23,7 @@
   <Proxy group="sources" name="VisItFluentReader" />
   <Proxy group="sources" name="VisItGadgetReader" />
   <Proxy group="sources" name="VisItGGCMReader" />
+  <Proxy group="sources" name="VisItGMVReader" />
   <Proxy group="sources" name="VisItGTCReader" />
   <Proxy group="sources" name="VisItGULPReader" />
   <Proxy group="sources" name="VisItN5NimrodReader" />
