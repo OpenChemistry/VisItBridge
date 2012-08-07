@@ -593,7 +593,7 @@ endif(Boost_Found)
 
 
 #setup non third party vtk utilities
-set(HAVE_LIBHDF5 ${PARAVIEW_HDF5_LIBRARIES})
+set(HAVE_LIBHDF5 1)
 set(HAVE_LIBNETCDF 1)
 set(HAVE_NETCDF_H 1)
 set(HAVE_LIBEXODUSII 1)

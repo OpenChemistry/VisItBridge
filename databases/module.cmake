@@ -3,6 +3,7 @@ vtk_module(vtkIOVisItBridge
     vtkCommonDataModel
     vtkCommonExecutionModel
     vtknetcdf
+    vtkhdf5
     VisItLib
   TEST_DEPENDS
   EXCLUDE_FROM_WRAP_HIERARCHY
