@@ -295,8 +295,13 @@ VTK_ADD_LIBRARY(visitcommon
     ${UTILITY_SOURCES} ${UTILITY_WIN32_SOURCES})
 
 # Specify the libraries to link against on Windows
-IF(WIN32)
+if(WIN32)
     TARGET_LINK_LIBRARIES(visitcommon ws2_32 shlwapi userenv)
-ENDIF(WIN32)
+endif()
+
+# Make sure we get -ldl or whatever as needed everywhere
+if(BUILD_SHARED_LIBS)
+    TARGET_LINK_LIBRARIES(visitcommon ${CMAKE_DL_LIBS})
+endif()
 
 VISIT_INSTALL_TARGETS(visitcommon)
