@@ -33,7 +33,6 @@ set(DEFAULT_BRIDGE_READERS
   Fluent
   Gadget
   GGCM
-  GMV
   GTC
   GULP
   H5Nimrod
@@ -81,6 +80,9 @@ if(NOT WIN32)
     Claw
     )
 endif(NOT WIN32)
+
+#add gmv as an option since its dependence on glu is problematic
+visit_include_reader_source(GMV ON)
 
 #add generic vtkreader interface parent classes
 add_subdirectory(AvtAlgorithms)
