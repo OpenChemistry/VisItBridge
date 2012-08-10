@@ -61,7 +61,7 @@ set(VISITBRIDGE_USE_SILO ${VISITBRIDGE_USE_SILO} PARENT_SCOPE)
 
 #######################################################################
 # INSTALL
-if (NOT PV_INSTALL_NO_DEVELOPMENT)
+if (NOT VTK_INSTALL_NO_DEVELOPMENT)
   set(BUILD_TREE ${ParaView_BINARY_DIR})
 
   #install
@@ -78,7 +78,7 @@ if (NOT PV_INSTALL_NO_DEVELOPMENT)
 
   install(
     FILES ${cmakeDevFiles}
-    DESTINATION ${VTK_INSTALL_INCLUDE_DIR}/VisItLib
+    DESTINATION ${VTK_INSTALL_PACKAGE_DIR}/VisItLib
     COMPONENT Development)
 
   set(_temp_VISITBRIDGE_INCLUDE_DIRS ${VISITBRIDGE_INCLUDE_DIRS})
@@ -87,7 +87,7 @@ if (NOT PV_INSTALL_NO_DEVELOPMENT)
                 "${BUILD_TREE}/CMake/tmp/VisItBridgeUse.cmake" @ONLY IMMEDIATE)
   install(
         FILES "${BUILD_TREE}/CMake/tmp/VisItBridgeUse.cmake"
-        DESTINATION ${VTK_INSTALL_INCLUDE_DIR}/VisItLib
+        DESTINATION ${VTK_INSTALL_PACKAGE_DIR}/VisItLib
         COMPONENT Development)
 
   set(VISITBRIDGE_INCLUDE_DIRS "${_temp_VISITBRIDGE_INCLUDE_DIRS}" CACHE INTERNAL "")
