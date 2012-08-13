@@ -12,7 +12,7 @@ vtk_module(vtkIOVisItBridge
 # paraview-sepecfic extensions to a module to bring in proxy xmls.
 set_property (GLOBAL PROPERTY
   vtkIOVisItBridge_SERVERMANAGER_XMLS
-  ${vtkIOVisItBridge_SOURCE_DIR}/visit_readers.xml)
+  ${CMAKE_CURRENT_LIST_DIR}/visit_readers.xml)
 set_property (GLOBAL PROPERTY
   vtkIOVisItBridge_PARAVIEW_GUI_XMLS
-  ${vtkIOVisItBridge_SOURCE_DIR}/visit_readers_gui.xml)
+  ${CMAKE_CURRENT_LIST_DIR}/visit_readers_gui.xml)
