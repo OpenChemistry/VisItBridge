@@ -7,4 +7,12 @@ vtk_module(vtkIOVisItBridge
     VisItLib
   TEST_DEPENDS
   EXCLUDE_FROM_WRAP_HIERARCHY
-  )
+)
+
+# paraview-sepecfic extensions to a module to bring in proxy xmls.
+set_property (GLOBAL PROPERTY
+  vtkIOVisItBridge_SERVERMANAGER_XMLS
+  ${vtkIOVisItBridge_SOURCE_DIR}/visit_readers.xml)
+set_property (GLOBAL PROPERTY
+  vtkIOVisItBridge_PARAVIEW_GUI_XMLS
+  ${vtkIOVisItBridge_SOURCE_DIR}/visit_readers_gui.xml)
