@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -71,9 +71,10 @@ using     std::vector;
 #define FLOAT_COLUMN_WIDTH 14
 #define INT_COLUMN_WIDTH   11
 
-avtTecplotWriter::avtTecplotWriter()
+avtTecplotWriter::avtTecplotWriter(DBOptionsAttributes *)
 {
     variablesWritten = false;
+    // no options used
 }
 
 avtTecplotWriter::~avtTecplotWriter()
@@ -322,6 +323,10 @@ avtTecplotWriter::CloseFile(void)
 //   Brad Whitlock, Wed Sep  2 09:59:41 PDT 2009
 //   I made the variables be written here instead of in WriteHeaders.
 //
+//   Jeremy Meredith, Tue Sep 28 10:30:33 EDT 2010
+//   Added at least one character of manual whitespace in between values.
+//   Not sure how, but a problem was reported where none showed up.
+//
 // ****************************************************************************
 
 void
@@ -359,6 +364,8 @@ avtTecplotWriter::WriteCurvilinearMesh(vtkStructuredGrid *sg, int chunk)
             file << vtk_ptr[3*i + d];
             if ((i+1)%10==0 || i==npts-1)
                 file <<"\n";
+            else
+                file <<" ";
         }
         file << endl;
     }
@@ -380,6 +387,9 @@ avtTecplotWriter::WriteCurvilinearMesh(vtkStructuredGrid *sg, int chunk)
 // Creation:   Wed Sep  2 10:02:07 PDT 2009
 //
 // Modifications:
+//   Jeremy Meredith, Tue Sep 28 10:30:33 EDT 2010
+//   Added at least one character of manual whitespace in between values.
+//   Not sure how, but a problem was reported where none showed up.
 //
 // ****************************************************************************
 
@@ -425,6 +435,8 @@ avtTecplotWriter::WriteRectilinearMesh(vtkRectilinearGrid *rgrid, int chunk)
                     file << pt[d];
                     if ((id+1)%10==0 || id==npts_1)
                         file <<"\n";
+                    else
+                        file <<" ";
                 }
             }
         }
@@ -450,6 +462,10 @@ avtTecplotWriter::WriteRectilinearMesh(vtkRectilinearGrid *rgrid, int chunk)
 //    Brad Whitlock, Wed Sep  2 10:04:15 PDT 2009
 //    I made the variables get written here instead of in WriteHeaders. I also
 //    added support for 2D.
+//
+//    Jeremy Meredith, Tue Sep 28 10:30:33 EDT 2010
+//    Added at least one character of manual whitespace in between values.
+//    Not sure how, but a problem was reported where none showed up.
 //
 // ****************************************************************************
 
@@ -559,11 +575,11 @@ avtTecplotWriter::WriteUnstructuredMesh(vtkUnstructuredGrid *ug, int chunk)
         {
             vtkCell *cell = ug->GetCell(c);
             int n = cell->GetNumberOfPoints();
-            int ids[8];
+            vtkIdType ids[8];
             for (int i=0; i<n; i++)
                 ids[i] = cell->GetPointId(i);
 
-            int tetids[1000];
+            vtkIdType tetids[1000];
 
             // Do the connectivity
 #ifndef DBIO_ONLY
@@ -618,11 +634,11 @@ avtTecplotWriter::WriteUnstructuredMesh(vtkUnstructuredGrid *ug, int chunk)
         {
             vtkCell *cell = ug->GetCell(c);
             int n = cell->GetNumberOfPoints();
-            int ids[8];
+            vtkIdType ids[8];
             for (int i=0; i<n; i++)
                 ids[i] = cell->GetPointId(i);
 
-            int subids[1000];
+            vtkIdType subids[1000];
             int ntets = 0, ntris = 0;
 
             // Do the connectivity
@@ -670,7 +686,7 @@ avtTecplotWriter::WriteUnstructuredMesh(vtkUnstructuredGrid *ug, int chunk)
                 for (int i = 0 ; i < 4 ; i++)
                 {
                     file.width(INT_COLUMN_WIDTH);
-                    file << ids[subids[t*4 + i]]+1;
+                    file << ids[subids[t*4 + i]]+1 << " ";
                 }
                 file << endl;
             }
@@ -680,7 +696,7 @@ avtTecplotWriter::WriteUnstructuredMesh(vtkUnstructuredGrid *ug, int chunk)
                 for (int i = 0 ; i < 3 ; i++)
                 {
                     file.width(INT_COLUMN_WIDTH);
-                    file << ids[subids[t*3 + i]]+1;
+                    file << ids[subids[t*3 + i]]+1 << " ";
                 }
                 file << endl;
             }
@@ -703,7 +719,7 @@ avtTecplotWriter::WriteUnstructuredMesh(vtkUnstructuredGrid *ug, int chunk)
                 for (int j = 0 ; j < cell->GetNumberOfPoints() ; j++)
                 {
                     file.width(INT_COLUMN_WIDTH);
-                    file << cell->GetPointId(j)+1;
+                    file << cell->GetPointId(j)+1 << " ";
                 }
                 file << endl;
             }
@@ -725,6 +741,9 @@ avtTecplotWriter::WriteUnstructuredMesh(vtkUnstructuredGrid *ug, int chunk)
 // Creation:   Wed Sep  2 14:22:26 PDT 2009
 //
 // Modifications:
+//   Jeremy Meredith, Tue Sep 28 10:30:33 EDT 2010
+//   Added at least one character of manual whitespace in between values.
+//   Not sure how, but a problem was reported where none showed up.
 //   
 // ****************************************************************************
 
@@ -797,13 +816,13 @@ avtTecplotWriter::WritePolyData(vtkPolyData *pd, int chunk)
                 for(int i = 0; i < 3; ++i)
                 {
                     file.width(INT_COLUMN_WIDTH);
-                    file << pts[q2t[0][i]]+1;
+                    file << pts[q2t[0][i]]+1 << " ";
                 }
                 file << endl;
                 for(int i = 0; i < 3; ++i)
                 {
                     file.width(INT_COLUMN_WIDTH);
-                    file << pts[q2t[1][i]]+1;
+                    file << pts[q2t[1][i]]+1 << " ";
                 }
                 file << endl;
             }
@@ -812,7 +831,7 @@ avtTecplotWriter::WritePolyData(vtkPolyData *pd, int chunk)
                 for(int i = 0; i < npts; ++i)
                 {
                     file.width(INT_COLUMN_WIDTH);
-                    file << pts[i]+1;
+                    file << pts[i]+1 << " ";
                 }
                 file << endl;
             }            
@@ -835,6 +854,10 @@ avtTecplotWriter::WritePolyData(vtkPolyData *pd, int chunk)
 // Modifications:
 //    Brad Whitlock, Wed Sep  2 10:04:15 PDT 2009
 //    I changed how the numbers get formatted.
+//
+//    Jeremy Meredith, Tue Sep 28 10:30:33 EDT 2010
+//    Added at least one character of manual whitespace in between values.
+//    Not sure how, but a problem was reported where none showed up.
 //
 // ****************************************************************************
 
@@ -870,6 +893,8 @@ avtTecplotWriter::WriteDataArrays(vtkDataSet *ds1)
                 file << ptr[i];
                 if ((i+1)%10==0 || i==npts-1)
                     file <<"\n";
+                else
+                    file <<" ";
             }
             file << endl;
         }
@@ -889,6 +914,8 @@ avtTecplotWriter::WriteDataArrays(vtkDataSet *ds1)
             file << ptr[i];
             if ((i+1)%10==0 || i==npts-1)
                 file <<"\n";
+            else
+                file <<" ";
         }
         file << endl;
     }
@@ -910,6 +937,9 @@ avtTecplotWriter::WriteDataArrays(vtkDataSet *ds1)
 // Creation:   Wed Sep  2 14:25:38 PDT 2009
 //
 // Modifications:
+//   Jeremy Meredith, Tue Sep 28 10:30:33 EDT 2010
+//   Added at least one character of manual whitespace in between values.
+//   Not sure how, but a problem was reported where none showed up.
 //   
 // ****************************************************************************
 
@@ -929,6 +959,8 @@ avtTecplotWriter::WritePoints(vtkPoints *pts, int dim)
             file << *vtk_ptr;
             if ((i+1)%10==0 || i==npts-1)
                 file <<"\n";
+            else
+                file <<" ";
         }
         file << endl;
     }

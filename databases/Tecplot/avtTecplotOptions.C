@@ -37,81 +37,70 @@
 *****************************************************************************/
 
 // ************************************************************************* //
-//                             avtTecplotWriter.h                            //
+//                             avtTecplotOptions.C                              //
 // ************************************************************************* //
 
-#ifndef AVT_TECPLOT_WRITER_H
-#define AVT_TECPLOT_WRITER_H
+#include <avtTecplotOptions.h>
 
-#include <avtDatabaseWriter.h>
 #include <DBOptionsAttributes.h>
 
 #include <string>
-#include <vector>
-#include <visitstream.h>
 
-class vtkPoints;
-class vtkPolyData;
-class vtkRectilinearGrid;
-class vtkStructuredGrid;
-class vtkUnstructuredGrid;
 
 // ****************************************************************************
-//  Class: avtTecplotWriter
+//  Function: GetTecplotReadOptions
 //
 //  Purpose:
-//      A module that writes out Tecplot files.
+//      Creates the options for Tecplot readers.
+//
+//  Important Note:
+//      The code below sets up empty options.  If your format 
+//      does not require read options, no modifications are 
+//      necessary.
 //
 //  Programmer: Jeremy Meredith
-//  Creation:   February 15, 2005
-//
-//  Modifications:
-//
-//    Hank Childs, Tue Sep 27 10:21:36 PDT 2005
-//    Use virtual inheritance.
-//
-//    Jeremy Meredith, Tue Mar 27 17:03:47 EDT 2007
-//    Added numblocks (currently ignored) to the OpenFile interface.
-//
-//    Brad Whitlock, Wed Sep  2 14:16:43 PDT 2009
-//    I added methods for writing rectilinear and polydata datasets.
+//  Creation:   October 25, 2011
 //
 // ****************************************************************************
 
-class avtTecplotWriter : public virtual avtDatabaseWriter
+DBOptionsAttributes *
+GetTecplotReadOptions(void)
 {
-  public:
-                   avtTecplotWriter(DBOptionsAttributes *);
-    virtual       ~avtTecplotWriter();
+    DBOptionsAttributes *rv = new DBOptionsAttributes;
 
-  protected:
-    std::string    stem;
-    ofstream       file;
+    std::vector<std::string> types;
+    types.push_back("Guess from variable names");
+    types.push_back("Specify explicitly (below)");
+    rv->SetEnum("Method to determine coordinate axes", 0);
+    rv->SetEnumStrings("Method to determine coordinate axes", types);
 
-    virtual void   OpenFile(const std::string &, int);
-    virtual void   WriteHeaders(const avtDatabaseMetaData *,
-                                std::vector<std::string> &, 
-                                std::vector<std::string> &,
-                                std::vector<std::string> &);
-    virtual void   WriteChunk(vtkDataSet *, int);
-    virtual void   CloseFile(void);
+    rv->SetInt("X axis variable index (or -1 for none)", -1);
+    rv->SetInt("Y axis variable index (or -1 for none)", -1);
+    rv->SetInt("Z axis variable index (or -1 for none)", -1);
 
-  private:
-    void           WritePolyData(vtkPolyData *, int);
-    void           WriteRectilinearMesh(vtkRectilinearGrid *, int);
-    void           WriteCurvilinearMesh(vtkStructuredGrid *, int);
-    void           WriteUnstructuredMesh(vtkUnstructuredGrid *, int);
-
-    void           WritePoints(vtkPoints *pts, int dim);
-    void           WriteDataArrays(vtkDataSet*);
-    void           WriteVariables(const std::vector<std::string> &);
-
-    bool           ReallyHasMaterials();
-
-    std::vector<std::string> variableList;
-    std::vector<std::string> materialList;
-    bool variablesWritten;
-};
+    return rv;
+}
 
 
-#endif
+// ****************************************************************************
+//  Function: GetTecplotWriteOptions
+//
+//  Purpose:
+//      Creates the options for Tecplot writers.
+//
+//  Important Note:
+//      The code below sets up empty options.  If your format 
+//      does not require write options, no modifications are 
+//      necessary.
+//
+//  Programmer: Jeremy Meredith
+//  Creation:   October 25, 2011
+//
+// ****************************************************************************
+
+DBOptionsAttributes *
+GetTecplotWriteOptions(void)
+{
+    DBOptionsAttributes *rv = new DBOptionsAttributes;
+    return rv;
+}

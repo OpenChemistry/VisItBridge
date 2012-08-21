@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -44,6 +44,7 @@
 #define AVT_TECPLOTBINARY_FILE_FORMAT_H
 
 #include <avtSTMDFileFormat.h>
+#include <DBOptionsAttributes.h>
 
 #include <string>
 #include <vector>
@@ -61,12 +62,16 @@ class vtkPoints;
 //  Programmer: Brad Whitlock
 //  Creation:   Fri Jun 6 15:32:40 PST 2008
 //
+//  Modifications:
+//    Jeremy Meredith, Tue Oct 25 12:37:42 EDT 2011
+//    Allow user manual override of coordinate axis variables (via options).
+//
 // ****************************************************************************
 
 class avtTecplotBinaryFileFormat : public avtSTMDFileFormat
 {
 public:
-                       avtTecplotBinaryFileFormat(const char *);
+    avtTecplotBinaryFileFormat(const char *, DBOptionsAttributes *);
     virtual           ~avtTecplotBinaryFileFormat() {;};
 
     //
@@ -112,6 +117,12 @@ protected:
     virtual void           PopulateDatabaseMetaData(avtDatabaseMetaData *);
 private:
     TecplotFile *tec;
+
+    bool userSpecifiedAxisVars;
+    int userSpecifiedX;
+    int userSpecifiedY;
+    int userSpecifiedZ;
+
 };
 
 

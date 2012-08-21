@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -67,6 +67,14 @@ using std::vector;
 #ifndef MAX
 #define MAX(a,b) ((a)>(b)?(a):(b))
 #endif
+
+
+#if defined(_MSC_VER) || !defined(HAVE_STRTOF) || !defined(HAVE_STRTOF_PROTOTYPE)
+#ifndef strtof
+#define strtof(f1,f2) ((float)strtod(f1,f2))
+#endif
+#endif
+
 
 // ****************************************************************************
 //  Method:  GetCoord/GuessCoord
@@ -168,6 +176,11 @@ avtTecplotFileFormat::PushBackToken(const string &tok)
 //    Jeremy Meredith, Thu May 22 10:25:12 EDT 2008
 //    Support DOS format text files.
 //
+//    Jeremy Meredith, Tue Oct 26 17:23:53 EDT 2010
+//    Change the scanner to allow any of []()= as single-character
+//    tokens.  This allows us to parse some of the more complex patterns
+//    such as FOO=([4-6,8]=A,[5,12]=B).
+//
 // ****************************************************************************
 string
 avtTecplotFileFormat::GetNextToken()
@@ -204,9 +217,6 @@ avtTecplotFileFormat::GetNextToken()
             next_char == '\n' ||
             next_char == '\r' ||
             next_char == '\t' ||
-            next_char == '='  ||
-            next_char == '('  ||
-            next_char == ')'  ||
             next_char == ','))
     {
         if (next_char == '\n' || next_char == '\r')
@@ -250,6 +260,20 @@ avtTecplotFileFormat::GetNextToken()
             next_char_eof = true;
         }
     }
+    else if (next_char == '='  ||
+             next_char == '('  ||
+             next_char == ')'  ||
+             next_char == '['  ||
+             next_char == ']')
+    {
+        // simple one-character tokens
+        retval += next_char;
+        next_char = file.get();
+        if (!file)
+        {
+            next_char_eof = true;
+        }        
+    }
     else
     {
         // do a normal token
@@ -261,6 +285,8 @@ avtTecplotFileFormat::GetNextToken()
                 next_char != '='  &&
                 next_char != '('  &&
                 next_char != ')'  &&
+                next_char != '['  &&
+                next_char != ']'  &&
                 next_char != ','))
         {
             if (next_char >= 'a' && next_char <= 'z')
@@ -280,9 +306,6 @@ avtTecplotFileFormat::GetNextToken()
             next_char == '\n' ||
             next_char == '\r' ||
             next_char == '\t' ||
-            next_char == '='  ||
-            next_char == '('  ||
-            next_char == ')'  ||
             next_char == ','))
     {
         if (next_char == '\n' || next_char == '\r')
@@ -325,6 +348,26 @@ avtTecplotFileFormat::GetNextToken()
 //    Added support for cell-centered vars (through VARLOCATION).
 //    Renamed ParseNodes* to ParseArrays* to reflect this capability.
 //
+//    Jeremy Meredith, Tue Oct 26 17:13:39 EDT 2010
+//    Added support for comments.
+//
+//    Jeremy Meredith, Wed May 18 13:23:11 EDT 2011
+//    Removed distinction between allVariableNames and variableNames, since
+//    we treat even X/Y/Z coordinate arrays as normal variables, still.
+//
+//    Jeremy Meredith, Wed Jul 27 13:55:55 EDT 2011
+//    Add support for 'nvals*value' repetition format for values.
+//
+//    Jeremy Meredith, Thu Oct 20 13:23:42 EDT 2011
+//    Removed unused allScalars.
+//    Support VARSHARELIST.
+//    Minor performance improvements: it turns out the majority of the
+//    time in this routine appears to be down in GetNextToken, not
+//    any inefficiencies here, or even in the strtof call.
+//
+//    Jeremy Meredith, Mon Oct 24 12:06:45 EDT 2011
+//    Add check for valid coord fields before assigned vals to them.
+//
 // ****************************************************************************
 vtkPoints*
 avtTecplotFileFormat::ParseArraysPoint(int numNodes, int numElements)
@@ -339,22 +382,37 @@ avtTecplotFileFormat::ParseArraysPoint(int numNodes, int numElements)
         pts[i] = 0;
     }
 
-    vector<vtkFloatArray*> allScalars;
     vector<float*> allptr;
 
     for (int v=0; v<numTotalVars; v++)
     {
-        int numVals = (variableCellCentered[v] ? numElements : numNodes);
+        if (variableShareMap[v] >= 0)
+        {
+            // just copy and add a reference to the array
+            int dest = variableShareMap[v];
+            vtkFloatArray *scalars = vars[variableNames[v]][dest];
+            scalars->Register(NULL);
+            vars[variableNames[v]].push_back(scalars);
 
-        vtkFloatArray *scalars = vtkFloatArray::New();
-        scalars->SetNumberOfTuples(numVals);
-        float *ptr = (float *) scalars->GetVoidPointer(0);
-        vars[allVariableNames[v]].push_back(scalars);
+            // still need the raw pointer so our indexing below is valid
+            float *ptr = (float *) scalars->GetVoidPointer(0);
+            allptr.push_back(ptr);
+        }
+        else
+        {
+            int numVals = (variableCellCentered[v] ? numElements : numNodes);
 
-        allScalars.push_back(scalars);
-        allptr.push_back(ptr);
+            vtkFloatArray *scalars = vtkFloatArray::New();
+            scalars->SetNumberOfTuples(numVals);
+            float *ptr = (float *) scalars->GetVoidPointer(0);
+            vars[variableNames[v]].push_back(scalars);
+
+            allptr.push_back(ptr);
+        }
     }
 
+    int repeatCounter  = 0;
+    float currentValue = 0;
     for (i=0; i<numNodes; i++)
     {
         bool doneWithCellCentered = (i>=numElements);
@@ -363,22 +421,49 @@ avtTecplotFileFormat::ParseArraysPoint(int numNodes, int numElements)
             if (variableCellCentered[v] && doneWithCellCentered)
                 continue;
 
-            float val = atof(GetNextToken().c_str());
-            if (v==Xindex)
+            if (variableShareMap[v] >= 0)
             {
-                pts[3*i + 0] = val;
+                // note: we assume repeat counter doesn't affect shared vars
+                continue;
             }
-            else if (v==Yindex)
+            else
             {
-                pts[3*i + 1] = val;
-            }
-            else if (v==Zindex)
-            {
-                pts[3*i + 2] = val;
-            }
+                if (repeatCounter == 0)
+                {
+                    string tok = GetNextToken();
+                    int toklen = tok.length();
+                    if (toklen>0 && tok[0]=='#')
+                    {
+                        while (!next_char_eol)
+                            tok = GetNextToken();
+                        tok = GetNextToken();
+                    }
 
-            allptr[v][i] = val;
+                    char *endptr;
+                    const char *cptr;
+                    repeatCounter   = 1;
+                    currentValue    = strtof((cptr=tok.c_str()), &endptr);
+                    int   numparsed = endptr-cptr;
+                    if (numparsed < toklen && tok[numparsed] == '*')
+                    {
+                        currentValue  = atof(tok.substr(numparsed+1).c_str());
+                        repeatCounter = atoi(tok.substr(0,numparsed).c_str());
+                    }
+                }
+                allptr[v][i] = currentValue;
+                --repeatCounter;
+            }
         }
+    }
+
+    for (i=0; i<numNodes; i++)
+    {
+        if (Xindex>=0)
+            pts[3*i + 0] = allptr[Xindex][i];
+        if (Yindex>=0)
+            pts[3*i + 1] = allptr[Yindex][i];
+        if (Zindex>=0)
+            pts[3*i + 2] = allptr[Zindex][i];
     }
 
     return points;
@@ -406,6 +491,19 @@ avtTecplotFileFormat::ParseArraysPoint(int numNodes, int numElements)
 //    Added support for cell-centered vars (through VARLOCATION).
 //    Renamed ParseNodes* to ParseArrays* to reflect this capability.
 //
+//    Jeremy Meredith, Tue Oct 26 17:13:39 EDT 2010
+//    Added support for comments.
+//
+//    Jeremy Meredith, Wed May 18 13:23:11 EDT 2011
+//    Removed distinction between allVariableNames and variableNames, since
+//    we treat even X/Y/Z coordinate arrays as normal variables, still.
+//
+//    Jeremy Meredith, Wed Jul 27 13:55:55 EDT 2011
+//    Add support for 'nvals*value' repetition format for values.
+//
+//    Jeremy Meredith, Fri Oct 21 10:16:33 EDT 2011
+//    Support VARSHARELIST.
+//
 // ****************************************************************************
 vtkPoints*
 avtTecplotFileFormat::ParseArraysBlock(int numNodes, int numElements)
@@ -419,16 +517,59 @@ avtTecplotFileFormat::ParseArraysBlock(int numNodes, int numElements)
         pts[i] = 0;
     }
 
+    int repeatCounter  = 0;
+    float currentValue = 0;
     for (int v = 0; v < numTotalVars; v++)
     {
         int numVals = (variableCellCentered[v] ? numElements : numNodes);
+        float *ptr = NULL;
 
-        vtkFloatArray *scalars = vtkFloatArray::New();
-        scalars->SetNumberOfTuples(numVals);
-        float *ptr = (float *) scalars->GetVoidPointer(0);
-        for (int i=0; i<numVals; i++)
-            ptr[i] = atof(GetNextToken().c_str());
-        vars[allVariableNames[v]].push_back(scalars);
+        // check if we're sharing with other variables first
+        if (variableShareMap[v] >= 0)
+        {
+            int dest = variableShareMap[v];
+            vtkFloatArray *scalars = vars[variableNames[v]][dest];
+            scalars->Register(NULL);
+            ptr = (float *) scalars->GetVoidPointer(0);
+            vars[variableNames[v]].push_back(scalars);
+        }
+        else
+        {
+            // nope, okay; read it
+            vtkFloatArray *scalars = vtkFloatArray::New();
+            scalars->SetNumberOfTuples(numVals);
+            ptr = (float *) scalars->GetVoidPointer(0);
+            for (int i=0; i<numVals; i++)
+            {
+                if (repeatCounter == 0)
+                {
+                    string tok = GetNextToken();
+                    int   toklen = tok.length();
+                    if (toklen>0 && tok[0]=='#')
+                    {
+                        while (!next_char_eol)
+                            tok = GetNextToken();
+                        tok = GetNextToken();
+                    }
+
+                    char *endptr;
+                    const char *cptr;
+                    repeatCounter   = 1;
+                    currentValue    = strtof((cptr=tok.c_str()), &endptr);
+                    int   numparsed = endptr-cptr;
+                    if (numparsed < toklen && tok[numparsed] == '*')
+                    {
+                        currentValue  = atof(tok.substr(numparsed+1).c_str());
+                        repeatCounter = atoi(tok.substr(0,numparsed).c_str());
+                    }
+                }
+
+                ptr[i] = currentValue;
+
+                --repeatCounter;
+            }
+            vars[variableNames[v]].push_back(scalars);
+        }
 
         if (v==Xindex)
         {
@@ -476,6 +617,10 @@ avtTecplotFileFormat::ParseArraysBlock(int numNodes, int numElements)
 //    Jeremy Meredith, Fri Oct  9 16:22:40 EDT 2009
 //    Added new names for element types.
 //
+//    Jeremy Meredith, Tue Oct 26 11:03:35 EDT 2010
+//    Added a couple "FE" variants that were missing.
+//    Added support for comments.
+//
 // ****************************************************************************
 vtkUnstructuredGrid *
 avtTecplotFileFormat::ParseElements(int numElements, const string &elemType)
@@ -485,7 +630,7 @@ avtTecplotFileFormat::ParseElements(int numElements, const string &elemType)
     // construct the cell arrays
     int nelempts = -1;
     int idtype = -1;
-    if (elemType == "BRICK")
+    if (elemType == "BRICK" || elemType == "FEBRICK")
     {
         nelempts = 8;
         idtype = VTK_HEXAHEDRON;
@@ -509,7 +654,7 @@ avtTecplotFileFormat::ParseElements(int numElements, const string &elemType)
         idtype = VTK_TETRA;
         topologicalDimension = MAX(topologicalDimension, 3);
     }
-    else if (elemType == "POINT" || elemType == "")
+    else if (elemType == "POINT" || elemType == "FEPOINT" || elemType == "")
     {
         nelempts = 1;
         idtype = VTK_VERTEX;
@@ -541,7 +686,23 @@ avtTecplotFileFormat::ParseElements(int numElements, const string &elemType)
         *nl++ = nelempts;
         // 1-origin connectivity array
         for (int j=0; j<nelempts; j++)
-            *nl++ = idtype == VTK_VERTEX ?  c : atoi(GetNextToken().c_str())-1;
+        {
+            if (idtype == VTK_VERTEX)
+                *nl++ = c;
+            else
+            {
+                string tok = GetNextToken();
+                if (tok.length()>0 && tok[0]=='#')
+                {
+                    while (!next_char_eol)
+                        tok = GetNextToken();
+                    tok = GetNextToken();
+                }
+
+                int val = atoi(tok.c_str());
+                *nl++ = val - 1;
+            }
+        }
         
         *cl++ = offset;
         offset += nelempts+1;
@@ -846,6 +1007,38 @@ avtTecplotFileFormat::ParsePOINT(int numI, int numJ, int numK)
 //
 //    Mark C. Miller, Tue Jan 12 17:36:23 PST 2010
 //    Added logic to parse SOLUTIONTIME and set solTime.
+//
+//    Jeremy Meredith, Tue Jul 13 15:51:24 EDT 2010
+//    Allow the "$" which seems to appear alone on the last line of some
+//    ASCII tecplot files.
+//
+//    Jeremy Meredith, Mon Sep 27 16:03:56 EDT 2010
+//    Accept "NODES" and "ELEMENTS" as aliases for "N" and "E" in ZONE records.
+//
+//    Jeremy Meredith, Tue Oct 26 17:13:39 EDT 2010
+//    Don't be quite to restrictive about what constitutes an FE-style ZONE.
+//
+//    Jeremy Meredith, Tue Oct 26 17:26:00 EDT 2010
+//    The parser now returns parens, brackets, and equals as tokens.
+//    Added code to skip over these when needed.  Also added parsing
+//    support for complex version of VARLOCATION parameter.
+//
+//    Jeremy Meredith, Wed May 18 13:24:06 EDT 2011
+//    Removed unused numVars and eliminated distinction between variableNames
+//    and allVariablesNames, since we now exposed even X/Y/Z coordinate
+//    arrays as normal variables.
+//    Allow multiple passes through VARIABLES records, as long as the number
+//    of variables (and we assume their names, too, though don't yet check)
+//    doesn't vary between passes.
+//
+//    Jeremy Meredith, Fri Oct 21 10:17:30 EDT 2011
+//    Add support for VARSHARELIST.
+//    Skip STRANDID for now -- read it, but continue treating each zone
+//    as its own domain.
+//
+//    Jeremy Meredith, Tue Oct 25 12:37:42 EDT 2011
+//    Allow user manual override of coordinate axis variables (via options).
+//
 // ****************************************************************************
 
 void
@@ -853,8 +1046,7 @@ avtTecplotFileFormat::ReadFile()
 {
     file.open(filename.c_str());
     string tok = GetNextToken();
-    int zoneIndex = 0;
-    int numVars = 0;
+    int currentZoneIndex = 0;
     bool got_next_token_already = false;
     bool first_token = true;
 
@@ -876,6 +1068,7 @@ avtTecplotFileFormat::ReadFile()
         else if (tok == "TITLE")
         {
             // it's a title
+            GetNextToken(); // skip the equals sign
             title = GetNextToken();
         }
         else if (tok == "GEOMETRY")
@@ -900,13 +1093,33 @@ avtTecplotFileFormat::ReadFile()
             }
             got_next_token_already = true;
         }
+        else if (tok == "$")
+        {
+            // this seems to have appeared at the end
+            // of some files; may simply be an eof
+            // pre-indicator, but it seems to be safe
+            // to skip it.....
+            tok = GetNextToken();
+            while (READING_UNTIL_END_OF_LINE)
+            {
+                // Skipping token
+                tok = GetNextToken();
+            }
+            got_next_token_already = true;
+        }
         else if (tok == "VARIABLES")
         {
+            // keep track of values from previous pass through VARIABLES
+            int old_numTotalVars = numTotalVars;
+            numTotalVars = 0;
+            variableNames.clear();
+
             int guessedXindex = -1;
             int guessedYindex = -1;
             int guessedZindex = -1;
 
             // variable lists
+            GetNextToken(); // skip the equals sign
             tok = GetNextToken();
             while (token_was_string)
             {
@@ -939,9 +1152,7 @@ avtTecplotFileFormat::ReadFile()
                 }
 
                 variableNames.push_back(tok);
-                allVariableNames.push_back(tok);
                 numTotalVars++;
-                numVars = variableNames.size();
                 tok = GetNextToken();
             }
             if (numTotalVars==0)
@@ -975,9 +1186,7 @@ avtTecplotFileFormat::ReadFile()
                     }
 
                     variableNames.push_back(tok);
-                    allVariableNames.push_back(tok);
                     numTotalVars++;
-                    numVars = variableNames.size();
                     if (next_char_eol)
                     {
                         tok = GetNextToken();
@@ -988,14 +1197,46 @@ avtTecplotFileFormat::ReadFile()
                 }
             }
 
+            // Make sure if we've encountered a VARAIBLES record before, the
+            // number of variables hasn't changed.  (We assume they are
+            // consistent across all zones.)
+            if (old_numTotalVars > 0 &&
+                old_numTotalVars != numTotalVars)
+            {
+                EXCEPTION2(InvalidFilesException, filename,
+                           "VARIABLES record differed among zones.");
+            }
+
             // Default the centering to nodal
             variableCellCentered.clear();
             variableCellCentered.resize(numTotalVars, 0);
+            // Default to no shared vars
+            variableShareMap.clear();
+            variableShareMap.resize(numTotalVars, -1);
 
             // If we didn't find an exact match for coordinate axis vars, guess
             if (Xindex < 0) Xindex = guessedXindex;
             if (Yindex < 0) Yindex = guessedYindex;
             if (Zindex < 0) Zindex = guessedZindex;
+
+            // If the user specified, override any coordinate axis guessing
+            if (userSpecifiedAxisVars)
+            {
+                if (userSpecifiedX >= numTotalVars)
+                    Xindex = -1;
+                else
+                    Xindex = userSpecifiedX;
+
+                if (userSpecifiedY >= numTotalVars)
+                    Yindex = -1;
+                else
+                    Yindex = userSpecifiedY;
+
+                if (userSpecifiedZ >= numTotalVars)
+                    Zindex = -1;
+                else
+                    Zindex = userSpecifiedZ;
+            }
 
             // Based on how many spatial coords we got, guess the spatial dim
             if (Xindex >= 0)
@@ -1017,7 +1258,8 @@ avtTecplotFileFormat::ReadFile()
         {
             // Parse a zone!
             char untitledZoneTitle[40];
-            sprintf(untitledZoneTitle, "zone%05d", zoneIndex);
+            sprintf(untitledZoneTitle, "zone%05d", currentZoneIndex);
+            currentZoneIndex++;
 
             string zoneTitle = untitledZoneTitle;
             string elemType = "";
@@ -1032,7 +1274,9 @@ avtTecplotFileFormat::ReadFile()
                      tok != "J"  &&
                      tok != "K"  &&
                      tok != "N"  &&
+                     tok != "NODES"  &&
                      tok != "E"  &&
+                     tok != "ELEMENTS"  &&
                      tok != "ET" &&
                      tok != "F"  &&
                      tok != "ZONETYPE"  &&
@@ -1040,10 +1284,13 @@ avtTecplotFileFormat::ReadFile()
                      tok != "SOLUTIONTIME"  &&
                      tok != "VARLOCATION"  &&
                      tok != "DT" &&
-                     tok != "D"))
+                     tok != "D" &&
+                     tok != "STRANDID" &&
+                     tok != "VARSHARELIST"))
             {
                 if (tok == "T")
                 {
+                    GetNextToken(); // skip the equals sign
                     zoneTitle = GetNextToken();
                     if (!token_was_string)
                     {
@@ -1053,52 +1300,126 @@ avtTecplotFileFormat::ReadFile()
                 }
                 else if (tok == "I")
                 {
+                    GetNextToken(); // skip the equals sign
                     numI = atoi(GetNextToken().c_str());
                 }
                 else if (tok == "J")
                 {
+                    GetNextToken(); // skip the equals sign
                     numJ = atoi(GetNextToken().c_str());
                 }
                 else if (tok == "K")
                 {
+                    GetNextToken(); // skip the equals sign
                     numK = atoi(GetNextToken().c_str());
                 }
-                else if (tok == "N")
+                else if (tok == "N" || tok == "NODES")
                 {
+                    GetNextToken(); // skip the equals sign
                     numNodes = atoi(GetNextToken().c_str());
                 }
-                else if (tok == "E")
+                else if (tok == "E" || tok == "ELEMENTS")
                 {
+                    GetNextToken(); // skip the equals sign
                     numElements = atoi(GetNextToken().c_str());
                 }
                 else if (tok == "ET" || tok == "ZONETYPE")
                 {
+                    GetNextToken(); // skip the equals sign
                     elemType = GetNextToken();
                 }
                 else if (tok == "F" || tok == "DATAPACKING")
                 {
+                    GetNextToken(); // skip the equals sign
                     format = GetNextToken();
                 }
                 else if (tok == "SOLUTIONTIME")
                 {
+                    GetNextToken(); // skip the equals sign
                     solTime = strtod(GetNextToken().c_str(),0);
                 }
                 else if (tok == "VARLOCATION")
                 {
-                    string centering;
                     variableCellCentered.clear();
                     variableCellCentered.resize(numTotalVars, 0);
-                    for (int i=0; i<numTotalVars; i++)
+
+                    GetNextToken(); // skip the equals sign
+                    GetNextToken(); // skip the open paren
+
+                    string c;
+                    c = GetNextToken();
+                    if (c == "[")
                     {
-                        centering = GetNextToken();
-                        if (centering == "CELLCENTERED")
-                            variableCellCentered[i] = 1;
+                        // complex version
+                        // e.g. VARLOCATION=([2-3,5]=CELLCENTERED,[4]=NODAL)
+                        while (c != ")")
+                        {
+                            // c == "["
+                            vector<int> varindices;
+                            c = GetNextToken();
+                            while (c != "]")
+                            {
+                                string::size_type pos = c.find("-");
+                                if (pos != string::npos)
+                                {
+                                    // Okay, we got something like "4-6".
+                                    // Note, this scans as a single token
+                                    // because we haven't gone all-out on
+                                    // a scanner rewrite.  So just separate
+                                    // it into a "4 through 6" here.
+                                    // ALSO NOTE: THIS WILL NOT WORK
+                                    // WITH ANY WHITESPACE IN HERE.
+                                    // The examples don't have any, but
+                                    // the tecplot manual doesn't actually
+                                    // specify what's really allowed, so
+                                    // given past history, someone may
+                                    // eventually do something like that....
+                                    string first = c.substr(0,pos);
+                                    string last  = c.substr(pos+1);
+                                    int beg = atoi(first.c_str());
+                                    int end = atoi(last.c_str());
+                                    for (int ind=beg; ind<=end; ind++)
+                                        varindices.push_back(ind);
+                                }
+                                else
+                                {
+                                    varindices.push_back(atoi(c.c_str()));
+                                }
+                                c = GetNextToken();
+                            }
+                            GetNextToken(); // skip the equals sign
+                            c = GetNextToken(); // that's the centering keyword
+                            if (c == "CELLCENTERED")
+                            {
+                                // remember given indices are 1-origin
+                                for (int i=0; i<varindices.size(); i++)
+                                    variableCellCentered[varindices[i]-1] = 1;
+                            }
+                            
+                            // next....
+                            c = GetNextToken();
+                        }
+                    }
+                    else
+                    {
+                        // simple version
+                        // e.g. VARLOCATION=(NODAL,CELLCENTERED,CELLCENTERED)
+                        for (int i=0; i<numTotalVars; i++)
+                        {
+                            if (c == "CELLCENTERED")
+                                variableCellCentered[i] = 1;
+                            c = GetNextToken();
+                            // after the last var this picks up the close paren
+                        }
                     }
                 }
                 else if (tok == "DT")
                 {
+                    GetNextToken(); // skip the equals sign
+                    GetNextToken(); // skip the open paren
                     for (int i=0; i<numTotalVars; i++)
                         GetNextToken();
+                    GetNextToken(); // skip the close paren
                 }
                 else if (tok == "D")
                 {
@@ -1107,6 +1428,83 @@ avtTecplotFileFormat::ReadFile()
                                "currently unsupported.  Please contact a "
                                "VisIt developer if you need support for this "
                                "parameter.");
+                }
+                else if (tok == "STRANDID")
+                {
+                    // not supporting STRANDID for now; assume domains
+                    GetNextToken(); // skip the equals sign
+                    GetNextToken(); // skip the value
+                }
+                else if (tok == "VARSHARELIST")
+                {
+                    variableShareMap.clear();
+                    variableShareMap.resize(numTotalVars, -1);
+
+                    GetNextToken(); // skip the equals sign
+                    GetNextToken(); // skip the open paren
+
+                    string c;
+                    c = GetNextToken();
+                    // if (c == "[")
+                    {
+                        // Unlike VARLOCATION, this only has a complex version.
+                        // Note that no "=" means implicitly use previous-zone.
+                        // e.g. VARSHARELIST=([2-3,5]=1,[4])
+                        while (c != ")")
+                        {
+                            // c == "["
+                            vector<int> varindices;
+                            c = GetNextToken();
+                            while (c != "]")
+                            {
+                                string::size_type pos = c.find("-");
+                                if (pos != string::npos)
+                                {
+                                    // Okay, we got something like "4-6".
+                                    // Note, this scans as a single token
+                                    // because we haven't gone all-out on
+                                    // a scanner rewrite.  So just separate
+                                    // it into a "4 through 6" here.
+                                    // ALSO NOTE: THIS WILL NOT WORK
+                                    // WITH ANY WHITESPACE IN HERE.
+                                    // The examples don't have any, but
+                                    // the tecplot manual doesn't actually
+                                    // specify what's really allowed, so
+                                    // given past history, someone may
+                                    // eventually do something like that....
+                                    string first = c.substr(0,pos);
+                                    string last  = c.substr(pos+1);
+                                    int beg = atoi(first.c_str());
+                                    int end = atoi(last.c_str());
+                                    for (int ind=beg; ind<=end; ind++)
+                                        varindices.push_back(ind);
+                                }
+                                else
+                                {
+                                    varindices.push_back(atoi(c.c_str()));
+                                }
+                                c = GetNextToken();
+                            }
+                            c = GetNextToken(); 
+                            int dest = currentZoneIndex-1;
+                            if (c == "=")
+                            {
+                                c = GetNextToken();
+                                dest = atoi(c.c_str());
+                                // next....
+                                c = GetNextToken();
+                            }
+                            for (int vi=0; vi<varindices.size(); vi++)
+                            {
+                                // remember given indices are 1-origin
+                                variableShareMap[varindices[vi]-1] = dest-1;
+                            }
+                        }
+                    }
+                    //else
+                    //{
+                    //    unlike VARLOCATION, there is no simple version
+                    //}
                 }
                 tok = GetNextToken();
             }
@@ -1117,8 +1515,15 @@ avtTecplotFileFormat::ReadFile()
             // adding a zonetype which starts with FE
             // (e.g. "FETETRAHEDRON"), switch to an FE
             // parsing mode.   Ugh.
-            if (elemType.length() > 2 && elemType.substr(0,2) == "FE")
+
+            // Let's make this simple.  Any element type which
+            // is specified and is not "ORDERED" will be assumed
+            // to make this a finite-element style zone.
+            if (elemType.length() > 0 && elemType != "ORDERED")
             {
+                // Below we use the format type keyword to determine
+                // which style to use, so fix it up to conform to what
+                // we were originally expecting.
                 if (format == "POINT")
                     format = "FEPOINT";
                 if (format == "BLOCK")
@@ -1169,6 +1574,10 @@ avtTecplotFileFormat::ReadFile()
                     haveVectorExpr = (tok == "VECTOR");
                 }
                 else if(tokIndex == 1)
+                {
+                    // skip the equals sign
+                }
+                else if(tokIndex == 2)
                 {
                     if(haveVectorExpr)
                     {
@@ -1265,9 +1674,14 @@ avtTecplotFileFormat::ReadFile()
 //
 //    Mark C. Miller, Tue Jan 12 17:36:41 PST 2010
 //    Initialize solTime.
+//
+//    Jeremy Meredith, Tue Oct 25 12:37:42 EDT 2011
+//    Allow user manual override of coordinate axis variables (via options).
+//
 // ****************************************************************************
 
-avtTecplotFileFormat::avtTecplotFileFormat(const char *fname)
+avtTecplotFileFormat::avtTecplotFileFormat(const char *fname,
+                                           DBOptionsAttributes *readOpts)
     : avtSTMDFileFormat(&fname, 1), expressions()
 {
     file_read = false;
@@ -1284,6 +1698,34 @@ avtTecplotFileFormat::avtTecplotFileFormat(const char *fname)
     spatialDimension = 1;
     numTotalVars = 0;
     solTime = avtFileFormat::INVALID_TIME;
+
+    userSpecifiedAxisVars = false;
+    userSpecifiedX = -1;
+    userSpecifiedY = -1;
+    userSpecifiedZ = -1;
+    if (readOpts &&
+        readOpts->FindIndex("Method to determine coordinate axes")>=0)
+    {
+        int index = readOpts->GetEnum("Method to determine coordinate axes");
+        if (index==0) userSpecifiedAxisVars = false;
+        if (index==1) userSpecifiedAxisVars = true;
+    }
+
+    if (readOpts &&
+        readOpts->FindIndex("X axis variable index (or -1 for none)")>=0)
+    {
+        userSpecifiedX = readOpts->GetInt("X axis variable index (or -1 for none)");
+    }
+    if (readOpts &&
+        readOpts->FindIndex("Y axis variable index (or -1 for none)")>=0)
+    {
+        userSpecifiedY = readOpts->GetInt("Y axis variable index (or -1 for none)");
+    }
+    if (readOpts &&
+        readOpts->FindIndex("Z axis variable index (or -1 for none)")>=0)
+    {
+        userSpecifiedZ = readOpts->GetInt("Z axis variable index (or -1 for none)");
+    }
 }
 
 
@@ -1360,7 +1802,6 @@ avtTecplotFileFormat::FreeUpResources(void)
     }
     vars.clear();
     variableNames.clear();
-    allVariableNames.clear();
     variableCellCentered.clear();
     curveNames.clear();
     curveFirstVar.clear();
@@ -1423,6 +1864,18 @@ avtMeshType avtTecplotFileFormat::DetermineAVTMeshType() const
 //    Brad Whitlock, Wed Sep  2 14:15:37 PDT 2009
 //    Set node origin to 1.
 //
+//    Jeremy Meredith, Wed May 18 13:26:05 EDT 2011
+//    If we have at least two spatial dims, always expose a point
+//    mesh, even if we have curves or a spatial mesh.  There are too
+//    many conventions for doing point meshes to deal with.  It's
+//    simplest to just expose the darn point mesh, and any
+//    node-centered variables, and let the user choose it if that's
+//    what they wanted.  Also, get rid of the "vs X" enforced
+//    convention for curves if the file has X coordinates; it never worked.
+//
+//    Jeremy Meredith, Thu May 19 10:46:22 EDT 2011
+//    Make point mesh variables on a separate namespace from the normal mesh.
+//
 // ****************************************************************************
 
 void
@@ -1431,6 +1884,36 @@ avtTecplotFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
     if (!file_read)
         ReadFile();
 
+    // we always want a point mesh, whether or not we think they have
+    // some sort of real grid or just curves
+    if (spatialDimension > 1)
+    {
+        avtMeshMetaData *mesh = new avtMeshMetaData;
+        mesh->name = "points/mesh";
+        mesh->topologicalDimension = 0;
+        mesh->spatialDimension = spatialDimension;
+        mesh->meshType = AVT_POINT_MESH;
+        mesh->numBlocks = zoneTitles.size();
+        mesh->blockOrigin = 1;
+        mesh->cellOrigin = 1;
+        mesh->nodeOrigin = 1;
+        mesh->blockTitle = "Zones";
+        mesh->blockPieceName = "Zone";
+        mesh->hasSpatialExtents = false;
+        md->Add(mesh);
+
+        for (unsigned int i=0; i<variableNames.size(); i++)
+        {
+            if (variableCellCentered[i] == false)
+            {
+                string vn = string("points/")+variableNames[i];
+                AddScalarVarToMetaData(md, vn,
+                                       "points/mesh", AVT_NODECENT);
+            }
+        }
+    }
+
+    // and now do either curves or a real grid, depending....
     if ((topologicalDimension==2 || topologicalDimension==3) ||
         (topologicalDimension==0 && spatialDimension > 1))
     {
@@ -1466,60 +1949,30 @@ avtTecplotFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
         char s[200];
         for (unsigned int z = 0 ; z < zoneTitles.size(); z++)
         {
-            if (Xindex < 0)
+            for (unsigned int i=0; i<variableNames.size(); i++)
             {
-                for (unsigned int i=0; i<allVariableNames.size(); i++)
+                for (unsigned int j=0; j<variableNames.size(); j++)
                 {
-                    for (unsigned int j=0; j<allVariableNames.size(); j++)
-                    {
-                        if (i==j) 
-                            continue;
-                        if (zoneTitles.size() > 1)
-                        {
-                            sprintf(s, "%s/%s vs/%s",
-                                    zoneTitles[z].c_str(),
-                                    allVariableNames[i].c_str(),
-                                    allVariableNames[j].c_str());
-                        }
-                        else
-                        {
-                            sprintf(s, "%s vs/%s",
-                                    allVariableNames[i].c_str(),
-                                    allVariableNames[j].c_str());
-                        }
-                        curveIndices[s] = curveNames.size();
-                        curveNames.push_back(s);
-                        curveDomains.push_back(z);
-                        curveFirstVar.push_back(i);
-                        curveSecondVar.push_back(j);
-                        avtCurveMetaData *curve = new avtCurveMetaData;
-                        curve->name = s;
-                        md->Add(curve);
-                    }
-                }
-            }
-            else
-            {
-                for (int i=0; i<(int)allVariableNames.size(); i++)
-                {
-                    if (i==Xindex)
+                    if (i==j) 
                         continue;
-
                     if (zoneTitles.size() > 1)
                     {
-                        sprintf(s, "%s/%s vs/X",
+                        sprintf(s, "%s/%s vs/%s",
                                 zoneTitles[z].c_str(),
-                                allVariableNames[i].c_str());
+                                variableNames[i].c_str(),
+                                variableNames[j].c_str());
                     }
                     else
                     {
-                        sprintf(s, "%s vs/X", allVariableNames[i].c_str());
+                        sprintf(s, "%s vs/%s",
+                                variableNames[i].c_str(),
+                                variableNames[j].c_str());
                     }
                     curveIndices[s] = curveNames.size();
                     curveNames.push_back(s);
                     curveDomains.push_back(z);
                     curveFirstVar.push_back(i);
-                    curveSecondVar.push_back(-1);
+                    curveSecondVar.push_back(j);
                     avtCurveMetaData *curve = new avtCurveMetaData;
                     curve->name = s;
                     md->Add(curve);
@@ -1565,6 +2018,13 @@ avtTecplotFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
 //    Changed curves to be created as rectilinear grids instead of polydata
 //    (so that they work with expressions).
 //
+//    Jeremy Meredith, Wed May 18 13:31:03 EDT 2011
+//    We always expose a point mesh if they have 2 or more spatial dims.
+//
+//    Jeremy Meredith, Thu May 19 10:46:22 EDT 2011
+//    Make point mesh variables on a separate namespace from the normal mesh.
+//    Also, fixed a bug with point mesh Z coordinates.
+//
 // ****************************************************************************
 
 vtkDataSet *
@@ -1573,6 +2033,42 @@ avtTecplotFileFormat::GetMesh(int domain, const char *meshname)
     if (!file_read)
         ReadFile();
 
+    // they might ask for points, no matter what was in the file
+    if (string(meshname) == "points/mesh")
+    {
+        vtkPolyData *pd  = vtkPolyData::New();
+        vtkPoints   *pts = vtkPoints::New();
+
+        vtkFloatArray *x = vars[variableNames[Xindex]][domain];
+        vtkFloatArray *y = vars[variableNames[Yindex]][domain];
+        vtkFloatArray *z = (Zindex >= 0) ? vars[variableNames[Zindex]][domain] : NULL;
+
+        int npts = x->GetNumberOfTuples();
+
+        pts->SetNumberOfPoints(npts);
+        pd->SetPoints(pts);
+        pts->Delete();
+        for (int j = 0 ; j < npts ; j++)
+        {
+            pts->SetPoint(j,
+                          x->GetComponent(j,0),
+                          y->GetComponent(j,0),
+                          z ? z->GetComponent(j,0) : 0);
+        }
+ 
+        vtkCellArray *verts = vtkCellArray::New();
+        pd->SetVerts(verts);
+        verts->Delete();
+        for (int k = 0 ; k < npts ; k++)
+        {
+            verts->InsertNextCell(1);
+            verts->InsertCellPoint(k);
+        }
+
+        return pd;
+    }
+
+    // otherwise, what they get depends on the file contents
     if ((topologicalDimension == 2 || topologicalDimension == 3) ||
         (topologicalDimension == 0 && spatialDimension > 1))
     {
@@ -1600,8 +2096,8 @@ avtTecplotFileFormat::GetMesh(int domain, const char *meshname)
         if (index2 < 0)
             EXCEPTION1(InvalidVariableException, meshname);
 
-        vtkFloatArray *var1 = vars[allVariableNames[index1]][curveDomain];
-        vtkFloatArray *var2 = vars[allVariableNames[index2]][curveDomain];
+        vtkFloatArray *var1 = vars[variableNames[index1]][curveDomain];
+        vtkFloatArray *var2 = vars[variableNames[index2]][curveDomain];
         int nPts = var1->GetNumberOfTuples();
 
         vtkFloatArray *vals = vtkFloatArray::New();
@@ -1649,13 +2145,22 @@ avtTecplotFileFormat::GetMesh(int domain, const char *meshname)
 //    With dynamic load balancing, we may get here after calling FreeResources.
 //    Make sure we read the file again if necessary.
 //
+//    Jeremy Meredith, Thu May 19 10:46:22 EDT 2011
+//    Make point mesh variables on a separate namespace from the normal mesh.
+//
 // ****************************************************************************
 
 vtkDataArray *
-avtTecplotFileFormat::GetVar(int domain, const char *varname)
+avtTecplotFileFormat::GetVar(int domain, const char *vn)
 {
     if (!file_read)
         ReadFile();
+
+    string varname(vn);
+    if (varname.length() > 7 && varname.substr(0,7) == "points/")
+    {
+        varname = varname.substr(7);
+    }
 
     vars[varname][domain]->Register(NULL);
     return vars[varname][domain];
