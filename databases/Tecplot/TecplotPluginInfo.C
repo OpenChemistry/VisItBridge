@@ -43,7 +43,7 @@
 #include <TecplotPluginInfo.h>
 
 #include <visit-config.h>
-VISIT_PLUGIN_VERSION(Tecplot,DBP_EXPORT)
+extern "C" DBP_EXPORT const char *TecplotVisItPluginVersion = VISIT_VERSION;
 
 // ****************************************************************************
 //  Function:  GetGeneralInfo

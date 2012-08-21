@@ -963,7 +963,7 @@
         The default file extensions are .tp, and .tec
       </Documentation>
      <Hints>
-       <ReaderFactory extensions="tp tec"
+       <ReaderFactory extensions="tec TEC Tec tp TP"
                       file_description="Tecplot Files (VisIt)" />
      </Hints>
     </SourceProxy>
