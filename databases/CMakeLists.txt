@@ -81,8 +81,11 @@ if(NOT WIN32)
     )
 endif(NOT WIN32)
 
-#add gmv as an option since its dependence on glu is problematic
-visit_include_reader_source(GMV ON)
+if (OPENGL_GLU_FOUND)
+  # ENABLE_GMV_READER is a non-cache variable set in module.cmake to ON only if
+  # OpenGLU is found. Since GMV reader needs GLU, it's optionally enabled.
+  list (APPEND DEFAULT_BRIDGE_READERS GMV)
+endif()
 
 #add generic vtkreader interface parent classes
 add_subdirectory(AvtAlgorithms)

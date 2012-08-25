@@ -1,0 +1,16 @@
+<ServerManagerConfiguration>
+  <ProxyGroup name="sources">
+    <SourceProxy name="VisItGMVReader" class="vtkVisItGMVReader"
+      base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
+     <Documentation
+       long_help="Reads GMV files">
+       Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
+       The default file extensions is .gmv
+    </Documentation>
+     <Hints>
+       <ReaderFactory extensions="gmv"
+                      file_description="GMV Files" />
+     </Hints>
+     </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>
