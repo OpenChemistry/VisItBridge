@@ -326,7 +326,7 @@ avtCGNSFileFormat::ReadTimes()
                     for(int i = 0; i < narrays; ++i)
                     {
                         int ndims = 1;
-                        int dims[10];
+                        cgsize_t dims[10];
                         DataType_t dt;
                         if(cg_array_info(i+1, namenode, &dt, &ndims, dims) == CG_OK)
                         {
@@ -616,7 +616,7 @@ avtCGNSFileFormat::GetVariablesForBase(int base, avtCGNSFileFormat::BaseInformat
         {
             // Get information about the zone.
             char zonename[33];
-            int zsize[9];
+            cgsize_t zsize[9];
             memset(zonename, 0, 33);
             memset(zsize, 0, 9 * sizeof(int));
 
@@ -983,7 +983,7 @@ avtCGNSFileFormat::AddReferenceStateExpressions(avtDatabaseMetaData *md,
             {
                 char namenode[33];
                 int ndims = 1;
-                int dims[10];
+                cgsize_t dims[10];
                 DataType_t dt;
                 if(cg_array_info(i+1, namenode, &dt, &ndims, dims) == CG_OK)
                 {
@@ -1354,7 +1354,7 @@ avtCGNSFileFormat::GetMesh(int timestate, int domain, const char *meshname)
 
     vtkDataSet *retval = 0;
     char zonename[33];
-    int zsize[9];
+    cgsize_t zsize[9];
     memset(zonename, 0, 33);
     memset(zsize, 0, 9 * sizeof(int));
 
@@ -1437,7 +1437,7 @@ avtCGNSFileFormat::GetMesh(int timestate, int domain, const char *meshname)
 // ****************************************************************************
 
 bool
-avtCGNSFileFormat::GetCoords(int base, int zone, const int *zsize,
+avtCGNSFileFormat::GetCoords(int base, int zone, const cgsize_t *zsize,
     bool structured, float **coords, int *ncoords)
 {
     const char *mName = "avtCGNSFileFormat::GetCoords: ";
@@ -1462,8 +1462,8 @@ avtCGNSFileFormat::GetCoords(int base, int zone, const int *zsize,
         err = *ncoords != 2 && *ncoords != 3;
 
         unsigned int nPts = 0;
-        int rmin[3] = {1,1,1};
-        int rmax[3] = {1,1,1};
+        cgsize_t rmin[3] = {1,1,1};
+        cgsize_t rmax[3] = {1,1,1};
         if(structured)
         {
             if(*ncoords == 1)
@@ -1558,7 +1558,7 @@ avtCGNSFileFormat::GetCoords(int base, int zone, const int *zsize,
 
 vtkDataSet *
 avtCGNSFileFormat::GetCurvilinearMesh(int base, int zone, const char *meshname,
-    const int *zsize)
+    const cgsize_t *zsize)
 {
     const char *mName = "avtCGNSFileFormat::GetCurvilinearMesh: ";
     vtkDataSet *retval = 0;
@@ -1670,7 +1670,7 @@ avtCGNSFileFormat::GetCurvilinearMesh(int base, int zone, const char *meshname,
 
 vtkDataSet *
 avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
-    const int *zsize)
+    const cgsize_t *zsize)
 {
     const char *mName = "avtCGNSFileFormat::GetUnstructuredMesh: ";
     vtkDataSet *retval = 0;
@@ -1727,7 +1727,8 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
             {
                 char sectionname[33];
                 ElementType_t et = ElementTypeNull;
-                int start = 1, end = 1, bound = 0, parent_flag = 0;
+                cgsize_t start = 1, end = 1;
+                int bound = 0, parent_flag = 0;
                 if(cg_section_read(GetFileHandle(), base, zone, sec, sectionname, &et,
                     &start, &end, &bound, &parent_flag) != CG_OK)
                 {
@@ -1741,7 +1742,7 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
                     continue;
                 }
 
-                int eDataSize = 0;
+                cgsize_t eDataSize = 0;
                 if(cg_ElementDataSize(GetFileHandle(), base, zone, sec, &eDataSize) != CG_OK)
                 {
                     debug4 << mName << "Could not determine ElementDataSize\n";
@@ -1749,7 +1750,7 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
                 }
                 debug4 << "Element data size for sec " << sec << " is:" << eDataSize << endl;
 
-                int *elements = new int[eDataSize];
+                cgsize_t *elements = new cgsize_t[eDataSize];
                 if(elements == 0)
                 {
                     debug4 << mName << "Could not allocate memory for connectivity\n";
@@ -1774,7 +1775,7 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
                 // Iterate over the elements and insert them into ugrid.
                 //
                 vtkIdType verts[27];
-                const int *elem = elements;
+                const cgsize_t *elem = elements;
                 for(unsigned int icell = 0; icell < (end-start+1); ++icell)
                 {
                     // If we're reading mixed elements then the element type
@@ -2074,7 +2075,7 @@ avtCGNSFileFormat::GetVar(int timestate, int domain, const char *varname)
     vtkDataArray *retval = 0;
     int zone = domain + 1;
     char zonename[33];
-    int zsize[9];
+    cgsize_t zsize[9];
 
     memset(zonename, 0, 33);
     memset(zsize, 0, 9 * sizeof(int));
@@ -2240,8 +2241,8 @@ avtCGNSFileFormat::GetVar(int timestate, int domain, const char *varname)
                             // for unstructured meshes.
                             //
                             int nvals = 0;
-                            int rmin[3] = {1,1,1};
-                            int rmax[3] = {1,1,1};
+                            cgsize_t rmin[3] = {1,1,1};
+                            cgsize_t rmax[3] = {1,1,1};
                             if(zt == Structured)
                             {
                                 if(varcentering == Vertex)
