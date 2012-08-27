@@ -506,7 +506,6 @@ void vtkAvtFileFormatAlgorithm::SetupBlockBoundsInformation(
         {
         piece_metadata->Set(
         vtkStreamingDemandDrivenPipeline::PIECE_BOUNDING_BOX(),bounds,6);
-        piece_metadata->Set(vtkCompositeDataSet::COMPOSITE_INDEX(), index);
         }
       ++index;
       }
