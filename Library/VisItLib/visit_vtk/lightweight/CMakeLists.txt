@@ -82,6 +82,7 @@ target_link_libraries(lightweight_visit_vtk
   visitcommon
   vtkCommonCore
   vtkFiltersGeneral
-  vtkIOXML)
+  vtkIOXML
+  vtkIOLegacy)
 
 VISIT_INSTALL_TARGETS(lightweight_visit_vtk)
