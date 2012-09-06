@@ -309,8 +309,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     ++numDataSets[gids.at(i)];
     }
 
-  double origin[3] = {DBL_MAX, DBL_MAX, DBL_MAX}; //we will reset this later
-  ghostedAMR->Initialize(numGroups, numDataSets, origin, VTK_XYZ_GRID);
+  ghostedAMR->Initialize(numGroups, numDataSets);
 
   avtDomainNesting *domainNesting = reinterpret_cast<avtDomainNesting*>(*vr);
   for ( int i=1; i < numGroups; ++i) //don't need a ratio for level 0
@@ -319,16 +318,19 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     //Visit returns the ratio for each dimension and if it is a multiply or divide
     //Currently we just presume the same ratio for each dimension
     //TODO: verify this logic
-    if ( ratios[0] >= 2 )
-      {
-      ghostedAMR->SetRefinementRatio(i, ratios[0] );
-      }
+    //  This log is probably incorrect -Leo
+    // if ( ratios[0] >= 2 )
+    //   {
+    //   ghostedAMR->SetRefinementRatio(i, ratios[0] );
+    //   }
     }
 
   //assign the info the the AMR, and create the uniform grids
   std::string name = meshMetaData->name;
   vtkRectilinearGrid *rgrid = NULL;
   int meshIndex=0;
+  int gridDescription = -1;
+  double globalOrigin[3] = {DBL_MAX, DBL_MAX, DBL_MAX};
   for ( int i=0; i < numGroups; ++i)
     {
     for (int j=0; j < numDataSets[i]; ++j)
@@ -349,6 +351,15 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
       origin[1] = rgrid->GetYCoordinates()->GetTuple1(0);
       origin[2] = rgrid->GetZCoordinates()->GetTuple1(0);
 
+      //update the global origin
+      for(int d=0; d<3; d++)
+        {
+        if(origin[d]< globalOrigin[d] )
+          {
+          globalOrigin[d] = origin[d];
+          }
+        }
+
       double spacing[3];
       spacing[0] = ( rgrid->GetXCoordinates()->GetNumberOfTuples() > 2 ) ?
         fabs( rgrid->GetXCoordinates()->GetTuple1(1) -
@@ -365,11 +376,19 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
       int dims[3];
       rgrid->GetDimensions( dims );
 
+      //use the first data set to compute the grid description
+      if(gridDescription<0)
+        {
+        int ext[6] = {0,dims[0]-1,0,dims[1]-1,0,dims[2]-1};
+        int ext1[6];
+        gridDescription = vtkStructuredData::SetExtent(ext,ext1);
+        ghostedAMR->GetAMRInfo()->SetGridDescription(gridDescription);
+        }
+
       //don't need the rgrid anymoe
       rgrid->Delete();
       rgrid = NULL;
 
-      ghostedAMR->SetAMRBox(i,j, origin,dims,spacing);
       //only load grids inside the domainRange for this processor
       if (this->ShouldReadDataSet(meshIndex) )
         {
@@ -386,14 +405,31 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
       }
     }
 
-  ghostedAMR->GetMin(origin);
-  ghostedAMR->GetAMRInfo()->SetOrigin(origin); //use the bb min as the amr origin
+  //Now that global origin is known, set all the amr boxes
+  ghostedAMR->GetAMRInfo()->SetOrigin(globalOrigin);
+  for(unsigned int i = 0; i<ghostedAMR->GetNumberOfLevels(); i++)
+    {
+    unsigned int numDataSets = ghostedAMR->GetNumberOfDataSets(i);
+    for(int j = 0; j<numDataSets; j++)
+      {
+      vtkUniformGrid* grid =ghostedAMR->GetDataSet(i,j);
+      if(grid)
+        {
+        ghostedAMR->SetAMRBox(i,j, grid->GetOrigin(),grid->GetDimensions(),grid->GetSpacing());
+        }
+      else
+        {
+        vtkWarningMacro("There is no data set at ("<<i<<", "<<j<<")\n");
+        }
+      }
+    }
+  ghostedAMR->GetAMRInfo()->GenerateRefinementRatio();
 
   vtkAMRUtilities::StripGhostLayers(
       ghostedAMR,outputAMR,vtkMultiProcessController::GetGlobalController());
   ghostedAMR->Delete();
 
-  outputAMR->GenerateVisibilityArrays();
+  vtkAMRUtilities::BlankCells(outputAMR, vtkMultiProcessController::GetGlobalController());
   delete[] numDataSets;
   return 1;
 
