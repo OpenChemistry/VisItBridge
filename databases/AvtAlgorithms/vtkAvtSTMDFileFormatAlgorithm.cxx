@@ -387,10 +387,10 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
       CATCH_VISIT_EXCEPTIONS(rgrid,
                              vtkRectilinearGrid::SafeDownCast(
                                this->AvtFile->GetMesh(timestep, meshIndex, name.c_str())));
-      ++meshIndex;
       if ( !rgrid )
         {
         //downcast failed or an exception was thrown
+        vtkWarningMacro("GetMesh failed");
         continue;
         }
 
@@ -436,6 +436,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
         ghostedAMR->SetDataSet(i,j,grid);
         grid->Delete();
         }
+      ++meshIndex;
       }
     }
 
