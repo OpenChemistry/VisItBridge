@@ -354,6 +354,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
 
     int dims[3];
     rgrid->GetDimensions( dims );
+    rgrid->Delete();
 
     //update the global origin
     for(int d=0; d<3; d++)
