@@ -81,12 +81,6 @@ if(NOT WIN32)
     )
 endif(NOT WIN32)
 
-if (OPENGL_GLU_FOUND)
-  # ENABLE_GMV_READER is a non-cache variable set in module.cmake to ON only if
-  # OpenGLU is found. Since GMV reader needs GLU, it's optionally enabled.
-  list (APPEND DEFAULT_BRIDGE_READERS GMV)
-endif()
-
 #add generic vtkreader interface parent classes
 add_subdirectory(AvtAlgorithms)
 
@@ -97,6 +91,17 @@ endforeach(db)
 
 add_definitions("-DRC_CPP_VISIT_BUILD")
 
+
+#-----------------------------------------------------------------------------
+# GMV Reader needs OpenGLU library. So check if it exists before enabling the
+# GMV reader.
+find_package(OpenGL)
+visit_include_reader_source(GMV ${OPENGL_GLU_FOUND})
+if (VISIT_BUILD_READER_GMV AND NOT OPENGL_GLU_FOUND)
+  message(FATAL_ERROR "Unable to locate GLU library required for GMV reader.")
+endif()
+
+#-----------------------------------------------------------------------------
 visit_include_reader_source(Silo OFF)
 if(VISIT_BUILD_READER_Silo)
   if(NOT HAVE_LIBSILO)
@@ -106,10 +111,10 @@ if(VISIT_BUILD_READER_Silo)
   if(NOT SILO_FOUND)
     message(FATAL_ERROR "Unable to locate Silo library.")
   endif(NOT SILO_FOUND)
-  set(VISITBRIDGE_USE_SILO ${SILO_FOUND} PARENT_SCOPE)
 endif(VISIT_BUILD_READER_Silo)
 
 
+#-----------------------------------------------------------------------------
 visit_include_reader_source(CGNS OFF)
 if(VISIT_BUILD_READER_CGNS)
   if(NOT HAVE_LIBCGNS)
@@ -119,9 +124,9 @@ if(VISIT_BUILD_READER_CGNS)
   if(NOT CGNS_FOUND)
     message(FATAL_ERROR "Unable to locate CGNS library.")
   endif(NOT CGNS_FOUND)
-  set(VISITBRIDGE_USE_CGNS ${CGNS_FOUND} PARENT_SCOPE)
 endif(VISIT_BUILD_READER_CGNS)
 
+#-----------------------------------------------------------------------------
 visit_include_reader_source(Mili OFF)
 if(VISIT_BUILD_READER_Mili)
   if(NOT HAVE_LIBMILI)
@@ -131,7 +136,6 @@ if(VISIT_BUILD_READER_Mili)
   if(NOT MILI_FOUND)
     message(FATAL_ERROR "Unable to locate Mili library.")
   endif(NOT MILI_FOUND)
-  set(VISITBRIDGE_USE_MILI ${MILI_FOUND} PARENT_SCOPE)
 endif(VISIT_BUILD_READER_Mili)
 
 #include all the db directores before

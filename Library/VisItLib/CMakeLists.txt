@@ -54,12 +54,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/VisItBridgeUse.cmake.in
                ${CMAKE_CURRENT_BINARY_DIR}/VisItBridgeUse.cmake @ONLY IMMEDIATE)
 
 #######################################################################
-# Update if we found SILO,CGNS,MILI
-set(VISITBRIDGE_USE_MILI ${VISITBRIDGE_USE_MILI} PARENT_SCOPE)
-set(VISITBRIDGE_USE_CGNS ${VISITBRIDGE_USE_CGNS} PARENT_SCOPE)
-set(VISITBRIDGE_USE_SILO ${VISITBRIDGE_USE_SILO} PARENT_SCOPE)
-
-#######################################################################
 # INSTALL
 if (NOT VTK_INSTALL_NO_DEVELOPMENT)
   set(BUILD_TREE ${ParaView_BINARY_DIR})

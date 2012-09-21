@@ -193,7 +193,7 @@
      </Hints>
     </SourceProxy>
 
-#ifdef VISITBRIDGE_USE_CGNS
+#ifdef VISIT_BUILD_READER_CGNS
     <SourceProxy name="VisItCGNSReader" class="vtkVisItCGNSReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
       <Documentation
@@ -523,7 +523,7 @@
      </Hints>
     </SourceProxy>
 
-#ifdef VISITBRIDGE_USE_MILI
+#ifdef VISIT_BUILD_READER_Mili
     <SourceProxy name="VisItMiliReader" class="vtkVisItMiliReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
       <Documentation
@@ -916,7 +916,7 @@
      </Hints>
     </SourceProxy>
 
-#ifdef VISITBRIDGE_USE_SILO
+#ifdef VISIT_BUILD_READER_Silo
     <SourceProxy name="VisItSiloReader" class="vtkVisItSiloReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
       <Documentation
@@ -1116,5 +1116,19 @@
      </Hints>
     </SourceProxy>
 
+#ifdef VISIT_BUILD_READER_GMV
+    <SourceProxy name="VisItGMVReader" class="vtkVisItGMVReader"
+      base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
+     <Documentation
+       long_help="Reads GMV files">
+       Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
+       The default file extensions is .gmv
+    </Documentation>
+     <Hints>
+       <ReaderFactory extensions="gmv"
+                      file_description="GMV Files" />
+     </Hints>
+     </SourceProxy>
+#endif
   </ProxyGroup>
 </ServerManagerConfiguration>
