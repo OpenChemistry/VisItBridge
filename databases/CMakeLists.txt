@@ -41,7 +41,6 @@ set(DEFAULT_BRIDGE_READERS
   Lines
   M3D
   M3DC1
-  MFIX
   MFIXCDF
   Miranda
   MM5
@@ -144,6 +143,13 @@ if(VISIT_BUILD_READER_Mili)
     message(FATAL_ERROR "Unable to locate Mili library.")
   endif(NOT MILI_FOUND)
 endif(VISIT_BUILD_READER_Mili)
+
+#-----------------------------------------------------------------------------
+visit_include_reader_source(MFIX OFF)
+if(VISIT_BUILD_READER_MFIX)
+  add_subdirectory(MFIX)
+endif()
+
 
 #include all the db directores before
 #the visit files
