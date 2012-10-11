@@ -495,6 +495,7 @@
      </Hints>
     </SourceProxy>
 
+#ifdef VISIT_BUILD_READER_MFIX
     <SourceProxy name="VisItMFIXReader" class="vtkVisItMFIXReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
       <Documentation
@@ -508,6 +509,7 @@
                       file_description="MFiX Res Files (VisIt)" />
      </Hints>
     </SourceProxy>
+#endif
 
     <SourceProxy name="VisItMFIXCDFReader" class="vtkVisItMFIXCDFReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
