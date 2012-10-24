@@ -6427,10 +6427,6 @@ fgmvread_mesh_(long *nnodes, long *ncells, long *nfaces,
 /*  Code for gmv ray reader.  */
 static long numrays;
 
-static int ftype;
-
-static unsigned wordbuf;
-
 void swapbytes(void *from, int size, int nitems),
      readray(FILE *gmvrayin, int ftype),
      readrayids(FILE *gmvrayin, int ftype),
