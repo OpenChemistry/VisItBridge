@@ -411,6 +411,15 @@ int gmvread_open(char *filnam)
       if (ilast > -1)
         {
          strncpy(input_dir,filnam,ilast+1);
+         /* When repeatedly calling this function and loading a file from    */
+         /* a directory higher up in the hierarchy in a later call, prevent  */
+         /* that the previous directory is used again by properly ending the */
+         /* string input_dir, i.e. avoid cases where in a fromfile statement */
+         /* /path/to/directory/subdirectory is used first and                */
+         /* /path/to/directory referenced next. Without properly null        */
+         /* terminating the string, /path/to/directory/subdirectory would    */
+         /* still get used in the second case.                               */
+         *(input_dir + ilast+1) = (char)0;
         }
      }
    
