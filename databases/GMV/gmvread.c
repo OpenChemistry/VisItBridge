@@ -6692,7 +6692,7 @@ void readrays(FILE* gmvrayin, int ftype)
   char vname[33], *varnames;
   short vartype[NRAYVARS];
   struct gmvray *gmvrays;
-  char *rtype_str[4] = {"Points","Segments"};
+  const char *rtype_str[4] = {"Points","Segments"};
 
    if (ftype == ASCII)
      {
