@@ -5156,8 +5156,8 @@ void regcell(long icell, long nc)
   /*                                                       */
   /*  Read and set data for a regular cell.                */
   /*  icelltype indicates the cell type,                   */
-  /*    1-tri (triangle), 2-quad,  3-tet, 4-pyramid,       */
-  /*    5-prism, 6-hex, 7-line, 8-phex8, 9-phex20,         */
+  /*    1-tri (triangle), 2-quad,  3-tet, 4-hex,           */
+  /*    5-prism, 6-pyramid, 7-line, 8-phex8, 9-phex20,     */
   /*    10-pprymd5, 11-pprymd13, 12-pprism6, 13-pprism15,  */
   /*    14-ptet4, 15-ptet10, 16-6tri, 17-8quad,            */
   /*    18-3line, 19-phex27                                */
