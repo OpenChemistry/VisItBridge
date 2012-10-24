@@ -1787,8 +1787,8 @@ void readcells(FILE* gmvin, int ftype)
       if (nfaces > MAXFACES)
         {
          fprintf(stderr,
-                  "Error, Read %d faces - 10000 faces per cell allowed.\n",
-                   nfaces);
+                  "Error, Read %d faces - %d faces per cell allowed.\n",
+                  nfaces, MAXFACES);
          gmv_data.keyword = GMVERROR;
          return;
         }
@@ -1856,8 +1856,8 @@ void readcells(FILE* gmvin, int ftype)
       if (nfaces > MAXFACES)
         {
          fprintf(stderr,
-                  "Error, Read %d faces - 10000 faces per cell allowed.\n",
-                   nfaces);
+                  "Error, Read %d faces - %d faces per cell allowed.\n",
+                  nfaces, MAXFACES);
          gmv_data.keyword = GMVERROR;
          return;
         }
