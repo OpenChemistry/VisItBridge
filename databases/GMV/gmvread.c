@@ -3982,16 +3982,41 @@ void readcomments(FILE* gmvin, int ftype)
   /*  Read through (ignore) comments.  */
   /*                                   */
   int rdcomms;
-  char varname[100];
+#define MAXCOMMENTLINELENGTH 100
+  char varname[MAXCOMMENTLINELENGTH];
+  int firstNonWS;
 
    /*  Read comments until endcomm found.  */
    rdcomms = 1;
    while (rdcomms)
      {
-      fscanf(gmvin,"%s",varname);
+      /* fscanf(gmvin,"%s",varname); */
+      fgets(varname, MAXCOMMENTLINELENGTH, gmvin);
+      /* Ignore leading whitespace characters as would have done fscanf() */
+      firstNonWS = 0;
+      while (firstNonWS < MAXCOMMENTLINELENGTH)
+	if (*(varname+firstNonWS) == 0x09 || /* horizontal tab */
+	    *(varname+firstNonWS) == 0x0a || /* linefeed */
+	    *(varname+firstNonWS) == 0x0b || /* vertical tab */
+	    *(varname+firstNonWS) == 0x0c || /* form feed */
+	    *(varname+firstNonWS) == 0x0d || /* carriage return */
+	    *(varname+firstNonWS) == 0x20)   /* space */
+	  firstNonWS++;
+	else
+	  break;
       ioerrtst(gmvin);
-      if (strncmp(varname,"endcomm",7) == 0)
+      if (strncmp(&varname[firstNonWS],"endcomm",7) == 0)
          rdcomms = 0;
+      else
+	{
+	  /* Only support "endcomm" with leading blanks, if any.
+	     Read reminder of comment line, in chunks. */
+	  while (varname[strlen(varname)-1] != '\n')
+	    {
+	      fgets(varname, MAXCOMMENTLINELENGTH, gmvin);
+	      ioerrtst(gmvin);
+	    }
+	}
      }
 
    /*  If binary file, read space after endcomm.  */
