@@ -228,7 +228,7 @@ avtUnstructuredPointBoundaries::Generate(vector<int> domainNum,
 
                 for (int k = 0; k < cl->GetNumberOfIds(); ++k)
                 {
-                    int cellId = cl->GetId(k);
+                    vtkIdType cellId = cl->GetId(k);
                     
                     //
                     // We shouldn't ghost 2D cells.
@@ -238,10 +238,10 @@ avtUnstructuredPointBoundaries::Generate(vector<int> domainNum,
                         || type == VTK_VERTEX || type == VTK_QUAD)
                         continue;
                     
-                    cells.insert(cellId);
+                    cells.insert(static_cast<int>(cellId));
                     ds->GetCellPoints(cellId, pl);
                     for (int m = 0; m < pl->GetNumberOfIds(); ++m)
-                        points.insert(pl->GetId(m));
+                        points.insert(static_cast<int>(pl->GetId(m)));
                 }
             }
 
