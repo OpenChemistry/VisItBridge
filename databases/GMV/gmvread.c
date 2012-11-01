@@ -4820,6 +4820,7 @@ void gmvread_mesh()
    gmv_meshdata.vfaceoppfacepe = NULL;
    gmv_meshdata.cellnnode = NULL;
    gmv_meshdata.cellnodes = NULL;
+   xin = NULL; yin = NULL; zin = NULL;
 
    if (printon)
       printf("Reading mesh data.\n");
