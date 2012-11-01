@@ -80,6 +80,8 @@ EXTERN struct gmv_data_type
           char    name1[33];  /*  hex, tri, etc, flag name, field name.  */
           long    num;        /*  nnodes, ncells, nsurf, ntracers.  */
           long    num2;       /*  no. of faces, number of vertices.  */
+          /* SB: preserve messages that used to be sent to stderr */
+          char   *errormsg;
 
           long    ndoubledata1;
           double  *doubledata1;

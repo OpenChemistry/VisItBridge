@@ -9,6 +9,7 @@
 #include <sys/types.h>
 /* #include <malloc.h> */
 #include <math.h>
+#include <snprintf.h>
 
 #define FREE(a) { if (a) free(a); a = NULL; }
 
@@ -42,9 +43,6 @@
 
 #define MAXVERTS 10000
 #define MAXFACES 10000
-
-/*LLNL*/
-void gmverror(const char *);
 
 static int charsize = CHARSIZE, shortsize = SHORTSIZE, intsize = INTSIZE, 
            wordsize = WORDSIZE, floatsize = FLOATSIZE,
@@ -101,6 +99,7 @@ void swapbytes(void *from, int size, int nitems),
 static FILE *gmvin, *gmvin_sav;
 
 static char *file_path = NULL;
+static int errormsgvarlen = 0;
 
 int binread(void* ptr, int size, int type, long nitems, FILE* stream);
 int word2int(unsigned wordin);
@@ -147,12 +146,17 @@ int gmvread_checkfile(char *filnam)
    else if( file_path == NULL && slash == NULL )
       {
           fprintf(stderr,"Error with the path");
+          gmv_data.errormsg = (char *)malloc(20 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg,20,"Error with the path");
           return 1;
       }
    gmvchk = fopen(filnam, "r");
    if(gmvchk == NULL)
       {
        fprintf(stderr,"GMV cannot open file %s\n",filnam);
+       errormsgvarlen = (int)strlen(filnam);
+       gmv_data.errormsg = (char *)malloc((22 + errormsgvarlen) * sizeof(char));
+       SNPRINTF(gmv_data.errormsg,22 + errormsgvarlen,"GMV cannot open file %s",filnam);
        return 1;
       }
     
@@ -161,6 +165,8 @@ int gmvread_checkfile(char *filnam)
    if (strncmp(magic,"gmvinput",8) != 0)
      {
       fprintf(stderr,"This is not a GMV input file.\n");
+      gmv_data.errormsg = (char *)malloc(30 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,30,"This is not a GMV input file.");
       fclose(gmvchk);
       return 2;
      }
@@ -173,6 +179,8 @@ int gmvread_checkfile(char *filnam)
       if (!chkend)
         {
          fprintf(stderr,"Error - endgmv not found.\n");
+         gmv_data.errormsg = (char *)malloc(26 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,26,"Error - endgmv not found.");
          fclose(gmvchk);
          return 3;
         }
@@ -219,6 +227,10 @@ int gmvread_checkfile(char *filnam)
        "  ascii, ieee, ieeei4r4, ieeei4r8, ieeei8r4, ieeei8r8,\n");
       fprintf(stderr,
        "  iecxi4r4, iecxi4r8, iecxi8r4, iecxi8r8,\n");
+      gmv_data.errormsg = (char *)malloc(137 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,137,"Invalid GMV input file type.  Type must be: %s%s",
+              "ascii, ieee, ieeei4r4, ieeei4r8, ieeei8r4, ieeei8r8, ",
+              "iecxi4r4, iecxi4r8, iecxi8r4, iecxi8r8.");
       fclose(gmvchk);
       return 4;
      }
@@ -230,6 +242,8 @@ int gmvread_checkfile(char *filnam)
       if (sizeof(long) < 8)
         {
          fprintf(stderr,"Cannot read 64bit I* types on this machine.\n");
+         gmv_data.errormsg = (char *)malloc(44 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,44,"Cannot read 64bit I* types on this machine.");
          fclose(gmvchk);
          return 5;
         }
@@ -279,12 +293,17 @@ int gmvread_open(char *filnam)
    else if( file_path == NULL && slash == NULL )
       {
           fprintf(stderr,"Error with the path");
+          gmv_data.errormsg = (char *)malloc(20 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg,20,"Error with the path");
           return 1;
       }
    gmvin = fopen(filnam, "r");
    if(gmvin == NULL)
       {
        fprintf(stderr,"GMV cannot open file %s\n",filnam);
+       errormsgvarlen = (int)strlen(filnam);
+       gmv_data.errormsg = (char *)malloc((22 + errormsgvarlen) * sizeof(char));
+       SNPRINTF(gmv_data.errormsg,22 + errormsgvarlen,"GMV cannot open file %s",filnam);
        return 1;
       }
     
@@ -293,6 +312,8 @@ int gmvread_open(char *filnam)
    if (strncmp(magic,"gmvinput",8) != 0)
       {
        fprintf(stderr,"This is not a GMV input file.\n");
+       gmv_data.errormsg = (char *)malloc(30 * sizeof(char));
+       SNPRINTF(gmv_data.errormsg,30,"This is not a GMV input file.");
        return 2;
       }
 
@@ -304,6 +325,8 @@ int gmvread_open(char *filnam)
        if (!chkend)
          {
           fprintf(stderr,"Error - endgmv not found.\n");
+          gmv_data.errormsg = (char *)malloc(26 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg,26,"Error - endgmv not found.");
           return 3;
          }
       }
@@ -355,9 +378,13 @@ int gmvread_open(char *filnam)
      {
       fprintf(stderr,"Invalid GMV input file type.  Type must be:\n");
       fprintf(stderr,
-       "  ascii, ieee, ieeei4r4, ieeei4r8, ieeei8r4, ieeei8r8.\n");
+       "  ascii, ieee, ieeei4r4, ieeei4r8, ieeei8r4, ieeei8r8,\n");
       fprintf(stderr,
        "  iecxi4r4, iecxi4r8, iecxi8r4, iecxi8r8.\n");
+      gmv_data.errormsg = (char *)malloc(137 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,137,"Invalid GMV input file type.  Type must be: %s%s",
+              "ascii, ieee, ieeei4r4, ieeei4r8, ieeei8r4, ieeei8r8, ",
+              "iecxi4r4, iecxi4r8, iecxi8r4, iecxi8r8.");
       return 4;
      }
 
@@ -367,6 +394,8 @@ int gmvread_open(char *filnam)
       if (sizeof(long) < 8)
         {
          fprintf(stderr,"Cannot read 64bit I* types on this machine.\n");
+         gmv_data.errormsg = (char *)malloc(44 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,44,"Cannot read 64bit I* types on this machine.");
          return 4;
         }
      }
@@ -478,6 +507,7 @@ void gmvread_data()
    strcpy(gmv_data.name1,"                   ");
    gmv_data.num = 0;
    gmv_data.num2 = 0;
+   FREE(gmv_data.errormsg);
    gmv_data.ndoubledata1 = 0;
    gmv_data.ndoubledata2 = 0;
    gmv_data.ndoubledata3 = 0;
@@ -628,6 +658,9 @@ void gmvread_data()
         {
          gmv_data.keyword = GMVERROR;
          fprintf(stderr,"Error, %s is an invalid keyword.\n",keyword);
+         errormsgvarlen = (int)strlen(keyword);
+         gmv_data.errormsg = (char *)malloc((31 + errormsgvarlen) * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,31 + errormsgvarlen,"Error, %s is an invalid keyword.",keyword);
         }
 
       strcpy(sav_keyword,keyword);
@@ -648,6 +681,8 @@ void gmvread_data()
       if (curr_keyword > NODES && nodes_read == 0 && before_nodes_ok == 0)
         {
          fprintf(stderr,"Error, 'nodes' keyword missing.\n");
+         gmv_data.errormsg = (char *)malloc(32 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,32,"Error, 'nodes' keyword missing.");
          gmv_data.keyword = GMVERROR;
         }
 
@@ -656,6 +691,8 @@ void gmvread_data()
           before_nodes_ok == 0)
         {
          fprintf(stderr,"Error, 'cells, faces or xfaces' keyword missing.\n");
+         gmv_data.errormsg = (char *)malloc(49 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,49,"Error, 'cells, faces or xfaces' keyword missing.");
          gmv_data.keyword = GMVERROR;
         }
 
@@ -889,6 +926,8 @@ void rdints(int iarray[], int nvals, FILE* gmvin)
       if ((feof(gmvin) != 0) || (ferror(gmvin) != 0))
         {
          fprintf(stderr,"I/O error while reading gmv input file.\n");
+         gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
          gmv_data.keyword = GMVERROR;
          return;
         }
@@ -910,6 +949,8 @@ void rdlongs(long iarray[], long nvals, FILE* gmvin)
       if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
         {
          fprintf(stderr,"I/O error while reading gmv input file.\n");
+         gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
          gmv_data.keyword = GMVERROR;
          return;
         }
@@ -931,6 +972,8 @@ void rdfloats(double farray[], long nvals, FILE* gmvin)
       if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
         {
          fprintf(stderr,"I/O error while reading gmv input file.\n");
+         gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
          gmv_data.keyword = GMVERROR;
          return;
         }
@@ -1079,13 +1122,13 @@ void checkfromfile()
 
          ierr = gmvread_open_fromfileskip(charptr);
          if (ierr > 0)
-            {             
-/*LLNL*/
-             char gmvmsg[1024];
-             sprintf(gmvmsg, "GMV cannot read fromfile %s\n",charptr);
-             gmverror(gmvmsg);
-/*
+            {
              fprintf(stderr,"GMV cannot read fromfile %s\n",charptr);
+             errormsgvarlen = (int)strlen(charptr);
+             gmv_data.errormsg = (char *)malloc((26 + errormsgvarlen) * sizeof(char));
+             SNPRINTF(gmv_data.errormsg,26 + errormsgvarlen,"GMV cannot read fromfile %s",charptr);
+/*LLNL*/
+/*
              exit(0);
 */
             }
@@ -1129,12 +1172,12 @@ void checkfromfile()
    ierr = gmvread_open_fromfileskip(charptr);
    if (ierr > 0)
       {
-/*LLNL*/
-       char gmvmsg[1024];
-       sprintf(gmvmsg, "GMV cannot read fromfile %s\n",charptr);
-       gmverror(gmvmsg);
-/*
        fprintf(stderr,"GMV cannot read fromfile %s\n",charptr);
+       errormsgvarlen = (int)strlen(charptr);
+       gmv_data.errormsg = (char *)malloc((26 + errormsgvarlen) * sizeof(char));
+       SNPRINTF(gmv_data.errormsg,26 + errormsgvarlen,"GMV cannot read fromfile %s",charptr);
+/*LLNL*/
+/*
        exit(0);
 */
       }
@@ -1518,6 +1561,8 @@ void readnodes(FILE* gmvin, int ftype)
    if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
      {
       fprintf(stderr,"I/O error while reading nodes.\n");
+      gmv_data.errormsg = (char *)malloc(31 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,31,"I/O error while reading nodes.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -1713,6 +1758,9 @@ void readcells(FILE* gmvin, int ftype)
      {
       fprintf(stderr,
               "Error, %s is an invalid cell type.\n",keyword);
+      errormsgvarlen = (int)strlen(keyword);
+      gmv_data.errormsg = (char *)malloc((33 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,33 + errormsgvarlen,"Error, %s is an invalid cell type.",keyword);
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -1738,6 +1786,9 @@ void readcells(FILE* gmvin, int ftype)
      {
       fprintf(stderr,
               "Error, %d nodes is invalid for a %s.\n",ndat,keyword);
+      errormsgvarlen = (int)strlen(keyword) + 20; /* 20 = ceil(log10(2**sizeof(int64))) for 'ndat' */
+      gmv_data.errormsg = (char *)malloc((32 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,32 + errormsgvarlen,"Error, %d nodes is invalid for a %s.",ndat,keyword);
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -1745,6 +1796,8 @@ void readcells(FILE* gmvin, int ftype)
    if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
      {
       fprintf(stderr,"I/O error while reading cells.\n");
+      gmv_data.errormsg = (char *)malloc(31 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,31,"I/O error while reading cells.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -1765,6 +1818,8 @@ void readcells(FILE* gmvin, int ftype)
         {
          fprintf(stderr,
            "Error, cannot mix vface2d or vface3d with other cell types.\n");
+         gmv_data.errormsg = (char *)malloc(60 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,60,"Error, cannot mix vface2d or vface3d with other cell types.");
          gmv_data.keyword = GMVERROR;
          return;
         }
@@ -1773,6 +1828,8 @@ void readcells(FILE* gmvin, int ftype)
         {
          fprintf(stderr,
            "Error, cannot mix vface2d and vface3d cell types.\n");
+         gmv_data.errormsg = (char *)malloc(50 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,50,"Error, cannot mix vface2d and vface3d cell types.");
          gmv_data.keyword = GMVERROR;
          return;
         }
@@ -1789,6 +1846,9 @@ void readcells(FILE* gmvin, int ftype)
          fprintf(stderr,
                   "Error, Read %d faces - %d faces per cell allowed.\n",
                   nfaces, MAXFACES);
+         errormsgvarlen = 40; /* 20 = ceil(log10(2**sizeof(int64))) for 'nfaces', 'MAXFACES' */
+         gmv_data.errormsg = (char *)malloc((46 + errormsgvarlen) * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,46 + errormsgvarlen,"Error, Read %d faces - %d faces per cell allowed.",nfaces, MAXFACES);
          gmv_data.keyword = GMVERROR;
          return;
         }
@@ -1858,6 +1918,9 @@ void readcells(FILE* gmvin, int ftype)
          fprintf(stderr,
                   "Error, Read %d faces - %d faces per cell allowed.\n",
                   nfaces, MAXFACES);
+         errormsgvarlen = 40; /* 20 = ceil(log10(2**sizeof(int64))) for 'nfaces', 'MAXFACES' */
+         gmv_data.errormsg = (char *)malloc((46 + errormsgvarlen) * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,46 + errormsgvarlen,"Error, Read %d faces - %d faces per cell allowed.",nfaces, MAXFACES);
          gmv_data.keyword = GMVERROR;
          return;
         }
@@ -1939,6 +2002,8 @@ void readcells(FILE* gmvin, int ftype)
       if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
         {
          fprintf(stderr,"I/O error while reading cells.\n");
+         gmv_data.errormsg = (char *)malloc(31 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,31,"I/O error while reading cells.");
          gmv_data.keyword = GMVERROR;
          return;
         }
@@ -2047,6 +2112,8 @@ void readfaces(FILE* gmvin, int ftype)
    if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
      {
       fprintf(stderr,"I/O error while reading faces.\n");
+      gmv_data.errormsg = (char *)malloc(31 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,31,"I/O error while reading faces.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -2167,6 +2234,8 @@ void readvfaces(FILE* gmvin, int ftype)
    if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
      {
       fprintf(stderr,"I/O error while reading faces.\n");
+      gmv_data.errormsg = (char *)malloc(31 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,31,"I/O error while reading faces.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -2401,12 +2470,16 @@ void readmats(FILE* gmvin, int ftype)
    if (data_type == CELL && numcells == 0)
      {
       fprintf(stderr,"Error, no cells exist for cell materials.\n");
+      gmv_data.errormsg = (char *)malloc(42 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,42,"Error, no cells exist for cell materials.");
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == NODE && numnodes == 0)
      {
       fprintf(stderr,"Error, no nodes exist for node materials.\n");
+      gmv_data.errormsg = (char *)malloc(42 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,42,"Error, no nodes exist for node materials.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -2490,18 +2563,24 @@ void readvels(FILE* gmvin, int ftype)
    if (data_type == CELL && numcells == 0)
      {
       fprintf(stderr,"Error, no cells exist for cell velocities.\n");
+      gmv_data.errormsg = (char *)malloc(43 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,43,"Error, no cells exist for cell velocities.");
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == NODE && numnodes == 0)
      {
       fprintf(stderr,"Error, no nodes exist for node velocities.\n");
+      gmv_data.errormsg = (char *)malloc(43 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,43,"Error, no nodes exist for node velocities.");
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == FACE && numfaces == 0)
      {
-      fprintf(stderr,"Error, no faces exist for node velocities.\n");
+      fprintf(stderr,"Error, no faces exist for face velocities.\n");
+      gmv_data.errormsg = (char *)malloc(43 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,43,"Error, no faces exist for face velocities.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -2618,18 +2697,27 @@ void readvars(FILE* gmvin, int ftype)
    if (data_type == CELL && numcells == 0)
      {
       fprintf(stderr,"Error, no cells exist for cell variable %s.\n",varname);
+      errormsgvarlen = (int)strlen(varname);
+      gmv_data.errormsg = (char *)malloc((42 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,42,"Error, no cells exist for cell variable %s.",varname);
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == NODE && numnodes == 0)
      {
       fprintf(stderr,"Error, no nodes exist for node variable %s.\n",varname);
+      errormsgvarlen = (int)strlen(varname);
+      gmv_data.errormsg = (char *)malloc((42 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,42,"Error, no nodes exist for node variable %s.",varname);
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == FACE && numfaces == 0)
      {
-      fprintf(stderr,"Error, no faces exist for face variable: %s.\n",varname);
+      fprintf(stderr,"Error, no faces exist for face variable %s.\n",varname);
+      errormsgvarlen = (int)strlen(varname);
+      gmv_data.errormsg = (char *)malloc((42 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,42,"Error, no faces exist for face variable %s.",varname);
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -2727,12 +2815,18 @@ void readflags(FILE* gmvin, int ftype)
    if (data_type == CELL && numcells == 0)
      {
       fprintf(stderr,"Error, no cells exist for cell flags %s.\n",flgname);
+      errormsgvarlen = (int)strlen(flgname);
+      gmv_data.errormsg = (char *)malloc((39 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,39,"Error, no cells exist for cell flags %s.",flgname);
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == NODE && numnodes == 0)
      {
       fprintf(stderr,"Error, no nodes exist for node flags %s.\n",flgname);
+      errormsgvarlen = (int)strlen(flgname);
+      gmv_data.errormsg = (char *)malloc((39 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,39,"Error, no nodes exist for node flags %s.",flgname);
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -3170,6 +3264,8 @@ void readfaceids(FILE* gmvin, int ftype)
    if (numfaces == 0)
      {
       fprintf(stderr,"Error, no faces exist for faceids.\n");
+      gmv_data.errormsg = (char *)malloc(35 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,35,"Error, no faces exist for faceids.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -3477,6 +3573,8 @@ void readsurface(FILE* gmvin, int ftype)
    if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
      {
       fprintf(stderr,"I/O error while reading surfaces.\n");
+      gmv_data.errormsg = (char *)malloc(34 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,34,"I/O error while reading surfaces.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -3501,6 +3599,8 @@ void readsurfmats(FILE* gmvin, int ftype)
      {
       fprintf(stderr,
               "Error, surface must be read before surfmats.\n");
+      gmv_data.errormsg = (char *)malloc(45 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,45,"Error, surface must be read before surfmats.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -3552,6 +3652,8 @@ void readsurfvel(FILE* gmvin, int ftype)
      {
       fprintf(stderr,
               "Error, surface must be read before surfvel.\n");
+      gmv_data.errormsg = (char *)malloc(44 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,44,"Error, surface must be read before surfvel.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -3637,6 +3739,8 @@ void readsurfvars(FILE* gmvin, int ftype)
      {
       fprintf(stderr,
               "Error, surface must be read before surfvars.\n");
+      gmv_data.errormsg = (char *)malloc(45 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,45,"Error, surface must be read before surfvars.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -3721,6 +3825,8 @@ void readsurfflag(FILE* gmvin, int ftype)
      {
       fprintf(stderr,
               "Error, surface must be read before surfflag.\n");
+      gmv_data.errormsg = (char *)malloc(45 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,45,"Error, surface must be read before surfflag.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -3840,7 +3946,9 @@ void readsurfids(FILE* gmvin, int ftype)
    if (surface_read == 0)
      {
       fprintf(stderr,
-              "Error, surface must be read before surids.\n");
+              "Error, surface must be read before surfids.\n");
+      gmv_data.errormsg = (char *)malloc(44 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,44,"Error, surface must be read before surfids.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -4076,18 +4184,27 @@ void readgroups(FILE* gmvin, int ftype)
    if (data_type == CELL && numcells == 0)
      {
       fprintf(stderr,"Error, no cells exist for cell group %s.\n",grpname);
+      errormsgvarlen = (int)strlen(grpname);
+      gmv_data.errormsg = (char *)malloc((39 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,39 + errormsgvarlen,"Error, no cells exist for cell group %s.",grpname);
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == NODE && numnodes == 0)
      {
       fprintf(stderr,"Error, no nodes exist for node group %s.\n",grpname);
+      errormsgvarlen = (int)strlen(grpname);
+      gmv_data.errormsg = (char *)malloc((39 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,39 + errormsgvarlen,"Error, no nodes exist for node group %s.",grpname);
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == FACE && numfaces == 0)
      {
-      fprintf(stderr,"Error, no faces exist for face group: %s.\n",grpname);
+      fprintf(stderr,"Error, no faces exist for face group %s.\n",grpname);
+      errormsgvarlen = (int)strlen(grpname);
+      gmv_data.errormsg = (char *)malloc((39 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,39 + errormsgvarlen,"Error, no faces exist for face group %s.",grpname);
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -4220,6 +4337,9 @@ void readsubvars(FILE* gmvin, int ftype)
    if (nsubvarin == 0)
      {
       fprintf(stderr,"Error, no data to read for subvars %s.\n",varname);
+      errormsgvarlen = (int)strlen(varname);
+      gmv_data.errormsg = (char *)malloc((37 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,37 + errormsgvarlen,"Error, no data to read for subvars %s.",varname);
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -4232,18 +4352,27 @@ void readsubvars(FILE* gmvin, int ftype)
    if (data_type == CELL && numcells == 0)
      {
       fprintf(stderr,"Error, no cells exist for cell subvars %s.\n",varname);
+      errormsgvarlen = (int)strlen(varname);
+      gmv_data.errormsg = (char *)malloc((41 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,41 + errormsgvarlen,"Error, no cells exist for cell subvars %s.",varname);
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == NODE && numnodes == 0)
      {
       fprintf(stderr,"Error, no nodes exist for node subvars %s.\n",varname);
+      errormsgvarlen = (int)strlen(varname);
+      gmv_data.errormsg = (char *)malloc((41 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,41 + errormsgvarlen,"Error, no nodes exist for node subvars %s.",varname);
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == FACE && numfaces == 0)
      {
-      fprintf(stderr,"Error, no faces exist for face subvars: %s.\n",varname);
+      fprintf(stderr,"Error, no faces exist for face subvars %s.\n",varname);
+      errormsgvarlen = (int)strlen(varname);
+      gmv_data.errormsg = (char *)malloc((41 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,41 + errormsgvarlen,"Error, no faces exist for face subvars %s.",varname);
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -4330,13 +4459,17 @@ void readghosts(FILE* gmvin, int ftype)
    /*  Check for existence of data_type.  */
    if (data_type == CELL && numcells == 0)
      {
-      fprintf(stderr,"Error, no cells exist for ghost cells .\n");
+      fprintf(stderr,"Error, no cells exist for ghost cells.\n");
+      gmv_data.errormsg = (char *)malloc(39 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,39,"Error, no cells exist for ghost cells.");
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == NODE && numnodes == 0)
      {
       fprintf(stderr,"Error, no nodes exist for ghosts nodes.\n");
+      gmv_data.errormsg = (char *)malloc(39 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,39,"Error, no nodes exist for ghost nodes.");
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -4432,18 +4565,27 @@ void readvects(FILE* gmvin, int ftype)
    if (data_type == CELL && numcells == 0)
      {
       fprintf(stderr,"Error, no cells exist for cell vector %s.\n",vectname);
+      errormsgvarlen = (int)strlen(vectname);
+      gmv_data.errormsg = (char *)malloc((40 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,40 + errormsgvarlen,"Error, no cells exist for cell vector %s.",vectname);
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == NODE && numnodes == 0)
      {
       fprintf(stderr,"Error, no nodes exist for node vector %s.\n",vectname);
+      errormsgvarlen = (int)strlen(vectname);
+      gmv_data.errormsg = (char *)malloc((40 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,40 + errormsgvarlen,"Error, no nodes exist for node vector %s.",vectname);
       gmv_data.keyword = GMVERROR;
       return;
      }
    if (data_type == FACE && numfaces == 0)
      {
-      fprintf(stderr,"Error, no faces exist for face vector: %s.\n",vectname);
+      fprintf(stderr,"Error, no faces exist for face vector %s.\n",vectname);
+      errormsgvarlen = (int)strlen(vectname);
+      gmv_data.errormsg = (char *)malloc((40 + errormsgvarlen) * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,40 + errormsgvarlen,"Error, no faces exist for face vector %s.",vectname);
       gmv_data.keyword = GMVERROR;
       return;
      }
@@ -4538,6 +4680,8 @@ void gmvrdmemerr()
   /*                 */
 
    fprintf(stderr,"Not enough memory to read gmv data.\n");
+   gmv_data.errormsg = (char *)malloc(36 * sizeof(char));
+   SNPRINTF(gmv_data.errormsg,36,"Not enough memory to read gmv data.");
    gmv_data.keyword = GMVERROR;
    gmv_meshdata.intype = GMVERROR;
 }
@@ -4548,10 +4692,11 @@ void gmvrdmemerr2()
   /*                 */
   /*  Memory error.  */
   /*                 */
-/*LLNL*/
-/*   fprintf(stderr,"Not enough memory to fill gmv mesh data.\n");*/
+   fprintf(stderr,"Not enough memory to fill gmv mesh data.\n");
+   gmv_data.errormsg = (char *)malloc(41 * sizeof(char));
+   SNPRINTF(gmv_data.errormsg,41,"Not enough memory to fill gmv mesh data.");
    gmvread_close();
-   gmverror("Not enough memory to fill gmv mesh data.\n");
+/*LLNL*/
 /*   exit(0);*/
   }
 
@@ -4564,10 +4709,11 @@ void ioerrtst(FILE *gmvin)
 
    if ((feof(gmvin) != 0) || (ferror(gmvin) != 0))
      {
-/*LLNL*/
-      gmverror("I/O error while reading gmv input file.\n");
-/*
       fprintf(stderr,"I/O error while reading gmv input file.\n");
+      gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
+/*LLNL*/
+/*
       exit(0);
 */
      }
@@ -4646,6 +4792,8 @@ int binread(void* ptr, int size, int type, long nitems, FILE* stream)
  
       default:
         fprintf(stderr,"Error: Cannot match input datatype.\n");
+        gmv_data.errormsg = (char *)malloc(36 * sizeof(char));
+        SNPRINTF(gmv_data.errormsg,36,"Error: Cannot match input datatype.");
         gmv_data.keyword = GMVERROR;
         return;
      }
@@ -4653,6 +4801,8 @@ int binread(void* ptr, int size, int type, long nitems, FILE* stream)
      if(tierr != 0)
        {
         fprintf(stderr,"Error: Cannot convert IEEE data to CRAY\n");
+        gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
+        SNPRINTF(gmv_data.errormsg,40,"Error: Cannot convert IEEE data to CRAY");
         gmv_data.keyword = GMVERROR;
         return;
        }
@@ -4687,6 +4837,8 @@ int word2int(unsigned wordin)
      if(IEG2CRAY(&ttype, &tnum, &wordin, &tbitoff, &intout) != 0)
        {
         fprintf(stderr,"Error: Cannot convert IEEE data to CRAY\n");
+        gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
+        SNPRINTF(gmv_data.errormsg,40,"Error: Cannot convert IEEE data to CRAY");
         gmv_data.keyword = GMVERROR;
         return;
        }
@@ -4838,6 +4990,8 @@ void gmvread_mesh()
    if (gmv_data.keyword != NODES)
      {
       fprintf(stderr,"Error - nodes keyword missing.\n");
+      gmv_data.errormsg = (char *)malloc(31 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,31,"Error - nodes keyword missing.");
       gmvread_close();
       gmv_meshdata.intype = GMVERROR;
       return;
@@ -5073,6 +5227,8 @@ void rdcells(int nodetype_in)
             if (gmv_data.keyword != VFACES)
               {
                fprintf(stderr,"Error, vfaces keyword not found.\n");
+	       gmv_data.errormsg = (char *)malloc(33 * sizeof(char));
+	       SNPRINTF(gmv_data.errormsg,33,"Error, vfaces keyword not found.");
                gmv_meshdata.intype = GMVERROR;
                return;
               }
@@ -5662,6 +5818,8 @@ void rdvfaces(long nc)
    if (gmv_data.num != nfacesin)
      {
       fprintf(stderr,"I/O error while reading vfaces.\n");
+      gmv_data.errormsg = (char *)malloc(32 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,32,"I/O error while reading vfaces.");
       gmv_meshdata.intype = GMVERROR;
       return;
      }
@@ -6502,6 +6660,8 @@ int gmvrayread_open(char *filnam)
    else if( file_path == NULL && slash == NULL )
       {
           fprintf(stderr,"Error with the path");
+          gmv_data.errormsg = (char *)malloc(20 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg,20,"Error with the path");
           return 1;
       }
    
@@ -6509,6 +6669,9 @@ int gmvrayread_open(char *filnam)
    if(gmvrayin == NULL)
       {
        fprintf(stderr,"GMV cannot open file %s\n",filnam);
+       errormsgvarlen = (int)strlen(filnam);
+       gmv_data.errormsg = (char *)malloc((22 + errormsgvarlen) * sizeof(char));
+       SNPRINTF(gmv_data.errormsg,22 + errormsgvarlen,"GMV cannot open file %s",filnam);
        return 1;
       }
     
@@ -6517,6 +6680,8 @@ int gmvrayread_open(char *filnam)
    if (strncmp(magic,"gmvrays",7) != 0)
       {
        fprintf(stderr,"This is not a GMV ray input file.\n");
+       gmv_data.errormsg = (char *)malloc(34 * sizeof(char));
+       SNPRINTF(gmv_data.errormsg,34,"This is not a GMV ray input file.");
        return 2;
       }
 
@@ -6527,6 +6692,8 @@ int gmvrayread_open(char *filnam)
        if (!chkend)
          {
           fprintf(stderr,"Error - endray not found.\n");
+          gmv_data.errormsg = (char *)malloc(26 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg,26,"Error - endray not found.");
           return 3;
          }
       }
@@ -6577,9 +6744,13 @@ int gmvrayread_open(char *filnam)
      {
       fprintf(stderr,"Invalid GMV RAY input file type.  Type must be:\n");
       fprintf(stderr,
-       "  ascii, ieee, ieeei4r4, ieeei4r8, ieeei8r4, ieeei8r8.\n");
+       "  ascii, ieee, ieeei4r4, ieeei4r8, ieeei8r4, ieeei8r8,\n");
       fprintf(stderr,
        "  iecxi4r4, iecxi4r8, iecxi8r4, iecxi8r8.\n");
+      gmv_data.errormsg = (char *)malloc(141 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,141,"Invalid GMV RAY input file type.  Type must be: %s%s",
+              "ascii, ieee, ieeei4r4, ieeei4r8, ieeei8r4, ieeei8r8, ",
+              "iecxi4r4, iecxi4r8, iecxi8r4, iecxi8r8.");
       return 4;
      }
 
@@ -6589,6 +6760,8 @@ int gmvrayread_open(char *filnam)
       if (sizeof(long) < 8)
         {
          fprintf(stderr,"Cannot read 64bit I* types on this machine.\n");
+         gmv_data.errormsg = (char *)malloc(44 * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,44,"Cannot read 64bit I* types on this machine.");
          return 4;
         }
      }
@@ -6633,6 +6806,8 @@ int ioerrtst2(FILE * gmvrayin)
    if ((feof(gmvrayin) != 0) || (ferror(gmvrayin) != 0))
      {
       fprintf(stderr,"I/O error while reading gmv ray input file.\n");
+      gmv_data.errormsg = (char *)malloc(44 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,44,"I/O error while reading gmv ray input file.");
       gmvray_data.nvars = -1;
       return 1;
      }
@@ -6679,6 +6854,9 @@ void gmvrayread_data()
         {
          gmvray_data.nvars = -1;
          fprintf(stderr,"Error, %s is an invalid keyword.\n",keyword);
+         errormsgvarlen = (int)strlen(keyword);
+         gmv_data.errormsg = (char *)malloc((31 + errormsgvarlen) * sizeof(char));
+         SNPRINTF(gmv_data.errormsg,31 + errormsgvarlen,"Error, %s is an invalid keyword.",keyword);
          return;
         }
 
@@ -6964,6 +7142,8 @@ void readrays(FILE* gmvrayin, int ftype)
    if ((feof(gmvrayin) != 0) | (ferror(gmvrayin) != 0))
      {
       fprintf(stderr,"I/O error while reading rays.\n");
+      gmv_data.errormsg = (char *)malloc(30 * sizeof(char));
+      SNPRINTF(gmv_data.errormsg,30,"I/O error while reading rays.");
       gmvray_data.nvars = -1;
       return;
      }
@@ -7022,6 +7202,8 @@ void gmvrayrdmemerr()
   /*                 */
 
    fprintf(stderr,"Not enough memory to read gmv ray data.\n");
+   gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
+   SNPRINTF(gmv_data.errormsg,40,"Not enough memory to read gmv ray data.");
    gmvray_data.nvars = -1;
 }
 
