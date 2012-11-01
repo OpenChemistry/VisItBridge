@@ -73,7 +73,7 @@
 #define FROMFILE   208
 
 
-EXTERN struct 
+EXTERN struct gmv_data_type
          {
           int     keyword;    /*  See above for definitions.  */
           int     datatype;   /*  See above for definitions.  */
@@ -101,7 +101,7 @@ EXTERN struct
      gmv_data;
 
 
-EXTERN struct 
+EXTERN struct gmv_meshdata_type
          {
           long    nnodes; 
           long    ncells;
