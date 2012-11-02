@@ -96,7 +96,7 @@ void swapbytes(void *from, int size, int nitems),
      readghosts(FILE *gmvin, int ftype),
      readvects(FILE *gmvin, int ftype),
      gmvrdmemerr(), ioerrtst(FILE *gmvin), endfromfile();
-static FILE *gmvin, *gmvin_sav;
+static FILE *gmvin = NULL, *gmvin_sav = NULL;
 
 static char *file_path = NULL;
 static int errormsgvarlen = 0;
@@ -473,7 +473,7 @@ int gmvread_open_fromfileskip(char *filnam)
 
 void gmvread_close()
 {
-   fclose(gmvin);
+   if (gmvin) fclose(gmvin);
    fromfileskip = 0;
    nodes_read = 0;  cells_read = 0;  faces_read = 0; 
    surface_read = 0;  iend = 0;  swapbytes_on = 0;  skipflag = 0; 
@@ -499,7 +499,7 @@ void gmvread_data()
   double ptime;
   float tmptime;
   int cycleno, before_nodes_ok;
-  void fromfilecheck(int keyword);
+  int fromfilecheck(int keyword);
 
    /*  Zero gmv_data and free structure arrays.  */
    gmv_data.keyword = 0;
@@ -700,38 +700,68 @@ void gmvread_data()
       switch (curr_keyword)
         {
          case(NODES):
-            fromfilecheck(NODES);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(NODES) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readnodes(gmvin,ftype);
             readkeyword = 1;
             break;   
          case(CELLS):
-            fromfilecheck(CELLS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(CELLS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readcells(gmvin,ftype);
             if (amrflag_in == 0 && structflag_in == 0)
                readkeyword = 0;
             break;   
          case(FACES):
-            fromfilecheck(FACES);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(FACES) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readfaces(gmvin,ftype);
             readkeyword = 0;
             break;
          case(VFACES):
-            fromfilecheck(VFACES);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(VFACES) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readvfaces(gmvin,ftype);
             readkeyword = 0;
             break;
          case(XFACES):
-            fromfilecheck(XFACES);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(XFACES) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readxfaces(gmvin,ftype);
             readkeyword = 0;
             break;
          case(MATERIAL):
-            fromfilecheck(MATERIAL);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(MATERIAL) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readmats(gmvin,ftype);
             readkeyword = 1;
@@ -745,13 +775,23 @@ void gmvread_data()
             if (readkeyword == 1) readkeyword = 0;
             break;
          case(FLAGS):
-            fromfilecheck(FLAGS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(FLAGS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readflags(gmvin,ftype);
             if (readkeyword == 1) readkeyword = 0;
             break;
          case(POLYGONS):
-            fromfilecheck(POLYGONS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(POLYGONS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readpolygons(gmvin,ftype);
             if (readkeyword == 1) readkeyword = 0;
@@ -788,34 +828,64 @@ void gmvread_data()
             readkeyword = 1;
             break;
          case(NODEIDS):
-            fromfilecheck(NODEIDS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(NODEIDS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readnodeids(gmvin,ftype);
             readkeyword = 1;
             break;
          case(CELLIDS):
-            fromfilecheck(CELLIDS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(CELLIDS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             readcellids(gmvin,ftype);
             readkeyword = 1;
             break;
          case(FACEIDS):
-            fromfilecheck(FACEIDS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(FACEIDS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             readfaceids(gmvin,ftype);
             readkeyword = 1;
             break;
          case(TRACEIDS):
-            fromfilecheck(TRACEIDS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(TRACEIDS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             readtracerids(gmvin,ftype);
             readkeyword = 1;
             break;
          case(SURFACE):
-            fromfilecheck(SURFACE);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(SURFACE) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readsurface(gmvin,ftype);
             readkeyword = 0;
             break;
          case(SURFMATS):
-            fromfilecheck(SURFMATS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(SURFMATS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readsurfmats(gmvin,ftype);
             readkeyword = 1;
@@ -833,12 +903,22 @@ void gmvread_data()
             if (readkeyword == 1) readkeyword = 0;
             break;
          case(SURFIDS):
-            fromfilecheck(SURFIDS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(SURFIDS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             readsurfids(gmvin,ftype);
             readkeyword = 1;
             break;
          case(UNITS):
-            fromfilecheck(UNITS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(UNITS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readunits(gmvin,ftype);
             if (readkeyword == 1) readkeyword = 0;
@@ -848,7 +928,12 @@ void gmvread_data()
             if (readkeyword == 1) readkeyword = 0;
             break;
          case(GROUPS):
-            fromfilecheck(GROUPS);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(GROUPS) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             if (fromfileflag == 1) break;
             readgroups(gmvin,ftype);
             if (readkeyword == 1) readkeyword = 0;
@@ -871,7 +956,12 @@ void gmvread_data()
             readkeyword = 1;
             break;
          case(CELLPES):
-            fromfilecheck(CELLPES);
+            /* SB: Modification due to disabled exit statement on fromfile error */
+            if (fromfilecheck(CELLPES) < 0)
+              {
+                gmv_data.keyword = GMVABORT;
+                break;
+              }
             readcellpes(gmvin,ftype);
             readkeyword = 1;
             break;
@@ -1001,23 +1091,23 @@ int rdcellkeyword(FILE* gmvin, int ftype, char* keystring)
 }
 
 
-void fromfilecheck(int fkeyword)
+int fromfilecheck(int fkeyword)
 {
   long pos_after_keyword;
   int base_ftype;
-  void checkfromfile();
+  int checkfromfile();
   FILE *basefile;  
 
    basefile = gmvin;
    base_ftype = ftype;
    pos_after_keyword = ftell(gmvin);
-   checkfromfile();
+   if (checkfromfile() < 0) return -1;
 
    if (gmvin == basefile)
      {
       if (fromfileflag == 0)
          fseek(gmvin, pos_after_keyword, SEEK_SET);
-      return;
+      return 0;
      }
    else
      {
@@ -1038,7 +1128,7 @@ void fromfilecheck(int fkeyword)
 
      }
  
-   return;
+   return 0;
 }
 
 
@@ -1056,7 +1146,7 @@ void endfromfile()
 }
 
 
-void checkfromfile()
+int checkfromfile()
 {
   char c, charptr[300], *charptr2, tmpbuf[200], stringbuf[100];
   int i, ierr, fkeyword;
@@ -1067,7 +1157,7 @@ void checkfromfile()
    else
       fscanf(gmvin,"%s",stringbuf);
 
-   if (strncmp("from",stringbuf, 4) != 0) return;
+   if (strncmp("from",stringbuf, 4) != 0) return 0;
 
    if (ftype != ASCII)
      {
@@ -1127,10 +1217,7 @@ void checkfromfile()
              errormsgvarlen = (int)strlen(charptr);
              gmv_data.errormsg = (char *)malloc((26 + errormsgvarlen) * sizeof(char));
              SNPRINTF(gmv_data.errormsg,26 + errormsgvarlen,"GMV cannot read fromfile %s",charptr);
-/*LLNL*/
-/*
-             exit(0);
-*/
+             return -1;
             }
 
          /*  Skip to fkeyword.  */
@@ -1163,10 +1250,10 @@ void checkfromfile()
       gmv_data.nchardata1 = i;
       gmv_data.chardata1 = (char *)malloc(i*sizeof(char));
       strcpy(gmv_data.chardata1,charptr);
-      return;
+      return 0;
      }
 
-   if (fromfileskip == 1 && fromfileflag == 1) return;
+   if (fromfileskip == 1 && fromfileflag == 1) return 0;
 
    /*  Open fromfile, but do not allow more fromfiles.  */
    ierr = gmvread_open_fromfileskip(charptr);
@@ -1176,14 +1263,11 @@ void checkfromfile()
        errormsgvarlen = (int)strlen(charptr);
        gmv_data.errormsg = (char *)malloc((26 + errormsgvarlen) * sizeof(char));
        SNPRINTF(gmv_data.errormsg,26 + errormsgvarlen,"GMV cannot read fromfile %s",charptr);
-/*LLNL*/
-/*
-       exit(0);
-*/
+       return -1;
       }
    printf("GMV reading %s from fromfile %s\n",sav_keyword,charptr);
 
-   return;
+   return 0;
 }
 
 
@@ -4981,7 +5065,8 @@ void gmvread_mesh()
    /* gmvread_data(); */
 
    /*  Check for GMVERROR.  */
-   if (gmv_data.keyword == GMVERROR)
+   /* SB: Modification due to disabled exit statement on fromfile error */
+   if (gmv_data.keyword == GMVERROR || gmv_data.keyword == GMVABORT)
      {
       gmv_meshdata.intype = GMVERROR;
       return;

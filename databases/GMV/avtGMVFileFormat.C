@@ -1522,6 +1522,8 @@ avtGMVFileFormat::ReadData()
                     md.SetDatabaseComment((md.GetDatabaseComment() + "\nSIMDATE: ") + gmv_data.name1);
                     break;
                 case GMVEND:
+                case GMVERROR:
+                case GMVABORT:
                     keepGoing = false;
                     break;
                 }
