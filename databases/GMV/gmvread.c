@@ -1184,9 +1184,23 @@ int checkfromfile()
       charptr2 = &tmpbuf[1];
      }
 
+#ifdef _WIN32
+#  if !defined(__CYGWIN__)
+   /*  If the first character of the fromfile filename is    */
+   /*  not \\ (network path) or <letter>:\, then add the     */
+   /*  input directory to the filename.  */
+   if (strncmp(&charptr2[0],"\\\\",2) != 0 &&
+       strncmp(&charptr2[1],":\\",2) != 0)
+#  else
    /*  If the first character of the fromfile filename is    */
    /*  not /, then add the input directory to the filename.  */
    if (strncmp(charptr2,"/",1) != 0)
+#  endif
+#else
+   /*  If the first character of the fromfile filename is    */
+   /*  not /, then add the input directory to the filename.  */
+   if (strncmp(charptr2,"/",1) != 0)
+#endif
      {
       strcpy(charptr,input_dir);
       strcat(charptr,charptr2);
