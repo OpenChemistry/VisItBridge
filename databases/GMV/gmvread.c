@@ -2549,7 +2549,7 @@ void readmats(FILE* gmvin, int ftype)
   /*  Read and set material data.  */
   /*                               */
   int i, data_type, *matin, lnmatin, lmmats;
-  char mname[33], *matnames;
+  char mname[MAXCUSTOMNAMELENGTH], *matnames;
 
    /*  Read no. of materials and data type (cells or nodes).  */
    if (ftype != ASCII)
@@ -2583,7 +2583,7 @@ void readmats(FILE* gmvin, int ftype)
      }
 
    /*  Allocate and read 8 or 32 character material names.  */
-   matnames = (char *)malloc(lmmats*33*sizeof(char));
+   matnames = (char *)malloc(lmmats*MAXCUSTOMNAMELENGTH*sizeof(char));
    if (matnames == NULL)
      {
       gmvrdmemerr();
@@ -2601,8 +2601,8 @@ void readmats(FILE* gmvin, int ftype)
          fscanf(gmvin,"%s",mname);
          ioerrtst(gmvin);
         }
-      strncpy(&matnames[i*33],mname,32);
-      *(matnames+i*33+charsize_in) = (char) 0;
+      strncpy(&matnames[i*MAXCUSTOMNAMELENGTH],mname,MAXCUSTOMNAMELENGTH-1);
+      *(matnames+i*MAXCUSTOMNAMELENGTH+charsize_in) = (char) 0;
      }
 
    /*  Allocate and read material nos.  */
@@ -2755,7 +2755,7 @@ void readvars(FILE* gmvin, int ftype)
   int i, data_type, nvarin;
   double *varin;
   float *tmpfloat;
-  char varname[33];
+  char varname[MAXCUSTOMNAMELENGTH];
 
    /*  Read a variable name and data type (cells or nodes). */
    if (ftype != ASCII)
@@ -2870,7 +2870,7 @@ void readflags(FILE* gmvin, int ftype)
   /*                                     */
   int i, data_type, ntypes, nflagin;
   int *flagin;
-  char flgname[33], fname[33], *fnames;
+  char flgname[MAXCUSTOMNAMELENGTH], fname[MAXCUSTOMNAMELENGTH], *fnames;
 
    /*  Read flag name, no. flag types,  */
    /*  and data type (cells or nodes).  */
@@ -2930,7 +2930,7 @@ void readflags(FILE* gmvin, int ftype)
      }
 
    /*  Read one set of flag data.  */
-   fnames = (char *)malloc(ntypes*33*sizeof(char));
+   fnames = (char *)malloc(ntypes*MAXCUSTOMNAMELENGTH*sizeof(char));
    if (fnames == NULL)
      {
       gmvrdmemerr();
@@ -2952,8 +2952,8 @@ void readflags(FILE* gmvin, int ftype)
          ioerrtst(gmvin);
          *(fname+charsize_in) = (char) 0;
         }
-      strncpy(&fnames[i*33],fname,charsize_in);
-      *(fnames+i*33+charsize_in) = (char) 0;
+      strncpy(&fnames[i*MAXCUSTOMNAMELENGTH],fname,charsize_in);
+      *(fnames+i*MAXCUSTOMNAMELENGTH+charsize_in) = (char) 0;
      }
 
    /*  Allocate and read flag data.  */
@@ -3107,7 +3107,7 @@ void readtracers(FILE* gmvin, int ftype)
   /*                             */
   /*  Read and set tracer data.  */
   /*                             */
-  char varname[33];
+  char varname[MAXCUSTOMNAMELENGTH];
   int i;
   double *lxtr, *lytr, *lztr, *lfieldtr;
   float *tmpfloat;
@@ -3549,8 +3549,8 @@ void readunits(FILE* gmvin, int ftype)
         }
 
       /*  Allocate two character stings.  */
-      fldstr = (char *)malloc(numunits*33*sizeof(char));
-      unitstr = (char *)malloc(numunits*33*sizeof(char));
+      fldstr = (char *)malloc(numunits*MAXCUSTOMNAMELENGTH*sizeof(char));
+      unitstr = (char *)malloc(numunits*MAXCUSTOMNAMELENGTH*sizeof(char));
       if (fldstr == NULL || unitstr == NULL)
         {
          gmvrdmemerr();
@@ -3577,8 +3577,8 @@ void readunits(FILE* gmvin, int ftype)
             ioerrtst(gmvin);
             *(unitname+16) = (char) 0;
            }
-         strcpy(&fldstr[i*33],fldname);
-         strcpy(&unitstr[i*33],unitname);
+         strcpy(&fldstr[i*MAXCUSTOMNAMELENGTH],fldname);
+         strcpy(&unitstr[i*MAXCUSTOMNAMELENGTH],unitname);
         }
 
       if (strncmp(unittype,"nodes",5) == 0)
@@ -3830,7 +3830,7 @@ void readsurfvars(FILE* gmvin, int ftype)
   int i;
   double *varin;
   float *tmpfloat;
-  char varname[33];
+  char varname[MAXCUSTOMNAMELENGTH];
 
    /*  Check that surfaces have been input.  */
    if (surface_read == 0)
@@ -3916,7 +3916,7 @@ void readsurfflag(FILE* gmvin, int ftype)
   /*                                     */
   int i, ntypes;
   int *flagin;
-  char flgname[33], fname[33], *fnames;
+  char flgname[MAXCUSTOMNAMELENGTH], fname[MAXCUSTOMNAMELENGTH], *fnames;
 
    /*  Check that surfaces have been input.  */
    if (surface_read == 0)
@@ -3962,7 +3962,7 @@ void readsurfflag(FILE* gmvin, int ftype)
    ioerrtst(gmvin);
 
    /*  Read one set of surface flag data.  */
-   fnames = (char *)malloc(ntypes*33*sizeof(char));
+   fnames = (char *)malloc(ntypes*MAXCUSTOMNAMELENGTH*sizeof(char));
    if (fnames == NULL)
      {
       gmvrdmemerr();
@@ -3994,8 +3994,8 @@ void readsurfflag(FILE* gmvin, int ftype)
          ioerrtst(gmvin);
          *(fname+charsize_in) = (char) 0;
         }
-      strncpy(&fnames[i*33],fname,charsize_in);
-      *(fnames+i*33+charsize_in) = (char) 0;
+      strncpy(&fnames[i*MAXCUSTOMNAMELENGTH],fname,charsize_in);
+      *(fnames+i*MAXCUSTOMNAMELENGTH+charsize_in) = (char) 0;
      }
 
    /*  Allocate and read flag data.  */
@@ -4102,7 +4102,7 @@ void readvinfo(FILE* gmvin, int ftype)
   int i, nelem_line, nlines, nvarin;
   double *varin;
   float *tmpfloat;
-  char varname[33];
+  char varname[MAXCUSTOMNAMELENGTH];
 
    /*  Read a variable name, no. of elements per line, and no. of lines. */
    if (ftype != ASCII)
@@ -4395,7 +4395,7 @@ void readsubvars(FILE* gmvin, int ftype)
   int i, data_type, nsubvarin, *subvarid;
   double *subvarin;
   float *tmpfloat;
-  char varname[33];
+  char varname[MAXCUSTOMNAMELENGTH];
 
    /*  Read a subvars name, data type (cells, nodes,  */
    /*  etc),and the number of elements in the set.    */
@@ -4613,7 +4613,7 @@ void readvects(FILE* gmvin, int ftype)
   int i, data_type, nvectin, ncomps, nreadin, cnamein;
   double *vectin;
   float *tmpfloat;
-  char vectname[33], cvname[33], *cvnames;
+  char vectname[MAXCUSTOMNAMELENGTH], cvname[MAXCUSTOMNAMELENGTH], *cvnames;
 
    /*  Read a vector name, data type (cells, nodes, faces), */
    /*  the number of components in the vector and the       */
@@ -4690,7 +4690,7 @@ void readvects(FILE* gmvin, int ftype)
 
    /*  Read component names, if they exist.  */
    /*  Otherwise generate a name.            */
-   cvnames = (char *)malloc(ncomps*33*sizeof(char));
+   cvnames = (char *)malloc(ncomps*MAXCUSTOMNAMELENGTH*sizeof(char));
    if (cvnames == NULL)
      {
       gmvrdmemerr();
@@ -4710,8 +4710,8 @@ void readvects(FILE* gmvin, int ftype)
             fscanf(gmvin,"%s",cvname);
             ioerrtst(gmvin);
            }
-         strncpy(&cvnames[i*33],cvname,32);
-         *(cvnames+i*33+charsize_in) = (char) 0;
+         strncpy(&cvnames[i*MAXCUSTOMNAMELENGTH],cvname,MAXCUSTOMNAMELENGTH-1);
+         *(cvnames+i*MAXCUSTOMNAMELENGTH+charsize_in) = (char) 0;
         }
      }
    else
@@ -4719,8 +4719,8 @@ void readvects(FILE* gmvin, int ftype)
       for (i = 0; i < ncomps; i++)
         {
          sprintf(cvname,"%d-%s",i+1,vectname);
-         strncpy(&cvnames[i*33],cvname,32);
-         *(cvnames+i*33+charsize_in) = (char) 0;
+         strncpy(&cvnames[i*MAXCUSTOMNAMELENGTH],cvname,MAXCUSTOMNAMELENGTH-1);
+         *(cvnames+i*MAXCUSTOMNAMELENGTH+charsize_in) = (char) 0;
         }
      }
 
@@ -6992,7 +6992,7 @@ void readrays(FILE* gmvrayin, int ftype)
   int *rayids;
   double *x, *y, *z, *field, *tmpdouble;
   float *tmpfloat;
-  char vname[33], *varnames;
+  char vname[MAXCUSTOMNAMELENGTH], *varnames;
   short vartype[NRAYVARS];
   struct gmvray *gmvrays;
   const char *rtype_str[4] = {"Points","Segments"};
@@ -7042,7 +7042,7 @@ void readrays(FILE* gmvrayin, int ftype)
       printf("Reading %d rays.\n",lrays);
 
    /*  Allocate and read variable 8 or 32 char. names and types.  */
-   varnames = (char *)malloc(lrayvars*33*sizeof(char));
+   varnames = (char *)malloc(lrayvars*MAXCUSTOMNAMELENGTH*sizeof(char));
    if (varnames == NULL)
      {
       gmvrdmemerr();
@@ -7064,8 +7064,8 @@ void readrays(FILE* gmvrayin, int ftype)
          if (ioerrtst2(gmvrayin)) return;
         }
       
-      strncpy(&varnames[i*33],vname,32);
-      *(varnames+i*33+charsize_in) = (char) 0;
+      strncpy(&varnames[i*MAXCUSTOMNAMELENGTH],vname,MAXCUSTOMNAMELENGTH-1);
+      *(varnames+i*MAXCUSTOMNAMELENGTH+charsize_in) = (char) 0;
       vartype[i] = j;
       if (printon)
         {

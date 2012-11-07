@@ -73,12 +73,14 @@
 #define ENDKEYWORD 207
 #define FROMFILE   208
 
+#define MAXCUSTOMNAMELENGTH   33
+
 
 EXTERN struct gmv_data_type
          {
           int     keyword;    /*  See above for definitions.  */
           int     datatype;   /*  See above for definitions.  */
-          char    name1[33];  /*  hex, tri, etc, flag name, field name.  */
+          char    name1[MAXCUSTOMNAMELENGTH];  /*  hex, tri, etc, flag name, field name.  */
           long    num;        /*  nnodes, ncells, nsurf, ntracers.  */
           long    num2;       /*  no. of faces, number of vertices.  */
           /* SB: preserve messages that used to be sent to stderr */
@@ -96,10 +98,12 @@ EXTERN struct gmv_data_type
           long    nlongdata2;
           long    *longdata2;
 
-          int     nchardata1;   /*  Number of 33 character string.  */
-          char    *chardata1;   /*  Array of 33 character strings.  */
-          int     nchardata2;   /*  Number of 33 character string.  */
-          char    *chardata2;   /*  Array of 33 character strings.  */
+          int     nchardata1;   /*  Number of subsequently stored character strings.  */
+          char    *chardata1;   /*  Array of character strings,
+                                    each substring of length MAXCUSTOMNAMELENGTH.  */
+          int     nchardata2;   /*  Number of subsequently stored character strings.  */
+          char    *chardata2;   /*  Array of character strings,
+                                    each substring of length MAXCUSTOMNAMELENGTH.  */
          } 
      gmv_data;
 
