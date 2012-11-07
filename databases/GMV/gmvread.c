@@ -63,7 +63,7 @@ static short nodes_read = 0, cells_read = 0, faces_read = 0,
 static int curr_keyword, ftype, ftype_sav, readkeyword, ff_keyword = -1;
 
 static unsigned wordbuf;
-static char sav_keyword[9], input_dir[MAXFILENAMELENGTH];
+static char sav_keyword[MAXKEYWORDLENGTH+1], input_dir[MAXFILENAMELENGTH];
 
 void swapbytes(void *from, int size, int nitems),
      readnodes(FILE *gmvin, int ftype),
@@ -112,7 +112,7 @@ int gmvread_checkfile(char *filnam)
    /*  Check a GMV input file.  */
    /*                           */
    int chkend;
-   char magic[9], filetype[9];
+   char magic[MAXKEYWORDLENGTH+1], filetype[MAXKEYWORDLENGTH+1];
    FILE *gmvchk;
    char* slash;
 
@@ -161,7 +161,7 @@ int gmvread_checkfile(char *filnam)
       }
     
    /*  Read header. */
-   binread(magic,charsize, CHAR, (long)8, gmvchk);
+   binread(magic,charsize, CHAR, (long)MAXKEYWORDLENGTH, gmvchk);
    if (strncmp(magic,"gmvinput",8) != 0)
      {
       fprintf(stderr,"This is not a GMV input file.\n");
@@ -192,7 +192,7 @@ int gmvread_checkfile(char *filnam)
    /*  4-ieeei8r8 binary, 5-iecxi4r4 binary, 6-iecxi4r8 binary,    */
    /*  7-iecxi8r4 binary or 8-iecxi8r8 binary.                     */
 
-   binread(filetype,charsize, CHAR, (long)8, gmvchk);
+   binread(filetype,charsize, CHAR, (long)MAXKEYWORDLENGTH, gmvchk);
 
    /*  Rewind the file and re-read header for file type.  */
    ftype = -1;
@@ -260,7 +260,7 @@ int gmvread_open(char *filnam)
    /*  Open and check a GMV input file.  */
    /*                                    */
    int chkend, ilast, i, isize;
-   char magic[9], filetype[9];
+   char magic[MAXKEYWORDLENGTH+1], filetype[MAXKEYWORDLENGTH+1];
    char* slash;
 
    int chk_gmvend(FILE *gmvin);
@@ -308,7 +308,7 @@ int gmvread_open(char *filnam)
       }
     
    /*  Read header. */
-   binread(magic,charsize, CHAR, (long)8, gmvin);
+   binread(magic,charsize, CHAR, (long)MAXKEYWORDLENGTH, gmvin);
    if (strncmp(magic,"gmvinput",8) != 0)
       {
        fprintf(stderr,"This is not a GMV input file.\n");
@@ -336,7 +336,7 @@ int gmvread_open(char *filnam)
    /*  0-ieeei4r4 binary, 2-ieeei4r8 binary, 3-ieeei8r4 binary,    */
    /*  or 4-ieeei8r8 binary.                                       */
 
-   binread(filetype,charsize, CHAR, (long)8, gmvin);
+   binread(filetype,charsize, CHAR, (long)MAXKEYWORDLENGTH, gmvin);
 
    /*  Rewind the file and re-read header for file type.  */
    ftype = -1;
@@ -417,8 +417,8 @@ int gmvread_open(char *filnam)
 
    if (ftype != ASCII)
      {
-      binread(magic,charsize,CHAR,(long)8,gmvin);
-      binread(filetype,charsize,CHAR,(long)8,gmvin);
+      binread(magic,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
+      binread(filetype,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
      }
    if (ftype == ASCII) fscanf(gmvin,"%s%s",magic,filetype);
 
@@ -495,7 +495,7 @@ void gmvread_printoff()
 
 void gmvread_data()
 {
-  char keyword[9], tmpchar[20];
+  char keyword[MAXKEYWORDLENGTH+1], tmpchar[20];
   double ptime;
   float tmptime;
   int cycleno, before_nodes_ok;
@@ -584,8 +584,8 @@ void gmvread_data()
      {
       if (ftype != ASCII)
         {
-         binread(keyword,charsize,CHAR,(long)8,gmvin);
-         *(keyword+8)=(char)0;
+         binread(keyword,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
+         *(keyword+MAXKEYWORDLENGTH)=(char)0;
         }
       if (ftype == ASCII) fscanf(gmvin,"%s",keyword);
 
@@ -598,8 +598,8 @@ void gmvread_data()
          readcomments(gmvin,ftype);
          if (ftype != ASCII)
            {
-            binread(keyword,charsize,CHAR,(long)8,gmvin);
-            *(keyword+8)=(char)0;
+            binread(keyword,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
+            *(keyword+MAXKEYWORDLENGTH)=(char)0;
            }
          if (ftype == ASCII) fscanf(gmvin,"%s",keyword);
          if ((feof(gmvin) != 0) | (ferror(gmvin) != 0)) iend = 1;
@@ -1073,16 +1073,16 @@ void rdfloats(double farray[], long nvals, FILE* gmvin)
 
 int rdcellkeyword(FILE* gmvin, int ftype, char* keystring)
 {
-  char ckeyword[9];
+  char ckeyword[MAXKEYWORDLENGTH+1];
 
    if (ftype != ASCII)
      {
-      binread(ckeyword, charsize, CHAR, (long)8, gmvin);
+      binread(ckeyword, charsize, CHAR, (long)MAXKEYWORDLENGTH, gmvin);
 
       if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
         return (-1);
 
-      *(ckeyword+8)=(char)0;
+      *(ckeyword+MAXKEYWORDLENGTH)=(char)0;
      }
    if (ftype == ASCII) fscanf(gmvin,"%s",ckeyword);
  
@@ -1292,7 +1292,7 @@ void readnodes(FILE* gmvin, int ftype)
   double *lxic, *lyic, *lzic, *tmpdouble;
   long pos_after_lnodes, exp_cell_pos;
   float *tmpfloat;
-  char ckkeyword[9];
+  char ckkeyword[MAXKEYWORDLENGTH+1];
 
    if (ftype == ASCII)
      {
@@ -1351,8 +1351,8 @@ void readnodes(FILE* gmvin, int ftype)
          fseek(gmvin, exp_cell_pos, SEEK_CUR);
          if (ftype != ASCII)
            {
-            binread(ckkeyword,charsize,CHAR,(long)8,gmvin);
-            *(ckkeyword+8)=(char)0;
+            binread(ckkeyword,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
+            *(ckkeyword+MAXKEYWORDLENGTH)=(char)0;
            }
          if (ftype == ASCII) fscanf(gmvin,"%s",ckkeyword);
          if (strncmp(ckkeyword,"cells",5) != 0 &&
@@ -1390,8 +1390,8 @@ void readnodes(FILE* gmvin, int ftype)
       fseek(gmvin, exp_cell_pos, SEEK_CUR);
       if (ftype != ASCII)
         {
-         binread(ckkeyword,charsize,CHAR,(long)8,gmvin);
-         *(ckkeyword+8)=(char)0;
+         binread(ckkeyword,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
+         *(ckkeyword+MAXKEYWORDLENGTH)=(char)0;
         }
       if (ftype == ASCII) fscanf(gmvin,"%s",ckkeyword);
       if (strncmp(ckkeyword,"cells",5) != 0 &&
@@ -1710,7 +1710,7 @@ void readcells(FILE* gmvin, int ftype)
       *cellnodenos, nfaces;
   long *lfaces, numtop, *daughters;
   long *lcellnodenos;
-  char keyword[9];
+  char keyword[MAXKEYWORDLENGTH+1];
 
    if (readkeyword == 1)
      {
@@ -1823,8 +1823,8 @@ void readcells(FILE* gmvin, int ftype)
    /*  Read a cell at at time.  */
    if (ftype != ASCII)
      {
-      binread(keyword,charsize,CHAR,(long)8,gmvin);
-      *(keyword+8)=(char)0;
+      binread(keyword,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
+      *(keyword+MAXKEYWORDLENGTH)=(char)0;
       binread(&ndat,intsize,INT,(long)1,gmvin);
       ioerrtst(gmvin);
      }
@@ -2760,10 +2760,10 @@ void readvars(FILE* gmvin, int ftype)
    /*  Read a variable name and data type (cells or nodes). */
    if (ftype != ASCII)
      {
-      binread(varname,charsize,CHAR,(long)8,gmvin);
+      binread(varname,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
       if (strncmp(varname,"endvars",7) != 0 && charsize_in == 32)
         {
-         fseek(gmvin,-8L,SEEK_CUR);
+         fseek(gmvin,(long)(-MAXKEYWORDLENGTH),SEEK_CUR);
          binread(varname,charsize,CHAR,(long)charsize_in,gmvin);
         }
       *(varname+charsize_in)=(char)0;
@@ -2876,10 +2876,10 @@ void readflags(FILE* gmvin, int ftype)
    /*  and data type (cells or nodes).  */
    if (ftype != ASCII)
      {
-      binread(flgname,charsize,CHAR,(long)8,gmvin);
+      binread(flgname,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
       if (strncmp(flgname,"endflag",7) != 0 && charsize_in == 32)
         {
-         fseek(gmvin,-8L,SEEK_CUR);
+         fseek(gmvin,(long)(-MAXKEYWORDLENGTH),SEEK_CUR);
          binread(flgname,charsize,CHAR,(long)charsize_in,gmvin);
         }
       *(flgname+charsize_in)=(char)0;
@@ -3190,10 +3190,10 @@ void readtracers(FILE* gmvin, int ftype)
    /*  Read tracer field name and data.  */
    if (ftype != ASCII)
      {
-      binread(varname,charsize,CHAR,(long)8,gmvin);
+      binread(varname,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
       if (strncmp(varname,"endtrace",8) != 0 && charsize_in == 32)
         {
-         fseek(gmvin,-8L,SEEK_CUR);
+         fseek(gmvin,(long)(-MAXKEYWORDLENGTH),SEEK_CUR);
          binread(varname,charsize,CHAR,(long)charsize_in,gmvin);
         }
       *(varname+charsize_in)=(char)0;
@@ -3465,14 +3465,14 @@ void readunits(FILE* gmvin, int ftype)
   /*  Read and set units information.  */
   /*                                   */
   int i;
-  char unittype[9], fldname[9], unitname[17];
+  char unittype[MAXKEYWORDLENGTH+1], fldname[MAXKEYWORDLENGTH+1], unitname[17];
   char *fldstr, *unitstr;
 
    /*  Read unit type (xyz, velocity, nodes, cells).  */
    if (ftype != ASCII)
      {
-      binread(unittype,charsize,CHAR,(long)8,gmvin);
-      *(unittype+8)=(char)0;
+      binread(unittype,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
+      *(unittype+MAXKEYWORDLENGTH)=(char)0;
      }
    if (ftype == ASCII)
      {
@@ -3561,9 +3561,9 @@ void readunits(FILE* gmvin, int ftype)
         {
          if (ftype != ASCII)
            {
-            binread(fldname, 8*charsize, CHAR, (long)1, gmvin);
+            binread(fldname, MAXKEYWORDLENGTH*charsize, CHAR, (long)1, gmvin);
             ioerrtst(gmvin);
-            *(fldname+8) = (char) 0;
+            *(fldname+MAXKEYWORDLENGTH) = (char) 0;
             binread(unitname, 16*charsize, CHAR, (long)1, gmvin);
             ioerrtst(gmvin);
             *(unitname+16) = (char) 0;
@@ -3572,7 +3572,7 @@ void readunits(FILE* gmvin, int ftype)
            {
             fscanf(gmvin,"%s",fldname);
             ioerrtst(gmvin);
-            *(fldname+8) = (char) 0;
+            *(fldname+MAXKEYWORDLENGTH) = (char) 0;
             fscanf(gmvin,"%s",unitname);
             ioerrtst(gmvin);
             *(unitname+16) = (char) 0;
@@ -3846,10 +3846,10 @@ void readsurfvars(FILE* gmvin, int ftype)
    /*  Read variable name. */
    if (ftype != ASCII)
      {
-      binread(varname,charsize,CHAR,(long)8,gmvin);
+      binread(varname,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
       if (strncmp(varname,"endsvar",7) != 0 && charsize_in == 32)
         {
-         fseek(gmvin,-8L,SEEK_CUR);
+         fseek(gmvin,(long)(-MAXKEYWORDLENGTH),SEEK_CUR);
          binread(varname,charsize,CHAR,(long)charsize_in,gmvin);
         }
       *(varname+charsize_in)=(char)0;
@@ -4107,10 +4107,10 @@ void readvinfo(FILE* gmvin, int ftype)
    /*  Read a variable name, no. of elements per line, and no. of lines. */
    if (ftype != ASCII)
      {
-      binread(varname,charsize,CHAR,(long)8,gmvin);
+      binread(varname,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
       if (strncmp(varname,"endvinfo",8) != 0 && charsize_in == 32)
         {
-         fseek(gmvin,-8L,SEEK_CUR);
+         fseek(gmvin,(long)(-MAXKEYWORDLENGTH),SEEK_CUR);
          binread(varname,charsize,CHAR,(long)charsize_in,gmvin);
         }
       *(varname+charsize_in)=(char)0;
@@ -4243,10 +4243,10 @@ void readgroups(FILE* gmvin, int ftype)
    /*  surfaces) and the number of elements in the group.   */
    if (ftype != ASCII)
      {
-      binread(grpname,charsize,CHAR,(long)8,gmvin);
+      binread(grpname,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
       if (strncmp(grpname,"endgrp",6) != 0 && charsize_in == 32)
         {
-         fseek(gmvin,-8L,SEEK_CUR);
+         fseek(gmvin,(long)(-MAXKEYWORDLENGTH),SEEK_CUR);
          binread(grpname,charsize,CHAR,(long)charsize_in,gmvin);
         }
       *(grpname+charsize_in)=(char)0;
@@ -4401,10 +4401,10 @@ void readsubvars(FILE* gmvin, int ftype)
    /*  etc),and the number of elements in the set.    */
    if (ftype != ASCII)
      {
-      binread(varname,charsize,CHAR,(long)8,gmvin);
+      binread(varname,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
       if (strncmp(varname,"endsubv",7) != 0 && charsize_in == 32)
         {
-         fseek(gmvin,-8L,SEEK_CUR);
+         fseek(gmvin,(long)(-MAXKEYWORDLENGTH),SEEK_CUR);
          binread(varname,charsize,CHAR,(long)charsize_in,gmvin);
         }
       *(varname+charsize_in)=(char)0;
@@ -4620,10 +4620,10 @@ void readvects(FILE* gmvin, int ftype)
    /*  component name option.                               */
    if (ftype != ASCII)
      {
-      binread(vectname,charsize,CHAR,(long)8,gmvin);
+      binread(vectname,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvin);
       if (strncmp(vectname,"endvect",7) != 0 && charsize_in == 32)
         {
-         fseek(gmvin,-8L,SEEK_CUR);
+         fseek(gmvin,(long)(-MAXKEYWORDLENGTH),SEEK_CUR);
          binread(vectname,charsize,CHAR,(long)charsize_in,gmvin);
         }
       *(vectname+charsize_in)=(char)0;
@@ -5447,7 +5447,7 @@ void regcell(long icell, long nc)
   int nfaces, nverts[144], totverts,  dupflag, ncnodes,
       dupverts[145], dupnverts[145], ndup, nf;
   int icelltype;
-  char ckeyword[9];
+  char ckeyword[MAXKEYWORDLENGTH+1];
   short trinverts[1] = {3};
   short trifverts[3] = {1,2,3};
   short quadnverts[1] = {4};
@@ -6726,7 +6726,7 @@ int gmvrayread_open(char *filnam)
    /*  Open and check a GMV ray input file.  */
    /*                                        */
    int chkend;
-   char magic[9], filetype[9];
+   char magic[MAXKEYWORDLENGTH+1], filetype[MAXKEYWORDLENGTH+1];
    char * slash;
 
    int chk_rayend(FILE *gmvrayin);
@@ -6775,7 +6775,7 @@ int gmvrayread_open(char *filnam)
       }
     
    /*  Read header. */
-   binread(magic,charsize, CHAR, (long)8, gmvrayin);
+   binread(magic,charsize, CHAR, (long)MAXKEYWORDLENGTH, gmvrayin);
    if (strncmp(magic,"gmvrays",7) != 0)
       {
        fprintf(stderr,"This is not a GMV ray input file.\n");
@@ -6801,7 +6801,7 @@ int gmvrayread_open(char *filnam)
    /*  0-ieeei4r4 binary, 2-ieeei4r8 binary, 3-ieeei8r4 binary,    */
    /*  or 4-ieeei8r8 binary.                                       */
 
-   binread(filetype,charsize, CHAR, (long)8, gmvrayin);
+   binread(filetype,charsize, CHAR, (long)MAXKEYWORDLENGTH, gmvrayin);
 
    /*  Rewind the file and re-read header for file type.  */
    ftype = -1;
@@ -6881,8 +6881,8 @@ int gmvrayread_open(char *filnam)
 
    if (ftype != ASCII)
      {
-      binread(magic,charsize,CHAR,(long)8,gmvrayin);
-      binread(filetype,charsize,CHAR,(long)8,gmvrayin);
+      binread(magic,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvrayin);
+      binread(filetype,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvrayin);
      }
    if (ftype == ASCII) fscanf(gmvrayin,"%s%s",magic,filetype);
 
@@ -6916,7 +6916,7 @@ int ioerrtst2(FILE * gmvrayin)
 
 void gmvrayread_data()
 {
-  char keyword[9];
+  char keyword[MAXKEYWORDLENGTH+1];
   int iend, curr_keyword;
 
    /*  Zero gmvray_data and free structure arrays.  */
@@ -6932,8 +6932,8 @@ void gmvrayread_data()
      {
       if (ftype != ASCII)
         {
-         binread(keyword,charsize,CHAR,(long)8,gmvrayin);
-         *(keyword+8)=(char)0;
+         binread(keyword,charsize,CHAR,(long)MAXKEYWORDLENGTH,gmvrayin);
+         *(keyword+MAXKEYWORDLENGTH)=(char)0;
         }
       if (ftype == ASCII) fscanf(gmvrayin,"%s",keyword);
 
