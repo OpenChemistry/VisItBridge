@@ -74,6 +74,7 @@
 #define FROMFILE   208
 
 #define MAXCUSTOMNAMELENGTH   33
+#define MAXFILENAMELENGTH    300
 
 
 EXTERN struct gmv_data_type

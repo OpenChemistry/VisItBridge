@@ -63,7 +63,7 @@ static short nodes_read = 0, cells_read = 0, faces_read = 0,
 static int curr_keyword, ftype, ftype_sav, readkeyword, ff_keyword = -1;
 
 static unsigned wordbuf;
-static char sav_keyword[9], input_dir[300];
+static char sav_keyword[9], input_dir[MAXFILENAMELENGTH];
 
 void swapbytes(void *from, int size, int nitems),
      readnodes(FILE *gmvin, int ftype),
@@ -1148,7 +1148,7 @@ void endfromfile()
 
 int checkfromfile()
 {
-  char c, charptr[300], *charptr2, tmpbuf[200], stringbuf[100];
+  char c, charptr[MAXFILENAMELENGTH], *charptr2, tmpbuf[200], stringbuf[100];
   int i, ierr, fkeyword;
 
    /*  Check for "from".  */
