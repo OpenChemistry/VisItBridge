@@ -3014,7 +3014,7 @@ void readpolygons(FILE* gmvin, int ftype)
   int i, limatno, nvertsin, junk;
   double *vertsin;
   float *tmpfloat;
-  char varname[5], *tmpchar;
+  char varname[9], *tmpchar;
 
    /*  Read material no.  */
    if (ftype != ASCII)
