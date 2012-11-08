@@ -64,7 +64,7 @@ static short nodes_read = 0, cells_read = 0, faces_read = 0,
 static int curr_keyword, ftype, ftype_sav, readkeyword, ff_keyword = -1;
 
 static unsigned wordbuf;
-static char sav_keyword[MAXKEYWORDLENGTH+1], input_dir[MAXFILENAMELENGTH];
+static char sav_keyword[MAXKEYWORDLENGTH+64], input_dir[MAXFILENAMELENGTH];
 
 void swapbytes(void *from, int size, int nitems),
      readnodes(FILE *gmvin, int ftype),
@@ -113,7 +113,7 @@ int gmvread_checkfile(char *filnam)
    /*  Check a GMV input file.  */
    /*                           */
    int chkend;
-   char magic[MAXKEYWORDLENGTH+1], filetype[MAXKEYWORDLENGTH+1];
+   char magic[MAXKEYWORDLENGTH+64], filetype[MAXKEYWORDLENGTH+64];
    FILE *gmvchk;
    char* slash;
 
@@ -261,7 +261,7 @@ int gmvread_open(char *filnam)
    /*  Open and check a GMV input file.  */
    /*                                    */
    int chkend, ilast, i, isize;
-   char magic[MAXKEYWORDLENGTH+1], filetype[MAXKEYWORDLENGTH+1];
+   char magic[MAXKEYWORDLENGTH+64], filetype[MAXKEYWORDLENGTH+64];
    char* slash;
 
    int chk_gmvend(FILE *gmvin);
@@ -496,7 +496,7 @@ void gmvread_printoff()
 
 void gmvread_data()
 {
-  char keyword[MAXKEYWORDLENGTH+1], tmpchar[20];
+  char keyword[MAXKEYWORDLENGTH+64], tmpchar[20];
   double ptime;
   float tmptime;
   int cycleno, before_nodes_ok;
@@ -1076,7 +1076,7 @@ void rdfloats(double farray[], long nvals, FILE* gmvin)
 
 int rdcellkeyword(FILE* gmvin, int ftype, char* keystring)
 {
-  char ckeyword[MAXKEYWORDLENGTH+1];
+  char ckeyword[MAXKEYWORDLENGTH+64];
 
    if (ftype != ASCII)
      {
@@ -1300,7 +1300,7 @@ void readnodes(FILE* gmvin, int ftype)
   double *lxic, *lyic, *lzic, *tmpdouble;
   long pos_after_lnodes, exp_cell_pos;
   float *tmpfloat;
-  char ckkeyword[MAXKEYWORDLENGTH+1];
+  char ckkeyword[MAXKEYWORDLENGTH+64];
 
    if (ftype == ASCII)
      {
@@ -1718,7 +1718,7 @@ void readcells(FILE* gmvin, int ftype)
       *cellnodenos, nfaces;
   long *lfaces, numtop, *daughters;
   long *lcellnodenos;
-  char keyword[MAXKEYWORDLENGTH+1];
+  char keyword[MAXKEYWORDLENGTH+64];
 
    if (readkeyword == 1)
      {
@@ -3479,7 +3479,7 @@ void readunits(FILE* gmvin, int ftype)
   /*  Read and set units information.  */
   /*                                   */
   int i;
-  char unittype[MAXKEYWORDLENGTH+1], fldname[MAXKEYWORDLENGTH+1], unitname[17];
+  char unittype[MAXKEYWORDLENGTH+64], fldname[MAXKEYWORDLENGTH+64], unitname[17];
   char *fldstr, *unitstr;
 
    /*  Read unit type (xyz, velocity, nodes, cells).  */
@@ -5471,7 +5471,7 @@ void regcell(long icell, long nc)
   int nfaces, nverts[144], totverts,  dupflag, ncnodes,
       dupverts[145], dupnverts[145], ndup, nf;
   int icelltype;
-  char ckeyword[MAXKEYWORDLENGTH+1];
+  char ckeyword[MAXKEYWORDLENGTH+64];
   short trinverts[1] = {3};
   short trifverts[3] = {1,2,3};
   short quadnverts[1] = {4};
@@ -6751,7 +6751,7 @@ int gmvrayread_open(char *filnam)
    /*  Open and check a GMV ray input file.  */
    /*                                        */
    int chkend;
-   char magic[MAXKEYWORDLENGTH+1], filetype[MAXKEYWORDLENGTH+1];
+   char magic[MAXKEYWORDLENGTH+64], filetype[MAXKEYWORDLENGTH+64];
    char * slash;
 
    int chk_rayend(FILE *gmvrayin);
@@ -6941,7 +6941,7 @@ int ioerrtst2(FILE * gmvrayin)
 
 void gmvrayread_data()
 {
-  char keyword[MAXKEYWORDLENGTH+1];
+  char keyword[MAXKEYWORDLENGTH+64];
   int iend, curr_keyword;
 
    /*  Zero gmvray_data and free structure arrays.  */
