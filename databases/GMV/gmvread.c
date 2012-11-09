@@ -413,7 +413,11 @@ int gmvread_open(char *filnam)
    }
    else
    {
-    gmvin = fopen(filnam,"rt");
+    /* To be able to read on Windows ASCII files with both */
+    /* CR and CRLF endings open file in binary mode.       */
+    /* On Unix, the "b" option is ignored (at least since  */
+    /* C90).                                               */
+    gmvin = fopen(filnam,"rb");
    }
 
    if (ftype != ASCII)
@@ -6901,7 +6905,11 @@ int gmvrayread_open(char *filnam)
    }
    else
    {
-    gmvrayin = fopen(filnam,"rt");
+    /* To be able to read on Windows ASCII files with both */
+    /* CR and CRLF endings open file in binary mode.       */
+    /* On Unix, the "b" option is ignored (at least since  */
+    /* C90).                                               */
+    gmvrayin = fopen(filnam,"rb");
    }
 
    if (ftype != ASCII)
