@@ -623,14 +623,25 @@ void vtkAvtFileFormatAlgorithm::SetupTemporalInformation(
   //by cycling through everytime step but not requesting any data.
   if(hasTime && timesteps[0] == timesteps[timesteps.size()-1])
     {
+    //FormatGetTimes expect the timesteps vector that is passed
+    //in has an empty size. If you use the timesteps variable
+    //readers will push_back values causing an infinte loop or
+    //duplicate time steps
+    std::vector< double > newTimesSteps;
+
     //we have hit a timestep range that needs to be cycled
-    for(int i=0; i < timesteps.size();++i)
+    //we use a const size variable so
+    const std::size_t size = timesteps.size();
+    for(int i=0; i < size;++i)
       {
       this->ActivateTimestep(i);
       //Nek and other readers don't update the time info intill you
       //call gettimes.
-      this->AvtFile->FormatGetTimes(timesteps);
+      this->AvtFile->FormatGetTimes(newTimesSteps);
       }
+
+    //use the updated timestep values
+    timesteps = newTimesSteps;
     }
 
 
