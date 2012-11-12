@@ -45,6 +45,7 @@
 #include <string>
 #include <set>
 
+#include <vtkCellArray.h>
 #include <vtkCellData.h>
 #include <vtkCellTypes.h>
 #include <vtkCharArray.h>
@@ -733,6 +734,21 @@ gmvCreateUnstructuredGrid(gmvPolyhedralSplit *polyhedralSplit, int &topoDim)
 
         if(addedCell)
             vtkCellId++;
+    }
+
+    // Support for "points, but no cells defined"
+    if(normalCells == 0 && phCells == 0 && pts->GetNumberOfPoints() > 0)
+    {
+	vtkCellArray* vertices = vtkCellArray::New();
+	for (unsigned int i = 0; i < pts->GetNumberOfPoints(); i++)
+	{
+	    vtkIdType id[1];
+	    id[0] = i;
+	    vertices->InsertNextCell(1,id);
+	    vtkCellId++;
+	}
+	ugrid->SetCells(VTK_VERTEX, vertices);
+	vertices->Delete();
     }
 
     if(foundVFace2D)
