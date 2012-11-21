@@ -112,7 +112,9 @@ int gmvread_checkfile(char *filnam)
    /*                           */
    /*  Check a GMV input file.  */
    /*                           */
+#ifdef BEFORE_TERRY_JORDAN_WINDOWS_CHANGES
    int chkend;
+#endif
    char magic[MAXKEYWORDLENGTH+64], filetype[MAXKEYWORDLENGTH+64];
    FILE *gmvchk;
    char* slash;
@@ -260,7 +262,10 @@ int gmvread_open(char *filnam)
    /*                                    */
    /*  Open and check a GMV input file.  */
    /*                                    */
-   int chkend, ilast, i, isize;
+#ifdef BEFORE_TERRY_JORDAN_WINDOWS_CHANGES
+   int chkend;
+#endif
+   int ilast, i, isize;
    char magic[MAXKEYWORDLENGTH+64], filetype[MAXKEYWORDLENGTH+64];
    char* slash;
 
