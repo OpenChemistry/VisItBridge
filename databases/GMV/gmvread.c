@@ -439,7 +439,7 @@ int gmvread_open(char *filnam)
    /*  First find the last /.                              */
    if (fromfileskip == 0)
      {
-      isize = strlen(filnam);
+      isize = (int)strlen(filnam);
       ilast = -1;
       for (i = 0; i < isize - 1; i++)
         {
@@ -1276,7 +1276,7 @@ int checkfromfile()
       fromfileflag = 1;
       gmv_data.keyword = curr_keyword;
       gmv_data.datatype = FROMFILE;
-      i = strlen(charptr);
+      i = (int)strlen(charptr);
       gmv_data.nchardata1 = i;
       gmv_data.chardata1 = (char *)malloc(i*sizeof(char));
       /*  No need for strncpy here because charptr is by design not too long.  */
@@ -4942,7 +4942,7 @@ int binread(void* ptr, int size, int type, long nitems, FILE* stream)
 
 #else
 
-   ret_stat = fread(ptr, size, nitems, stream);
+   ret_stat = (int)fread(ptr, size, nitems, stream);
 
    if (swapbytes_on && type != CHAR && type != WORD)
       swapbytes(ptr, size, nitems);
