@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -52,7 +52,7 @@
 #if CGNS_VERSION < 3000
 // define cgns types. For CGNS_VERSION >= 3000, cgsize_t is defined in
 // cgnstypes.h that is imported by cgnslib.h
-# define cgsize_t int
+#define cgsize_t int
 #endif
 // ****************************************************************************
 //  Class: avtCGNSFileFormat
@@ -67,6 +67,10 @@
 //    Brad Whitlock, Tue Apr 15 10:20:10 PDT 2008
 //    Added methods that help us inspect the file contents.
 //
+//    Brad Whitlock, Thu Oct 13 11:14:18 PDT 2011
+//    I added InitializeMaps so we can call it from GetMesh, GetVar to ensure
+//    the file grouping works.
+//
 // ****************************************************************************
 
 class avtCGNSFileFormat : public avtMTMDFileFormat
@@ -80,7 +84,7 @@ public:
     // information to information about block connectivity.
     //
     // virtual void      *GetAuxiliaryData(const char *var, const char *type,
-    //                                     int timestep, int domain,void *args, 
+    //                                     int timestep, int domain,void *args,
     //                                     DestructorFunction &);
     //
 
@@ -90,11 +94,11 @@ public:
     //
     virtual void           GetCycles(std::vector<int> &);
     virtual void           GetTimes(std::vector<double> &);
-    
+
     virtual int            GetNTimesteps(void);
 
     virtual const char    *GetType(void)   { return "CGNS"; };
-    virtual void           FreeUpResources(void); 
+    virtual void           FreeUpResources(void);
 
     virtual vtkDataSet    *GetMesh(int, int, const char *);
     virtual vtkDataArray  *GetVar(int, int, const char *);
@@ -131,26 +135,27 @@ protected:
 
     int                    GetFileHandle();
     void                   ReadTimes();
-    bool                   GetCoords(int base, int zone, const cgsize_t *zsize,
-                                     bool structured, float **coords,
-                                     int *ncoords);
+    bool                   GetCoords(int timestate, int base, int zone, const cgsize_t *zsize,
+                                     int cell_dim, int phys_dim,
+                                     bool structured, float **coords);
     void                   AddReferenceStateExpressions(avtDatabaseMetaData *md,
                                      int base, int nBases, const std::string &baseName,
                                      const std::string &meshName);
-    void                   AddVectorExpressions(avtDatabaseMetaData *md, 
+    void                   AddVectorExpressions(avtDatabaseMetaData *md,
                                bool *haveVelocity, bool *haveMomentum, int nBases,
                                const std::string &baseName);
-    void                   AddVectorExpression(avtDatabaseMetaData *md, 
-                               bool *haveComponent, int nBases, 
-                               const std::string &baseName, 
+    void                   AddVectorExpression(avtDatabaseMetaData *md,
+                               bool *haveComponent, int nBases,
+                               const std::string &baseName,
                                const std::string &vecName);
     bool                   GetVariablesForBase(int base, BaseInformation &baseInfo);
     bool                   BaseContainsUnits(int base);
+    void                   InitializeMaps(int timeState);
 
-    vtkDataSet *           GetCurvilinearMesh(int, int, const char *,
-                                              const cgsize_t *);
-    vtkDataSet *           GetUnstructuredMesh(int, int, const char *,
-                                               const cgsize_t *);
+    vtkDataSet *           GetCurvilinearMesh(int, int, int, const char *,
+                                              const cgsize_t *, int, int);
+    vtkDataSet *           GetUnstructuredMesh(int, int, int, const char *,
+                                               const cgsize_t *, int, int);
 
     void PrintVarInfo(ostream &out, const VarInfo &var, const char *indent);
     void PrintStringVarInfoMap(ostream &out, const StringVarInfoMap &vars, const char *indent);
@@ -166,6 +171,7 @@ protected:
     std::map<std::string, BaseAndZoneList> MeshDomainMapping;
     std::map<std::string, int>             BaseNameToIndices;
     std::map<std::string, std::string>     VisItNameToCGNSName;
+    bool                                   initializedMaps;
 
     virtual void           PopulateDatabaseMetaData(avtDatabaseMetaData *, int);
 };

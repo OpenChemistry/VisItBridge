@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -131,7 +131,7 @@ MakeSafeVariableName(const std::string &var)
     int nInvalids = sizeof(invalids) / (sizeof(char)*2);
     for(int i = 0; i < nInvalids; ++i)
     {
-        for(int ci = 0; ci < var.size(); ++ci)
+        for(size_t ci = 0; ci < var.size(); ++ci)
         {
             if(tmp[ci] == invalids[i][0])
                 tmp[ci] = invalids[i][1];
@@ -167,6 +167,7 @@ avtCGNSFileFormat::avtCGNSFileFormat(const char *filename)
     timesRead = false;
     cgnsCyclesAccurate = false;
     cgnsTimesAccurate = false;
+    initializedMaps = false;
 }
 
 // ****************************************************************************
@@ -284,6 +285,10 @@ avtCGNSFileFormat::GetFileHandle()
 //
 //   Brad Whitlock, Wed Apr 16 10:15:21 PDT 2008
 //   Made it use cgnsFileName.
+//
+//   Kathleen Biagas, Tue Apr 24 12:23:03 PDT 2012
+//   Added call to FreeUpResources to prevent crash when opening many files
+//   in a virtual database.
 //
 // ****************************************************************************
 
@@ -433,6 +438,8 @@ avtCGNSFileFormat::ReadTimes()
         timesRead = true;
         debug4 << mName << "End" << endl;
     }
+    // make sure file handles are closed
+    FreeUpResources();
 }
 
 // ****************************************************************************
@@ -582,7 +589,6 @@ avtCGNSFileFormat::GetVariablesForBase(int base, avtCGNSFileFormat::BaseInformat
 
     bool retval = true;
     char namebase[33];
-    int cell_dim = 2, phys_dim = 2;
     if(cg_base_read(GetFileHandle(), base, namebase, &baseInfo.cellDim, &baseInfo.physicalDim) != CG_OK)
     {
         debug1 << "Could not read base " << base << endl;
@@ -789,10 +795,11 @@ avtCGNSFileFormat::GetVariablesForBase(int base, avtCGNSFileFormat::BaseInformat
                             info.units = fieldUnits;
                         baseInfo.vars[fieldname] = info;
                     }
-                    else
+                    else if(sol == 1)
                     {
                         // We've already run across the variable in another zone
                         // so let's update what we know.
+                        // This is done only for first iteration.
                         pos->second.zoneList.push_back(zone);
                         pos->second.cellCentering += cellCentering;
                         pos->second.nodeCentering += nodeCentering;
@@ -1106,7 +1113,7 @@ avtCGNSFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
     }
     // Print the information that we read from the file.
     debug4 << "==================== BASE INFORMATION ====================" << endl;
-    for(int bi = 0; bi < baseInfo.size(); ++bi)
+    for(size_t bi = 0; bi < baseInfo.size(); ++bi)
     {
         if(DebugStream::Level4())
             PrintBaseInformation(DebugStream::Stream4(), baseInfo[bi]);
@@ -1118,7 +1125,7 @@ avtCGNSFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
     // meshes that we need to create for each base. Let's use the base name
     // as the mesh name if there is more than one zone in a base. If there's
     debug4 << "=================== POPULATE VARIABLES ===================" << endl;
-    for(int bi = 0; bi < baseInfo.size(); ++bi)
+    for(size_t bi = 0; bi < baseInfo.size(); ++bi)
     {
         std::string baseName(baseInfo[bi].name);
         baseName = MakeSafeVariableName(baseName);
@@ -1144,7 +1151,7 @@ avtCGNSFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
         //
         std::map<intVector, std::string> meshDef;
         intVector allDomains;
-        for(int i = 0; i < baseInfo[bi].zoneNames.size(); ++i)
+        for(size_t i = 0; i < baseInfo[bi].zoneNames.size(); ++i)
             allDomains.push_back(i+1);
         meshDef[allDomains] = meshName;
         debug4 << mName << "Step 2: Need mesh " << meshName.c_str() << endl;
@@ -1184,7 +1191,7 @@ avtCGNSFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
                 1, 1, 1, 0, baseInfo[bi].physicalDim, baseInfo[bi].cellDim, mt);
 
             stringVector domainNames;
-            for(int di = 0; di < it->first.size(); ++di)
+            for(size_t di = 0; di < it->first.size(); ++di)
             {
                 int idx = it->first[di] - 1;
                 domainNames.push_back(baseInfo[bi].zoneNames[idx]);
@@ -1210,7 +1217,7 @@ avtCGNSFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
             // Print the entry we just created in MeshDomainMapping
             debug4 << mName << "Step 3: Creating mesh " << it->second.c_str() << " for base "
                    << bzl.base << " for zones [";
-            for(int zi = 0; zi < it->first.size(); ++zi)
+            for(size_t zi = 0; zi < it->first.size(); ++zi)
             {
                 debug4 << it->first[zi];
                 if(zi <  it->first.size()-1)
@@ -1293,6 +1300,41 @@ avtCGNSFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
             "their grid locations (variable centerings) are not supported by "
             "VisIt. VisIt currently supports node and cell centered variables.");
     }
+
+    // Indicate that we've initialized maps.
+    initializedMaps = true;
+}
+
+// ****************************************************************************
+// Method: avtCGNSFileFormat::InitializeMaps
+//
+// Purpose:
+//   Populate a dummy metadata with side-effect of initializing variable maps
+//   that we need to read data.
+//
+// Arguments:
+//   timeState : The time state.
+//
+// Returns:
+//
+// Note:       We call this method from GetMesh, GetVar so we can group files
+//             since PopulateDatabaseMetaData gets skipped for grouped files.
+//
+// Programmer: Brad Whitlock
+// Creation:   Thu Oct 13 11:11:11 PDT 2011
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+avtCGNSFileFormat::InitializeMaps(int timeState)
+{
+    if(!initializedMaps)
+    {
+        avtDatabaseMetaData md;
+        PopulateDatabaseMetaData(&md, timeState);
+    }
 }
 
 // ****************************************************************************
@@ -1319,6 +1361,9 @@ avtCGNSFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
 //    Brad Whitlock, Wed Apr 16 10:06:46 PDT 2008
 //    Changed how we search MeshDomainMapping.
 //
+//    Brad Whitlock, Thu Oct 13 11:13:30 PDT 2011
+//    Call InitializeMaps so we can group files.
+//
 // ****************************************************************************
 
 vtkDataSet *
@@ -1327,6 +1372,8 @@ avtCGNSFileFormat::GetMesh(int timestate, int domain, const char *meshname)
     const char *mName = "avtCGNSFileFormat::GetMesh: ";
     debug4 << mName << "ts=" << timestate << ", dom=" << domain
            << ", mesh=" << meshname << endl;
+
+    InitializeMaps(timestate);
 
     //
     // See if this domain is turned off by default for this mesh.
@@ -1341,7 +1388,7 @@ avtCGNSFileFormat::GetMesh(int timestate, int domain, const char *meshname)
     debug4 << mName << "Checking if zone " << zone << " is part of "
            << meshname << endl;
     debug4 << "zones = {";
-    for(int i = 0; i < zones.size(); ++i)
+    for(size_t i = 0; i < zones.size(); ++i)
         debug4 << zones[i] << ", ";
     debug4 << "}" << endl;
     if(std::find(zones.begin(), zones.end(), zone) == zones.end())
@@ -1357,6 +1404,22 @@ avtCGNSFileFormat::GetMesh(int timestate, int domain, const char *meshname)
     cgsize_t zsize[9];
     memset(zonename, 0, 33);
     memset(zsize, 0, 9 * sizeof(int));
+
+    //
+    // Determine the topological and spatial dimensions.
+    //
+    char namebase[33];
+    int cell_dim = 2, phys_dim = 2;
+    if(cg_base_read(GetFileHandle(), base, namebase, &cell_dim, &phys_dim) != CG_OK)
+    {
+        debug4 << cg_get_error() << endl;
+        EXCEPTION1(InvalidFilesException, cgnsFileName);
+    }
+    else
+    {
+        debug4 << mName << " name=" << namebase << " cell_dim=" << cell_dim
+               << " phys_dim=" << phys_dim << endl;
+    }
 
     if(cg_zone_read(GetFileHandle(), base, zone, zonename, zsize) != CG_OK)
     {
@@ -1393,10 +1456,10 @@ avtCGNSFileFormat::GetMesh(int timestate, int domain, const char *meshname)
                            "Meshes with ZoneTypeUserDefined are not supported.");
                 break;
             case Structured:
-                retval = GetCurvilinearMesh(base, zone, meshname, zsize);
+                retval = GetCurvilinearMesh(timestate, base, zone, meshname, zsize, cell_dim, phys_dim);
                 break;
             case Unstructured:
-                retval = GetUnstructuredMesh(base, zone, meshname, zsize);
+                retval = GetUnstructuredMesh(timestate, base, zone, meshname, zsize, cell_dim, phys_dim);
                 break;
             }
         }
@@ -1417,7 +1480,6 @@ avtCGNSFileFormat::GetMesh(int timestate, int domain, const char *meshname)
 //   zsize      : Zone size information.
 //   structured : Whether the mesh is structured.
 //   coords     : Return array for the coordinates.
-//   ncoords    : The number of pointers in the coords array.
 //
 // Returns:    True if the coordinates were read; false otherwise.
 //
@@ -1434,11 +1496,14 @@ avtCGNSFileFormat::GetMesh(int timestate, int domain, const char *meshname)
 //   Maxim Loginov, Thu Feb 28 13:36:46 PST 2008
 //   Bugfix for too large arrays in the structured 1D, 2D case
 //
+//   Brad Whitlock, Mon Jun 18 15:21:02 PDT 2012
+//   Don't pass out ncoords.
+//
 // ****************************************************************************
 
 bool
-avtCGNSFileFormat::GetCoords(int base, int zone, const cgsize_t *zsize,
-    bool structured, float **coords, int *ncoords)
+avtCGNSFileFormat::GetCoords(int timestate, int base, int zone, const cgsize_t *zsize,
+    int cell_dim, int phys_dim, bool structured, float **coords)
 {
     const char *mName = "avtCGNSFileFormat::GetCoords: ";
     bool err = false;
@@ -1449,28 +1514,28 @@ avtCGNSFileFormat::GetCoords(int base, int zone, const cgsize_t *zsize,
     coords[2] = 0;
 
     // Iterate through the coordinates and read them in.
-    if(cg_ncoords(GetFileHandle(), base, zone, ncoords) != CG_OK)
+    int ncoords = 0;
+    if(cg_ncoords(GetFileHandle(), base, zone, &ncoords) != CG_OK)
     {
         debug4 << mName << "\t\tCould not get the number of coords" << endl;
         debug4 << mName << cg_get_error() << endl;
     }
     else
     {
-        debug4 << mName << "ncoords = " << *ncoords << endl;
-        if(*ncoords > 3)
-            *ncoords = 3;
-        err = *ncoords != 2 && *ncoords != 3;
+        debug4 << mName << "ncoords = " << ncoords << endl;
+        if(ncoords > 3)
+            ncoords = 3;
+        err = (ncoords != phys_dim);
 
         unsigned int nPts = 0;
-        cgsize_t rmin[3] = {1,1,1};
         cgsize_t rmax[3] = {1,1,1};
         if(structured)
         {
-            if(*ncoords == 1)
+            if(cell_dim == 1)
             {
                 rmax[0] = zsize[0];
             }
-            else if(*ncoords == 2)
+            else if(cell_dim == 2)
             {
                 rmax[0] = zsize[0];
                 rmax[1] = zsize[1];
@@ -1489,10 +1554,41 @@ avtCGNSFileFormat::GetCoords(int base, int zone, const cgsize_t *zsize,
             nPts = zsize[0];
         }
 
-        for(int c = 1; c <= *ncoords; ++c)
+        // Check the number of grids stored in zone
+        int ngrids = 0;
+        if(cg_ngrids(GetFileHandle(), base, zone, &ngrids) != CG_OK)
+        {
+          debug4 << mName << "Could not get number of grids in zone "
+                 << zone << endl;
+          debug4 << cg_get_error() << endl;
+        }
+        // If the solution is unsteady but not the mesh, timestate will change but requiredgrid
+        // should remain bounded.
+        int requiredgrid = (timestate < ngrids) ? (timestate + 1) : ngrids;
+
+        char GridCoordName[33];
+        cg_grid_read(GetFileHandle(), base, zone, requiredgrid, GridCoordName);
+
+        debug4 << "Reading mesh node " << GridCoordName << endl;
+        if (cg_goto(GetFileHandle(), base, "Zone_t", zone, GridCoordName, 0, "end") != CG_OK)
+        {
+            debug4 << cg_get_error() << endl;
+        }
+
+        int narrays=0;
+        cg_narrays(&narrays);
+        if(narrays < ncoords)
+        {
+            debug4 << "Not enough coordinates in node " << GridCoordName << endl;
+            err = true;
+        }
+        // Every grid is read through cg_array. However, "GridCoordinates" node should always be present
+        // to describe reference state according to CGNS Grid Specification.
+        for(int c = 1; c <= ncoords; ++c)
         {
             char coordname[33];
             DataType_t ct;
+            if(err == true) break;
             if(cg_coord_info(GetFileHandle(), base, zone, c, &ct,
                 coordname) != CG_OK)
             {
@@ -1501,17 +1597,15 @@ avtCGNSFileFormat::GetCoords(int base, int zone, const cgsize_t *zsize,
             else
             {
                 debug5 << mName << "Array for " << coordname
-               << " has " << nPts << " points." << endl;
+                       << " has " << nPts << " points." << endl;
                 coords[c-1] = new float[nPts];
                 // Read the various coordinates as float
                 debug4 << mName << "Reading " << coordname
                        << " as a float array." << endl;
-                if(cg_coord_read(GetFileHandle(), base, zone, coordname,
-                   RealSingle, rmin, rmax, (void*)coords[c-1]) != CG_OK)
+                if(cg_array_read_as(c, RealSingle, (void*)coords[c-1] ) != CG_OK)
                 {
                     debug4 << mName << cg_get_error() << endl;
                     err = true;
-                    break;
                 }
             }
         }
@@ -1524,7 +1618,6 @@ avtCGNSFileFormat::GetCoords(int base, int zone, const cgsize_t *zsize,
             coords[0] = 0;
             coords[1] = 0;
             coords[2] = 0;
-            *ncoords = 0;
         }
     }
 
@@ -1554,19 +1647,20 @@ avtCGNSFileFormat::GetCoords(int base, int zone, const cgsize_t *zsize,
 //   Brad Whitlock, Mon Dec 11 09:42:35 PDT 2006
 //   Corrected support for 2D.
 //
+//   Mickael Philit, Mon Jun 18 15:23:47 PDT 2012
+//   Work with meshes whose tdim != sdim.
+//
 // ****************************************************************************
 
 vtkDataSet *
-avtCGNSFileFormat::GetCurvilinearMesh(int base, int zone, const char *meshname,
-    const cgsize_t *zsize)
+avtCGNSFileFormat::GetCurvilinearMesh(int timestate, int base, int zone, const char *meshname,
+    const cgsize_t *zsize, int cell_dim, int phys_dim)
 {
-    const char *mName = "avtCGNSFileFormat::GetCurvilinearMesh: ";
     vtkDataSet *retval = 0;
 
-    // Get the number of coords
-    int ncoords = 0;
+    // Get the coords
     float *coords[3] = {0,0,0};
-    if(GetCoords(base, zone, zsize, true, coords, &ncoords))
+    if(GetCoords(timestate, base, zone, zsize, cell_dim, phys_dim, true, coords))
     {
         // Create the curvilinear mesh.
         vtkStructuredGrid *sgrid   = vtkStructuredGrid::New();
@@ -1577,14 +1671,14 @@ avtCGNSFileFormat::GetCurvilinearMesh(int base, int zone, const char *meshname,
         // Populate the points array
         int dims[3];
         dims[0] = zsize[0];
-        dims[1] = (ncoords >= 2) ? zsize[1] : 1;
-        dims[2] = (ncoords == 3) ? zsize[2] : 1;
+        dims[1] = (cell_dim >= 2) ? zsize[1] : 1;
+        dims[2] = (cell_dim == 3) ? zsize[2] : 1;
         sgrid->SetDimensions(dims);
         points->SetNumberOfPoints(dims[0] * dims[1] * dims[2]);
         float *pts = (float *) points->GetVoidPointer(0);
         float *xc = coords[0];
         float *yc = coords[1];
-        if(ncoords == 3)
+        if(phys_dim == 3)
         {
             float *zc = coords[2];
             for(int k = 0; k < dims[2]; ++k)
@@ -1600,7 +1694,7 @@ avtCGNSFileFormat::GetCurvilinearMesh(int base, int zone, const char *meshname,
                 }
             }
         }
-        else if(ncoords == 2)
+        else if(phys_dim == 2)
         {
             for(int j = 0; j < dims[1]; ++j)
             {
@@ -1612,7 +1706,7 @@ avtCGNSFileFormat::GetCurvilinearMesh(int base, int zone, const char *meshname,
                 }
             }
         }
-        else if(ncoords == 1)
+        else if(phys_dim == 1)
         {
             for(int i = 0; i < dims[0]; ++i)
             {
@@ -1666,19 +1760,21 @@ avtCGNSFileFormat::GetCurvilinearMesh(int base, int zone, const char *meshname,
 //   Jeremy Meredith, Thu Aug  7 14:14:00 EDT 2008
 //   Added some missing cases for switch.
 //
+//   Mickael Philit, Mon Jun 18 15:25:55 PDT 2012
+//   Pass in number of spatial dimensions.
+//
 // ****************************************************************************
 
 vtkDataSet *
-avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
-    const cgsize_t *zsize)
+avtCGNSFileFormat::GetUnstructuredMesh(int timestate, int base, int zone, const char *meshname,
+    const cgsize_t *zsize, int cell_dim, int phys_dim)
 {
     const char *mName = "avtCGNSFileFormat::GetUnstructuredMesh: ";
     vtkDataSet *retval = 0;
 
     // Get the number of coords
-    int ncoords = 0;
     float *coords[3] = {0,0,0};
-    if(GetCoords(base, zone, zsize, false, coords, &ncoords))
+    if(GetCoords(timestate, base, zone, zsize, 0, phys_dim, false, coords))
     {
         // Read the number of sections, for the zone.
         int nsections = 0;
@@ -1699,7 +1795,7 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
             const float *xc = coords[0];
             const float *yc = coords[1];
             const float *zc = NULL;
-            if (ncoords == 3)
+            if (phys_dim == 3)
             {
                 zc = coords[2];
             }
@@ -1708,7 +1804,7 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
                 float pt[3];
                 pt[0] = *xc++;
                 pt[1] = *yc++;
-                if (ncoords == 3)
+                if (phys_dim == 3)
                     pt[2] = *zc++;
                 else
                     pt[2] = 0.;
@@ -1728,6 +1824,7 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
                 char sectionname[33];
                 ElementType_t et = ElementTypeNull;
                 cgsize_t start = 1, end = 1;
+                cgsize_t elementSizeInterior = 0;
                 int bound = 0, parent_flag = 0;
                 if(cg_section_read(GetFileHandle(), base, zone, sec, sectionname, &et,
                     &start, &end, &bound, &parent_flag) != CG_OK)
@@ -1741,6 +1838,10 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
                     debug4 << mName << "parent_flag = " << parent_flag << endl;
                     continue;
                 }
+                if(cell_dim == phys_dim)
+                    elementSizeInterior = (end-start+1)-bound;
+                else
+                    elementSizeInterior = (end-start+1);
 
                 cgsize_t eDataSize = 0;
                 if(cg_ElementDataSize(GetFileHandle(), base, zone, sec, &eDataSize) != CG_OK)
@@ -1769,6 +1870,7 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
                 debug4 << "section " << sec << ": elementType=";
                 PrintElementType(et);
                 debug4 << " start=" << start << " end=" << end << " bound=" << bound
+                       << " interior elements=" << elementSizeInterior
                        << " parent_flag=" << parent_flag << endl;
 
                 //
@@ -1776,7 +1878,7 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
                 //
                 vtkIdType verts[27];
                 const cgsize_t *elem = elements;
-                for(unsigned int icell = 0; icell < (end-start+1); ++icell)
+                for(cgsize_t icell = 0; icell < elementSizeInterior; ++icell)
                 {
                     // If we're reading mixed elements then the element type
                     // comes first.
@@ -1973,6 +2075,8 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
                         break;
                     case ElementTypeNull:
                     case MIXED:
+                    case PYRA_13:
+                    case NFACE_n:
                         // What to do here?
                         break;
                     }
@@ -2040,6 +2144,9 @@ avtCGNSFileFormat::GetUnstructuredMesh(int base, int zone, const char *meshname,
 //    Jeremy Meredith, Thu Aug  7 15:56:52 EDT 2008
 //    Added a default case for a switch.
 //
+//    Brad Whitlock, Thu Oct 13 11:13:30 PDT 2011
+//    Call InitializeMaps so we can group files.
+//
 // ****************************************************************************
 
 vtkDataArray *
@@ -2048,6 +2155,8 @@ avtCGNSFileFormat::GetVar(int timestate, int domain, const char *varname)
     const char *mName = "avtCGNSFileFormat::GetVar: ";
     debug4 << mName << "ts=" << timestate << ", dom=" << domain
            << ", var=" << varname << endl;
+
+    InitializeMaps(timestate);
 
     // Look up the base that contains the variable.
     int base = 1;
@@ -2160,7 +2269,7 @@ avtCGNSFileFormat::GetVar(int timestate, int domain, const char *varname)
         // e.g. the number of the required solution in the
         // FlowSolutionPointers array is the same as node number of
         // the solution, which is not necessarily true
-        int requiredsol = timestate + 1;
+        int requiredsol = (timestate < nsols) ? timestate + 1: nsols;
 
         // Iterate through the solutions until we find the variable that we're
         // looking for or required solution by number.
@@ -2217,7 +2326,9 @@ avtCGNSFileFormat::GetVar(int timestate, int domain, const char *varname)
                         {
                         case DataTypeNull:
                         case DataTypeUserDefined:
-                            debug4 << "Unsupported variable type" << endl;
+                            debug4 << "Unsupported variable type: ";
+                            PrintDataType(dt);
+                            debug4 << endl;
                             break;
                         case Integer:
                             arr = vtkIntArray::New();
@@ -2371,7 +2482,7 @@ void
 avtCGNSFileFormat::PrintVarInfo(ostream &out, const avtCGNSFileFormat::VarInfo &var, const char *indent)
 {
     out << indent << "zoneList = {";
-    for(int i = 0; i < var.zoneList.size(); ++i)
+    for(size_t i = 0; i < var.zoneList.size(); ++i)
     {
         out << var.zoneList[i];
         if(i < var.zoneList.size()-1)
@@ -2442,7 +2553,7 @@ avtCGNSFileFormat::PrintBaseInformation(ostream &out, const avtCGNSFileFormat::B
     out << "physicalDim = " << baseInfo.physicalDim << endl;
     out << "meshType = " << baseInfo.meshType << " 0=curv, 1=ucd, -1,-2=unsupported" << endl;
     out << "zoneNames = {";
-    for(int i = 0; i < baseInfo.zoneNames.size(); ++i)
+    for(size_t i = 0; i < baseInfo.zoneNames.size(); ++i)
     {
         out << baseInfo.zoneNames[i];
         if(i < baseInfo.zoneNames.size()-1)
