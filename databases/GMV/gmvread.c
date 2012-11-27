@@ -45,10 +45,13 @@
 #define MAXFACES 10000
 #define MIN(a1,a2)   ( ((a1) < (a2)) ? (a1):(a2) )
 
-static int charsize = CHARSIZE, shortsize = SHORTSIZE, intsize = INTSIZE, 
-           wordsize = WORDSIZE, floatsize = FLOATSIZE,
-           longsize = LONGSIZE, doublesize = DOUBLESIZE,
+static int charsize = CHARSIZE, intsize = INTSIZE,
+           floatsize = FLOATSIZE,
+           doublesize = DOUBLESIZE,
            longlongsize = LONGLONGSIZE, charsize_in;
+#if 0
+static int shortsize = SHORTSIZE, wordsize = WORDSIZE, longsize = LONGSIZE
+#endif
 
 static long numnodes, numcells, lncells, numcellsin, numfaces, lnfaces,
             numfacesin, ncells_struct;
