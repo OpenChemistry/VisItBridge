@@ -6579,6 +6579,7 @@ void struct2face()
 /*                                                               */
 /* ************************************************************* */
 
+#if 0
 void
 #ifdef hp
 fgmvread_open(char * filnam)
@@ -6696,24 +6697,24 @@ fgmvread_data_(int *keyword, int *datatype, long *num,
 void
 #ifdef hp
 fgmvread_mesh(long *nnodes, long *ncells, long *nfaces,
-              long *totfacesLocal, long *totverts, int *intype,
+              long *totfaces, long *totverts, int *intype,
               int *nxv, int *nyv, int *nzv, double *x, double *y, 
-              double *z, long *celltofaceLocal, long *cell_facesLocal,
-              long *facetovertsLocal, long *facevertsLocal,
+              double *z, long *celltoface, long *cell_faces,
+              long *facetoverts, long *faceverts,
               long *facecell1, long *facecell2)
 #elif unicos
 FGMVREAD_MESH(long *nnodes, long *ncells, long *nfaces,
-              long *totfacesLocal, long *totverts, int *intype,
+              long *totfaces, long *totverts, int *intype,
               int *nxv, int *nyv, int *nzv, double *x, double *y, 
-              double *z, long *celltofaceLocal, long *cell_facesLocal,
-              long *facetovertsLocal, long *facevertsLocal,
+              double *z, long *celltoface, long *cell_faces,
+              long *facetoverts, long *faceverts,
               long *facecell1, long *facecell2)
 #else
 fgmvread_mesh_(long *nnodes, long *ncells, long *nfaces,
-               long *totfacesLocal, long *totverts, int *intype,
+               long *totfaces, long *totverts, int *intype,
                int *nxv, int *nyv, int *nzv, double *x, double *y, 
-               double *z, long *celltofaceLocal, long *cell_facesLocal,
-               long *facetovertsLocal, long *facevertsLocal,
+               double *z, long *celltoface, long *cell_faces,
+               long *facetoverts, long *faceverts,
                long *facecell1, long *facecell2)
 #endif
 {
@@ -6723,7 +6724,7 @@ fgmvread_mesh_(long *nnodes, long *ncells, long *nfaces,
    *nnodes = gmv_meshdata.nnodes;
    *ncells = gmv_meshdata.ncells;
    *nfaces = gmv_meshdata.nfaces;
-   *totfacesLocal = gmv_meshdata.totfaces;
+   *totfaces = gmv_meshdata.totfaces;
    *totverts = gmv_meshdata.totverts;
    *intype = gmv_meshdata.intype;
    *nxv = gmv_meshdata.nxv;
@@ -6732,13 +6733,14 @@ fgmvread_mesh_(long *nnodes, long *ncells, long *nfaces,
    x = gmv_meshdata.x;
    y = gmv_meshdata.y;
    z = gmv_meshdata.z;
-   celltofaceLocal = gmv_meshdata.celltoface;
-   cell_facesLocal = gmv_meshdata.cellfaces;
-   facetovertsLocal = gmv_meshdata.facetoverts;
-   facevertsLocal = gmv_meshdata.faceverts;
+   celltoface = gmv_meshdata.celltoface;
+   cell_faces = gmv_meshdata.cellfaces;
+   facetoverts = gmv_meshdata.facetoverts;
+   faceverts = gmv_meshdata.faceverts;
    facecell1 = gmv_meshdata.facecell1;
    facecell2 = gmv_meshdata.facecell2;
 }
+#endif
 
 
 /*  Code for gmv ray reader.  */
