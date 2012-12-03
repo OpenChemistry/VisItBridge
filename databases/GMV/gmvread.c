@@ -1457,6 +1457,7 @@ void readnodes(FILE* gmvin, int ftype)
    /*  If lnodes is -3, then amr grid.  Read      */
    /*  lnxv, lnyv, lnzv, start xyz and dx,dy,dz.  */
    amrflag_in = 0;
+   lxic = NULL; lyic = NULL; lzic = NULL;
    if (lnodes == -3)
      {
       amrflag_in = 1;
@@ -4133,7 +4134,7 @@ void readvinfo(FILE* gmvin, int ftype)
   /*                               */
   int i, nelem_line, nlines, nvarin;
   double *varin;
-  float *tmpfloat;
+  float *tmpfloat = NULL;
   char varname[MAXCUSTOMNAMELENGTH];
 
    /*  Read a variable name, no. of elements per line, and no. of lines. */
@@ -4760,6 +4761,7 @@ void readvects(FILE* gmvin, int ftype)
      }
 
    /*  Read one set of vector data.  */
+   nvectin = 0;
    if (data_type == CELL) nvectin = numcells;
    if (data_type == NODE) nvectin = numnodes;
    if (data_type == FACE) nvectin = numfaces;
@@ -5574,6 +5576,7 @@ void regcell(long icell, long nc)
    /*  Determine cell type.  */
    strncpy(ckeyword,gmv_data.name1,MAXKEYWORDLENGTH);
    *(ckeyword + MIN(strlen(gmv_data.name1), MAXKEYWORDLENGTH)) = (char)0;
+   icelltype = 0;
    if (strncmp(ckeyword,"tri",3) == 0) icelltype = 1;
    else if (strncmp(ckeyword,"quad",4) == 0) icelltype = 2;
    else if (strncmp(ckeyword,"tet",3) == 0) icelltype = 3;
@@ -5595,6 +5598,7 @@ void regcell(long icell, long nc)
    else if (strncmp(ckeyword,"phex27",6) == 0) icelltype = 19;
 
    /*  Set face information according to cell type.  */
+   nfaces = 0; totverts = 0; nv = 0; fv = 0;
    switch (icelltype)
      {
       case 1: nfaces = 1;    /* tri */
@@ -7034,7 +7038,7 @@ void readrays(FILE* gmvrayin, int ftype)
   int lrays, lrayvars;
   int *rayids;
   double *x, *y, *z, *field, *tmpdouble;
-  float *tmpfloat;
+  float *tmpfloat = NULL;
   char vname[MAXCUSTOMNAMELENGTH], *varnames;
   short vartype[NRAYVARS];
   struct gmvray *gmvrays;
