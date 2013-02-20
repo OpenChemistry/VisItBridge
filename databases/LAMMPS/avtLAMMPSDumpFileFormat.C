@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,8 +42,6 @@
 
 #include <avtLAMMPSDumpFileFormat.h>
 
-#include <string>
-
 #include <vtkFloatArray.h>
 #include <vtkRectilinearGrid.h>
 #include <vtkUnstructuredGrid.h>
@@ -61,7 +59,11 @@
 #include <AtomicProperties.h>
 
 #include <sstream>
+#include <string>
+#include <vector>
+
 using std::istringstream;
+using std::string;
 
 
 // ****************************************************************************
@@ -124,7 +126,7 @@ avtLAMMPSDumpFileFormat::GetNTimesteps(void)
 //  Modifications:
 //    Jeremy Meredith, Mon May 11 16:55:53 EDT 2009
 //    Added support for new, more arbitrary LAMMPS atom dump style formatting.
-//    Only keep one time step at a time to prevent memory bloat.
+//    Only keep one time step at a time to del memory bloat.
 //
 // ****************************************************************************
 
@@ -204,7 +206,7 @@ avtLAMMPSDumpFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int t
 
     avtMeshMetaData *mmd_bbox = new avtMeshMetaData("unitCell", 1, 0,0,0,
                                                     3, 1,
-                                                    AVT_SURFACE_MESH);
+                                                    AVT_POINT_MESH);
     for (int i=0; i<9; i++)
         mmd_bbox->unitCellVectors[i] = 0;
     mmd_bbox->unitCellVectors[0] = xMax - xMin;
@@ -300,31 +302,31 @@ avtLAMMPSDumpFileFormat::GetMesh(int timestep, const char *name)
                 z = zMax;
             pts->SetPoint(j, x,y,z);
         }
- 
+
         vtkCellArray *lines = vtkCellArray::New();
         pd->SetLines(lines);
-        lines->Delete();
         for (int k = 0 ; k < 12 ; k++)
         {
             lines->InsertNextCell(2);
             lines->InsertCellPoint(voxVerticesFromEdges[k][0]);
             lines->InsertCellPoint(voxVerticesFromEdges[k][1]);
         }
-
+        lines->FastDelete();
         return pd;
     }
 
     if (meshname != "mesh")
+    {
         return NULL;
+    }
+
 
 
     vtkPolyData *pd  = vtkPolyData::New();
     vtkPoints   *pts = vtkPoints::New();
 
     pts->SetNumberOfPoints(nAtoms[timestep]);
-    pd->SetPoints(pts);
-    pts->Delete();
-    for (int j = 0 ; j < nAtoms[timestep] ; j++)
+    for (vtkIdType j = 0 ; j < nAtoms[timestep] ; j++)
     {
         double x = vars[xIndex][j];
         double y = vars[yIndex][j];
@@ -337,15 +339,29 @@ avtLAMMPSDumpFileFormat::GetMesh(int timestep, const char *name)
             z = zMin + (zMax-zMin) * z;
         pts->SetPoint(j, x, y, z);
     }
- 
-    vtkCellArray *verts = vtkCellArray::New();
-    pd->SetVerts(verts);
-    verts->Delete();
-    for (int k = 0 ; k < nAtoms[timestep] ; k++)
+    pd->SetPoints(pts);
+    pts->FastDelete();
+
+
+    const vtkIdType numCells = nAtoms[timestep];
+    const vtkIdType arrayLen = numCells * 2; //since these are verts
+    vtkIdTypeArray* rawCellArray = vtkIdTypeArray::New();
+    rawCellArray->SetNumberOfValues(arrayLen);
+
+    vtkIdType pointId=0;
+    for (vtkIdType k = 0 ; k < arrayLen ; k+=2,++pointId)
     {
-        verts->InsertNextCell(1);
-        verts->InsertCellPoint(k);
+        rawCellArray->SetValue(k,1);
+        rawCellArray->SetValue(k+1,pointId);
     }
+
+    vtkCellArray *verts = vtkCellArray::New();
+    verts->SetCells(numCells,rawCellArray);
+    pd->SetVerts(verts);
+
+    rawCellArray->FastDelete();
+    verts->FastDelete();
+
 
 
     return pd;
@@ -390,7 +406,7 @@ avtLAMMPSDumpFileFormat::GetVar(int timestep, const char *varname)
         float *ptr = (float *) scalars->GetVoidPointer(0);
         for (int i=0; i<nAtoms[timestep]; i++)
         {
-            ptr[i] = speciesVar[i];
+           ptr[i] = speciesVar[i];
         }
         return scalars;
     }
@@ -484,6 +500,7 @@ avtLAMMPSDumpFileFormat::ReadTimeStep(int timestep)
     in.seekg(file_positions[timestep]);
 
     speciesVar.resize(nAtoms[timestep]);
+
     for (int v=0; v<vars.size(); v++)
     {
         // id and species are ints; don't bother with the float arrays for them
@@ -492,11 +509,14 @@ avtLAMMPSDumpFileFormat::ReadTimeStep(int timestep)
         vars[v].resize(nAtoms[timestep]);
     }
 
-    vector<double> tmpVars(nVars);
-    int tmpID, tmpSpecies;
 
+    int tmpID=0, tmpSpecies=0;
     char buff[1000];
     // read all the atoms
+    // the atoms aren't in ascending id order. Instead
+    // they are just N atoms with unique ids that can be any positive value
+    // for now we drop the ids completely
+
     for (int a=0; a<nAtoms[timestep]; a++)
     {
         in.getline(buff,1000);
@@ -504,21 +524,22 @@ avtLAMMPSDumpFileFormat::ReadTimeStep(int timestep)
         for (int v=0; v<nVars; v++)
         {
             if (v==speciesIndex)
+                {
                 sin >> tmpSpecies;
-            else if (v==idIndex)
+                }
+            else if (v == idIndex)
+                {
+                //skip the id
+                //they arent consecutive or all below the number
+                //of atoms + 1
                 sin >> tmpID;
+                }
             else
-                sin >> tmpVars[v];
+                {
+                sin >> vars[v][a];
+                }
         }
-        --tmpID;  // 1-origin; we need 0-origin
-
-        for (int v=0; v<nVars; v++)
-        {
-            if (v == idIndex || v == speciesIndex)
-                continue;
-            vars[v][tmpID] = tmpVars[v];
-        }
-        speciesVar[tmpID] = tmpSpecies - 1;
+        speciesVar[a] = tmpSpecies - 1;
     }
 }
 
@@ -544,6 +565,14 @@ avtLAMMPSDumpFileFormat::ReadTimeStep(int timestep)
 //
 //    Jeremy Meredith, Tue Apr 27 14:41:11 EDT 2010
 //    The number of atoms can now vary per timestep.
+//
+//    Matthew Wheeler, Fri Aug 31 15:51:00 BST 2012
+//    Modified and rearranged the BOX BOUNDS code to ignore irrelevant trailing
+//    boundary style fields, so data is handled as in the LAMMPS documentation.
+//
+//    Satheesh Maheswaran, Fri Oct 19 13:52:00 BST 2012
+//    Added options for reading atom coordinates.  The reader can now handle
+//    options xu,yu,zu and xsu,ysu,zsu
 //
 // ****************************************************************************
 void
@@ -572,19 +601,19 @@ avtLAMMPSDumpFileFormat::ReadAllMetaData()
             in.getline(buff,1000);
             cycles.push_back(strtol(buff, NULL, 10));
         }
-        else if (item == "BOX BOUNDS")
-        {
-            in >> xMin >> xMax;
-            in >> yMin >> yMax;
-            in >> zMin >> zMax;
-            in.getline(buff, 1000); // get rest of Z line
-        }
-        else if (item == "BOX BOUNDS xy xz yz")
+        else if (item.substr(0,19) == "BOX BOUNDS xy xz yz")
         {
             float xy, xz, yz;
             in >> xMin >> xMax >> xy;
             in >> yMin >> yMax >> xz;
             in >> zMin >> zMax >> yz;
+            in.getline(buff, 1000); // get rest of Z line
+        }
+        else if (item.substr(0,10) == "BOX BOUNDS")
+        {
+            in >> xMin >> xMax;
+            in >> yMin >> yMax;
+            in >> zMin >> zMax;
             in.getline(buff, 1000); // get rest of Z line
         }
         else if (item == "NUMBER OF ATOMS")
@@ -608,18 +637,21 @@ avtLAMMPSDumpFileFormat::ReadAllMetaData()
                         idIndex = varNames.size();
                     else if (varName == "type")
                         speciesIndex = varNames.size();
-                    else if (varName == "x" || varName == "xs")
+                    else if (varName == "x" || varName == "xs" ||
+                               varName == "xu" || varName == "xsu" )
                         xIndex = varNames.size();
-                    else if (varName == "y" || varName == "ys")
+                    else if (varName == "y" || varName == "ys" ||
+                               varName == "yu" || varName == "ysu" )
                         yIndex = varNames.size();
-                    else if (varName == "z" || varName == "zs")
+                    else if (varName == "z" || varName == "zs" ||
+                               varName == "zu" || varName == "zsu" )
                         zIndex = varNames.size();
 
-                    if (varName == "xs")
+                    if (varName == "xs" || "xsu")
                         xScaled = true;
-                    if (varName == "ys")
+                    if (varName == "ys" || "ysu")
                         yScaled = true;
-                    if (varName == "zs")
+                    if (varName == "zs" || "zsu")
                         zScaled = true;
 
                     varNames.push_back(varName);
