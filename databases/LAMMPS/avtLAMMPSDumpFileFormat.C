@@ -61,6 +61,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 using std::istringstream;
 using std::string;
@@ -133,10 +134,7 @@ avtLAMMPSDumpFileFormat::GetNTimesteps(void)
 void
 avtLAMMPSDumpFileFormat::FreeUpResources(void)
 {
-    for (int i=0; i<vars.size(); i++)
-        vars[i].clear();
-    vars.clear();
-    varNames.clear();
+    atomVars.Clear();
 }
 
 
@@ -231,13 +229,22 @@ avtLAMMPSDumpFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int t
     mmd->unitCellOrigin[2] = zMin;
     md->Add(mmd);
 
-    AddScalarVarToMetaData(md, "species", "mesh", AVT_NODECENT);
-    for (int v=0; v<nVars; v++)
-    {
-        if (v == idIndex || v == speciesIndex)
-            continue;
-        AddScalarVarToMetaData(md, varNames[v], "mesh", AVT_NODECENT);
-    }
+    if(atomVars.HasIds())
+        {
+        AddScalarVarToMetaData(md, "id", "mesh", AVT_NODECENT);
+        }
+
+    if(atomVars.HasTypes())
+        {
+        AddScalarVarToMetaData(md, "species", "mesh", AVT_NODECENT);
+        }
+
+    for(AtomInfo::name_iterator v = atomVars.GetVariableNamesBegin();
+        v != atomVars.GetVariableNamesEnd();
+        ++v)
+        {
+        AddScalarVarToMetaData(md, *v, "mesh", AVT_NODECENT);
+        }
 
     md->SetCycles(cycles);
     md->SetCyclesAreAccurate(true);
@@ -328,9 +335,9 @@ avtLAMMPSDumpFileFormat::GetMesh(int timestep, const char *name)
     pts->SetNumberOfPoints(nAtoms[timestep]);
     for (vtkIdType j = 0 ; j < nAtoms[timestep] ; j++)
     {
-        double x = vars[xIndex][j];
-        double y = vars[yIndex][j];
-        double z = vars[zIndex][j];
+        double x = atomVars[xIndex][j];
+        double y = atomVars[yIndex][j];
+        double z = atomVars[zIndex][j];
         if (xScaled)
             x = xMin + (xMax-xMin) * x;
         if (yScaled)
@@ -401,25 +408,23 @@ avtLAMMPSDumpFileFormat::GetVar(int timestep, const char *varname)
     // element is a built-in variable
     if (string(varname) == "species")
     {
-        vtkFloatArray *scalars = vtkFloatArray::New();
-        scalars->SetNumberOfTuples(nAtoms[timestep]);
-        float *ptr = (float *) scalars->GetVoidPointer(0);
-        for (int i=0; i<nAtoms[timestep]; i++)
-        {
-           ptr[i] = speciesVar[i];
-        }
-        return scalars;
+        vtkIntArray *species = vtkIntArray::New();
+        species->SetNumberOfTuples(nAtoms[timestep]);
+        int *ptr = (int *) species->GetVoidPointer(0);
+        std::copy(atomVars.GetTypes().begin(), atomVars.GetTypes().end(),ptr);
+        return species;
+    }
+    else if (string(varname) == "id")
+    {
+        vtkIntArray *ids = vtkIntArray::New();
+        ids->SetNumberOfTuples(nAtoms[timestep]);
+        int *ptr = (int *) ids->GetVoidPointer(0);
+        std::copy(atomVars.GetIds().begin(), atomVars.GetIds().end(),ptr);
+        return ids;
     }
 
-    int varIndex = -1;
-    for (int v=0; v<nVars; v++)
-    {
-        if (varNames[v] == varname)
-        {
-            varIndex = v;
-            break;
-        }
-    }
+
+    int varIndex = atomVars.GetVarIndex(varname);
 
     if (varIndex == -1)
     {
@@ -430,10 +435,7 @@ avtLAMMPSDumpFileFormat::GetVar(int timestep, const char *varname)
     vtkFloatArray *scalars = vtkFloatArray::New();
     scalars->SetNumberOfTuples(nAtoms[timestep]);
     float *ptr = (float *) scalars->GetVoidPointer(0);
-    for (int i=0; i<nAtoms[timestep]; i++)
-    {
-        ptr[i] = vars[varIndex][i];
-    }
+    std::copy(atomVars[varIndex].begin(),atomVars[varIndex].end(),ptr);
     return scalars;
 }
 
@@ -499,16 +501,7 @@ avtLAMMPSDumpFileFormat::ReadTimeStep(int timestep)
     OpenFileAtBeginning();
     in.seekg(file_positions[timestep]);
 
-    speciesVar.resize(nAtoms[timestep]);
-
-    for (int v=0; v<vars.size(); v++)
-    {
-        // id and species are ints; don't bother with the float arrays for them
-        if (v == idIndex || v == speciesIndex)
-            continue;
-        vars[v].resize(nAtoms[timestep]);
-    }
-
+    atomVars.SetNumberOfAtoms(nAtoms[timestep]);
 
     int tmpID=0, tmpSpecies=0;
     char buff[1000];
@@ -521,25 +514,31 @@ avtLAMMPSDumpFileFormat::ReadTimeStep(int timestep)
     {
         in.getline(buff,1000);
         istringstream sin(buff);
-        for (int v=0; v<nVars; v++)
+
+        int lineIndex=0;
+        int atomVarIndex=0;
+        while(sin.good())
         {
-            if (v==speciesIndex)
-                {
-                sin >> tmpSpecies;
-                }
-            else if (v == idIndex)
-                {
-                //skip the id
-                //they arent consecutive or all below the number
-                //of atoms + 1
-                sin >> tmpID;
-                }
-            else
-                {
-                sin >> vars[v][a];
-                }
+        if (lineIndex==speciesIndex)
+            {
+            sin >> tmpSpecies;
+            atomVars.SetType(a,tmpSpecies-1);
+            }
+        else if (lineIndex == idIndex)
+            {
+            //skip the id
+            //they arent consecutive or all below the number
+            //of atoms + 1
+            sin >> tmpID;
+            atomVars.SetId(a,tmpID);
+            }
+        else
+            {
+            sin >> atomVars[atomVarIndex][a];
+            ++atomVarIndex;
+            }
+        ++lineIndex;
         }
-        speciesVar[a] = tmpSpecies - 1;
     }
 }
 
@@ -586,7 +585,6 @@ avtLAMMPSDumpFileFormat::ReadAllMetaData()
     char buff[1000];
 
     nTimeSteps = 0;
-    nVars = -1;
 
     while (in)
     {
@@ -626,54 +624,57 @@ avtLAMMPSDumpFileFormat::ReadAllMetaData()
         {
             istream::pos_type current_pos = in.tellg();
             file_positions.push_back(current_pos);
-            if (nVars == -1)
+            if (atomVars.GetNumberOfVariables() == 0)
             {
                 istringstream sin(&buff[11]);
                 string varName;
                 xScaled = yScaled = zScaled = false;
+                int variableIndex = 0;
+                int lineIndex = 0;
                 while (sin >> varName)
                 {
                     if (varName == "id")
-                        idIndex = varNames.size();
+                        idIndex = lineIndex;
                     else if (varName == "type")
-                        speciesIndex = varNames.size();
+                        speciesIndex = lineIndex;
                     else if (varName == "x" || varName == "xs" ||
                                varName == "xu" || varName == "xsu" )
-                        xIndex = varNames.size();
+                        xIndex = variableIndex++;
                     else if (varName == "y" || varName == "ys" ||
                                varName == "yu" || varName == "ysu" )
-                        yIndex = varNames.size();
+                        yIndex = variableIndex++;
                     else if (varName == "z" || varName == "zs" ||
                                varName == "zu" || varName == "zsu" )
-                        zIndex = varNames.size();
+                        zIndex = variableIndex++;
 
-                    if (varName == "xs" || "xsu")
+                    if (varName == "xs" || varName == "xsu")
                         xScaled = true;
-                    if (varName == "ys" || "ysu")
+                    if (varName == "ys" || varName == "ysu")
                         yScaled = true;
-                    if (varName == "zs" || "zsu")
+                    if (varName == "zs" || varName == "zsu")
                         zScaled = true;
 
-                    varNames.push_back(varName);
+                    atomVars.AddVariable(varName);
+                    ++lineIndex;
 
                 }
-                nVars = varNames.size();
-                if (nVars == 0)
+                if (atomVars.GetNumberOfVariables() == 0)
                 {
                     // OLD FORMAT: Assume "id type x y z"
-                    varNames.push_back("id");
-                    varNames.push_back("type");
-                    varNames.push_back("x");
-                    varNames.push_back("y");
-                    varNames.push_back("z");
+                    atomVars.AddVariable("id");
+                    atomVars.AddVariable("type");
+                    atomVars.AddVariable("x");
+                    atomVars.AddVariable("y");
+                    atomVars.AddVariable("z");
                     idIndex = 0;
                     speciesIndex = 1;
-                    xIndex = 2; xScaled = false;
-                    yIndex = 3; yScaled = false;
-                    zIndex = 4; zScaled = false;
-                    nVars = varNames.size();
+
+                    //these indices are in the atomVars, id and species
+                    //are line based indices
+                    xIndex = 0; xScaled = false;
+                    yIndex = 1; yScaled = false;
+                    zIndex = 2; zScaled = false;
                 }
-                vars.resize(nVars);
             }
         }
     }
