@@ -39,7 +39,7 @@
 #ifndef DATABASE_PLUGIN_EXPORTS_H
 #define DATABASE_PLUGIN_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(_WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
 # define DBP_EXPORT __declspec(dllexport)
 #else
 # if __GNUC__ >= 4

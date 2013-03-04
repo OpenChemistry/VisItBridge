@@ -39,7 +39,7 @@
 #ifndef EXPR_EXPORTS_H
 #define EXPR_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(_WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
 # if defined(EXPR_EXPORTS) || defined(visitcommon_EXPORTS)
 #   define EXPR_API  __declspec(dllexport)
 #   define EXPR_API2 __declspec(dllexport)
@@ -56,7 +56,7 @@
 #   pragma warning(disable:4786)
 # endif
 #else
-# if __GNUC__ >= 4 
+# if __GNUC__ >= 4
 #   if (defined(EXPR_EXPORTS) || defined(visitcommon_EXPORTS))
 #     define EXPR_API __attribute__ ((visibility("default")))
 #   else
