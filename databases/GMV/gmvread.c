@@ -486,7 +486,11 @@ int gmvread_open_fromfileskip(char *filnam)
 
 void gmvread_close()
 {
-   if (gmvinGlobal) fclose(gmvinGlobal);
+   if (gmvinGlobal)
+     {
+       fclose(gmvinGlobal);
+       gmvinGlobal = NULL;
+     }
    fromfileskip = 0;
    nodes_read = 0;  cells_read = 0;  faces_read = 0; 
    surface_read = 0;  iend = 0;  swapbytes_on = 0;  skipflag = 0; 
@@ -716,7 +720,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(NODES) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -727,7 +731,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(CELLS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -739,7 +743,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(FACES) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -750,7 +754,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(VFACES) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -761,7 +765,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(XFACES) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -772,7 +776,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(MATERIAL) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -791,7 +795,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(FLAGS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -802,7 +806,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(POLYGONS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -844,7 +848,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(NODEIDS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -855,7 +859,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(CELLIDS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             readcellids(gmvinGlobal,ftypeGlobal);
@@ -865,7 +869,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(FACEIDS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             readfaceids(gmvinGlobal,ftypeGlobal);
@@ -875,7 +879,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(TRACEIDS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             readtracerids(gmvinGlobal,ftypeGlobal);
@@ -885,7 +889,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(SURFACE) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -896,7 +900,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(SURFMATS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -919,7 +923,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(SURFIDS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             readsurfids(gmvinGlobal,ftypeGlobal);
@@ -929,7 +933,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(UNITS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -944,7 +948,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(GROUPS) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             if (fromfileflag == 1) break;
@@ -974,7 +978,7 @@ void gmvread_data()
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(CELLPES) < 0)
               {
-                gmv_data.keyword = GMVABORT;
+                gmv_data.keyword = GMVERROR;
                 break;
               }
             readcellpes(gmvinGlobal,ftypeGlobal);
@@ -1001,7 +1005,12 @@ void gmvread_data()
       /* fclose(gmvinGlobal); */
      }
 
-   if (gmv_data.keyword == GMVERROR) fclose(gmvinGlobal);
+   if (gmv_data.keyword == GMVERROR)
+     if (gmvinGlobal)
+       {
+         fclose(gmvinGlobal);
+         gmvinGlobal = NULL;
+       }
 
    if (readkeyword == 1 && reading_fromfile && curr_keyword == ff_keyword) 
       endfromfile();
@@ -1022,21 +1031,48 @@ void rdints(int iarray[], int nvals, FILE* gmvin)
   /*                                                  */
   /*  Read an integer array from an ASCII text file.  */
   /*                                                  */
-  int i;
+  int i, j, ret_stat;
 
-   for (i = 0; i < nvals; i++)
-     {
-      fscanf(gmvin,"%d",&iarray[i]);
+  for (i = 0; i < nvals; i++)
+    {
+      ret_stat = fscanf(gmvin,"%d",&iarray[i]);
 
-      if ((feof(gmvin) != 0) || (ferror(gmvin) != 0))
+      /* File ends abruptly or could not be read from anymore? */
+      if (feof(gmvin) != 0)
         {
-         fprintf(stderr,"I/O error while reading gmv input file.\n");
-         gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
-         SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
-         gmv_data.keyword = GMVERROR;
-         return;
+          fprintf(stderr,"%d integer values expected, but gmv input file end reached after %d.\n", nvals, i);
+          gmv_data.errormsg = (char *)malloc(90 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg, 90,
+                   "%d integer values expected, but gmv input file end reached after %d.\n", nvals, i);
+          gmv_data.keyword = GMVERROR;
+          return;
         }
-     }
+      if (ferror(gmvin) != 0)
+        {
+          fprintf(stderr,"I/O error while reading gmv input file.\n");
+          gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
+          gmv_data.keyword = GMVERROR;
+          return;
+        }
+
+      /* File end may have not yet been reached, but format requirements could have been violated */
+      if (ret_stat == 0)
+        {
+          /* Array shorter than it is supposed to be */
+          fprintf(stderr,"%d integer values expected, only %d found while reading gmv input file.\n", nvals, i);
+          gmv_data.errormsg = (char *)malloc(90 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg, 90,
+                   "%d integer values expected, only %d found while reading gmv input file.\n", nvals, i);
+          gmv_data.keyword = GMVERROR;
+          /* Initialise remainder of array */
+          for (j = i; j < nvals; j++)
+            {
+              iarray[j] = 0;
+            }
+          return;
+        }
+    }
 }
 
 
@@ -1045,21 +1081,48 @@ void rdlongs(long iarray[], long nvals, FILE* gmvin)
   /*                                                  */
   /*  Read an integer array from an ASCII text file.  */
   /*                                                  */
-  long i;
+  long i, j, ret_stat;
 
-   for (i = 0; i < nvals; i++)
-     {
-      fscanf(gmvin,"%ld",&iarray[i]);
+  for (i = 0; i < nvals; i++)
+    {
+      ret_stat = fscanf(gmvin,"%ld",&iarray[i]);
 
-      if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
+      /* File ends abruptly or could not be read from anymore? */
+      if (feof(gmvin) != 0)
         {
-         fprintf(stderr,"I/O error while reading gmv input file.\n");
-         gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
-         SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
-         gmv_data.keyword = GMVERROR;
-         return;
+          fprintf(stderr,"%ld long values expected, but gmv input file end reached after %ld.\n", nvals, i);
+          gmv_data.errormsg = (char *)malloc(90 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg, 90,
+                   "%ld long values expected, but gmv input file end reached after %ld.\n", nvals, i);
+          gmv_data.keyword = GMVERROR;
+          return;
         }
-     }
+      if (ferror(gmvin) != 0)
+        {
+          fprintf(stderr,"I/O error while reading gmv input file.\n");
+          gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
+          gmv_data.keyword = GMVERROR;
+          return;
+        }
+
+      /* File end may have not yet been reached, but format requirements could have been violated */
+      if (ret_stat == 0)
+        {
+          /* Array shorter than it is supposed to be */
+          fprintf(stderr,"%ld long values expected, only %ld found while reading gmv input file.\n", nvals, i);
+          gmv_data.errormsg = (char *)malloc(90 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg, 90,
+                   "%ld long values expected, only %ld found while reading gmv input file.\n", nvals, i);
+          gmv_data.keyword = GMVERROR;
+          /* Initialise remainder of array */
+          for (j = i; j < nvals; j++)
+            {
+              iarray[j] = (long)0;
+            }
+          return;
+        }
+    }
 }
 
 
@@ -1068,21 +1131,48 @@ void rdfloats(double farray[], long nvals, FILE* gmvin)
   /*                                                  */
   /*  Read an integer array from an ASCII text file.  */
   /*                                                  */
-  int i;
+  int i, j, ret_stat;
 
-   for (i = 0; i < nvals; i++)
-     {
-      fscanf(gmvin,"%lf",&farray[i]);
+  for (i = 0; i < nvals; i++)
+    {
+      ret_stat = fscanf(gmvin,"%lf",&farray[i]);
 
-      if ((feof(gmvin) != 0) | (ferror(gmvin) != 0))
+      /* File ends abruptly or could not be read from anymore? */
+      if (feof(gmvin) != 0)
         {
-         fprintf(stderr,"I/O error while reading gmv input file.\n");
-         gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
-         SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
-         gmv_data.keyword = GMVERROR;
-         return;
+          fprintf(stderr,"%ld double values expected, but gmv input file end reached after %d.\n", nvals, i);
+          gmv_data.errormsg = (char *)malloc(90 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg, 90,
+                   "%ld double values expected, but gmv input file end reached after %d.\n", nvals, i);
+          gmv_data.keyword = GMVERROR;
+          return;
         }
-     }
+      if (ferror(gmvin) != 0)
+        {
+          fprintf(stderr,"I/O error while reading gmv input file.\n");
+          gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
+          gmv_data.keyword = GMVERROR;
+          return;
+        }
+
+      /* File end may have not yet been reached, but format requirements could have been violated */
+      if (ret_stat == 0)
+        {
+          /* Array shorter than it is supposed to be */
+          fprintf(stderr,"%ld double values expected, only %d found while reading gmv input file.\n", nvals, i);
+          gmv_data.errormsg = (char *)malloc(90 * sizeof(char));
+          SNPRINTF(gmv_data.errormsg, 90,
+                   "%ld double values expected, only %d found while reading gmv input file.\n", nvals, i);
+          gmv_data.keyword = GMVERROR;
+          /* Initialise remainder of array */
+          for (j = i; j < nvals; j++)
+            {
+              farray[j] = 0.0;
+            }
+          return;
+        }
+    }
 }
 
 
@@ -1152,7 +1242,8 @@ void endfromfile()
    /*  Reset current data.  */
    ftypeGlobal = ftype_sav;
    fromfileskip = 0;
-   fclose(gmvinGlobal);
+   if (gmvinGlobal)
+     fclose(gmvinGlobal);
    gmvinGlobal = gmvin_sav;
    fromfileflag = 0;
    reading_fromfile = 0;
@@ -1815,6 +1906,8 @@ void readcells(FILE* gmvin, int ftype)
         }
       if (ftype == ASCII) rdlongs(daughters,lncells,gmvin);
 
+      if (gmv_data.keyword == GMVERROR) return;
+
       gmv_data.keyword = CELLS;
       gmv_data.datatype = AMR;
       gmv_data.num = lncells;
@@ -1974,6 +2067,7 @@ void readcells(FILE* gmvin, int ftype)
       if (ftype != ASCII) binread(nverts,intsize,INT,(long)nfaces,gmvin);
       if (ftype == ASCII) rdints(nverts,nfaces,gmvin);
       ioerrtst(gmvin);
+      if (gmv_data.keyword == GMVERROR) return;
 
       /*  Read all face vertices, reallocate if needed.  */
       totverts = 0;
@@ -2005,6 +2099,7 @@ void readcells(FILE* gmvin, int ftype)
          ioerrtst(gmvin);
         }
       if (ftype == ASCII) rdlongs(lcellnodenos,(long)totverts,gmvin);
+      if (gmv_data.keyword == GMVERROR) return;
       lfaces = (long *)malloc(nfaces*sizeof(long));
       if (lfaces == NULL)
         {
@@ -2076,6 +2171,8 @@ void readcells(FILE* gmvin, int ftype)
       for (i = 0; i < nfaces; i++)
          lfaces[i]--;
 */
+
+      if (gmv_data.keyword == GMVERROR) return;
       
       gmv_data.keyword = CELLS;
       if (strncmp(keyword,"vface2d",7) == 0)
@@ -2127,6 +2224,7 @@ void readcells(FILE* gmvin, int ftype)
          gmv_data.keyword = GMVERROR;
          return;
         }
+      if (gmv_data.keyword == GMVERROR) return;
 
       gmv_data.keyword = CELLS;
       gmv_data.datatype = REGULAR;
@@ -2239,6 +2337,7 @@ void readfaces(FILE* gmvin, int ftype)
       gmv_data.keyword = GMVERROR;
       return;
      }
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = FACES;
    gmv_data.datatype = REGULAR;
@@ -2361,6 +2460,7 @@ void readvfaces(FILE* gmvin, int ftype)
       gmv_data.keyword = GMVERROR;
       return;
      }
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = VFACES;
    gmv_data.datatype = REGULAR;
@@ -2449,6 +2549,7 @@ void readxfaces(FILE* gmvin, int ftype)
            }
         }
       ioerrtst(gmvin);
+      if (gmv_data.keyword == GMVERROR) return;
 
       /*  Count the total number of vertices to read.  */
       totverts = 0;
@@ -2488,6 +2589,7 @@ void readxfaces(FILE* gmvin, int ftype)
            }
         }
       ioerrtst(gmvin);
+      if (gmv_data.keyword == GMVERROR) return;
 
       gmv_data.nlongdata1 = lnfaces;
       gmv_data.longdata1 = nxvertsin;
@@ -2534,6 +2636,7 @@ void readxfaces(FILE* gmvin, int ftype)
            }
         }
       ioerrtst(gmvin);
+      if (gmv_data.keyword == GMVERROR) return;
 
       /*  Get the number of cells from the largest cell  */
       /*  when reading the cells per face data.          */
@@ -2645,6 +2748,8 @@ void readmats(FILE* gmvin, int ftype)
       ioerrtst(gmvin);
      }
    if (ftype == ASCII) rdints(matin,lnmatin,gmvin);
+
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = MATERIAL;
    gmv_data.datatype = data_type;
@@ -2879,6 +2984,8 @@ void readvars(FILE* gmvin, int ftype)
      }
    if (ftype == ASCII) rdfloats(varin,(long)nvarin,gmvin);
 
+   if (gmv_data.keyword == GMVERROR) return;
+
    gmv_data.keyword = VARIABLE;
    gmv_data.datatype = data_type;
    gmv_data.num = nvarin;
@@ -3000,6 +3107,8 @@ void readflags(FILE* gmvin, int ftype)
      }
    if (ftype == ASCII) rdints(flagin,nflagin,gmvin);
 
+   if (gmv_data.keyword == GMVERROR) return;
+
    gmv_data.keyword = FLAGS;
    gmv_data.datatype = data_type;
    strncpy(gmv_data.name1, flgname, MAXCUSTOMNAMELENGTH-1);
@@ -3095,6 +3204,8 @@ void readpolygons(FILE* gmvin, int ftype)
         }
      }
    if (ftype == ASCII) rdfloats(vertsin,(long)3*nvertsin,gmvin);
+
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = POLYGONS;
    gmv_data.datatype = REGULAR;
@@ -3274,6 +3385,8 @@ void readtracers(FILE* gmvin, int ftype)
       if (ftype == ASCII) rdfloats(lfieldtr,(long)numtracers,gmvin);
      }
 
+   if (gmv_data.keyword == GMVERROR) return;
+
    gmv_data.keyword = TRACERS;
    gmv_data.datatype = TRACERDATA;
    strncpy(gmv_data.name1, varname, MAXCUSTOMNAMELENGTH-1);
@@ -3324,6 +3437,8 @@ void readnodeids(FILE* gmvin, int ftype)
      }
    if (ftype == ASCII) rdlongs(lnodeids,numnodes,gmvin);
 
+   if (gmv_data.keyword == GMVERROR) return;
+
    gmv_data.keyword = NODEIDS;
    gmv_data.datatype = REGULAR;
    gmv_data.num = numnodes;
@@ -3371,6 +3486,8 @@ void readcellids(FILE* gmvin, int ftype)
       ioerrtst(gmvin);
      }
    if (ftype == ASCII) rdlongs(lcellids,numcells,gmvin);
+
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = CELLIDS;
    gmv_data.datatype = REGULAR;
@@ -3430,6 +3547,8 @@ void readfaceids(FILE* gmvin, int ftype)
      }
    if (ftype == ASCII) rdlongs(lfaceids,numfaces,gmvin);
 
+   if (gmv_data.keyword == GMVERROR) return;
+
    gmv_data.keyword = FACEIDS;
    gmv_data.datatype = REGULAR;
    gmv_data.num = numcells;
@@ -3480,6 +3599,8 @@ void readtracerids(FILE* gmvin, int ftype)
         }
       if (ftype == ASCII) rdlongs(ltracerids,(long)numtracers,gmvin);
      }
+
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = TRACEIDS;
    gmv_data.datatype = REGULAR;
@@ -3710,6 +3831,7 @@ void readsurface(FILE* gmvin, int ftype)
       gmv_data.keyword = GMVERROR;
       return;
      }
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = SURFACE;
    gmv_data.datatype = REGULAR;
@@ -3754,6 +3876,8 @@ void readsurfmats(FILE* gmvin, int ftype)
       ioerrtst(gmvin);
      }
    if (ftype == ASCII) rdints(matin,numsurf,gmvin);
+
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = SURFMATS;
    gmv_data.num = numsurf;
@@ -3935,6 +4059,8 @@ void readsurfvars(FILE* gmvin, int ftype)
       if (ftype == ASCII) rdfloats(varin,(long)numsurf,gmvin);
      }
 
+   if (gmv_data.keyword == GMVERROR) return;
+
    gmv_data.keyword = SURFVARS;
    gmv_data.datatype = REGULAR;
    strncpy(gmv_data.name1, varname, MAXCUSTOMNAMELENGTH-1);
@@ -4045,6 +4171,8 @@ void readsurfflag(FILE* gmvin, int ftype)
       if (ftype == ASCII) rdints(flagin,numsurf,gmvin);
      }
 
+   if (gmv_data.keyword == GMVERROR) return;
+
    gmv_data.keyword = SURFFLAG;
    gmv_data.datatype = REGULAR;
    strncpy(gmv_data.name1, flgname, MAXCUSTOMNAMELENGTH-1);
@@ -4122,6 +4250,8 @@ void readsurfids(FILE* gmvin, int ftype)
       ioerrtst(gmvin);
      }
    if (ftype == ASCII) rdlongs(lsurfids,numsurf,gmvin);
+
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = SURFIDS;
    gmv_data.datatype = REGULAR;
@@ -4209,6 +4339,8 @@ void readvinfo(FILE* gmvin, int ftype)
 
    if (ftype == IEEEI4R4 || ftype == IEEEI8R4)
       free(tmpfloat);
+
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = VINFO;
    gmv_data.datatype = REGULAR;
@@ -4362,6 +4494,8 @@ void readgroups(FILE* gmvin, int ftype)
      }
    if (ftype == ASCII) rdints(groupin,ngroupin,gmvin);
 
+   if (gmv_data.keyword == GMVERROR) return;
+
    gmv_data.keyword = GROUPS;
    gmv_data.datatype = data_type;
    strncpy(gmv_data.name1, grpname, MAXCUSTOMNAMELENGTH-1);
@@ -4419,6 +4553,8 @@ void readcellpes(FILE* gmvin, int ftype)
       ioerrtst(gmvin);
      }
    if (ftype == ASCII) rdlongs(lcellpes,numcells,gmvin);
+
+   if (gmv_data.keyword == GMVERROR) return;
 
    gmv_data.keyword = CELLPES;
    gmv_data.datatype = REGULAR;
@@ -4804,6 +4940,8 @@ void readvects(FILE* gmvin, int ftype)
      }
    if (ftype == ASCII) rdfloats(vectin,(long)nreadin,gmvin);
 
+   if (gmv_data.keyword == GMVERROR) return;
+
    gmv_data.keyword = VECTORS;
    gmv_data.datatype = data_type;
    gmv_data.num = nvectin;
@@ -4856,6 +4994,7 @@ void ioerrtst(FILE *gmvin)
       fprintf(stderr,"I/O error while reading gmv input file.\n");
       gmv_data.errormsg = (char *)malloc(40 * sizeof(char));
       SNPRINTF(gmv_data.errormsg,40,"I/O error while reading gmv input file.");
+      gmv_data.keyword = GMVERROR;
 /*LLNL*/
 /*
       exit(0);
@@ -4956,6 +5095,12 @@ int binread(void* ptr, int size, int type, long nitems, FILE* stream)
 #else
 
    ret_stat = (int)fread(ptr, size, nitems, stream);
+
+   if (ret_stat < nitems)
+     {
+     /* Initialise remainder of array */
+     memset((char*)ptr + size*ret_stat, '\0', size*(nitems - ret_stat));
+     }
 
    if (swapbytes_on && type != CHAR && type != WORD)
       swapbytes(ptr, size, nitems);
@@ -5126,7 +5271,7 @@ void gmvread_mesh()
 
    /*  Check for GMVERROR.  */
    /* SB: Modification due to disabled exit statement on fromfile error */
-   if (gmv_data.keyword == GMVERROR || gmv_data.keyword == GMVABORT)
+   if (gmv_data.keyword == GMVERROR)
      {
       gmv_meshdata.intype = GMVERROR;
       return;
@@ -7285,6 +7430,8 @@ void readrays(FILE* gmvrayin, int ftype)
               }
            }
          if (ftype == ASCII) rdfloats(field, (long)nvarin, gmvrayin);    
+
+         if (gmv_data.keyword == GMVERROR) return;
 
          gmvrays[iray].field[k] = field;
         }

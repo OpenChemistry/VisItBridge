@@ -1539,7 +1539,6 @@ avtGMVFileFormat::ReadData()
                     break;
                 case GMVEND:
                 case GMVERROR:
-                case GMVABORT:
                     keepGoing = false;
                     break;
                 }

@@ -44,7 +44,6 @@
 #define GMVEND     51
 #define INVALIDKEYWORD 52
 #define GMVERROR 53
-#define GMVABORT 54        /*  SB: Handle cases that traditionally led to 'exit(0)' */
 
 
 /*  Data types for Nodes:  */
