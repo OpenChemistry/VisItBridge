@@ -193,16 +193,15 @@ int vtkVisItProbeFilter::RequestInformation(
   outInfo->Set(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT(),
                inInfo->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT()),
                6);
-  outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(),
-               inInfo->Get(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES()));
 
+  /*
   // Special case for ParaView.
   if (this->SpatialMatch == 2)
     {
     outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(),
-                 sourceInfo->Get(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES()));
+    sourceInfo->Get(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES()));
     }
-  
+
   if (this->SpatialMatch == 1)
     {
     int m1 = inInfo->Get(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES());
@@ -230,6 +229,7 @@ int vtkVisItProbeFilter::RequestInformation(
                    m1);
       }
     }
+    */
 
   // A variation of the bug fix from John Biddiscombe.
   // Make sure that the scalar type and number of components

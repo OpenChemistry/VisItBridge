@@ -155,8 +155,18 @@ int vtkAvtFileFormatAlgorithm::ProcessRequest(vtkInformation* request,
                                          vtkInformationVector** inputVector,
                                          vtkInformationVector* outputVector)
 {
-  // generate the needed data for each time step
-  // to handle domain level piece loading
+  // TODO (berk)
+  // This should be either in RequestInformation or RequestTemporalInformation
+
+  // // generate the needed data for each time step
+  // // to handle domain level piece loading
+  // if(request->Has(
+  // vtkStreamingDemandDrivenPipeline::REQUEST_UPDATE_EXTENT_INFORMATION()))
+  //   {
+  //   vtkInformation *outInfo = outputVector->GetInformationObject(0);
+  //   this->SetupBlockBoundsInformation(outInfo);
+  //   }
+
   return this->Superclass::ProcessRequest(request, inputVector, outputVector);
 }
 
@@ -177,8 +187,8 @@ int vtkAvtFileFormatAlgorithm::RequestInformation(vtkInformation *request,
       -1:1;
     //only MD classes have blocks inside a mesh, and therefore
     //we can use that to determine if we support reading on each processor
-    outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(),
-      maxPieces);
+    //outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(),
+    //maxPieces);
     }
 
   //Set up ghost levels
@@ -458,6 +468,57 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
     }
 }
 
+//-----------------------------------------------------------------------------
+/*
+void vtkAvtFileFormatAlgorithm::SetupBlockBoundsInformation(
+  vtkInformation *outInfo)
+{
+  //this allows the VisIt Readers to support individual
+  //domain and block loading
+  vtkSmartPointer<vtkMultiBlockDataSet> metadata =
+      vtkSmartPointer<vtkMultiBlockDataSet>::New();
+
+  unsigned int index = 0; //converting the multiblock to a flat index
+
+  int size = this->MetaData->GetNumMeshes();
+  int timeStep = this->GetCurrentTimeStep(outInfo);
+  for ( int i=0; i < size; ++i)
+    {
+    const avtMeshMetaData *meshMetaData = this->MetaData->GetMesh(i);
+
+    int numBlocks = meshMetaData->numBlocks;
+
+    //setup the block that represents this mesh
+    vtkMultiBlockDataSet* childDS = vtkMultiBlockDataSet::New();
+    childDS->SetNumberOfBlocks(numBlocks);
+    metadata->SetBlock(i,childDS);
+    childDS->FastDelete();
+
+    //setup the bounding box for each domain in this block
+    for ( int dom=0; dom < numBlocks; ++dom )
+      {
+
+      //create the block for this domain
+      childDS->SetBlock(dom,NULL);
+      vtkInformation* piece_metadata = childDS->GetMetaData(dom);
+
+      double bounds[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
+      bool valid =
+        this->GetDataSpatialExtents(meshMetaData->name.c_str(),
+        timeStep, dom, bounds);
+      if ( valid )
+        {
+        piece_metadata->Set(
+        vtkStreamingDemandDrivenPipeline::BOUNDS(),bounds,6);
+        }
+      ++index;
+      }
+    }
+
+  outInfo->Set(vtkCompositeDataPipeline::COMPOSITE_DATA_META_DATA(),
+            metadata);
+}
+*/
 
 //-----------------------------------------------------------------------------
 bool vtkAvtFileFormatAlgorithm::GetDataSpatialExtents(const char* meshName,

@@ -274,8 +274,7 @@ int visit_vtkPOpenFOAMReader::RequestInformation(vtkInformation *request,
 
   // it seems MAXIMUM_NUMBER_OF_PIECES must be returned every time
   // RequestInformation() is called
-  outputVector->GetInformationObject(0)->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(),
-      this->MaximumNumberOfPieces);
+  outputVector->GetInformationObject(0)->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
 
   return 1;
 }
