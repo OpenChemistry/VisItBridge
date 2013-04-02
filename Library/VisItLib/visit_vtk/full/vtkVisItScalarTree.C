@@ -182,8 +182,8 @@ vtkVisItScalarTree::BuildTree()
     for (int t = 0 ; t < treeSize ; t++)
     {
         ScalarRange &leaf = tree[t];
-        leaf.min = VTK_LARGE_FLOAT;
-        leaf.max = -VTK_LARGE_FLOAT;
+        leaf.min = VTK_FLOAT_MAX;
+        leaf.max = VTK_FLOAT_MIN;
     }
 
     // Now find the min/max for each bucket.

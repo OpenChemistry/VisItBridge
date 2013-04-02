@@ -98,7 +98,7 @@ vtkPolyDataOnionPeelFilter::vtkPolyDataOnionPeelFilter()
     this->logicalIndex[0] = this->logicalIndex[1] = this->logicalIndex[2] = 0;
     this->useLogicalIndex = false;
     this->maxLayersReached = 0;
-    this->maxLayerNum = VTK_LARGE_INTEGER;
+    this->maxLayerNum = VTK_INT_MAX;
     this->AdjacencyType = VTK_NODE_ADJACENCY;
     this->ReconstructOriginalCells = 0; 
     this->SeedIdIsForCell = 1; 
@@ -201,7 +201,7 @@ bool
 vtkPolyDataOnionPeelFilter::Initialize(vtkDataSet *input, const int numIds)
 {
     this->maxLayersReached = 0;
-    this->maxLayerNum = VTK_LARGE_INTEGER;
+    this->maxLayerNum = VTK_INT_MAX;
 
     if (useLogicalIndex)
     {
