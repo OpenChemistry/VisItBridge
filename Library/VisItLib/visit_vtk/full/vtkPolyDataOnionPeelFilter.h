@@ -134,7 +134,7 @@ public:
 
   // Description:
   // Set the current layer value.
-  vtkSetClampMacro(RequestedLayer,int, 0, VTK_LARGE_INTEGER);
+  vtkSetClampMacro(RequestedLayer,int, 0, VTK_INT_MAX);
   vtkGetMacro(RequestedLayer,int);
 
   // Description:
@@ -156,7 +156,7 @@ public:
        { this->SetAdjacencyType(VTK_NODE_ADJACENCY); };
   const char *GetAdjacencyTypeAsString();
 
-  bool Initialize(vtkDataSet*, const int = VTK_LARGE_INTEGER);
+  bool Initialize(vtkDataSet*, const int = VTK_INT_MAX);
 
   void SetBadSeedCallback(BadSeedCallback, void *);
  
