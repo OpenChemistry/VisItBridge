@@ -14,6 +14,10 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/VisItCommon.cmake)
 # Create visit-config.h
 #-----------------------------------------------------------------------------
 
+if(WIN32)
+  add_definitions(-DWIN32)
+endif()
+
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/visit-cmake.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/visit-config.h @ONLY IMMEDIATE)
 
