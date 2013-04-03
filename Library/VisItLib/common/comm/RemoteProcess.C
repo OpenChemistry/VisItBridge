@@ -152,7 +152,7 @@ catch_dead_child(int sig)
 // ****************************************************************************
 // Method: RemoteProcess::RemoteProcess
 //
-// Purpose:
+// Purpose: 
 //   Constructor for the RemoteProcess class.
 //
 // Arguments:
@@ -203,7 +203,7 @@ RemoteProcess::RemoteProcess(const std::string &rProgram) : localHost("notset"),
 // ****************************************************************************
 // Method: RemoteProcess::~RemoteProcess
 //
-// Purpose:
+// Purpose: 
 //   Destructor for the RemoteProcess class. It closes any socket
 //   file descriptors that were opened.
 //
@@ -293,15 +293,15 @@ RemoteProcess::DisablePTY()
 // ****************************************************************************
 // Method: RemoteProcess::AddArgument
 //
-// Purpose:
+// Purpose: 
 //   Adds an argument to the RemoteProcess's argument list.
 //
 // Arguments:
 //   arg : The argument to add.
 //
-// Returns:
+// Returns:    
 //
-// Note:
+// Note:       
 //   This method must be called prior to RemoteProcess::Open to have
 //   any useful effect.
 //
@@ -309,7 +309,7 @@ RemoteProcess::DisablePTY()
 // Creation:   Fri Jul 14 09:12:35 PDT 2000
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -321,7 +321,7 @@ RemoteProcess::AddArgument(const std::string &arg)
 // ****************************************************************************
 // Method: RemoteProcess::SetRemoteUserName
 //
-// Purpose:
+// Purpose: 
 //   Sets the username to use when launching a process on a remote
 //   machine.
 //
@@ -333,7 +333,7 @@ RemoteProcess::AddArgument(const std::string &arg)
 // Creation:   Fri Oct 20 12:39:59 PDT 2000
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -345,7 +345,7 @@ RemoteProcess::SetRemoteUserName(const std::string &rUserName)
 // ****************************************************************************
 // Method: RemoteProcess::GetReadConnection
 //
-// Purpose:
+// Purpose: 
 //   Gets a pointer to the i'th read Connection.
 //
 // Arguments:
@@ -353,13 +353,13 @@ RemoteProcess::SetRemoteUserName(const std::string &rUserName)
 //
 // Returns:    A pointer to the i'th read Connection, or 0.
 //
-// Note:
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Thu Oct 5 18:36:52 PST 2000
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 Connection *
@@ -371,7 +371,7 @@ RemoteProcess::GetReadConnection(int i) const
 // ****************************************************************************
 // Method: RemoteProcess::GetWriteConnection
 //
-// Purpose:
+// Purpose: 
 //   Gets a pointer to the i'th write Connection.
 //
 // Arguments:
@@ -379,13 +379,13 @@ RemoteProcess::GetReadConnection(int i) const
 //
 // Returns:    A pointer to the i'th write Connection, or 0.
 //
-// Note:
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Thu Oct 5 18:36:52 PST 2000
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 Connection *
@@ -397,7 +397,7 @@ RemoteProcess::GetWriteConnection(int i) const
 // ****************************************************************************
 // Method: RemoteProcess::GetLocalHostName
 //
-// Purpose:
+// Purpose: 
 //   Returns the name of the localhost machine.
 //
 // Returns:    The name of the localhost machine.
@@ -409,7 +409,7 @@ RemoteProcess::GetWriteConnection(int i) const
 // Creation:   Mon Sep 24 11:26:57 PDT 2001
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 const std::string &
@@ -421,7 +421,7 @@ RemoteProcess::GetLocalHostName() const
 // ****************************************************************************
 // Method: RemoteProcess::GetLocalUserName
 //
-// Purpose:
+// Purpose: 
 //   Returns the name of the local user.
 //
 // Returns:    The local user name
@@ -433,7 +433,7 @@ RemoteProcess::GetLocalHostName() const
 // Creation:   Thu Feb 21 10:04:05 PDT 2002
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 const std::string &
@@ -445,7 +445,7 @@ RemoteProcess::GetLocalUserName() const
 // ****************************************************************************
 // Method: RemoteProcess::HostIsLocal
 //
-// Purpose:
+// Purpose: 
 //   Returns whether or not a hostname is local.
 //
 // Arguments:
@@ -455,7 +455,7 @@ RemoteProcess::GetLocalUserName() const
 // Creation:   Mon May 5 13:03:32 PST 2003
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 bool
@@ -467,14 +467,14 @@ RemoteProcess::HostIsLocal(const std::string &rHost) const
 // ****************************************************************************
 // Method: RemoteProcess::GetPid
 //
-// Purpose:
+// Purpose: 
 //   Returns the process id of the remote process.
 //
 // Programmer: Brad Whitlock
 // Creation:   Fri Jul 21 13:29:36 PST 2000
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 int
@@ -486,13 +486,13 @@ RemoteProcess::GetProcessId() const
 // ****************************************************************************
 // Method: RemoteProcess::GetSocketAndPort
 //
-// Purpose:
+// Purpose: 
 //   Creates a socket and gets a port to use.
 //
-// Returns:
+// Returns:    
 //    true if it worked, false if it did not.
 //
-// Note:
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Fri Jul 14 09:16:22 PDT 2000
@@ -579,14 +579,14 @@ RemoteProcess::GetSocketAndPort()
 // ****************************************************************************
 // Method: RemoteProcess::CloseListenSocket
 //
-// Purpose:
+// Purpose: 
 //   Closes the listen socket so the port that we've reserved gets released.
 //
 // Programmer: Brad Whitlock
 // Creation:   Fri Jan 3 15:28:48 PST 2003
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -610,7 +610,7 @@ RemoteProcess::CloseListenSocket()
 // ****************************************************************************
 // Method: RemoteProcess::CallProgressCallback
 //
-// Purpose:
+// Purpose: 
 //   Calls the launch progress callback function.
 //
 // Arguments:
@@ -618,13 +618,13 @@ RemoteProcess::CloseListenSocket()
 //
 // Returns:    The callback's return value.
 //
-// Note:
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Mon Sep 30 07:32:38 PDT 2002
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 bool
@@ -642,7 +642,7 @@ RemoteProcess::CallProgressCallback(int stage)
 // ****************************************************************************
 // Method: RemoteProcess::AcceptSocket
 //
-// Purpose:
+// Purpose: 
 //   Accepts a socket connection from the remote process. Must be
 //   called after GetSocketAndPort and the remote process has been
 //   launched.
@@ -736,7 +736,7 @@ RemoteProcess::AcceptSocket()
 // ****************************************************************************
 // Method: RemoteProcess::SingleThreadedAcceptSocket
 //
-// Purpose:
+// Purpose: 
 //   Accepts a socket connection from the remote process. Must be
 //   called after GetSocketAndPort and the remote process has been
 //   launched.
@@ -797,7 +797,7 @@ RemoteProcess::SingleThreadedAcceptSocket()
 //   function call. We do the accept on another thread so we can process other
 //   events, etc while we do the blocking accept.
 //
-// Notes:
+// Notes:      
 //
 // Programmer: Brad Whitlock
 // Creation:   Thu Sep 26 16:54:30 PST 2002
@@ -812,7 +812,7 @@ RemoteProcess::SingleThreadedAcceptSocket()
 //
 // ****************************************************************************
 
-#if defined(_WIN32)
+#if defined(WIN32)
 DWORD WINAPI threaded_accept_callback(LPVOID data)
 #else
 static void *threaded_accept_callback(void *data)
@@ -858,14 +858,14 @@ static void *threaded_accept_callback(void *data)
 // ****************************************************************************
 // Method: RemoteProcess::MultiThreadedAcceptSocket
 //
-// Purpose:
+// Purpose: 
 //   Accepts a socket connection from the remote process. Must be
 //   called after GetSocketAndPort and the remote process has been
 //   launched.
 //
 // Returns:    The socket descriptor or -1.
 //
-// Note:
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Thu Sep 26 16:56:14 PST 2002
@@ -884,8 +884,8 @@ static void *threaded_accept_callback(void *data)
 //   Brad Whitlock, Tue Jan 17 13:43:05 PST 2006
 //   Added some debug logging.
 //
-//   Kathleen Bonnell, Wed Aug 22 18:00:57 PDT 2007
-//   Added 'Sleep' command to while-loop to speed up launch on Windows.
+//   Kathleen Bonnell, Wed Aug 22 18:00:57 PDT 2007 
+//   Added 'Sleep' command to while-loop to speed up launch on Windows. 
 //
 //   Tom Fogal, Wed Dec  9 11:09:07 MST 2009
 //   Fix pthread_create error return detection.
@@ -899,7 +899,7 @@ RemoteProcess::MultiThreadedAcceptSocket()
     const char *mName = "RemoteProcess::MultiThreadedAcceptSocket: ";
 #ifdef HAVE_THREADS
     int desc = -1;
-
+ 
     debug5 << mName << "Initializing thread callback data" << endl;
     // Set up some callback data for the thread callback.
     ThreadCallbackDataStruct cb;
@@ -915,7 +915,7 @@ RemoteProcess::MultiThreadedAcceptSocket()
 
     debug5 << mName << "Creating new accept thread" << endl;
     bool validThread = true;
-#if defined(_WIN32)
+#if defined(WIN32)
     // Create the thread Windows style.
     DWORD  Id;
     HANDLE tid;
@@ -997,7 +997,7 @@ RemoteProcess::MultiThreadedAcceptSocket()
             if(cb.alive)
             {
                 debug5 << mName << "Terminating the accept thread." << endl;
-#if defined(_WIN32)
+#if defined(WIN32)
                 TerminateThread(tid, 0);
                 CloseHandle(tid);
 #else
@@ -1038,15 +1038,15 @@ RemoteProcess::MultiThreadedAcceptSocket()
 // ****************************************************************************
 // Method: RemoteProcess::Launch
 //
-// Purpose:
+// Purpose: 
 //   Launches the remote process.
 //
 // Arguments:
 //   rHost               : The host where the program will be launched.
 //   createAsThoughLocal : Whether to create the program as local.
-//   commandLine         :
+//   commandLine         : 
 //
-// Returns:
+// Returns:    
 //
 // Note:       I moved this out from the Open method.
 //
@@ -1054,7 +1054,7 @@ RemoteProcess::MultiThreadedAcceptSocket()
 // Creation:   Thu Apr  9 10:25:24 PDT 2009
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -1078,7 +1078,7 @@ RemoteProcess::Launch(const std::string &rHost, bool createAsThoughLocal,
 // ****************************************************************************
 // Method: RemoteProcess::Open
 //
-// Purpose:
+// Purpose: 
 //   Opens sockets and launches a remote process using ssh.
 //
 // Arguments:
@@ -1088,10 +1088,10 @@ RemoteProcess::Launch(const std::string &rHost, bool createAsThoughLocal,
 //   createAsThoughLocal : Creates the process as though it was a local process
 //                         regardless of the hostname.
 //
-// Returns:
+// Returns:    
 //   true if it worked, false if it did not.
 //
-// Note:
+// Note:       
 //   numRead and numWrite cannot both be 0, otherwise the method
 //   will return without creating the remote process.
 //
@@ -1195,7 +1195,7 @@ RemoteProcess::Open(const std::string &rHost,
         debug5 << commandLine[i].c_str();
         if(i < commandLine.size()-1)
             debug5 << ", ";
-    }
+    } 
     debug5 << ")" << endl;
 
     //
@@ -1222,7 +1222,7 @@ RemoteProcess::Open(const std::string &rHost,
 // ****************************************************************************
 // Method: RemoteProcess::WaitForTermination
 //
-// Purpose:
+// Purpose: 
 //   Waits for the remote process to quit.
 //
 // Programmer: Brad Whitlock
@@ -1252,7 +1252,7 @@ RemoteProcess::WaitForTermination()
 // ****************************************************************************
 // Method: RemoteProcess::StartMakingConnection
 //
-// Purpose:
+// Purpose: 
 //   Starts making the connection to the remote process so we're ready to
 //   go on this end before the remote process is launched.
 //
@@ -1261,10 +1261,10 @@ RemoteProcess::WaitForTermination()
 //   numRead  : The number of read sockets to create to the remote process.
 //   numWrite : The number of write sockets to create to the remote process.
 //
-// Returns:
+// Returns:    
 //   true if it worked, false if it did not.
-//
-// Note:
+//   
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Mon Nov 20 16:53:53 PST 2000
@@ -1290,7 +1290,7 @@ RemoteProcess::WaitForTermination()
 //   Added code to attempt 'localhost' after using name returned by
 //   gethostname() failes.
 //
-//   Kathleen Bonnell, Tue Sep 9 15:16:47 PDT 2008
+//   Kathleen Bonnell, Tue Sep 9 15:16:47 PDT 2008 
 //   Fixed windows extra-lookup loop to correctly use hostent members.
 //
 //   Brad Whitlock, Wed Aug 26 10:10:16 PDT 2009
@@ -1394,13 +1394,13 @@ RemoteProcess::StartMakingConnection(const std::string &rHost, int numRead,
         for(int i = 0; localHostEnt->h_addr_list[i] != 0; ++i)
         {
             struct hostent *h = NULL;
-            h = gethostbyaddr(localHostEnt->h_addr_list[i],
-                              localHostEnt->h_length,
+            h = gethostbyaddr(localHostEnt->h_addr_list[i], 
+                              localHostEnt->h_length, 
                               localHostEnt->h_addrtype);
             if(h)
             {
                 localHost = std::string(h->h_name);
-                debug5 << mName << "gethostbyaddr returned: "
+                debug5 << mName << "gethostbyaddr returned: " 
                        << localHost.c_str() << endl;
             }
             else
@@ -1459,16 +1459,16 @@ RemoteProcess::StartMakingConnection(const std::string &rHost, int numRead,
 // ****************************************************************************
 // Method: RemoteProcess::FinishMakingConnection
 //
-// Purpose:
+// Purpose: 
 //   Finishes making the connections needed to talk to the remote process.
 //
 // Arguments:
 //   numRead  : The number of read sockets.
 //   numWrite : The number of write sockets.
 //
-// Returns:
+// Returns:    
 //
-// Note:
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Mon Nov 20 16:50:57 PST 2000
@@ -1563,7 +1563,7 @@ RemoteProcess::FinishMakingConnection(int numRead, int numWrite)
 // ****************************************************************************
 // Method: RemoteProcess::ExchangeTypeRepresentations
 //
-// Purpose:
+// Purpose: 
 //   Exchanges the machine's type representation with that of the
 //   machine on the other end of the sockets. It then puts that
 //   type representation into the write sockets. Conversion is disabled
@@ -1630,7 +1630,7 @@ RemoteProcess::ExchangeTypeRepresentations()
         ENDTRY
 
         // Now that we have the type representation for the remote machine,
-        // if it is the same as the local type representation, turn off
+        // if it is the same as the local type representation, turn off 
         // conversion in the write connections. Otherwise, set it into all
         // of the write sockets.
         if(local == header.GetTypeRepresentation())
@@ -1668,7 +1668,7 @@ RemoteProcess::ExchangeTypeRepresentations()
 // ****************************************************************************
 // Method: RemoteProcess::SecureShell
 //
-// Purpose:
+// Purpose: 
 //   Returns the name of the SSH program being used to launch remote components.
 //
 // Returns:    A string containing the name of the SSH program used to
@@ -1678,7 +1678,7 @@ RemoteProcess::ExchangeTypeRepresentations()
 // Creation:   Mon Aug 26 12:49:52 PDT 2002
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 const char *
@@ -1697,7 +1697,7 @@ RemoteProcess::SecureShell() const
 // ****************************************************************************
 // Method: RemoteProcess::SecureShellArgs
 //
-// Purpose:
+// Purpose: 
 //   Returns a string that contains any arguments that should be passed to
 //   the SSH program.
 //
@@ -1707,7 +1707,7 @@ RemoteProcess::SecureShell() const
 // Creation:   Mon Aug 26 12:49:00 PDT 2002
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 const char *
@@ -1719,7 +1719,7 @@ RemoteProcess::SecureShellArgs() const
 // ****************************************************************************
 // Method: RemoteProcess::CreateCommandLine
 //
-// Purpose:
+// Purpose: 
 //   Creates the command line for the process that we want to launch.
 //
 // Arguments:
@@ -1729,7 +1729,7 @@ RemoteProcess::SecureShellArgs() const
 //   numWrite : The number of write sockets to create.
 //   local    : Prevents ssh arguments from being added.
 //
-// Returns:   The command line in the args vector.
+// Returns:   The command line in the args vector. 
 //
 // Programmer: Brad Whitlock
 // Creation:   Mon May 5 13:05:24 PST 2003
@@ -1841,7 +1841,7 @@ RemoteProcess::CreateCommandLine(stringVector &args, const std::string &rHost,
              args.push_back(remoteUserName);
         }
 
-        // If we're tunneling, add the arguments to SSH to
+        // If we're tunneling, add the arguments to SSH to 
         // forward a bunch of remote ports to our local ports.
 #if defined(PANTHERHACK)
 // Broken on Panther
@@ -1896,13 +1896,13 @@ RemoteProcess::CreateCommandLine(stringVector &args, const std::string &rHost,
             }
         }
 #endif
-
+    
         // Set the name of the host to run on.
         args.push_back(remoteHost.c_str());
     }
 
     //
-    // Add the name of the remote program to run
+    // Add the name of the remote program to run 
     //
     args.push_back(remoteProgram);
 
@@ -2017,18 +2017,18 @@ RemoteProcess::CreateCommandLine(stringVector &args, const std::string &rHost,
 // ****************************************************************************
 // Method: RemoteProcess::LaunchRemote
 //
-// Purpose:
+// Purpose: 
 //   Launches a process on a remote machine using ssh.
 //
 // Arguments:
 //   args : The command line arguments of the process to launch.
-//
+//    
 // Programmer: Brad Whitlock
 // Creation:   Fri Jul 21 13:24:29 PST 2000
 //
 // Modifications:
 //    Jeremy Meredith, Tue Aug  8 13:49:42 PDT 2000
-//    Changed it to allow more than one read/write socket.
+//    Changed it to allow more than one read/write socket.   
 //
 //    Hank Childs, Mon Oct 16 10:59:22 PDT 2000
 //    Fixed memory leak.
@@ -2065,7 +2065,7 @@ RemoteProcess::CreateCommandLine(stringVector &args, const std::string &rHost,
 //    Allowed disabling of PTYs even when they are available.
 //
 //    Jeremy Meredith, Tue Dec  9 15:24:42 PST 2003
-//    Added code to close the PTY if we could not connect.  Also attempt to
+//    Added code to close the PTY if we could not connect.  Also attempt to 
 //    kill the child process with a TERM.
 //
 // ****************************************************************************
@@ -2075,7 +2075,7 @@ RemoteProcess::LaunchRemote(const stringVector &args)
 {
     const char *mName = "RemoteProcess::LaunchRemote: ";
 
-    //
+    // 
     // Create the parameters for the exec
     //
     int  argc = 0;
@@ -2083,7 +2083,7 @@ RemoteProcess::LaunchRemote(const stringVector &args)
 
     //
     // Start the program on the remote host.
-    //
+    // 
 #if defined(_WIN32)
     debug5 << mName << "Starting child process using _spawnvp" << endl;
     // Start the program using the WIN32 _spawnvp function.
@@ -2167,13 +2167,13 @@ RemoteProcess::LaunchRemote(const stringVector &args)
 // ****************************************************************************
 // Method: RemoteProcess::LaunchLocal
 //
-// Purpose:
+// Purpose: 
 //   Launches a process on the machine we're running on.
 //
 // Arguments:
 //   args : The command line arguments for the process we're launching.
 //
-// Note:
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Fri Jul 21 13:24:29 PST 2000
@@ -2217,7 +2217,7 @@ RemoteProcess::LaunchLocal(const stringVector &args)
 {
     const char *mName = "RemoteProcess::LaunchLocal: ";
 
-    //
+    // 
     // Create the parameters for the exec
     //
     int  argc = 0;
@@ -2264,7 +2264,7 @@ RemoteProcess::LaunchLocal(const stringVector &args)
 // ****************************************************************************
 // Method: RemoteProcess::CreateSplitCommandLine
 //
-// Purpose:
+// Purpose: 
 //   Splits a string vector into a char ** array that can be passed to
 //   exec type functions.
 //
@@ -2278,7 +2278,7 @@ RemoteProcess::LaunchLocal(const stringVector &args)
 // Creation:   Mon May 5 13:20:07 PST 2003
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 char **
@@ -2296,7 +2296,7 @@ RemoteProcess::CreateSplitCommandLine(const stringVector &args, int &argc) const
 // ****************************************************************************
 // Method: RemoteProcess::DestroySplitCommandLine
 //
-// Purpose:
+// Purpose: 
 //   Destroys an array of char strings.
 //
 // Arguments:
@@ -2307,7 +2307,7 @@ RemoteProcess::CreateSplitCommandLine(const stringVector &args, int &argc) const
 // Creation:   Mon May 5 13:23:26 PST 2003
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -2321,20 +2321,20 @@ RemoteProcess::DestroySplitCommandLine(char **args, int argc) const
 // ****************************************************************************
 // Method: RemoteProcess::StrDup
 //
-// Purpose:
+// Purpose: 
 //   Duplicates a string. This function was written to avoid memory
 //   mismanagement problems created when using strdup with delete[].
 //
 // Arguments:
 //   str : The string to duplicate.
-// Returns:
+// Returns:    
 //   A pointer to a new copy of the string.
 //
 // Programmer: Brad Whitlock
 // Creation:   Fri Aug 25 16:27:52 PST 2000
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 char *
@@ -2379,7 +2379,7 @@ RemoteProcess::SetAuthenticationCallback(void (*callback)(const char *, const ch
 // ****************************************************************************
 // Method: RemoteProcess::SetProgressCallback
 //
-// Purpose:
+// Purpose: 
 //   Sets the progress callback that will be called as a process is launched.
 //
 // Arguments:
@@ -2392,7 +2392,7 @@ RemoteProcess::SetAuthenticationCallback(void (*callback)(const char *, const ch
 // Creation:   Thu Sep 26 17:11:57 PST 2002
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void

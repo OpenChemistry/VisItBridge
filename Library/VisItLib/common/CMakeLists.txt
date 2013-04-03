@@ -55,9 +55,9 @@ comm/ParentProcess.C
 comm/RemoteProcess.C
 comm/SocketConnection.C
 comm/TypeRepresentation.C)
-IF(_WIN32)
+IF(WIN32)
     SET(COMM_WIN32_SOURCES comm/win32commhelpers.C)
-ENDIF(_WIN32)
+ENDIF(WIN32)
 
 SET(EXCEPTION_SOURCES
 Exceptions/Database/BadPermissionException.C
@@ -277,25 +277,25 @@ utility/StringHelpers.C
 utility/Utility.C
 utility/void_ref_ptr.C
 )
-IF(_WIN32)
+IF(WIN32)
     SET(UTILITY_WIN32_SOURCES utility/win32-regex.c)
-    SET_SOURCE_FILES_PROPERTIES(utility/win32-regex.c
+    SET_SOURCE_FILES_PROPERTIES(utility/win32-regex.c 
         PROPERTIES LANGUAGE CXX)
-ENDIF(_WIN32)
+ENDIF(WIN32)
 
 VTK_ADD_LIBRARY(visitcommon
     ${COMM_SOURCES} ${COMM_WIN32_SOURCES}
     ${EXCEPTION_SOURCES}
     ${EXPRESSION_SOURCES}
-    ${MISC_SOURCES}
-    ${PARSER_SOURCES}
+    ${MISC_SOURCES}    
+    ${PARSER_SOURCES}   
     ${PLUGIN_SOURCES}
     ${PROXYBASE_SOURCES}
     ${STATE_SOURCES}
     ${UTILITY_SOURCES} ${UTILITY_WIN32_SOURCES})
 
 # Specify the libraries to link against on Windows
-if(_WIN32)
+if(WIN32)
     TARGET_LINK_LIBRARIES(visitcommon ws2_32 shlwapi userenv)
 endif()
 
