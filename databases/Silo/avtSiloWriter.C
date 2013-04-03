@@ -78,12 +78,12 @@ using std::vector;
 using namespace SiloDBOptions;
 
 // ****************************************************************************
-//  Function: VN (Valid Silo Variable Name)
+//  Function: VN (Valid Silo Variable Name) 
 //
 //  Purpose: Ensure a given object name being passed to Silo is a valid name
 //      for a silo object. The function is desgined to be used 'in-place' in
-//      a Silo function call where it may be used for multiple args in the
-///     call.
+//      a Silo function call where it may be used for multiple args in the 
+///     call. 
 //
 //  Programmer: Mark C. Miller, Tue Aug 26 14:18:13 PDT 2008
 //
@@ -114,7 +114,7 @@ static const char *VN(const string &n)
 // ****************************************************************************
 // Function: BeginVar
 //
-// Purpose:
+// Purpose: 
 //   Splits a name containing '/' into separate names and makes Silo directories
 //   for the names up to the last name, which is the name of an object.
 //
@@ -125,16 +125,16 @@ static const char *VN(const string &n)
 //
 // Returns:    The object name.
 //
-// Note:
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Fri Mar 6 15:31:08 PST 2009
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
-static string
+static string 
 BeginVar(DBfile *dbfile, const string &name, int &nlevels)
 {
     stringVector names = SplitValues(name, '/');
@@ -157,7 +157,7 @@ BeginVar(DBfile *dbfile, const string &name, int &nlevels)
 // ****************************************************************************
 // Function: EndVar
 //
-// Purpose:
+// Purpose: 
 //   Back out of Silo subdirectories when we're done writing a variable.
 //
 // Arguments:
@@ -168,7 +168,7 @@ BeginVar(DBfile *dbfile, const string &name, int &nlevels)
 // Creation:   Fri Mar 6 15:34:57 PST 2009
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 static void
@@ -179,25 +179,25 @@ EndVar(DBfile *dbfile, int nlevels)
 }
 
 // ****************************************************************************
-// Function: AbsoluteName
+// Function: AbsoluteName 
 //
-// Purpose:
+// Purpose: 
 //   Prepends a '/' on the name when the number of levels > 0. This is good for
 //   determining a mesh name for a variable.
 //
 // Arguments:
 //   name    : The name to decorate.
 //   nlevels : The number of levels.
-//
+//  
 // Returns:    The name to use
 //
-// Note:
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Fri Mar 6 15:40:00 PST 2009
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 static string
@@ -209,7 +209,7 @@ AbsoluteName(const string &name, int nlevels)
 // ****************************************************************************
 // Function: SaveAndSetSiloLibState / RestoreSiloLibState
 //
-// Purpose: Manage Silo library global state
+// Purpose: Manage Silo library global state 
 //
 // Programmer: Mark C. Miller
 // Creation:   May 8, 2009
@@ -236,7 +236,7 @@ static string oldCompressionParams;
 // DBCreate from working with PDB driver because that driver is
 // designed to detect attempts to apply compression and fail if so.
 //
-#if !defined(_WIN32) && defined(SILO_VERSION_GE)
+#if !defined(WIN32) && defined(SILO_VERSION_GE)
 #if SILO_VERSION_GE(4,7,0) && !SILO_VERSION_GE(4,7,1)
 typedef struct SILO_Globals_copy_t {
     long dataReadMask;
@@ -280,7 +280,7 @@ SaveAndSetSiloLibState(int driver, bool checkSums, string compressionParams)
         if (compressionParams != "" && !myRank)
             cerr << "Compression supported only on HDF5 driver" << endl;
         oldFriendlyHDFNames = DBSetFriendlyHDF5Names(0);
-#if !defined(_WIN32) && !SILO_VERSION_GE(4,7,1)
+#if !defined(WIN32) && !SILO_VERSION_GE(4,7,1)
         DBSetCompression("");
         // Hack to work-around bug in Silo lib
         SILO_Globals.enableCompression = 0;
@@ -302,7 +302,7 @@ RestoreSiloLibState()
 #if defined(SILO_VERSION_GE)
 #if SILO_VERSION_GE(4,7,0)
     DBSetFriendlyHDF5Names(oldFriendlyHDFNames);
-#if !defined (_WIN32) && !SILO_VERSION_GE(4,7,1)
+#if !defined (WIN32) && !SILO_VERSION_GE(4,7,1)
     DBSetCompression(oldCompressionParams.c_str());
     // Hack to work-around bug in Silo lib
     SILO_Globals.enableCompression = 0;
@@ -331,7 +331,7 @@ RestoreSiloLibState()
 //    cannot trust what was in the metadata.
 //
 //    Mark C. Miller, Thu Jul 31 18:06:08 PDT 2008
-//    Added option to write all data to a single file
+//    Added option to write all data to a single file 
 //
 //    Mark C. Miller, Tue Mar 17 18:09:10 PDT 2009
 //    Use const char option names defined in avtSiloOptions.h
@@ -430,11 +430,11 @@ avtSiloWriter::~avtSiloWriter()
 //
 //  Modifications:
 //    Jeremy Meredith, Tue Mar 27 15:10:21 EDT 2007
-//    Added nblocks to this function and save it so we don't have to
+//    Added nblocks to this function and save it so we don't have to 
 //    trust the meta data.
 //
 //    Cyrus Harrison, Thu Aug 16 20:26:28 PDT 2007
-//    Separate dir and file name, so only file name can be used as stem
+//    Separate dir and file name, so only file name can be used as stem 
 //    for mesh and var names.
 //
 //    Eric Brugger, Mon Jun 22 16:39:31 PDT 2009
@@ -534,10 +534,10 @@ avtSiloWriter::WriteHeaders(const avtDatabaseMetaData *md,
 //    the metadata was correct.
 //
 //    Mark C. Miller, Mon Jun  4 17:29:11 PDT 2007
-//    Don't write extents if running in parallel.
+//    Don't write extents if running in parallel. 
 //
 //    Mark C. Miller, Thu Jul 31 18:06:08 PDT 2008
-//    Added option to write all data to a single file
+//    Added option to write all data to a single file 
 //
 //    Mark C. Miller, Tue Aug 26 14:29:46 PDT 2008
 //    Made it construct valid variable name(s) for silo objects.
@@ -672,10 +672,10 @@ avtSiloWriter::ConstructMultimesh(DBfile *dbfile, const avtMeshMetaData *mmd,
 //    the metadata was correct.
 //
 //    Mark C. Miller, Mon Jun  4 17:29:11 PDT 2007
-//    Don't write extents if running in parallel.
+//    Don't write extents if running in parallel. 
 //
 //    Mark C. Miller, Thu Jul 31 18:06:08 PDT 2008
-//    Added option to write all data to a single file
+//    Added option to write all data to a single file 
 //
 //    Mark C. Miller, Tue Aug 26 14:29:46 PDT 2008
 //    Made it construct valid variable name(s) for silo objects.
@@ -716,7 +716,7 @@ avtSiloWriter::ConstructMultivar(DBfile *dbfile, const string &sname,
     {
         minVals = minsMap->second;
         maxVals = dataMaxs[sname];
-        ncomps = minVals.size() / nblocks;
+        ncomps = minVals.size() / nblocks; 
         extents = new double[nblocks * ncomps * 2];
     }
 
@@ -831,7 +831,7 @@ avtSiloWriter::ConstructMultivar(DBfile *dbfile, const string &sname,
 //    the metadata was correct.
 //
 //    Mark C. Miller, Thu Jul 31 18:06:08 PDT 2008
-//    Added option to write all data to a single file
+//    Added option to write all data to a single file 
 //
 //    Mark C. Miller, Tue Aug 26 14:29:46 PDT 2008
 //    Made it construct valid variable name(s) for silo objects.
@@ -892,7 +892,7 @@ avtSiloWriter::ConstructMultimat(DBfile *dbfile, const string &mname,
 //  Method: avtSiloWriter::ConstructChunkOptlist
 //
 //  Purpose:
-//      Constructs an optlist from the input dataset and the database
+//      Constructs an optlist from the input dataset and the database 
 //      meta-data.
 //
 //  Programmer: Hank CHilds
@@ -912,7 +912,7 @@ void
 avtSiloWriter::ConstructChunkOptlist(const avtDatabaseMetaData *md)
 {
     optlist = DBMakeOptlist(10);
-
+    
     avtDataAttributes &atts = GetInput()->GetInfo().GetAttributes();
     static int cycle = atts.GetCycle();
     DBAddOption(optlist, DBOPT_CYCLE, &cycle);
@@ -958,7 +958,7 @@ avtSiloWriter::ConstructChunkOptlist(const avtDatabaseMetaData *md)
 //    Use dir+stem to create filename.
 //
 //    Mark C. Miller, Thu Jul 31 18:06:08 PDT 2008
-//    Added option to write all data to a single file
+//    Added option to write all data to a single file 
 //
 //    Mark C. Miller, Thu Aug  7 23:38:24 PDT 2008
 //    Fixed filename generation for single block case
@@ -1004,7 +1004,7 @@ avtSiloWriter::WriteChunk(vtkDataSet *ds, int chunk)
     }
     else
     {
-        dbfile = DBCreate(filename, 0, DB_LOCAL,
+        dbfile = DBCreate(filename, 0, DB_LOCAL, 
                      "Silo file written by VisIt", driver);
 
         if (singleFile && nblocks > 1)
@@ -1079,7 +1079,7 @@ avtSiloWriter::WriteChunk(vtkDataSet *ds, int chunk)
 //    (processor 0 may not contain data and b/c of this have invalid metadata)
 //
 //    Mark C. Miller, Thu Jul 31 18:06:08 PDT 2008
-//    Added option to write all data to a single file
+//    Added option to write all data to a single file 
 //
 //    Brad Whitlock, Wed Mar 11 11:10:14 PDT 2009
 //    Added code to write expressions that came from the database back out
@@ -1099,7 +1099,7 @@ void
 avtSiloWriter::CloseFile(void)
 {
     int i;
-
+ 
     const avtMeshMetaData *mmd = headerDbMd->GetMesh(0);
 
     // free the optlist
@@ -1132,7 +1132,7 @@ avtSiloWriter::CloseFile(void)
         if (singleFile)
             dbfile = DBOpen(filename, DB_UNKNOWN, DB_APPEND);
         else
-            dbfile = DBCreate(filename, 0, DB_LOCAL,
+            dbfile = DBCreate(filename, 0, DB_LOCAL, 
                          "Silo file written by VisIt", driver);
 
         ConstructMultimesh(dbfile, mmd, globalMeshtypes);
@@ -1350,7 +1350,7 @@ avtSiloWriter::WriteUnstructuredMesh(DBfile *dbfile, vtkUnstructuredGrid *ug,
             }
         }
     }
-
+    
     int nlevels = 0;
     string meshName = BeginVar(dbfile, meshname, nlevels);
 
@@ -1372,9 +1372,9 @@ avtSiloWriter::WriteUnstructuredMesh(DBfile *dbfile, vtkUnstructuredGrid *ug,
         int lo_offset = 0;
         int hi_offset = hasGhostZones ? (nzones - realZones) : 0;
         int nshapes = shapesize.size();
-        DBPutZonelist2(dbfile, "zonelist", nzones, dim, zl, lzl,
+        DBPutZonelist2(dbfile, "zonelist", nzones, dim, zl, lzl, 
                        0, lo_offset, hi_offset, st, ss, sc,nshapes, NULL);
-
+    
         //
         // Now write the actual mesh.
         //
@@ -1720,7 +1720,7 @@ avtSiloWriter::WritePolygonalMesh(DBfile *dbfile, vtkPolyData *pd,
         int *sc = &(shapecnt[0]);
         int nshapes = shapesize.size();
 
-        DBPutZonelist2(dbfile, "zonelist", nzones, ndims, zl, lzl,
+        DBPutZonelist2(dbfile, "zonelist", nzones, ndims, zl, lzl, 
                        0, 0, 0, st, ss, sc,nshapes, NULL);
         //
         // Now write the actual mesh.
@@ -1748,7 +1748,7 @@ avtSiloWriter::WritePolygonalMesh(DBfile *dbfile, vtkPolyData *pd,
 // ****************************************************************************
 // Method: ReorderUcdvarUsingGhostZones
 //
-// Purpose:
+// Purpose: 
 //   If there are ghost zones then this function creates a copy of the input
 //   data array where the data is reordered such that the real zones come
 //   first and then the ghost zone data comes last. This matches how we're
@@ -1761,13 +1761,13 @@ avtSiloWriter::WritePolygonalMesh(DBfile *dbfile, vtkPolyData *pd,
 //
 // Returns:    A data array having the proper ordering.
 //
-// Note:
+// Note:       
 //
 // Programmer: Brad Whitlock
 // Creation:   Tue May 19 12:11:41 PDT 2009
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 static vtkDataArray *
@@ -1828,7 +1828,7 @@ ReorderUcdvarUsingGhostZones(vtkDataArray *arr, const unsigned char *gz)
 // ****************************************************************************
 
 void
-avtSiloWriter::WriteUcdvarsHelper(DBfile *dbfile, vtkDataSetAttributes *ds,
+avtSiloWriter::WriteUcdvarsHelper(DBfile *dbfile, vtkDataSetAttributes *ds, 
     bool isPointMesh, int centering, const unsigned char *gz)
 {
     int i,j,k;
@@ -1883,7 +1883,7 @@ avtSiloWriter::WriteUcdvarsHelper(DBfile *dbfile, vtkDataSetAttributes *ds,
                  DBPutPointvar1(dbfile, (char *) varName.c_str(),
                           (char *) meshName.c_str(),
                           (float *) arr2->GetVoidPointer(0),
-                          nTuples, DB_FLOAT, optlist);
+                          nTuples, DB_FLOAT, optlist); 
              else
                  DBPutUcdvar1(dbfile, (char *) varName.c_str(),
                           (char *) meshName.c_str(),
@@ -2066,7 +2066,7 @@ avtSiloWriter::WriteQuadvarsHelper(DBfile *dbfile, vtkDataSetAttributes *ds,
 
              DBPutQuadvar(dbfile, (char *) varName.c_str(),
                           (char *) meshName.c_str(),
-                          ncomps, varnames, vars, dims, ndims, NULL, 0,
+                          ncomps, varnames, vars, dims, ndims, NULL, 0, 
                           DB_FLOAT, centering, optlist);
              for (j = 0 ; j < ncomps ; j++)
              {
@@ -2166,7 +2166,7 @@ avtSiloWriter::WriteMaterials(DBfile *dbfile, vtkCellData *cd, int chunk)
 
         DBPutMaterial(dbfile, (char *) matName.c_str(),
                       (char *) meshName.c_str(), nmats, matnos,
-                       (int *) mat->GetMatlist(), nzones, 1,
+                       (int *) mat->GetMatlist(), nzones, 1, 
                        (int *) mat->GetMixNext(), (int *) mat->GetMixMat(),
                        (int *) mat->GetMixZone(), (float *) mat->GetMixVF(),
                        mat->GetMixlen(), DB_FLOAT, optlist);
@@ -2244,14 +2244,14 @@ avtSiloWriter::WriteMaterials(DBfile *dbfile, vtkCellData *cd, int chunk)
 // ****************************************************************************
 // Method: avtSiloWriter::WriteExpressions
 //
-// Purpose:
+// Purpose: 
 //   This method writes out the expressions that originally came from the
 //   database to Silo.
 //
 // Arguments:
 //   dbfile : The Silo file that we're outputting.
 //
-// Returns:
+// Returns:    
 //
 // Note:       This is primarily meant to export expressions for the master file.
 //
@@ -2259,7 +2259,7 @@ avtSiloWriter::WriteMaterials(DBfile *dbfile, vtkCellData *cd, int chunk)
 // Creation:   Wed Mar 11 11:26:22 PDT 2009
 //
 // Modifications:
-//
+//   
 //   Hank Childs, Mon May 25 11:14:23 PDT 2009
 //   Add support for old Silo versions.
 //
@@ -2310,7 +2310,7 @@ avtSiloWriter::WriteExpressions(DBfile *dbfile)
         }
 
         // Write the definitions
-        // 4.6.1 chosen arbitrarily.
+        // 4.6.1 chosen arbitrarily. 
 #ifdef SILO_VERSION_GE
 #if SILO_VERSION_GE(4,6,1)
         DBPutDefvars(dbfile, "expressions", ecount, exprNames, exprTypes, exprDefs, NULL);
