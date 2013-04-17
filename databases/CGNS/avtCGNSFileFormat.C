@@ -795,11 +795,12 @@ avtCGNSFileFormat::GetVariablesForBase(int base, avtCGNSFileFormat::BaseInformat
                             info.units = fieldUnits;
                         baseInfo.vars[fieldname] = info;
                     }
-                    else if(sol == 1)
+                    else if(sol == 1 || GetNTimesteps() == 1)
                     {
                         // We've already run across the variable in another zone
                         // so let's update what we know.
-                        // This is done only for first iteration.
+                        // This is done only for first iteration
+                        // or steady state.
                         pos->second.zoneList.push_back(zone);
                         pos->second.cellCentering += cellCentering;
                         pos->second.nodeCentering += nodeCentering;
