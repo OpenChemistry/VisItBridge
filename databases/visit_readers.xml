@@ -127,6 +127,10 @@
        <TimeRangeInformationHelper/>
      </DoubleVectorProperty>
 
+     <Hints>
+        <DefaultFileNameProperty name="FileName" />
+     </Hints>
+
       <!-- End of VisItReaderBase -->
     </Proxy>
   </ProxyGroup>
