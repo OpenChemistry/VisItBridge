@@ -158,7 +158,7 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestDataObject(vtkInformation *,
         output = vtkMultiBlockDataSet::New();
         break;
       }
-    this->GetExecutive()->SetOutputData(0, output);
+    info->Set(vtkDataObject::DATA_OBJECT(), output);
     output->Delete();
     }
 

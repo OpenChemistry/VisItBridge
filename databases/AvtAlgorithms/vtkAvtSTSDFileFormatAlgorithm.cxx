@@ -98,7 +98,7 @@ int vtkAvtSTSDFileFormatAlgorithm::RequestDataObject(vtkInformation *,
     {
     output = vtkMultiBlockDataSet::New();
     }
-  this->GetExecutive()->SetOutputData(0, output);
+  info->Set(vtkDataObject::DATA_OBJECT(), output);
   output->Delete();
 
   return 1;

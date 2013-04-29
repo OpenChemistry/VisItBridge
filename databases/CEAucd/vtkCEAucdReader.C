@@ -655,7 +655,7 @@ void vtkCEAucdReader::ReadGeometry(vtkInformationVector *outputVector)
          {
             vtkUnstructuredGrid * ug = vtkUnstructuredGrid::New();
             ug->Initialize();
-            this->GetExecutive()->SetOutputData (i, ug);
+            outputVector->GetInformationObject(i)->Set(vtkDataObject::DATA_OBJECT(), ug);
             ug->Delete();
          }     
 
@@ -721,7 +721,7 @@ void vtkCEAucdReader::ReadGeometry(vtkInformationVector *outputVector)
       {
          vtkUnstructuredGrid * ug = vtkUnstructuredGrid::New();
          ug->Initialize();
-         this->GetExecutive()->SetOutputData (i, ug);
+         outputVector->GetInformationObject(i)->Set(vtkDataObject::DATA_OBJECT(), ug);
          ug->Delete();
       }
 
