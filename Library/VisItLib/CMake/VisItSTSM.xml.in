@@ -109,6 +109,9 @@
    This property lists which point-centered arrays to read.
  </Documentation>
 </StringVectorProperty>
+<Hints>
+   <DefaultFileNameProperty name="FileName" />
+</Hints>
 </SourceProxy>
 </ProxyGroup>
 <ProxyGroup name="sources">
@@ -121,37 +124,39 @@
       proxygroup="internal_sources"
       proxyname="@XML_NAME@Core">
     </Proxy>
+    <ExposedProperties>
+      <Property name="MeshInfo"/>
+      <Property name="MeshStatus"/>
+      <Property name="MaterialInfo"/>
+      <Property name="MaterialStatus"/>
+      <Property name="CellArrayInfo"/>
+      <Property name="CellArrayStatus"/>
+      <Property name="PointArrayInfo"/>
+      <Property name="PointArrayStatus"/>
+    </ExposedProperties>
   </SubProxy>   
 
-  <StringVectorProperty name="FileNameInfo"
-    command="GetCurrentFileName"
-    information_only="1" >
-    <SimpleStringInformationHelper />
+  <DoubleVectorProperty information_only="1" name="TimestepValues" repeatable="1">
+    <TimeStepsInformationHelper />
+    <Documentation>Available timestep values.</Documentation>
+  </DoubleVectorProperty>
+
+  <StringVectorProperty animateable="0"
+                        clean_command="RemoveAllFileNames"
+                        command="AddFileName"
+                        information_property="FileNameInfo"
+                        name="FileNames"
+                        number_of_elements="1"
+                        panel_visibility="never"
+                        repeat_command="1">
+    <FileListDomain name="files" />
+    <Documentation>The list of files to be read by the reader.</Documentation>
   </StringVectorProperty>
 
-  <StringVectorProperty name="FileNames"
-   clean_command="RemoveAllFileNames"
-   command="AddFileName"
-   animateable="0"
-   number_of_elements="1"
-   repeat_command="1">
-   <FileListDomain name="files"/>
-   <Documentation>
-     The list of files to be read by the reader. Each file is expected to be
-     in the meta format. The standard extension is .mhd. If more than one file is specified,
-     the reader will switch to file series mode in which it will pretend that it can support
-     time and provide one file per time step.
-   </Documentation>
- </StringVectorProperty>
-
- <DoubleVectorProperty name="TimestepValues"
-   repeatable="1"
-   information_only="1">
-   <TimeStepsInformationHelper/>
-   <Documentation>
-     Available timestep values.
-   </Documentation>
- </DoubleVectorProperty>
+  <StringVectorProperty command="GetCurrentFileName"
+                        information_only="1"
+                        name="FileNameInfo">
+  </StringVectorProperty>
 </SourceProxy>
 </ProxyGroup>
 </ServerManagerConfiguration>
