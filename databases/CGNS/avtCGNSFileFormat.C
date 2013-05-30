@@ -588,6 +588,7 @@ avtCGNSFileFormat::GetVariablesForBase(int base, avtCGNSFileFormat::BaseInformat
     const char *mName = "avtCGNSFileFormat::GetVariablesForBase: ";
 
     bool retval = true;
+    int  numCellVariable = 0;
     char namebase[33];
     if(cg_base_read(GetFileHandle(), base, namebase, &baseInfo.cellDim, &baseInfo.physicalDim) != CG_OK)
     {
@@ -780,9 +781,17 @@ avtCGNSFileFormat::GetVariablesForBase(int base, avtCGNSFileFormat::BaseInformat
                         unitStack.PopUnits();
 
                     // Now that we have a field in a solution in a zone, let's
+                    std::string locatedFieldname(fieldname);
+                    if(cellCentering != 0)
+                    {
+                        locatedFieldname = "CELL_"+locatedFieldname;
+                    }
                     // add information about it to the variable information that
                     // we're populating for the current base.
-                    StringVarInfoMap::iterator pos = baseInfo.vars.find(fieldname);
+                    // add information about it to the variable information that
+                    // we're populating for the current base.
+                    StringVarInfoMap::iterator pos = baseInfo.vars.find(locatedFieldname);
+
                     if(pos == baseInfo.vars.end())
                     {
                         VarInfo info;
@@ -793,7 +802,8 @@ avtCGNSFileFormat::GetVariablesForBase(int base, avtCGNSFileFormat::BaseInformat
                         info.hasUnits = fieldHasUnits;
                         if(fieldHasUnits)
                             info.units = fieldUnits;
-                        baseInfo.vars[fieldname] = info;
+                        baseInfo.vars[locatedFieldname] = info;
+                        numCellVariable += cellCentering;
                     }
                     else if(sol == 1 || GetNTimesteps() == 1)
                     {
@@ -820,6 +830,22 @@ avtCGNSFileFormat::GetVariablesForBase(int base, avtCGNSFileFormat::BaseInformat
             if(zoneUnits)
                 unitStack.PopUnits();
         } // for zone
+    } // base read
+
+    // If only "Cell centered" location is present remove prefix !
+    if((numCellVariable != 0) &&
+       (numCellVariable == baseInfo.vars.size()))
+    {
+        StringVarInfoMap newVars;
+        //
+        for(StringVarInfoMap::iterator pos = baseInfo.vars.begin(); pos != baseInfo.vars.end(); ++pos)
+        {
+            std::string newname(pos->first);
+            newname = newname.substr(5);
+            newVars[newname] = pos->second;
+        }
+        //
+        baseInfo.vars.swap(newVars);
     } // base read
 
     return retval;
@@ -2179,6 +2205,14 @@ avtCGNSFileFormat::GetVar(int timestate, int domain, const char *varname)
                << sVarName.c_str() << endl;
     }
     // Look up the real variable name in case it's been made safe for VisIt.
+    bool requireCellCenter = false;
+    if(sVarName.substr(0,5) == "CELL_")
+    {
+        sVarName = sVarName.substr(5);
+        requireCellCenter = true;
+    }
+
+    // Look up the real variable name in case it's been made safe for VisIt.
     if(VisItNameToCGNSName.find(sVarName) != VisItNameToCGNSName.end())
         sVarName = VisItNameToCGNSName[sVarName];
 
@@ -2277,7 +2311,7 @@ avtCGNSFileFormat::GetVar(int timestate, int domain, const char *varname)
         bool fieldNotFound = true;
         for(int sol = 1; sol <= nsols && fieldNotFound; ++sol)
         {
-            if(sol != requiredsol)
+            if(sol < requiredsol)
                 continue;
 
             char solname[33];
@@ -2290,6 +2324,9 @@ avtCGNSFileFormat::GetVar(int timestate, int domain, const char *varname)
                 debug4 << cg_get_error() << endl;
                 continue;
             }
+
+            if((varcentering == Vertex) && requireCellCenter)
+                continue;
 
             debug5 << mName << "solution " << sol << " in zone "
                    << zone << " taken." << endl;
