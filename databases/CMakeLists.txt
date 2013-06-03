@@ -146,9 +146,7 @@ endif(VISIT_BUILD_READER_Mili)
 
 #-----------------------------------------------------------------------------
 visit_include_reader_source(MFIX OFF)
-if(VISIT_BUILD_READER_MFIX)
-  add_subdirectory(MFIX)
-endif()
+
 
 
 #include all the db directores before
