@@ -41,6 +41,7 @@ set(DEFAULT_BRIDGE_READERS
   Lines
   M3D
   M3DC1
+  MFIX
   MFIXCDF
   Miranda
   MM5
@@ -145,11 +146,7 @@ if(VISIT_BUILD_READER_Mili)
 endif(VISIT_BUILD_READER_Mili)
 
 #-----------------------------------------------------------------------------
-visit_include_reader_source(MFIX OFF)
-
-
-
-#include all the db directores before
+#include all the db directories before
 #the visit files
 include_directories(BEFORE
   ${VISIT_DB_INC_DIRS}

@@ -5,7 +5,6 @@ set(SOURCES
   avtMFIXFileFormat.h
   avtMFIXOptions.C
   avtMFIXFileFormat.C
-  vtkMFIXReader.C
   MFIXPluginInfo.C
   MFIXEnginePluginInfo.C
   MFIXCommonPluginInfo.C
