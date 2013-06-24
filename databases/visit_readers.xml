@@ -658,10 +658,10 @@
       <Documentation
         long_help="Reads a subset of the ASCII Tecplot file format">
         Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
-        The default file extensions are .tp, and .tec
+        The default file extensions are .tp, .dat and .tec
       </Documentation>
      <Hints>
-       <ReaderFactory extensions="tec TEC Tec tp TP"
+       <ReaderFactory extensions="tec TEC Tec tp TP dat"
                       file_description="Tecplot Files (VisIt)" />
      </Hints>
     </SourceProxy>
