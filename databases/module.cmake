@@ -13,7 +13,3 @@ vtk_module(vtkIOVisItBridge
 set_property (GLOBAL PROPERTY
   vtkIOVisItBridge_SERVERMANAGER_XMLS
   ${CMAKE_CURRENT_LIST_DIR}/visit_readers.xml)
-
-set_property (GLOBAL PROPERTY
-  vtkIOVisItBridge_PARAVIEW_GUI_XMLS
-  ${CMAKE_CURRENT_LIST_DIR}/visit_readers_gui.xml)

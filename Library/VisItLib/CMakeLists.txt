@@ -66,7 +66,6 @@ if (NOT VTK_INSTALL_NO_DEVELOPMENT)
   set(cmakeDevFiles
     ${VISIT_CMAKE_DIR}/VisItCommon.cmake
     ${VISIT_CMAKE_DIR}/VisItExport.h.in
-    ${VISIT_CMAKE_DIR}/VisItGUI.xml.in
     ${VISIT_CMAKE_DIR}/VisItMT.h.in
     ${VISIT_CMAKE_DIR}/VisItMT.cxx.in
     ${VISIT_CMAKE_DIR}/VisItMTSM.xml.in

@@ -330,21 +330,12 @@ configure_file(
   ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}SM.xml.in
   ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}SM.xml @ONLY)
 
-#generate reader xml
-configure_file(
-  ${VISIT_CMAKE_DIR}/VisItGUI.xml.in
-  ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}GUI.xml @ONLY)
-
-
 set(reader_sources
   ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}.cxx
   ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}.h
     )
 set(reader_server_xml
   ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}SM.xml
-  )
-set(reader_client_xml
-  ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}GUI.xml
   )
 
 #add the vtk classes to the argument list
@@ -353,7 +344,9 @@ list(APPEND PV_ARGS "SERVER_MANAGER_SOURCES;${reader_sources}")
 
 #now we need to add the XML info
 list(APPEND PV_ARGS "SERVER_MANAGER_XML;${reader_server_xml}")
-list(APPEND PV_ARGS "GUI_RESOURCE_FILES;${reader_client_xml}")
+
+#all of the readers can be server side only
+list(APPEND PV_ARGS "REQUIRED_ON_SERVER")
 
 ADD_PARAVIEW_PLUGIN( ${NAME} ${VERSION} ${PV_ARGS} )
 ENDFUNCTION(ADD_VISIT_PLUGIN_READER)
@@ -464,7 +457,9 @@ list(APPEND PV_ARGS "SERVER_MANAGER_SOURCES;${INTERFACE_SOURCES}")
 
 #now we need to add the XML info
 list(APPEND PV_ARGS "SERVER_MANAGER_XML;${INTERFACE_SMXML}")
-list(APPEND PV_ARGS "GUI_RESOURCE_FILES;${INTERFACE_GUIXML}")
+
+#all of the readers can be server side only
+list(APPEND PV_ARGS "REQUIRED_ON_SERVER")
 
 ADD_PARAVIEW_PLUGIN( ${NAME} ${VERSION} ${PV_ARGS} )
 
