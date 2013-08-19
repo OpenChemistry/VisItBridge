@@ -118,12 +118,12 @@ VTK_ADD_LIBRARY(visit_vtk ${VISIT_VTK_SOURCES})
 
 target_link_libraries(visit_vtk
   lightweight_visit_vtk
-  vtkIOImage
+  vtktiff
   vtkFiltersFlowPaths
   vtkRenderingOpenGL
+  vtkImagingHybrid
   vtkInteractionStyle
   vtkRenderingFreeTypeOpenGL
-  vtkRenderingVolumeOpenGL
-  ${VTK_TIFF_LIBRARIES})
+  vtkRenderingVolumeOpenGL)
 
 VISIT_INSTALL_TARGETS(visit_vtk)
