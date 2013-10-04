@@ -2,6 +2,8 @@ vtk_module(vtkIOVisItBridge
   DEPENDS
     vtkCommonDataModel
     vtkCommonExecutionModel
+    vtkFiltersAMR
+    vtkParallelCore
     vtknetcdf
     vtkhdf5
     VisItLib

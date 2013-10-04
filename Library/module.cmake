@@ -1,16 +1,17 @@
 vtk_module(VisItLib
-  DEPENDS
-  vtkCommonDataModel
-  vtkCommonExecutionModel
-  vtkCommonMisc
-  vtkFiltersAMR
-  vtkFiltersFlowPaths
-  vtkImagingHybrid
-  vtkIOGeometry
-  vtkIOImage
-  vtkParallelCore
-  vtkRenderingFreeTypeOpenGL
-  vtkRenderingVolumeOpenGL
-  vtkIOLegacy
+  PRIVATE_DEPENDS
+    vtkCommonDataModel
+    vtkCommonExecutionModel
+    vtkCommonMisc
+    vtkFiltersExtraction
+    vtkFiltersAMR
+    vtkFiltersFlowPaths
+    vtkImagingHybrid
+    vtkIOGeometry
+    vtkIOImage
+    vtkParallelCore
+    vtkRenderingFreeTypeOpenGL
+    vtkRenderingVolumeOpenGL
+    vtkIOLegacy
   EXCLUDE_FROM_WRAPPING
   )

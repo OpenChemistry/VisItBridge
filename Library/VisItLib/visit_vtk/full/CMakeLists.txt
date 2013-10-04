@@ -124,6 +124,7 @@ target_link_libraries(visit_vtk
   vtkImagingHybrid
   vtkInteractionStyle
   vtkRenderingFreeTypeOpenGL
-  vtkRenderingVolumeOpenGL)
+  vtkRenderingVolumeOpenGL
+  vtkFiltersExtraction)
 
 VISIT_INSTALL_TARGETS(visit_vtk)
