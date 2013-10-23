@@ -4,6 +4,7 @@ vtk_module(vtkIOVisItBridge
     vtkCommonExecutionModel
     vtkFiltersAMR
     vtkParallelCore
+  PRIVATE_DEPENDS
     vtknetcdf
     vtkhdf5
     VisItLib

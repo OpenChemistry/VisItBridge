@@ -60,6 +60,6 @@ ${VTK_INCLUDE_DIRS}
 LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS})
 
 VTK_ADD_LIBRARY(avtmath ${AVTMATH_SOURCES})
-TARGET_LINK_LIBRARIES(avtmath visitcommon vtkCommonCore)
+target_link_libraries(avtmath LINK_PRIVATE visitcommon vtkCommonCore)
 
 VISIT_INSTALL_TARGETS(avtmath)
