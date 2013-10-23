@@ -279,7 +279,7 @@ utility/void_ref_ptr.C
 )
 IF(WIN32)
     SET(UTILITY_WIN32_SOURCES utility/win32-regex.c)
-    SET_SOURCE_FILES_PROPERTIES(utility/win32-regex.c 
+    SET_SOURCE_FILES_PROPERTIES(utility/win32-regex.c
         PROPERTIES LANGUAGE CXX)
 ENDIF(WIN32)
 
@@ -287,8 +287,8 @@ VTK_ADD_LIBRARY(visitcommon
     ${COMM_SOURCES} ${COMM_WIN32_SOURCES}
     ${EXCEPTION_SOURCES}
     ${EXPRESSION_SOURCES}
-    ${MISC_SOURCES}    
-    ${PARSER_SOURCES}   
+    ${MISC_SOURCES}
+    ${PARSER_SOURCES}
     ${PLUGIN_SOURCES}
     ${PROXYBASE_SOURCES}
     ${STATE_SOURCES}
@@ -296,12 +296,12 @@ VTK_ADD_LIBRARY(visitcommon
 
 # Specify the libraries to link against on Windows
 if(WIN32)
-    TARGET_LINK_LIBRARIES(visitcommon ws2_32 shlwapi userenv)
+    target_link_libraries(visitcommon LINK_PUBLIC ws2_32 shlwapi userenv)
 endif()
 
 # Make sure we get -ldl or whatever as needed everywhere
 if(BUILD_SHARED_LIBS)
-    TARGET_LINK_LIBRARIES(visitcommon ${CMAKE_DL_LIBS})
+    target_link_libraries(visitcommon LINK_PUBLIC ${CMAKE_DL_LIBS})
 endif()
 
 VISIT_INSTALL_TARGETS(visitcommon)

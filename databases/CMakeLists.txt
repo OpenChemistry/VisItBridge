@@ -181,24 +181,31 @@ set(vtkIOVisItBridge_INCLUDE_DIRS "${vtkIOVisItBridge_INCLUDE_DIRS};${CMAKE_CURR
 vtk_module_library(vtkIOVisItBridge ${Module_SRCS} ${VISIT_DB_SOURCES})
 
 if(VISIT_PARALLEL)
-   target_link_libraries(vtkIOVisItBridge visitcommon avtdatabase_par avtpipeline_par visit_vtk avtivp)
+   target_link_libraries(vtkIOVisItBridge
+        LINK_PRIVATE
+          visitcommon avtdatabase_par avtpipeline_par avtivp
+          visit_vtk vtkIOImage vtkRenderingOpenGL)
 else(VISIT_PARALLEL)
-  target_link_libraries(vtkIOVisItBridge visitcommon avtdatabase_ser avtpipeline_ser visit_vtk avtivp)
+  target_link_libraries(vtkIOVisItBridge
+        LINK_PRIVATE
+          visitcommon avtdatabase_ser avtpipeline_ser avtivp
+          visit_vtk vtkIOImage vtkRenderingOpenGL)
 endif(VISIT_PARALLEL)
 
-target_link_libraries(vtkIOVisItBridge vtkNetCDF)
+target_link_libraries(vtkIOVisItBridge LINK_PRIVATE vtkNetCDF)
+
 if(PARAVIEW_HDF5_LIBRARIES)
-  target_link_libraries(vtkIOVisItBridge ${PARAVIEW_HDF5_LIBRARIES})
+  target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${PARAVIEW_HDF5_LIBRARIES})
 endif(PARAVIEW_HDF5_LIBRARIES)
 
 if(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
-  target_link_libraries(vtkIOVisItBridge ${SILO_LIBRARIES})
+  target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${SILO_LIBRARIES})
 endif(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
 
 if(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
-  target_link_libraries(vtkIOVisItBridge ${CGNS_LIBRARIES})
+  target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${CGNS_LIBRARIES})
 endif(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
 
 if(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
-  target_link_libraries(vtkIOVisItBridge ${MILI_LIBRARIES})
+  target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${MILI_LIBRARIES})
 endif(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)

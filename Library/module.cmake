@@ -10,7 +10,6 @@ vtk_module(VisItLib
     vtkIOGeometry
     vtkIOImage
     vtkParallelCore
-    vtkRenderingFreeTypeOpenGL
     vtkRenderingVolumeOpenGL
     vtkIOLegacy
   EXCLUDE_FROM_WRAPPING

@@ -63,15 +63,15 @@ MetaData/avtVectorMetaData.C
 )
 
 SET(SIL_SOURCES
-SIL/avtSIL.C 
-SIL/avtSILArray.C 
-SIL/avtSILCollection.C 
-SIL/avtSILEnumeratedNamespace.C 
-SIL/avtSILMatrix.C 
-SIL/avtSILNamespace.C 
-SIL/avtSILRangeNamespace.C 
-SIL/avtSILRestriction.C 
-SIL/avtSILRestrictionTraverser.C 
+SIL/avtSIL.C
+SIL/avtSILArray.C
+SIL/avtSILCollection.C
+SIL/avtSILEnumeratedNamespace.C
+SIL/avtSILMatrix.C
+SIL/avtSILNamespace.C
+SIL/avtSILRangeNamespace.C
+SIL/avtSILRestriction.C
+SIL/avtSILRestrictionTraverser.C
 SIL/avtSILSet.C
 )
 
@@ -86,6 +86,6 @@ LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY})
 
 VTK_ADD_LIBRARY(avtdbatts ${METADATA_SOURCES} ${SIL_SOURCES})
 
-TARGET_LINK_LIBRARIES(avtdbatts visitcommon)
+target_link_libraries(avtdbatts LINK_PRIVATE visitcommon)
 
 VISIT_INSTALL_TARGETS(avtdbatts)

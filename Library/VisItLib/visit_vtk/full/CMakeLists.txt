@@ -37,7 +37,7 @@
 # Modifications:
 #   Cyrus Harrison, Tue Mar  9 08:28:53 PST 2010
 #   Define __USE_ISOC99 if we are using the boost interval lib to make sure
-#   a rounding scheme is available. 
+#   a rounding scheme is available.
 #
 #****************************************************************************/
 project(visit_vtk)
@@ -117,14 +117,20 @@ set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES
 VTK_ADD_LIBRARY(visit_vtk ${VISIT_VTK_SOURCES})
 
 target_link_libraries(visit_vtk
-  lightweight_visit_vtk
-  vtktiff
-  vtkFiltersFlowPaths
-  vtkRenderingOpenGL
-  vtkImagingHybrid
-  vtkInteractionStyle
-  vtkRenderingFreeTypeOpenGL
-  vtkRenderingVolumeOpenGL
-  vtkFiltersExtraction)
+  LINK_PUBLIC
+    visitcommon
+    lightweight_visit_vtk
+    vtkCommonCore
+    vtkCommonDataModel
+    vtkCommonExecutionModel
+  LINK_PRIVATE
+    vtkFiltersExtraction
+    vtkFiltersFlowPaths
+    vtkImagingHybrid
+    vtkInteractionStyle
+    vtkIOLegacy
+    vtkRenderingOpenGL
+    vtktiff
+  )
 
 VISIT_INSTALL_TARGETS(visit_vtk)

@@ -40,20 +40,20 @@
 project(lightweight_visit_vtk)
 
 SET(LIGHTWEIGHT_VISIT_VTK_SOURCES
-ClipCasesHex.C  
-ClipCasesLin.C  
-ClipCasesPix.C  
-ClipCasesPyr.C  
-ClipCasesQua.C  
-ClipCasesTet.C  
-ClipCasesTri.C  
-ClipCasesWdg.C          
-ClipCasesVox.C          
-ClipCasesVtx.C          
-InitVTKLite.C     
-vtkCellIntersections.C  
-vtkDataSetFromVolume.C  
-vtkDebugStream.C        
+ClipCasesHex.C
+ClipCasesLin.C
+ClipCasesPix.C
+ClipCasesPyr.C
+ClipCasesQua.C
+ClipCasesTet.C
+ClipCasesTri.C
+ClipCasesWdg.C
+ClipCasesVox.C
+ClipCasesVtx.C
+InitVTKLite.C
+vtkCellIntersections.C
+vtkDataSetFromVolume.C
+vtkDebugStream.C
 vtkEnumThreshold.C
 vtkPolyDataRelevantPointsFilter.C
 vtkSkewLookupTable.C
@@ -79,10 +79,13 @@ VTK_ADD_LIBRARY(lightweight_visit_vtk
 )
 
 target_link_libraries(lightweight_visit_vtk
-  visitcommon
-  vtkCommonCore
-  vtkFiltersGeneral
-  vtkIOXML
-  vtkIOLegacy)
+  LINK_PUBLIC
+    visitcommon
+  LINK_PRIVATE
+    vtkCommonCore
+    vtkFiltersGeneral
+    vtkIOXML
+    vtkIOLegacy
+   )
 
 VISIT_INSTALL_TARGETS(lightweight_visit_vtk)
