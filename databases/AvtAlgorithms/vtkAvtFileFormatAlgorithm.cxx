@@ -615,13 +615,19 @@ void vtkAvtFileFormatAlgorithm::SetupTemporalInformation(
   bool hasCycles = cycles.size() > 0;
   bool hasTimeAndCycles = hasTime && hasCycles;
 
-  //in some case the times and cycles have all zero values.
+  //in some case the times and cycles have all zero values,
+  //or everything but the first time step have are zero values
   //This is caused by a file reader that generates the time value
   //once the reader moves to that timestep.
-  //That kind of behaviour is not possible currently in ParaView. Instead
+  //That kind of behavior is not possible currently in ParaView. Instead
   //we will force the reader to generate the time values for each timestep
   //by cycling through everytime step but not requesting any data.
-  if(hasTime && timesteps[0] == timesteps[timesteps.size()-1])
+  unsigned int last_spot = timesteps.size()-1;
+  bool needs_manual_query = (timesteps[0] == timesteps[last_spot]);
+  needs_manual_query |= ( timesteps.size() > 2 &&
+                          timesteps[last_spot-1] == timesteps[last_spot] &&
+                          timesteps[last_spot] == 0 );
+  if(hasTime && needs_manual_query)
     {
     //FormatGetTimes expect the timesteps vector that is passed
     //in has an empty size. If you use the timesteps variable

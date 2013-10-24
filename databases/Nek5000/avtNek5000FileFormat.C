@@ -2217,6 +2217,13 @@ avtNek5000FileFormat::UpdateCyclesAndTimes()
     // cycle number will be X Y
     if (v.find("X") != std::string::npos)
         iTimestepsWithMesh[curTimestep] = true;
+
+    // Nek has a bug where the time and cycle sometimes run together
+    // (e.g. 2.52000E+0110110 for time 25.2, cycle 10110).  If that happens,
+    // then v will be Y
+    if (v.find("Y") != string::npos)
+        iTimestepsWithMesh[curTimestep] = true;
+
     delete[] meshfilename;
     readTimeInfoFor[curTimestep] = true;
 }
