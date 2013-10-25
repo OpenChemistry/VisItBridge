@@ -622,11 +622,15 @@ void vtkAvtFileFormatAlgorithm::SetupTemporalInformation(
   //That kind of behavior is not possible currently in ParaView. Instead
   //we will force the reader to generate the time values for each timestep
   //by cycling through everytime step but not requesting any data.
-  unsigned int last_spot = timesteps.size()-1;
-  bool needs_manual_query = (timesteps[0] == timesteps[last_spot]);
-  needs_manual_query |= ( timesteps.size() > 2 &&
-                          timesteps[last_spot-1] == timesteps[last_spot] &&
-                          timesteps[last_spot] == 0 );
+  bool needs_manual_query = false;
+  if(hasTime)
+    {
+    std::size_t last_spot = timesteps.size()-1;
+    needs_manual_query = (timesteps[0] == timesteps[last_spot]);
+    needs_manual_query |= ( timesteps.size() > 2 &&
+                            timesteps[last_spot-1] == timesteps[last_spot] &&
+                            timesteps[last_spot] == 0 );
+    }
   if(hasTime && needs_manual_query)
     {
     //FormatGetTimes expect the timesteps vector that is passed
