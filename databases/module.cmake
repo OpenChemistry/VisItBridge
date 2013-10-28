@@ -5,9 +5,10 @@ vtk_module(vtkIOVisItBridge
     vtkFiltersAMR
     vtkParallelCore
   PRIVATE_DEPENDS
-    vtknetcdf
-    vtkhdf5
     VisItLib
+    vtkhdf5
+    vtknetcdf
+    vtkzlib
   TEST_DEPENDS
   EXCLUDE_FROM_WRAP_HIERARCHY
 )
