@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -99,10 +99,10 @@ class PIPELINE_API avtHexahedron20Extractor : public avtHexahedronExtractor
 
 
     virtual void     StoreRay(int, int, int, int,
-                              const float (*)[AVT_VARIABLE_LIMIT]);
-    float            TriLinearWeight(int, float, float, float);
-    float            QuadraticWeight(int, float, float, float);
-    float            ClosestParametricNeighbor(float, float, float);
+                              const double (*)[AVT_VARIABLE_LIMIT]);
+    double            TriLinearWeight(int, double, double, double);
+    double            QuadraticWeight(int, double, double, double);
+    double            ClosestParametricNeighbor(double, double, double);
 
   protected:
     static const int            sControlPointParam[27][3];

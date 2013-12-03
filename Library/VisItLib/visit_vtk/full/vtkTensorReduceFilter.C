@@ -45,12 +45,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vtkCell.h>
 #include <vtkCellData.h>
 #include <vtkDataSet.h>
+#include <vtkDoubleArray.h>
 #include <vtkFloatArray.h>
+#include <vtkInformation.h>
+#include <vtkInformationVector.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkPolyData.h>
-#include <vtkInformation.h>
-#include <vtkInformationVector.h>
+#include <vtkVisItUtility.h>
 
 
 vtkStandardNewMacro(vtkTensorReduceFilter);
@@ -62,38 +64,54 @@ vtkTensorReduceFilter::vtkTensorReduceFilter()
   numEls = -1;
 }
 
-
-void vtkTensorReduceFilter::SetStride(int s)
+void
+vtkTensorReduceFilter::SetStride(int s)
 {
   numEls = -1;
   stride = s;
 }
 
-
-void vtkTensorReduceFilter::SetNumberOfElements(int n)
+void
+vtkTensorReduceFilter::SetNumberOfElements(int n)
 {
   stride = -1;
   numEls = n;
 }
 
 // ****************************************************************************
-// Modifications:
+// Method: vtkTensorReduceFilter::RequestData
 //
+// Modifications:
 //    Kathleen Bonnell, Tue Aug 30 11:11:56 PDT 2005 
 //    Copy other Point and Cell data. 
 //
+//    Kathleen Biagas, Wed Sep 5 13:10:18 MST 2012 
+//    Preserve coordinate and tensor data types.
+//
+//    Eric Brugger, Thu Jan 10 12:05:20 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
 // ****************************************************************************
 
-int vtkTensorReduceFilter::RequestData(vtkInformation *vtkNotUsed(request),
-                                       vtkInformationVector **inputVector,
-                                       vtkInformationVector *outputVector)
+int
+vtkTensorReduceFilter::RequestData(
+  vtkInformation *vtkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *outputVector)
 {
+  vtkDebugMacro(<<"Executing vtkTensorReduceFilter");
+
   // get the info objects
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
-  // get the input and output
-  vtkDataSet *input = vtkDataSet::SafeDownCast(inInfo->Get(vtkDataObject::DATA_OBJECT()));
-  vtkPolyData *output = vtkPolyData::SafeDownCast(    outInfo->Get(vtkDataObject::DATA_OBJECT()));
+
+  //
+  // Initialize some frequently used values.
+  //
+  vtkDataSet   *input = vtkDataSet::SafeDownCast(
+    inInfo->Get(vtkDataObject::DATA_OBJECT()));
+  vtkPolyData *output = vtkPolyData::SafeDownCast(
+    outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
   vtkCellData *inCd = input->GetCellData();
   vtkPointData *inPd = input->GetPointData();
@@ -109,14 +127,17 @@ int vtkTensorReduceFilter::RequestData(vtkInformation *vtkNotUsed(request),
   if (inPtensors == NULL && inCtensors == NULL)
     {
     vtkErrorMacro(<<"No tensors to reduce");
-    return 0;
+    return 1;
     }
+
+  int inPType = (inPtensors ? inPtensors->GetDataType() : VTK_FLOAT);
+  int inCType = (inCtensors ? inCtensors->GetDataType() : VTK_FLOAT);
 
   // Determine what the stride is.
   if (stride <= 0 && numEls <= 0)
     {
     vtkErrorMacro(<<"Invalid stride");
-    return 0;
+    return 1;
     }
 
   float actingStride = stride;
@@ -134,8 +155,12 @@ int vtkTensorReduceFilter::RequestData(vtkInformation *vtkNotUsed(request),
     actingStride = ceil(((float) totalTensors) / ((float) numEls));
     }
 
-  vtkPoints *outpts = vtkPoints::New();
-  vtkFloatArray *outTensors = vtkFloatArray::New();
+  vtkPoints *outpts = vtkVisItUtility::NewPoints(input);
+  vtkDataArray *outTensors;
+  if (inPType == VTK_DOUBLE || inCType == VTK_DOUBLE)
+      outTensors = vtkDoubleArray::New();
+  else 
+      outTensors = vtkFloatArray::New();
   outTensors->SetNumberOfComponents(9);
 
   float nextToTake = 0.;
@@ -202,15 +227,30 @@ int vtkTensorReduceFilter::RequestData(vtkInformation *vtkNotUsed(request),
     onevertex[0] = i;
     output->InsertNextCell(VTK_VERTEX, 1, onevertex);
     }
-
   return 1;
 }
 
-  
-void vtkTensorReduceFilter::PrintSelf(ostream &os, vtkIndent indent)
+// ****************************************************************************
+//  Method: vtkTensorReduceFilter::FillInputPortInformation
+//
+// ****************************************************************************
+
+int
+vtkTensorReduceFilter::FillInputPortInformation(int, vtkInformation *info)
+{
+  info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
+  return 1;
+}
+
+// ****************************************************************************
+//  Method: vtkTensorReduceFilter::PrintSelf
+//
+// ****************************************************************************
+
+void
+vtkTensorReduceFilter::PrintSelf(ostream &os, vtkIndent indent)
 {
    this->Superclass::PrintSelf(os, indent);
    os << indent << "Stride: " << this->stride << "\n";
    os << indent << "Target number of tensors: " << this->numEls << "\n";
 }
-

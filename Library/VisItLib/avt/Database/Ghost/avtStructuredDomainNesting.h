@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -44,11 +44,10 @@
 #define AVT_STRUCTURED_DOMAIN_NESTING_H
 
 #include <database_exports.h>
+#include <cstddef>
+#include <vector>
 
 #include <avtDomainNesting.h>
-
-#include <vector>
-using std::vector;
 
 class vtkDataSet;
 class vtkDataArray;
@@ -76,6 +75,16 @@ class vtkDataArray;
 //  resolution mesh (level 0) was refined, everywhere, to the resolution
 //  of the given domain's level.
 //
+//  Addendum (Gunther H. Weber):
+//  For the AMRStitchCell operator to work correctly, use SetLevelCellSizes()
+//  to provide the grid spacing in this level. Usually, cell sizes for level
+//  L should be the cell sizes for level L-1 divided by the refinement ratio
+//  for level L. However, some formats (e.g., BoxLib) specify this information
+//  for each level, and to avoid numerical inaccuracies, the cell size in the 
+//  reader (when constructing a mesh) should be the same as the cell size used
+//  by stitch cell generations (otherwise, levels and stitch cells do not match
+//  up).
+//
 //  Programmer:  Mark C. Miller 
 //  Creation:    October 13, 2003
 //
@@ -96,59 +105,98 @@ class vtkDataArray;
 //    Hank Childs, Mon May 12 08:15:13 PDT 2008
 //    Changed signature for GetSelectedDescdendants.
 //
+//    Tom Fogal, Fri Aug  6 16:15:11 MDT 2010
+//    Add method to get the total number of domains we know about.
+//
+//    Gunther H. Weber, Wed Jan 18 17:51:27 PST 2012
+//    Added information about cell sizes in levels and methods to set and
+//    access them. Added method to get number of levels. Added method to
+//    access level refinement ratios. In constructor pass arguments directly
+//    instead of creating object to be copied.
+//
+//    Gunther H. Weber, Fri Jan 20 11:16:03 PST 2012
+//    Pass arrays to SetLevelRefinementRatios() and SetLevelCellSizes() by
+//    const reference instead of copy.
+//
 // ****************************************************************************
 
 typedef struct {
     int         level;
-    vector<int> childDomains;
-    vector<int> logicalExtents;
+    std::vector<int> childDomains;
+    std::vector<int> logicalExtents;
+    int childBoundingBox[6];
 } avtNestedDomainInfo_t; 
 
 class DATABASE_API avtStructuredDomainNesting : public avtDomainNesting
 {
     public:
                       avtStructuredDomainNesting(int nDoms, int nLevels)
-                         : avtDomainNesting(),
-                         numDimensions(3),
-                         domainNesting(vector<avtNestedDomainInfo_t>(nDoms)),
-                         levelRatios(vector< vector<int> >(nLevels)) {} ;
+                         : avtDomainNesting(), numDimensions(3),
+                         domainNesting(nDoms), levelRatios(nLevels),
+                         levelCellSizes(nLevels) {} ;
         virtual      ~avtStructuredDomainNesting() {} ;
 
         static void   Destruct(void*);
 
-        bool          ApplyGhost(vector<int> domainList,
-                                 vector<int> allDomainList,
-                                 vector<vtkDataSet*> meshes); 
+        bool          ApplyGhost(std::vector<int> domainList,
+                                 std::vector<int> allDomainList,
+                                 std::vector<vtkDataSet*> meshes); 
 
         void          SetNumDimensions(int numDims)
-                          {numDimensions = numDims; };
+                          { numDimensions = numDims; };
 
-        void          SetLevelRefinementRatios(int level, vector<int> ratios)
+        void          SetLevelRefinementRatios(int level, const std::vector<int>& ratios)
                           { levelRatios[level] = ratios; };
+        const std::vector<int>&
+                      GetLevelRefinementRatios(int level)
+                          { return levelRatios[level]; }
+
+        void          SetLevelCellSizes(int level, const std::vector<double>& sizes)
+                          { levelCellSizes[level] = sizes; };
+        const std::vector<double>&
+                      GetLevelCellSizes(int level)
+                          { return levelCellSizes[level]; }
 
         void          SetNestingForDomain(int dom, int level,
-                          vector<int> childDomains, vector<int> exts)
+                                          std::vector<int> childDomains,
+                                          std::vector<int> exts)
                           { domainNesting[dom].level          = level;
                             domainNesting[dom].childDomains   = childDomains;
-                            domainNesting[dom].logicalExtents = exts; } ;
-        void          GetNestingForDomain(int dom, vector<int> &exts,
-                            vector<int> &childDomains, vector<int> &childExts);
+                            domainNesting[dom].logicalExtents = exts; }
+        void          GetNestingForDomain(int dom, std::vector<int> &exts,
+                            std::vector<int> &childDomains, std::vector<int> &childExts);
 
-        vector<int>   GetRatiosForLevel(int level, int dom);
+        std::vector<int>   GetRatiosForLevel(int level, int dom);
 
-        virtual bool  ConfirmMesh(vector<int> &, vector<vtkDataSet*> &);
+        virtual bool  ConfirmMesh(std::vector<int> &, std::vector<vtkDataSet*> &);
+
+        void          ComputeChildBoundingBox(int domain);
+        bool          InsideChildBoundingBox(int domain, int ijk[6]);
+        void          GetChildrenForLogicalIndex(int domain, int ijk[3],
+                                                 std::vector<int> &children,
+                                                 std::vector<int> &chExts);
+        void          GetChildrenForLogicalRange(int domain, int ijk[6],
+                                                 std::vector<int> &children,
+                                                 std::vector<int> &chExts);
+        std::vector<int>   GetDomainChildren(int domain);
+        int           GetDomainLevel(int domain);
+        std::vector<int>   GetDomainLogicalExtents(int domain);
+        int           GetNumberOfChildren(int domain);
+        size_t        GetNumberOfDomains() const;
+        size_t        GetNumberOfLevels() const
+                          { return levelRatios.size(); }
 
     protected:
 
-        void          GetSelectedDescendents(const vector<int>& allDomainList,
-                          int dom, vector<int>& selectedDescendents,
-                          const vector<bool>& lookup) const;
+        void          GetSelectedDescendents(const std::vector<int>& allDomainList,
+                          int dom, std::vector<int>& selectedDescendents,
+                          const std::vector<bool>& lookup) const;
 
         int numDimensions;
 
-        vector<avtNestedDomainInfo_t> domainNesting; 
+        std::vector<avtNestedDomainInfo_t> domainNesting; 
 
-        vector< vector<int> > levelRatios; 
+        std::vector< std::vector<int> > levelRatios; 
+        std::vector< std::vector<double> > levelCellSizes;
 };
-
 #endif

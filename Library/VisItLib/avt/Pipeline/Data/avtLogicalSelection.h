@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -51,11 +51,17 @@
 // ****************************************************************************
 //  Class: avtLogicalSelection
 //
-//  Purpose: Specify data selection by a zone-centric logical indexing scheme.
-//  That is, all logical coordinates are specified in terms of zones, not
-//  nodes. The starts and stops are inclusive. However, if strides are such
-//  that an integral number of strides from starts DOES NOT equal the
-//  associated value in stops, then stops is non-inclusive.
+//  Purpose: Specify data selection by a node-centric logical indexing
+//  scheme.  That is, all logical coordinates are specified in terms
+//  of nodes, not zones. The starts and stops are inclusive. However,
+//  if strides are such that an integral number of strides from starts
+//  DOES NOT equal the associated value in stops, then stops is
+//  non-inclusive.
+//
+//  Nodal based matches the IndexSelect operator functionality which
+//  is passed in VisIt. Internally a class can use it how it
+//  wants. For instance, ViSUS uses the bounds for zones instead of
+//  nodes.
 //
 //  The default is a 3D box of stride 1 spanning all possible indices.
 //
@@ -66,9 +72,14 @@
 //  Programmer: Mark C. Miller 
 //  Creation:   September 22, 2004 
 //
+//  Modifications:
+//
 //    Hank Childs, Tue Dec 18 10:04:43 PST 2007
 //    Define private copy constructor and assignment operator to prevent
 //    accidental use of default, bitwise copy implementations.
+//
+//    Hank Childs, Tue Dec 20 14:43:08 PST 2011
+//    Add method DescriptionString.
 //
 // ****************************************************************************
 
@@ -80,6 +91,7 @@ class PIPELINE_API avtLogicalSelection : public avtDataSelection
 
     virtual const char *    GetType() const
                                 { return "Logical Data Selection"; }; 
+    virtual std::string     DescriptionString(void);
 
     void                    SetNDims(int _ndims)
                                 { ndims = _ndims; };

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,6 +42,14 @@
 // This is a hack to work around fact that we cannot define variables
 // of arbitrary type, like a map, in the state object itself. So, we
 // do it using a map with key being the object's this pointer.
+#include <map>
+#include <string>
+#include <vector>
+
+using std::map;
+using std::string;
+using std::vector;
+
 static map<const void*, Namescheme*> nameschemesMap;
 static map<const void*, bool> getNameCalledMap;
 

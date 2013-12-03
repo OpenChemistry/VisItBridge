@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,6 +46,8 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <direct.h>
+#include <shlobj.h>
+#include <shlwapi.h>
 #else
 #include <unistd.h>
 #include <sys/types.h>
@@ -97,6 +99,9 @@ static bool isDevelopmentVersion = false;
 //   Kathleen Bonnell, Thu Apr 22 17:25:54 MST 2010
 //   Username no longer added to config file names on windows.
 //
+//   Kathleen Biagas, Wed Nov 2 09:55:12 MST 2010
+//   Don't assume drive letter is 'C', only test for presence of ':'.
+//
 // ****************************************************************************
 
 char *
@@ -115,7 +120,7 @@ GetDefaultConfigFile(const char *filename, const char *home)
         return retval;
     }
     // If the filename has an absolute path, do not prepend the home directory.
-    if (filename != NULL && (filename[0] == 'C' && filename[1] == ':'))
+    if (filename != NULL && strlen(filename) > 1 && filename[1] == ':')
     {
         retval = new char[strlen(filename)+1];
         strcpy(retval, filename);
@@ -254,30 +259,63 @@ GetSystemConfigFile(const char *filename)
 //   Tom Fogal, Sun Apr 19 12:44:06 MST 2009
 //   Use `Environment' to simplify and fix a compilation error.
 //
+//   Kathleen Bonnell, Thu Oct 7 12:47:33 PDT 2010
+//   In case VISITUSERHOME not set on Windows, try a few other things to
+//   fill it in.
+//
+//   Kathleen Biagas, Wed Nov 7 09:48:37 PDT 2012
+//   Remove version number from VISITUSERHOME on windows.
+//
 // ****************************************************************************
 
 std::string
 GetUserVisItDirectory()
 {
+    std::string homedir;
 #if defined(_WIN32)
     const std::string home = Environment::get("VISITUSERHOME");
+    if (!home.empty())
+    {
+        homedir = home;
+    }
+    else
+    {
+        char visituserpath[MAX_PATH], expvisituserpath[MAX_PATH];
+        int haveVISITUSERHOME=0;
+        TCHAR szPath[MAX_PATH];
+        struct _stat fs;
+        if(SUCCEEDED(SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, 
+                                 SHGFP_TYPE_CURRENT, szPath))) 
+        {
+            SNPRINTF(visituserpath, MAX_PATH, "%s\\VisIt", szPath);
+            haveVISITUSERHOME = 1;
+        }
+
+        if (haveVISITUSERHOME)
+        {
+            ExpandEnvironmentStrings(visituserpath,expvisituserpath,MAX_PATH);
+            if (_stat(expvisituserpath, &fs) == -1)
+            {
+                _mkdir(expvisituserpath);
+            }
+            homedir = expvisituserpath;
+        }
+        else
+        {
+            homedir = GetVisItInstallationDirectory();
+        }
+    }
 #else
     const std::string home = Environment::get("HOME");
-#endif
-
-    std::string homedir;
-
     if(!home.empty())
     {
-#if defined(_WIN32)
-        homedir = home;
-#else
         homedir = home + "/.visit";
+    }
 #endif
 
-        if(homedir[homedir.size() - 1] != VISIT_SLASH_CHAR)
-            homedir += VISIT_SLASH_STRING;
-    }
+
+    if(! homedir.empty() && homedir[homedir.size() - 1] != VISIT_SLASH_CHAR)
+        homedir += VISIT_SLASH_STRING;
 
     return homedir;
 }
@@ -388,6 +426,79 @@ GetSystemVisItHostsDirectory()
     return retVal;
 }
 
+// ****************************************************************************
+// Method: GetVisItResourcesDirectory
+//
+// Purpose: 
+//   Get the installation directory's resources subdirectory.
+//
+// Arguments:
+//
+// Returns:    
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Fri Apr 27 17:31:12 PDT 2012
+//
+// Modifications:
+//   Brad Whitlock, Fri Oct 12 16:36:02 PDT 2012
+//   Add help directory.
+//
+// ****************************************************************************
+
+std::string
+GetVisItResourcesDirectory(VisItResourceDirectoryType t)
+{
+    std::string retval(GetVisItArchitectureDirectory());
+    retval += VISIT_SLASH_STRING;
+    retval += "resources";
+
+    if(t != VISIT_RESOURCES)
+    {
+        retval += VISIT_SLASH_STRING;
+        if(t == VISIT_RESOURCES_COLORTABLES)
+            retval += "colortables";
+        else if(t == VISIT_RESOURCES_HELP)
+            retval += "help";
+        else if(t == VISIT_RESOURCES_HOSTS)
+            retval += "hosts";
+        else if(t == VISIT_RESOURCES_TRANSLATIONS)
+            retval += "translations";
+        else if(t == VISIT_RESOURCES_MOVIETEMPLATES)
+            retval += "movietemplates";
+    }
+
+    return retval;
+}
+
+// ****************************************************************************
+// Method: GetVisItResourcesFile
+//
+// Purpose: 
+//   Gets the name of a file in the resources directory.
+//
+// Arguments:
+//   t        : The resource directory.
+//   filename : the name of the file.
+//
+// Returns:    The name of the file in the resources directory.
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Thu Sep  6 11:08:52 PDT 2012
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+std::string
+GetVisItResourcesFile(VisItResourceDirectoryType t, const std::string &filename)
+{
+    return (GetVisItResourcesDirectory(t) + VISIT_SLASH_STRING) + filename;
+}
+
 #if defined(_WIN32)
 // ***************************************************************************
 //
@@ -396,6 +507,10 @@ GetSystemVisItHostsDirectory()
 //  Modifications:
 //    Kathleen Bonnell, Wed May 21 08:12:16 PDT 2008
 //    Only malloc keyval if it hasn't already been done.
+//
+//    Kathleen Bonnell, Thu Jun 17 20:25:44 MST 2010
+//    Location of VisIt's registry keys has changed to Software\Classes.
+//
 // ***************************************************************************
 int
 ReadKeyFromRoot(HKEY which_root, const char *ver, const char *key,
@@ -406,7 +521,7 @@ ReadKeyFromRoot(HKEY which_root, const char *ver, const char *key,
     HKEY hkey;
 
     /* Try and read the key from the system registry. */
-    sprintf(regkey, "VISIT%s", ver);
+    sprintf(regkey, "Software\\Classes\\VisIt%s", ver);
     if (*keyval == 0)
         *keyval = (char *)malloc(500);
     if(RegOpenKeyEx(which_root, regkey, 0, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS)
@@ -424,16 +539,30 @@ ReadKeyFromRoot(HKEY which_root, const char *ver, const char *key,
     return readSuccess;
 }
 
+// ***************************************************************************
+//  Modifications:
+//    Kathleen Bonnell, Thu Jun 17 20:25:44 MST 2010
+//    VisIt's registry keys are stored in HKLM or HKCU.
+//
+// ***************************************************************************
+
 int
 ReadKey(const char *ver, const char *key, char **keyval)
 {
     int retval = 0;
 
-    if((retval = ReadKeyFromRoot(HKEY_CLASSES_ROOT, ver, key, keyval)) == 0)
+    if((retval = ReadKeyFromRoot(HKEY_LOCAL_MACHINE, ver, key, keyval)) == 0)
         retval = ReadKeyFromRoot(HKEY_CURRENT_USER, ver, key, keyval);
     
     return retval;     
 }
+
+// ***************************************************************************
+//  Modifications:
+//    Kathleen Bonnell, Thu Jun 17 20:25:44 MST 2010
+//    Location of VisIt's registry keys has changed to Software\Classes.
+//
+// ***************************************************************************
 
 int
 WriteKeyToRoot(HKEY which_root, const char *ver, const char *key,
@@ -444,10 +573,10 @@ WriteKeyToRoot(HKEY which_root, const char *ver, const char *key,
     HKEY hkey;
 
     /* Try and read the key from the system registry. */
-    sprintf(regkey, "VISIT%s", ver);
+    sprintf(regkey, "Software\\Classes\\VisIt%s", ver);
     if(RegOpenKeyEx(which_root, regkey, 0, KEY_SET_VALUE, &hkey) == ERROR_SUCCESS)
     {
-        DWORD strSize = strlen(keyval);
+        DWORD strSize = (DWORD)strlen(keyval);
         if(RegSetValueEx(hkey, key, NULL, REG_SZ,
            (const unsigned char *)keyval, strSize) == ERROR_SUCCESS)
         {
@@ -460,12 +589,19 @@ WriteKeyToRoot(HKEY which_root, const char *ver, const char *key,
     return writeSuccess;
 }
 
+// ***************************************************************************
+//  Modifications:
+//    Kathleen Bonnell, Thu Jun 17 20:25:44 MST 2010
+//    VisIt's registry keys are stored in HKLM or HKCU.
+//
+// ***************************************************************************
+
 int
 WriteKey(const char *ver, const char *key, const char *keyval)
 {
     int retval = 0;
 
-    if((retval = WriteKeyToRoot(HKEY_CLASSES_ROOT, ver, key, keyval)) == 0)
+    if((retval = WriteKeyToRoot(HKEY_LOCAL_MACHINE, ver, key, keyval)) == 0)
         retval = WriteKeyToRoot(HKEY_CURRENT_USER, ver, key, keyval);
 
     return retval;
@@ -554,6 +690,10 @@ GetIsDevelopmentVersion()
 //   On Windows, no longer use VISITDEVDIR environment variable when VISITHOME 
 //   is not defined.  Rather determine the path from the module's location.
 //
+//   Kathleen Bonnell, Thu Oct  7 09:37:51 PDT 2010 
+//   On Windows, if VISISTHOME not defined in registry, check environment
+//   before getting the module path.
+//
 // ****************************************************************************
 
 std::string
@@ -575,15 +715,25 @@ GetVisItInstallationDirectory(const char *version)
     }
     else
     {
-        char tmpdir[MAX_PATH];
-        if (GetModuleFileName(NULL, tmpdir, MAX_PATH) != 0)
+        // try the environment
+        const std::string idir = Environment::get("VISITHOME");
+        if (!idir.empty())
         {
-            std::string visitpath(tmpdir);
-            int lastSlash = visitpath.rfind("\\");
-            if(lastSlash != -1)
-                installDir = visitpath.substr(0, lastSlash);
-            else
-                installDir = visitpath;
+            installDir = idir;
+        }
+        else
+        {
+            // get the path for this process
+            char tmpdir[MAX_PATH];
+            if (GetModuleFileName(NULL, tmpdir, MAX_PATH) != 0)
+            {
+                std::string visitpath(tmpdir);
+                size_t lastSlash = visitpath.rfind("\\");
+                if(lastSlash != std::string::npos)
+                    installDir = visitpath.substr(0, lastSlash);
+                else
+                    installDir = visitpath;
+            }
         }
     }
     if (visitHome != 0)
@@ -596,12 +746,12 @@ GetVisItInstallationDirectory(const char *version)
     const std::string idir = Environment::get("VISITHOME");
     if(!idir.empty())
     {
-        // The directory often has a "/bin" on the end. Strip it off.
-        std::string home(idir);
         if(isDevelopmentVersion)
             installDir = idir;
         else
         {
+            // The directory often has a "/bin" on the end. Strip it off.
+            std::string home(idir);
             int lastSlash = home.rfind("/");
             if(lastSlash != -1)
                 installDir = home.substr(0, lastSlash);
@@ -737,7 +887,10 @@ GetVisItLauncher()
 //
 //   Tom Fogal, Sun Apr 19 12:48:38 MST 2009
 //   Use `Environment' to simplify and fix a compilation error.
-//   
+//
+//   Brad Whitlock, Mon Oct 31 15:05:20 PDT 2011
+//   darwin-x86_64 enhancements.
+//
 // ****************************************************************************
 
 bool
@@ -758,8 +911,10 @@ ReadInstallationInfo(std::string &distName, std::string &configName, std::string
     "linux-ia64",
 
     "darwin-i386",
-    "darwin-ppc",
+    "darwin-x86_64",
 
+    // Deprecated
+    "darwin-ppc",
     "sun4-sunos5-sparc",
 
     "ibm-aix-pwr",
@@ -767,7 +922,6 @@ ReadInstallationInfo(std::string &distName, std::string &configName, std::string
 
     "sgi-irix6-mips2",
 
-    // Deprecated
     "dec-osf1-alpha",
     };
 
@@ -786,8 +940,10 @@ ReadInstallationInfo(std::string &distName, std::string &configName, std::string
     "linux-altix",
 
     "darwin-i386",
-    "darwin-ppc",
+    "darwin-x86_64",
 
+    // Deprecated
+    "darwin-ppc",
     "sunos5",
 
     "aix",
@@ -795,7 +951,6 @@ ReadInstallationInfo(std::string &distName, std::string &configName, std::string
 
     "irix6",
 
-    // Deprecated
     "osf1",
     };
 
@@ -861,11 +1016,11 @@ ReadInstallationInfo(std::string &distName, std::string &configName, std::string
         // determine the distName based on the archNames.
         if(!platformDetermined)
         {
-            int lastSlash = arch.rfind("/");
-            if(lastSlash != -1)
+            size_t lastSlash = arch.rfind("/");
+            if(lastSlash != std::string::npos)
             {
                 arch = arch.substr(lastSlash+1, arch.length() - lastSlash - 1);
-                for(int i = 0; i < NARCH; ++i)
+                for(size_t i = 0; i < NARCH; ++i)
                 {
                     if(arch == archNames[i])
                     {
@@ -876,6 +1031,17 @@ ReadInstallationInfo(std::string &distName, std::string &configName, std::string
                 }
             }
         }
+
+#ifdef __APPLE__
+        if(!platformDetermined)
+        {
+            if(sizeof(long) == 8)
+                distName = "darwin-x86_64";
+            else
+                distName = "darwin-i386";
+            platformDetermined = true;
+        }
+#endif
     }
 
     return platformDetermined;
@@ -1132,3 +1298,49 @@ VersionGreaterThan(const std::string &v1, const std::string &v2)
 {
     return VersionToInt(v1) > VersionToInt(v2);
 }
+
+
+// ****************************************************************************
+// Method: GetVisItLibraryDirectory
+//
+// Purpose: 
+//   Gets the name of the directory where VisIt's current library is installed.
+//
+// Arguments:
+//   version : The version number for which we want the library dir.
+//
+// Returns:    The library dir.
+//
+// Programmer: Kathleen Biagas 
+// Creation:   May 4, 2012
+//
+// Modifications:
+//
+// ****************************************************************************
+
+std::string
+GetVisItLibraryDirectory()
+{
+    return GetVisItLibraryDirectory(VISIT_VERSION);
+}
+
+std::string
+GetVisItLibraryDirectory(const char *version)
+{
+    std::string varchdir(GetVisItArchitectureDirectory(version));
+
+#if defined(_WIN32)
+    if (isDevelopmentVersion)
+    {
+        size_t pos = varchdir.find_last_of("\\");
+        std::string config = varchdir.substr(pos+1);
+        pos = varchdir.find_last_of("\\", pos-1);
+        std::string libdir = varchdir.substr(0, pos) + VISIT_SLASH_CHAR + 
+                             "lib" + VISIT_SLASH_CHAR + config;
+        return libdir;
+    }
+#endif
+    std::string libdir = varchdir + VISIT_SLASH_CHAR + "lib";
+    return libdir;
+}
+

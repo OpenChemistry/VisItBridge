@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -40,21 +40,19 @@
 //                         avtNamedSelectionManager.C                        //
 // ************************************************************************* //
 
+#include <cstring>
 #include <sstream>
 #include <avtNamedSelectionManager.h>
-
-#include <vtkCellData.h>
-#include <vtkDataArray.h>
-#include <vtkDataSet.h>
+#include <avtNamedSelectionExtension.h>
 
 #include <avtDataObjectSource.h>
 #include <avtDataset.h>
 #include <avtNamedSelection.h>
-#include <avtParallel.h>
 
 #include <DebugStream.h>
 #include <snprintf.h>
 #include <InstallationFunctions.h>
+#include <StackTimer.h>
 #include <visitstream.h>
 #include <VisItException.h>
 
@@ -81,10 +79,15 @@ avtNamedSelectionManager::avtNamedSelectionManager(void)
 //  Programmer: Hank Childs
 //  Creation:   January 30, 2009
 //
+//  Modifications:
+//    Brad Whitlock, Tue Sep  6 16:00:38 PDT 2011
+//    Clear the cache.
+//
 // ****************************************************************************
 
 avtNamedSelectionManager::~avtNamedSelectionManager()
 {
+    cache.clear();
 }
 
 
@@ -108,12 +111,17 @@ avtNamedSelectionManager::GetInstance(void)
     return instance;
 }
 
-
 // ****************************************************************************
 //  Method: avtNamedSelectionManager::CreateNamedSelection
 //
 //  Purpose:
 //      Creates a named selection from a data object.
+//
+//  Arguments:
+//    dob      : The data object used to create the named selection.
+//    selProps : The named selection properties.
+//    ext      : The named selection extension object that helps set up the 
+//               pipeline and contract.
 //
 //  Programmer: Hank Childs
 //  Creation:   January 30, 2009
@@ -130,150 +138,90 @@ avtNamedSelectionManager::GetInstance(void)
 //    Automatically save out an internal named selection, for fault tolerance
 //    and for save/restore sessions.
 //
+//    Brad Whitlock, Mon Dec 13 15:59:51 PST 2010
+//    I added support for named selection "extensions" that add more stuff
+//    to the pipeline before we reexecute it. I also changed things so we pass
+//    in selection properties.
+//
+//    Brad Whitlock, Tue Jun 14 16:58:15 PST 2011
+//    I fixed a memory corruption problem that caused bad selections to be
+//    generated in parallel.
+//
+//    Brad Whitlock, Tue Sep  6 16:01:52 PDT 2011
+//    I moved most of the code to do the selection into the extension.
+//
+//    Brad Whitlock, Fri Oct 28 09:57:55 PDT 2011
+//    I changed avtNamedSelectionExtension and moved more code into it.
+//
 // ****************************************************************************
 
 void
 avtNamedSelectionManager::CreateNamedSelection(avtDataObject_p dob, 
-                                               const std::string &selName)
+    const SelectionProperties &selProps, avtNamedSelectionExtension *ext)
 {
-    int   i;
+    const char *mName = "avtNamedSelectionManager::CreateNamedSelection: ";
+    StackTimer t0("CreateNamedSelection");
 
     if (strcmp(dob->GetType(), "avtDataset") != 0)
     {
         EXCEPTION1(VisItException, "Named selections only work on data sets");
     }
 
-    avtContract_p c1 = dob->GetContractFromPreviousExecution();
-    avtContract_p contract;
-    if (c1->GetDataRequest()->NeedZoneNumbers() == false)
-    {
-        // If we don't have zone numbers, then get them, even if we have
-        // to re-execute the whole darn pipeline.
-        contract = new avtContract(c1);
-        contract->GetDataRequest()->TurnZoneNumbersOn();
-    }
-    else
-    {
-        contract = c1;
-    }
+    // Save the selection properties.
+    AddSelectionProperties(selProps);
+
+    // Augment the contract based on the selection properties.
+    avtContract_p c0 = dob->GetContractFromPreviousExecution();
+    bool needsUpdate = false;
+    avtContract_p contract = ext->ModifyContract(c0, selProps, needsUpdate);
 
     // 
     // Let the input try to create the named selection ... some have special
     // logic, for example the parallel coordinates filter.
     //
-    avtNamedSelection *ns = dob->GetSource()->CreateNamedSelection(contract, 
-                                                                   selName);
-    if (ns != NULL)
+    const std::string &selName = selProps.GetName();
+    avtNamedSelection *ns = NULL;
+    if(selProps.GetSelectionType() == SelectionProperties::BasicSelection)
+    {
+        ns = dob->GetSource()->CreateNamedSelection(contract, selName);
+        if (ns != NULL)
+        {
+            int curSize = selList.size();
+            selList.resize(curSize+1);
+            selList[curSize] = ns;
+
+            //
+            // Save out the named selection in case of engine crash / 
+            // save/restore session, etc.
+            //  
+            SaveNamedSelection(selName, true);
+            return;
+        }
+    }
+
+    //
+    // Call into the extension to get the per-processor named selection.
+    //
+    TimedCodeBlock("Creating selection in extension",
+        ns = ext->GetSelection(dob, selProps, cache);
+    );
+
+    //
+    // Save the selection
+    //
+    DeleteNamedSelection(selName, false); // Remove sel if it already exists.
+    if(ns != NULL)
     {
         int curSize = selList.size();
         selList.resize(curSize+1);
         selList[curSize] = ns;
-
+ 
         //
         // Save out the named selection in case of engine crash / 
         // save/restore session, etc.
         //  
         SaveNamedSelection(selName, true);
-
-        return;
     }
-
-    if (c1->GetDataRequest()->NeedZoneNumbers() == false)
-    {
-        debug1 << "Must re-execute pipeline to create named selection" << endl;
-        dob->Update(contract);
-        debug1 << "Done re-executing pipeline to create named selection" << endl;
-    }
-
-    avtDataset_p ds;
-    CopyTo(ds, dob);
-    avtDataTree_p tree = ds->GetDataTree();
-    std::vector<int> doms;
-    std::vector<int> zones;
-    int nleaves = 0;
-    vtkDataSet **leaves = tree->GetAllLeaves(nleaves);
-    for (i = 0 ; i < nleaves ; i++)
-    {
-        if (leaves[i]->GetNumberOfCells() == 0)
-            continue;
-
-        vtkDataArray *ocn = leaves[i]->GetCellData()->
-                                            GetArray("avtOriginalCellNumbers");
-        if (ocn == NULL)
-        {
-            EXCEPTION0(ImproperUseException);
-        }
-        unsigned int *ptr = (unsigned int *) ocn->GetVoidPointer(0);
-        if (ptr == NULL)
-        {
-            EXCEPTION0(ImproperUseException);
-        }
-
-        int ncells = leaves[i]->GetNumberOfCells();
-        int curSize = doms.size();
-        doms.resize(curSize+ncells);
-        zones.resize(curSize+ncells);
-        for (int j = 0 ; j < ncells ; j++)
-        {
-            doms[curSize+j]  = ptr[2*j];
-            zones[curSize+j] = ptr[2*j+1];
-        }
-    }
-
-    // Note the poor use of MPI below, coded for expediency, as I believe all
-    // of the named selections will be small.
-    int *numPerProcIn = new int[PAR_Size()];
-    int *numPerProc   = new int[PAR_Size()];
-    for (i = 0 ; i < PAR_Size() ; i++)
-        numPerProcIn[i] = 0;
-    numPerProcIn[PAR_Rank()] = doms.size();
-    SumIntArrayAcrossAllProcessors(numPerProcIn, numPerProc, PAR_Size());
-    int numTotal = 0;
-    for (i = 0 ; i < PAR_Size() ; i++)
-        numTotal += numPerProc[i];
-    if (numTotal > 1000000)
-    {
-        EXCEPTION1(VisItException, "You have selected too many zones in your "
-                   "named selection.  Disallowing ... no selection created");
-    }
-    int myStart = 0;
-    for (i = 0 ; i < PAR_Rank()-1 ; i++)
-        myStart += numPerProc[i];
-
-    int *selForDomsIn = new int[numTotal];
-    int *selForDoms   = new int[numTotal];
-    for (i = 0 ; i < doms.size() ; i++)
-        selForDomsIn[myStart+i] = doms[i];
-    SumIntArrayAcrossAllProcessors(selForDomsIn, selForDoms, numTotal);
-
-    int *selForZonesIn = new int[numTotal];
-    int *selForZones   = new int[numTotal];
-    for (i = 0 ; i < zones.size() ; i++)
-        selForZonesIn[myStart+i] = zones[i];
-    SumIntArrayAcrossAllProcessors(selForZonesIn, selForZones, numTotal);
-
-    //
-    // Now construct the actual named selection and add it to our internal
-    // data structure for tracking named selections.
-    //
-    ns = new avtZoneIdNamedSelection(selName,numTotal,selForDoms,selForZones);
-    DeleteNamedSelection(selName, false); // Remove sel if it already exists.
-    int curSize = selList.size();
-    selList.resize(curSize+1);
-    selList[curSize] = ns;
-
-    delete [] numPerProcIn;
-    delete [] numPerProc;
-    delete [] selForDomsIn;
-    delete [] selForDoms;
-    delete [] selForZonesIn;
-    delete [] selForZones;
-
-    //
-    // Save out the named selection in case of engine crash / 
-    // save/restore session, etc.
-    //  
-    SaveNamedSelection(selName, true);
 }
 
 
@@ -515,4 +463,107 @@ avtNamedSelectionManager::CreateQualifiedSelectionName(const std::string &name,
     return qualName;
 }
 
+// ****************************************************************************
+// Method: avtNamedSelectionManager::GetSelectionProperties
+//
+// Purpose: 
+//   Gets the selection properties based on the selection name.
+//
+// Arguments:
+//   selName : The name of the selection for which to get selection properties.
+//
+// Returns:    A pointer to the selection properties or NULL if not found.
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Tue Dec 14 14:19:56 PST 2010
+//
+// Modifications:
+//   
+// ****************************************************************************
 
+const SelectionProperties *
+avtNamedSelectionManager::GetSelectionProperties(const std::string &selName) const
+{
+    for(size_t i = 0; i < properties.size(); ++i)
+    {
+        if(selName == properties[i].GetName())
+            return &properties[i];
+    }
+    return NULL;
+}
+
+// ****************************************************************************
+// Method: avtNamedSelectionManager::AddSelectionProperties
+//
+// Purpose: 
+//   Adds the new selection properties to the list of selection properties, 
+//   overwriting properties with the same name, if present.
+//
+// Arguments:
+//   srcp : The new selection properties.
+//
+// Returns:    
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Tue Dec 14 14:21:14 PST 2010
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+void
+avtNamedSelectionManager::AddSelectionProperties(const SelectionProperties &srcp)
+{
+    SelectionProperties *p = NULL;
+    for(size_t i = 0; i < properties.size(); ++i)
+    {
+        if(srcp.GetName() == properties[i].GetName())
+        {
+            p = &properties[i];
+            break;
+        }
+    }
+
+    if(p != NULL)
+        *p = srcp;
+    else
+        properties.push_back(srcp);
+}
+
+// ****************************************************************************
+// Method: avtNamedSelectionManager::ClearCache
+//
+// Purpose: 
+//   Clear the cache.
+//
+// Programmer: Brad Whitlock
+// Creation:   Wed Sep  7 13:32:46 PDT 2011
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+void
+avtNamedSelectionManager::ClearCache(const std::string &selName)
+{
+    if(selName.empty())
+        cache.clear();
+    else
+    {
+        avtNamedSelectionCache::iterator it = cache.begin();
+        while(it != cache.end())
+        {
+            if(it->second->properties.GetName() == selName)
+            {
+                cache.remove(it->first);
+                it = cache.begin();
+            }
+            else
+                it++;
+        }
+    }
+}

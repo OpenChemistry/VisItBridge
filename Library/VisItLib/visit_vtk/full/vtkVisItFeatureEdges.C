@@ -20,17 +20,17 @@
 #include <vtkCellArray.h>
 #include <vtkCellData.h>
 #include <vtkFloatArray.h>
+#include <vtkInformation.h>
+#include <vtkInformationVector.h>
 #include <vtkMath.h>
 #include <vtkMergePoints.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkPolyData.h>
 #include <vtkPolygon.h>
+#include <vtkStreamingDemandDrivenPipeline.h>
 #include <vtkTriangleStrip.h>
 #include <vtkUnsignedCharArray.h>
-#include <vtkInformation.h>
-#include <vtkInformationVector.h>
-#include <vtkStreamingDemandDrivenPipeline.h>
 
 vtkStandardNewMacro(vtkVisItFeatureEdges);
 
@@ -57,7 +57,10 @@ vtkVisItFeatureEdges::~vtkVisItFeatureEdges()
 }
 
 // ****************************************************************************
-//  Method:  vtkVisItFeatureEdges::Execute
+//  Method:  vtkVisItFeatureEdges::RequestData
+//
+//  Purpose:
+//    Generate feature edges for mesh.
 //
 //  Modifications:
 //    Jeremy Meredith, Fri Apr 11 15:35:02 PDT 2003
@@ -67,20 +70,24 @@ vtkVisItFeatureEdges::~vtkVisItFeatureEdges()
 //    Hank Childs, Fri Aug 27 15:15:20 PDT 2004
 //    Renamed ghost data array.  Also remove vestiges of "levels" concept.
 //
+//    Eric Brugger, Wed Jan  9 13:07:36 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
 // ****************************************************************************
 
-// Generate feature edges for mesh
-int vtkVisItFeatureEdges::RequestData(vtkInformation *vtkNotUsed(request),
-                                      vtkInformationVector **inputVector,
-                                      vtkInformationVector *outputVector)
+int vtkVisItFeatureEdges::RequestData(
+  vtkInformation *vtkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *outputVector)
 {
   // get the info objects
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
 
-  // get the input and output
-  vtkPolyData *input = vtkPolyData::SafeDownCast(inInfo->Get(vtkDataObject::DATA_OBJECT()));
-  vtkPolyData *output = vtkPolyData::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
+  vtkPolyData *input = vtkPolyData::SafeDownCast(
+    inInfo->Get(vtkDataObject::DATA_OBJECT()));
+  vtkPolyData *output = vtkPolyData::SafeDownCast(
+    outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
   vtkPoints *inPts;
   vtkPoints *newPts;
@@ -121,26 +128,26 @@ int vtkVisItFeatureEdges::RequestData(vtkInformation *vtkNotUsed(request),
     {
     ghostLevels = ((vtkUnsignedCharArray*)temp)->GetPointer(0);
     }
-  
+
   //  Check input
   //
   inPts=input->GetPoints();
   numCells = input->GetNumberOfCells();
   numPolys = input->GetNumberOfPolys();
   numStrips = input->GetNumberOfStrips();
-  if ( (numPts=input->GetNumberOfPoints()) < 1 || !inPts || 
+  if ( (numPts=input->GetNumberOfPoints()) < 1 || !inPts ||
        (numPolys < 1 && numStrips < 1) )
     {
     //vtkErrorMacro(<<"No input data!");
-    return 0;
+    return 1;
     }
 
-  if ( !this->BoundaryEdges && !this->NonManifoldEdges && 
-  !this->FeatureEdges && !this->ManifoldEdges )
+  if ( !this->BoundaryEdges && !this->NonManifoldEdges &&
+       !this->FeatureEdges && !this->ManifoldEdges )
     {
     vtkDebugMacro(<<"All edge types turned off!");
     }
-  
+
   // Build cell structure.  Might have to triangulate the strips.
   Mesh = vtkPolyData::New();
   Mesh->SetPoints(inPts);
@@ -173,8 +180,8 @@ int vtkVisItFeatureEdges::RequestData(vtkInformation *vtkNotUsed(request),
 
   // Allocate storage for lines/points (arbitrary allocation sizes)
   //
-  newPts = vtkPoints::New();
-  newPts->Allocate(numPts/10,numPts); 
+  newPts = vtkPoints::New(input->GetPoints()->GetDataType());
+  newPts->Allocate(numPts/10,numPts);
   newLines = vtkCellArray::New();
   newLines->Allocate(numPts/10);
   if ( this->Coloring )
@@ -195,23 +202,23 @@ int vtkVisItFeatureEdges::RequestData(vtkInformation *vtkNotUsed(request),
     }
   this->Locator->InitPointInsertion (newPts, input->GetBounds());
 
-  // Loop over all polygons generating boundary, non-manifold, 
+  // Loop over all polygons generating boundary, non-manifold,
   // and feature edges
   //
-  if ( this->FeatureEdges ) 
-    {    
+  if ( this->FeatureEdges )
+    {
     polyNormals = vtkFloatArray::New();
     polyNormals->SetNumberOfComponents(3);
     polyNormals->Allocate(3*newPolys->GetNumberOfCells());
 
-    for (cellId=0, newPolys->InitTraversal(); newPolys->GetNextCell(npts,pts); 
+    for (cellId=0, newPolys->InitTraversal(); newPolys->GetNextCell(npts,pts);
     cellId++)
       {
       vtkPolygon::ComputeNormal(inPts,npts,pts,n);
       polyNormals->InsertTuple(cellId,n);
       }
 
-    cosAngle = cos ((double) vtkMath::RadiansFromDegrees(this->FeatureAngle));
+    cosAngle = cos( vtkMath::RadiansFromDegrees( this->FeatureAngle ) );
     }
 
   neighbors = vtkIdList::New();
@@ -221,7 +228,7 @@ int vtkVisItFeatureEdges::RequestData(vtkInformation *vtkNotUsed(request),
   vtkIdType progressInterval=numCells/20+1;
 
   numBEdges = numNonManifoldEdges = numFedges = numManifoldEdges = 0;
-  for (cellId=0, newPolys->InitTraversal(); 
+  for (cellId=0, newPolys->InitTraversal();
        newPolys->GetNextCell(npts,pts) && !abort; cellId++)
     {
     if ( ! (cellId % progressInterval) ) //manage progress / early abort
@@ -230,7 +237,7 @@ int vtkVisItFeatureEdges::RequestData(vtkInformation *vtkNotUsed(request),
       abort = this->GetAbortExecute();
       }
 
-    for (i=0; i < npts; i++) 
+    for (i=0; i < npts; i++)
       {
       p1 = pts[i];
       p2 = pts[(i+1)%npts];
@@ -279,7 +286,7 @@ int vtkVisItFeatureEdges::RequestData(vtkInformation *vtkNotUsed(request),
           }
         }
       else if ( this->FeatureEdges && 
-                numNei == 1 && (nei=neighbors->GetId(0)) > cellId ) 
+                numNei == 1 && (nei=neighbors->GetId(0)) > cellId )
         {
         double neiTuple[3];
         double cellTuple[3];
@@ -327,7 +334,7 @@ int vtkVisItFeatureEdges::RequestData(vtkInformation *vtkNotUsed(request),
         {
         outPD->CopyData (pd,p1,lineIds[0]);
         }
-      
+
       if ( this->Locator->InsertUniquePoint(x2, lineIds[1]) )
         {
         outPD->CopyData (pd,p2,lineIds[1]);
@@ -355,7 +362,7 @@ int vtkVisItFeatureEdges::RequestData(vtkInformation *vtkNotUsed(request),
     }
 
   Mesh->Delete();
-  
+
   output->SetPoints(newPts);
   newPts->Delete();
   neighbors->Delete();
@@ -384,7 +391,7 @@ void vtkVisItFeatureEdges::CreateDefaultLocator()
 // default an instance of vtkMergePoints is used.
 void vtkVisItFeatureEdges::SetLocator(vtkPointLocator *locator)
 {
-  if ( this->Locator == locator ) 
+  if ( this->Locator == locator )
     {
     return;
     }
@@ -401,9 +408,16 @@ void vtkVisItFeatureEdges::SetLocator(vtkPointLocator *locator)
   this->Modified();
 }
 
+// ****************************************************************************
+//  Modifications:
+//    Eric Brugger, Wed Jan  9 13:07:36 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
+
 unsigned long int vtkVisItFeatureEdges::GetMTime()
 {
-  unsigned long mTime=this-> Superclass::GetMTime();
+  unsigned long mTime=this->Superclass::GetMTime();
   unsigned long time;
 
   if ( this->Locator != NULL )
@@ -414,22 +428,33 @@ unsigned long int vtkVisItFeatureEdges::GetMTime()
   return mTime;
 }
 
-int vtkVisItFeatureEdges::RequestUpdateExtent(vtkInformation *vtkNotUsed(request),
-                                              vtkInformationVector **inputVector,
-                                              vtkInformationVector *outputVector)
+// ****************************************************************************
+//  Modifications:
+//    Eric Brugger, Wed Jan  9 13:07:36 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
+
+int vtkVisItFeatureEdges::RequestUpdateExtent(
+  vtkInformation *request,
+  vtkInformationVector **inputVector,
+  vtkInformationVector *outputVector)
 {
   // get the info objects
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
 
-  int numPieces = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES());
-  int ghostLevel = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS());
+  int numPieces =
+    outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES());
+  int ghostLevel =
+    outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS());
 
   if (numPieces > 1)
     {
-      inInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), ghostLevel + 1);
+    inInfo->Set(
+      vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(),
+                ghostLevel + 1);
     }
-
   return 1;
 }
 
@@ -439,7 +464,7 @@ void vtkVisItFeatureEdges::PrintSelf(ostream& os, vtkIndent indent)
 
   os << indent << "Feature Angle: " << this->FeatureAngle << "\n";
   os << indent << "Boundary Edges: " << (this->BoundaryEdges ? "On\n" : "Off\n");
-  os << indent << "Feature Edges: " << (this->FeatureEdges ? "On\n" : "Off\n"); 
+  os << indent << "Feature Edges: " << (this->FeatureEdges ? "On\n" : "Off\n");
   os << indent << "Non-Manifold Edges: " << (this->NonManifoldEdges ? "On\n" : "Off\n");
   os << indent << "Manifold Edges: " << (this->ManifoldEdges ? "On\n" : "Off\n");
   os << indent << "Coloring: " << (this->Coloring ? "On\n" : "Off\n");

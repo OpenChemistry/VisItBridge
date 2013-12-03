@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -81,6 +81,12 @@ class   vtkMatrix4x4;
 //    Tom Fogal, Tue Jun 23 20:14:16 MDT 2009
 //    I made some methods const.
 //
+//    Hank Childs, Sun Nov 28 17:00:06 PST 2010
+//    Add a destruct method for void_ref_ptrs.
+//
+//    Eric Brugger, Thu Oct 27 09:58:47 PDT 2011
+//    Add const to the CopyTo method.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtExtents
@@ -91,11 +97,12 @@ class PIPELINE_API avtExtents
     virtual              ~avtExtents();
 
     void                  Print(ostream &) const;
+    static void           Destruct(void *);
 
     bool                  HasExtents(void) const;
     int                   GetDimension(void)  { return dimension; };
 
-    void                  CopyTo(double *);
+    void                  CopyTo(double *) const;
     void                  Set(const double *);
     void                  Clear(void);
 

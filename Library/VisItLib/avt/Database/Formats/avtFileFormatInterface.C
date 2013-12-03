@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -47,6 +47,12 @@
 
 
 using     std::vector;
+
+
+avtFileFormatInterface::avtFileFormatInterface()
+{
+    isEnsemble = false;
+}
 
 
 // ****************************************************************************
@@ -298,6 +304,27 @@ avtFileFormatInterface::CanDoStreaming(void)
 
     return true;
 }
+
+
+// ****************************************************************************
+//  Method: avtFileFormatInterface::DoingStreaming
+//
+//  Purpose:
+//      Tells the file format whether or not we are streaming.
+//
+//  Programmer: Hank Childs
+//  Creation:   December 22, 2010
+//
+// ****************************************************************************
+
+void
+avtFileFormatInterface::DoingStreaming(bool v)
+{
+    int nFormats = GetNumberOfFileFormats();
+    for (int i = 0 ; i < nFormats ; i++)
+        GetFormat(i)->DoingStreaming(v);
+}
+
 
 // ****************************************************************************
 //  Method: avtFileFormatInterface::HasInvariantMetaData

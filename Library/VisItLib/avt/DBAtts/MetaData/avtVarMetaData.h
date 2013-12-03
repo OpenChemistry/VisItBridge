@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -104,6 +104,7 @@ public:
         ID_hasDataExtents,
         ID_minDataExtents,
         ID_maxDataExtents,
+        ID_matRestricted,
         ID__LAST
     };
 
@@ -114,12 +115,13 @@ public:
     bool         hasDataExtents;
     double       minDataExtents;
     double       maxDataExtents;
+    intVector    matRestricted;
 
 private:
     // Static class format string for type map.
     static const char *TypeMapFormatString;
     static const private_tmfs_t TmfsStruct;
 };
-#define AVTVARMETADATA_TMFS AVTBASEVARMETADATA_TMFS "ibsbdd"
+#define AVTVARMETADATA_TMFS AVTBASEVARMETADATA_TMFS "ibsbddi*"
 
 #endif

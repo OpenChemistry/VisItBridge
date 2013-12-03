@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -49,9 +49,6 @@
 
 #include <string>
 
-using std::string;
-
-
 // ****************************************************************************
 //  Class: avtAUXFileFileFormat
 //
@@ -84,7 +81,7 @@ class avtAUXFileFileFormat : public avtSTSDFileFormat
     virtual void           PopulateDatabaseMetaData(avtDatabaseMetaData *);
 
     bool                   fileRead;
-    string                 fileName;
+    std::string            fileName;
     char *                 fileBuf;
 
     int                    sizeX, sizeY;

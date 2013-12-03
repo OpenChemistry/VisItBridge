@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -53,6 +53,7 @@ class  vtkDataSet;
 
 class  avtDatasetDatabase;
 class  PickAttributes;
+class  ExpressionList;
 
 
 // ****************************************************************************
@@ -126,6 +127,12 @@ class  PickAttributes;
 //    Hank Childs, Thu Jun 12 16:13:52 PDT 2008
 //    Added method CanDoStreaming.
 //
+//    Hank Childs, Fri Nov 26 16:26:55 PST 2010
+//    Add support for caching of arbitrary objects.
+//
+//    Hank Childs, Mon Jan 10 10:26:22 PST 2011
+//    Make sure we don't re-use cache items from outdated expressions.
+//
 // ****************************************************************************
 
 class DATABASE_API avtSourceFromDatabase : public avtOriginatingDatasetSource
@@ -143,6 +150,21 @@ class DATABASE_API avtSourceFromDatabase : public avtOriginatingDatasetSource
                             void *args, avtDataRequest_p, VoidRefList &);
     virtual void        FetchSpeciesAuxiliaryData(const char *type, 
                             void *args, avtDataRequest_p, VoidRefList &);
+
+    virtual vtkObject    *FetchArbitraryVTKObject(const char *name,
+                                                  int dom, int ts,
+                                                  const char *type);
+    virtual void          StoreArbitraryVTKObject(const char *name,
+                                                  int dom, int ts,
+                                                  const char *type,
+                                                  vtkObject *);
+    virtual void_ref_ptr  FetchArbitraryRefPtr(const char *name,
+                                               int dom, int ts,
+                                               const char *type);
+    virtual void          StoreArbitraryRefPtr(const char *name,
+                                               int dom, int ts,
+                                               const char *type,
+                                               void_ref_ptr);
 
     avtSIL             *GetSIL(int stateIndex);
 
@@ -167,10 +189,13 @@ class DATABASE_API avtSourceFromDatabase : public avtOriginatingDatasetSource
     avtDatasetDatabase      *database;
     char                    *variable;
     int                      timestep;
-    avtDataRequest_p   lastSpec;
+    avtDataRequest_p         lastSpec;
+
+    static ExpressionList  *lastExprList;
 
     virtual bool        FetchDataset(avtDataRequest_p, avtDataTree_p &);
     virtual int         NumStagesForFetch(avtDataRequest_p);
+    std::string         ManageExpressions(const char *);
 };
 
 

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,17 +42,17 @@
 
 #include <avtGTCFileFormat.h>
 
-#include <string>
 #include <snprintf.h>
 
 #include <vtkCellType.h>
 #include <vtkFloatArray.h>
 #include <vtkUnstructuredGrid.h>
 #include <avtDatabaseMetaData.h>
+
 #include <InvalidDBTypeException.h>
-
-
 #include <InvalidVariableException.h>
+#include <InvalidFilesException.h>
+#include <NonCompliantException.h>
 
 // Define this symbol BEFORE including hdf5.h to indicate the HDF5 code
 // in this file uses version 1.6 of the HDF5 API. This is harmless for
@@ -61,6 +61,7 @@
 // is explicitly upgraded to the 1.8 API, this symbol should be removed.
 #define H5_USE_16_API
 #include <hdf5.h>
+#include <visit-hdf5.h>
 
 #include <DebugStream.h>
 
@@ -68,6 +69,9 @@
 #include <mpi.h>
 #include <avtParallel.h>
 #endif
+
+#include <string>
+#include <vector>
 
 // ****************************************************************************
 //  Method: avtGTCFileFormat constructor
@@ -149,26 +153,29 @@ avtGTCFileFormat::Initialize()
     if(initialized)
         return true;
 
-    // Turn off error message printing.
-    H5Eset_auto(0,0);
-    debug4 << mName << "Opening " << GetFilename() << endl;
+    // Init HDF5 and turn off error message printing.
+    H5open();
+    H5Eset_auto( NULL, NULL );
+
     bool err = false;
-    fileHandle = H5Fopen(GetFilename(), H5F_ACC_RDONLY, H5P_DEFAULT);
+
+    // Check for a valid GTC file
+    if( H5Fis_hdf5( GetFilename() ) < 0 )
+      EXCEPTION1( InvalidFilesException, GetFilename() );
+
+    if ((fileHandle = H5Fopen(GetFilename(), H5F_ACC_RDONLY, H5P_DEFAULT)) < 0)
+      EXCEPTION1( InvalidFilesException, GetFilename() );
     
-    if (fileHandle < 0)
+    if ((particleHandle = H5Dopen(fileHandle, "particle_data")) < 0)
     {
-        debug4 << mName << "Could not open " << GetFilename() << endl;
-        EXCEPTION1(InvalidDBTypeException, "Cannot be a GTC file since it is not even an HDF5 file.");
+      H5Fclose(fileHandle);
+      EXCEPTION1( InvalidFilesException, GetFilename() );
     }
 
-    particleHandle = H5Dopen(fileHandle, "particle_data");
-    if (particleHandle < 0)
-    {
-        debug4 << mName << "Could not open particle_data" << endl;
-        H5Fclose(fileHandle);
-        EXCEPTION1(InvalidDBTypeException, "Cannot be a GTC file, "
-                   "since it is does not contain the dataset \"particle_data\"");
-    }
+    // At this point consider the file to truly be a GTC file. If
+    // some other file NonCompliantExceptions will be thrown.
+
+    // Continue as normal reporting NonCompliantExceptions
 
     //Check variable's size.
     hid_t dataspace = H5Dget_space(particleHandle);
@@ -181,7 +188,7 @@ avtGTCFileFormat::Initialize()
         H5Sclose(sid);
         H5Dclose(particleHandle);
         H5Fclose(fileHandle);
-        EXCEPTION1(InvalidDBTypeException, "The GTC file has an invalid number of dimensions");
+        EXCEPTION1( InvalidVariableException, "GTC Dataset Extents - Dataset 'particle_data' has an invalid extents");
     }
     
     debug4 << mName << "Determining variable size" << endl;
@@ -193,7 +200,7 @@ avtGTCFileFormat::Initialize()
         H5Sclose(sid);
         H5Dclose(particleHandle);
         H5Fclose(fileHandle);
-        EXCEPTION1(InvalidDBTypeException, "The GTC file has an insufficient number of variables");
+        EXCEPTION1( InvalidVariableException, "GTC Dataset Extents - Dataset 'particle_data' has an insufficient number of variables");
     }
     H5Sclose(dataspace);
 
@@ -257,7 +264,7 @@ avtGTCFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
     // Add scalar variables.
     for ( int i = 3; i < nVars; i++ )
     {
-        string var = IndexToVarName( i );
+        std::string var = IndexToVarName( i );
         if ( var != "" )
             AddScalarVarToMetaData(md, var, meshname, AVT_NODECENT);        
     }
@@ -467,10 +474,10 @@ avtGTCFileFormat::GetVectorVar(int domain,const char *varname)
 //
 // ****************************************************************************
 
-string
+std::string
 avtGTCFileFormat::IndexToVarName( int idx ) const
 {
-    string var = "";
+    std::string var = "";
     if ( idx == 3 )
         var = "v_par";
     else if ( idx == 4 )
@@ -497,7 +504,7 @@ avtGTCFileFormat::IndexToVarName( int idx ) const
 // ****************************************************************************
 
 int
-avtGTCFileFormat::VarNameToIndex( const string &var ) const
+avtGTCFileFormat::VarNameToIndex( const std::string &var ) const
 {
     if ( var == "v_par" )
         return 3;
@@ -902,6 +909,3 @@ parallelBuffer::AddElement( float *data )
 }
 
 #endif
-
-
-

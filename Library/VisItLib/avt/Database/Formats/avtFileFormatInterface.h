@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -216,11 +216,18 @@ class    avtVariableCache;
 //    Jeremy Meredith, Fri Jan  8 16:15:02 EST 2010
 //    Added ability to turn on stricter file format error checking.
 //
+//    Hank Childs, Wed Dec 22 15:11:13 PST 2010
+//    Added method for telling file format that the pipeline is streaming.
+//
+//   Dave Pugmire, Fri Feb  8 17:22:01 EST 2013
+//   Added support for ensemble databases. (multiple time values)
+//
 // ****************************************************************************
 
 class DATABASE_API avtFileFormatInterface
 {
   public:
+    avtFileFormatInterface();
     virtual                ~avtFileFormatInterface();
 
     virtual vtkDataSet     *GetMesh(int, int, const char *) = 0;
@@ -245,8 +252,12 @@ class DATABASE_API avtFileFormatInterface
     bool                    HasInvariantSIL(void);
 
     bool                    CanCacheVariable(const char *);
+    virtual std::string     CreateCacheNameIncludingSelections(std::string,
+                                                               int, int) = 0;
 
     bool                    CanDoStreaming(void);
+    void                    DoingStreaming(bool);
+
     const char             *GetType(void);
     bool                    HasVarsDefinedOnSubMeshes(void);
     bool                    PerformsMaterialSelection(void);
@@ -262,9 +273,13 @@ class DATABASE_API avtFileFormatInterface
                                 const std::vector<avtDataSelection_p>& selList,
                                 std::vector<bool> *wasApplied);
 
+    virtual void                SetIsEnsemble(bool v) {isEnsemble = v;}
+
   protected:
     virtual int             GetNumberOfFileFormats(void) = 0;
     virtual avtFileFormat  *GetFormat(int) const = 0;
+
+    bool isEnsemble;
 };
 
 

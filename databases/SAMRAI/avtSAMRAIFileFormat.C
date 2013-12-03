@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -37,9 +37,9 @@
 *****************************************************************************/
 
 // ***************************************************************************
-//                              avtSAMRAIFileFormat.C
+//                              avtSAMRAIFileFormat.C                         
 //
-//  Purpose:  Read SAMRAI data files
+//  Purpose:  Read SAMRAI data files 
 //
 //  Programmer:  Walter Herrera Jimenez
 //  Creation:    July 7, 2003
@@ -106,7 +106,7 @@
 using std::vector;
 using std::string;
 
-// the version of the SAMRAI writer the current reader code matches
+// the version of the SAMRAI writer the current reader code matches 
 static const float        expected_version_number[] = {2.0,3.0};
 static const char        *inferredVoidMatName = "inferred void";
 static const int MAX_GHOST_LAYERS = 2;
@@ -130,8 +130,8 @@ int avtSAMRAIFileFormat::objcnt = 0;
 //
 //  Purpose:   Initialize interaction with the HDF5 library
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    Decmeber 10, 2003
+//  Programmer:  Mark C. Miller 
+//  Creation:    Decmeber 10, 2003 
 //
 // ****************************************************************************
 void
@@ -147,17 +147,17 @@ avtSAMRAIFileFormat::InitializeHDF5(void)
 //
 //  Purpose:   End interaction with the HDF5 library
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    Decmeber 10, 2003
+//  Programmer:  Mark C. Miller 
+//  Creation:    Decmeber 10, 2003 
 //
 //  Modifications:
 //
 //    Mark C. Miller, Tue Apr 14 17:21:23 PDT 2009
-//    Replaced call to H5close with H5garbage_collect. Calling H5close is
+//    Replaced call to H5close with H5garbage_collect. Calling H5close is 
 //    problematic as VisIt may have other plugins instantiated which are
 //    still interacting with HDF5. Calling garbage collect routine achieves
 //    the desired goal of reducing memory usage without effecting other
-//    plugins that might still be using the HDF5 library.
+//    plugins that might still be using the HDF5 library. 
 // ****************************************************************************
 void
 avtSAMRAIFileFormat::FinalizeHDF5(void)
@@ -195,7 +195,7 @@ avtSAMRAIFileFormat::avtSAMRAIFileFormat(const char *fname)
 {
     int i;
 
-    // do HDF5 library initialization on consturction of first instance
+    // do HDF5 library initialization on consturction of first instance 
     if (avtSAMRAIFileFormat::objcnt == 0)
         InitializeHDF5();
     avtSAMRAIFileFormat::objcnt++;
@@ -265,8 +265,8 @@ avtSAMRAIFileFormat::avtSAMRAIFileFormat(const char *fname)
 // ****************************************************************************
 //  Destructor:  avtSAMRAIFileFormat::FreeUpResources
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    November 18, 2004
+//  Programmer:  Mark C. Miller 
+//  Creation:    November 18, 2004 
 //
 // ****************************************************************************
 void
@@ -304,7 +304,7 @@ avtSAMRAIFileFormat::~avtSAMRAIFileFormat()
     SAFE_DELETE(num_patches_level);
     SAFE_DELETE(ratios_coarser_levels)
     SAFE_DELETE(patch_extents);
-
+    
     if (var_extents != NULL) {
         for(v=0; v<num_vars; v++) {
             delete[] var_extents[v];
@@ -351,7 +351,7 @@ avtSAMRAIFileFormat::~avtSAMRAIFileFormat()
     }
 
     //
-    // clean up stuff having to do with materials
+    // clean up stuff having to do with materials 
     //
     std::map<std::string, matinfo_t*>::iterator m;
     for (m  = mat_names_matinfo.begin();
@@ -426,11 +426,15 @@ avtSAMRAIFileFormat::~avtSAMRAIFileFormat()
 //
 //  Purpose:
 //    Opens and registers or uses a named file and sets knowledge of the file
-//    in the file format
+//    in the file format 
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    August 19, 2004
+//  Programmer:  Mark C. Miller 
+//  Creation:    August 19, 2004 
 //
+//  Modifications
+//
+//    Mark C. Miller, Wed Feb  6 11:23:03 PST 2013
+//    Open using H5_CLOSE_SEMI
 // ****************************************************************************
 hid_t
 avtSAMRAIFileFormat::OpenFile(const char *fileName)
@@ -447,7 +451,7 @@ avtSAMRAIFileFormat::OpenFile(const char *fileName)
             break;
         }
     }
-
+ 
     if (fileIndex == -1)
     {
         //
@@ -464,7 +468,7 @@ avtSAMRAIFileFormat::OpenFile(const char *fileName)
     {
         EXCEPTION2(BadIndexException, fileIndex, nFiles);
     }
-
+ 
     //
     // Check to see if the file is already open.
     //
@@ -473,14 +477,17 @@ avtSAMRAIFileFormat::OpenFile(const char *fileName)
         UsedFile(fileIndex);
         return h5files[fileIndex];
     }
-
+ 
     debug4 << "Opening HDF5 file " << filenames[fileIndex] << endl;
-
+ 
     //
     // Open the HDF5 file.
     //
-    h5files[fileIndex] = H5Fopen(filenames[fileIndex], H5F_ACC_RDONLY, H5P_DEFAULT);
-
+    hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+    H5Pset_fclose_degree(fapl, H5F_CLOSE_SEMI);
+    h5files[fileIndex] = H5Fopen(filenames[fileIndex], H5F_ACC_RDONLY, fapl);
+    H5Pclose(fapl);
+                        
     //
     // Check to see if we got a valid handle.
     //
@@ -488,9 +495,9 @@ avtSAMRAIFileFormat::OpenFile(const char *fileName)
     {
         EXCEPTION1(InvalidFilesException, filenames[fileIndex]);
     }
-
+ 
     RegisterFile(fileIndex);
-
+ 
     return h5files[fileIndex];
 }
 
@@ -498,20 +505,40 @@ avtSAMRAIFileFormat::OpenFile(const char *fileName)
 //  Method: avtSAMRAIlFileFormat::CloseFile
 //
 //  Purpose:
-//      Implements the AVT interface's CloseFile method
+//      Implements the AVT interface's CloseFile method 
 //
-//  Programmer: Mark C. Miller
+//  Programmer: Mark C. Miller 
 //  Creation:   August 19, 2004
 //
+//  Modifications
+//
+//    Mark C. Miller, Wed Feb  6 11:23:35 PST 2013
+//    Check and report errors on close.
 // ****************************************************************************
-
+ 
 void
 avtSAMRAIFileFormat::CloseFile(int f)
 {
     if (h5files[f] >= 0)
     {
         debug4 << "Closing HDF5 file " << filenames[f] << endl;
-        H5Fclose(h5files[f]);
+        herr_t err = H5Fclose(h5files[f]);
+        if (err < 0)
+        {
+            char msg[512];
+            static bool haveIssuedWarning = false;
+            SNPRINTF(msg, sizeof(msg), "Error closing HDF5 SAMRAI file \"%s\". "
+                "The file may have been left open holding HDF5 resources. "
+                "This may indicate a problem with the SAMRAI plugin or some other HDF5 based "
+                "plugin that has attempted to open this file. Please contact VisIt developers "
+                "if the problem persists.", filenames[f]);
+            if (!haveIssuedWarning)
+            {
+                haveIssuedWarning = true;
+                if (!avtCallback::IssueWarning(msg))
+                    cerr << msg << endl;
+            }
+        }
         UnregisterFile(f);
         h5files[f] = -1;
     }
@@ -551,8 +578,8 @@ avtSAMRAIFileFormat::ActivateTimestep(void)
 //    Records the active variable name so per-variable ghosting can be applied
 //    during GetMesh calls.
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    December 9, 2003
+//  Programmer:  Mark C. Miller 
+//  Creation:    December 9, 2003 
 //
 // ****************************************************************************
 void
@@ -570,8 +597,8 @@ avtSAMRAIFileFormat::RegisterVariableList(const char *prim_var_name,
 //    plugin. In some cases, particularly where different ghosting is used
 //    for different variables, the mesh variable cannot be cached.
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    December 10, 2003
+//  Programmer:  Mark C. Miller 
+//  Creation:    December 10, 2003 
 //
 // ****************************************************************************
 bool
@@ -681,6 +708,10 @@ avtSAMRAIFileFormat::GetMesh(int patch, const char *)
 //
 //    Mark C. Miller, Mon Mar 31 14:27:21 PDT 2008
 //    Modified to handle the 'materials' variable ghosting correctly.
+//
+//    Cyrus Harrison, Mon May 23 14:16:47 PDT 2011
+//    Added Nathan Masters' fix for ghost data w/ 'levels' and 'patches'.
+//
 // ****************************************************************************
 vtkDataSet *
 avtSAMRAIFileFormat::ReadMesh(int patch)
@@ -706,7 +737,11 @@ avtSAMRAIFileFormat::ReadMesh(int patch)
         cur_var = var_names_num_components.find(active_visit_var_name);
 
         if (active_visit_var_name == "amr_mesh" ||
-            active_visit_var_name == "materials")
+            active_visit_var_name == "materials" ||
+            // This fixes level boundaries "levels"
+            active_visit_var_name == "levels" ||
+            // This fixes patch boundaries "patches"
+            active_visit_var_name == "patches")
         {
             num_ghosts[0] = var_max_ghosts[0];
             num_ghosts[1] = var_max_ghosts[1];
@@ -732,11 +767,11 @@ avtSAMRAIFileFormat::ReadMesh(int patch)
         }
 
         if (should_ghost_this_patch)
-            debug5 << "avtSAMRAIFileFormat::ReadMesh has ghost layers " <<
+            debug5 << "avtSAMRAIFileFormat::ReadMesh has ghost layers " << 
                 num_ghosts[0] << ", " << num_ghosts[1] << ", " << num_ghosts[2] << endl;
 
     }
-
+ 
     // compute logical size in each dimension of this patch
     int i, dimensions[] = {1, 1, 1};
     for (i=0; i<dim; i++) {
@@ -745,7 +780,7 @@ avtSAMRAIFileFormat::ReadMesh(int patch)
                         2 * num_ghosts[i];
     }
 
-    if (grid_type == "RECTILINEAR" || grid_type == "CARTESIAN")
+    if (grid_type == "RECTILINEAR" || grid_type == "CARTESIAN") 
     {
 
         // compute physical origin and cell-spacing
@@ -753,7 +788,7 @@ avtSAMRAIFileFormat::ReadMesh(int patch)
         float origin[] = {0, 0, 0};
         for (i=0; i<dim; i++) {
             spacing[i] = dx[level * 3 + i];
-            origin[i] = patch_extents[patch].xlo[i] -
+            origin[i] = patch_extents[patch].xlo[i] - 
                         spacing[i] * num_ghosts[i];
         }
 
@@ -769,8 +804,8 @@ avtSAMRAIFileFormat::ReadMesh(int patch)
                 coords[i]->SetComponent(j, 0, c);
               }
           }
-
-        vtkRectilinearGrid  *rGrid = vtkRectilinearGrid::New();
+   
+        vtkRectilinearGrid  *rGrid = vtkRectilinearGrid::New(); 
         rGrid->SetDimensions(dimensions);
         rGrid->SetXCoordinates(coords[0]);
         coords[0]->Delete();
@@ -781,7 +816,7 @@ avtSAMRAIFileFormat::ReadMesh(int patch)
 
         retval = rGrid;
     }
-    else if (grid_type == "ALE" || grid_type == "DEFORMED")
+    else if (grid_type == "ALE" || grid_type == "DEFORMED") 
     {
         char var_name[100];
         sprintf(var_name, "Coords");
@@ -792,7 +827,7 @@ avtSAMRAIFileFormat::ReadMesh(int patch)
         points->SetData(array);
         array->Delete();
 
-        vtkStructuredGrid  *sGrid = vtkStructuredGrid::New();
+        vtkStructuredGrid  *sGrid = vtkStructuredGrid::New(); 
         sGrid->SetDimensions(dimensions);
         sGrid->SetPoints(points);
         points->Delete();
@@ -842,11 +877,11 @@ avtSAMRAIFileFormat::ReadMesh(int patch)
             if (in_ghost_layers)
             {
                 unsigned char v = 0;
-                avtGhostData::AddGhostZoneType(v,
+                avtGhostData::AddGhostZoneType(v, 
                                           DUPLICATED_ZONE_INTERNAL_TO_PROBLEM);
                 ghostCells->InsertNextValue(v);
                 nghost++;
-            }
+            }   
             else
                 ghostCells->InsertNextValue((unsigned char)0);
         }
@@ -965,14 +1000,14 @@ avtSAMRAIFileFormat::GetVectorVar(int patch, const char *visit_var_name)
 //
 // ****************************************************************************
 vtkDataArray *
-avtSAMRAIFileFormat::ReadVar(int patch,
+avtSAMRAIFileFormat::ReadVar(int patch, 
                              const char *visit_var_name)
 {
 
     debug5 << "avtSAMRAIFileFormat::ReadVar for variable " << visit_var_name
            << "on patch " << patch << endl;
 
-    string var_name = visit_var_name;
+    string var_name = visit_var_name; 
 
     // find the variable name in our variable list
     std::map<std::string, var_t>::const_iterator cur_var;
@@ -981,21 +1016,21 @@ avtSAMRAIFileFormat::ReadVar(int patch,
     {
         EXCEPTION1(InvalidVariableException, visit_var_name);
     }
-
+    
     // get component count, centering and ghost information for this variable
     int num_components = (*cur_var).second.num_components;
     int cell_centered =  (*cur_var).second.cell_centered;
     int num_ghosts[3] = {(*cur_var).second.num_ghosts[0],
                          (*cur_var).second.num_ghosts[1],
                          (*cur_var).second.num_ghosts[2]};
-
+        
     // compute total number of samples
     int extent = cell_centered == 1 ? 1 : 2;
     int dim = num_dim_problem < 3 ? num_dim_problem: 3;
     int num_data_samples = 1;
     int i;
     for (i=0; i<dim; i++) {
-        num_data_samples *= patch_extents[patch].upper[i] -
+        num_data_samples *= patch_extents[patch].upper[i] - 
                             patch_extents[patch].lower[i] + extent + 2 * num_ghosts[i];
     }
 
@@ -1009,8 +1044,8 @@ avtSAMRAIFileFormat::ReadVar(int patch,
         }
     }
 
-    // determine the name of the file that contains the variable and open it
-    char file[2048];
+    // determine the name of the file that contains the variable and open it 
+    char file[2048];   
     sprintf(file, "%sprocessor_cluster.%05d.samrai",
             dir_name.c_str(), patch_map[patch].file_cluster_number);
     hid_t h5f_file = OpenFile(file);
@@ -1041,129 +1076,132 @@ avtSAMRAIFileFormat::ReadVar(int patch,
         EXCEPTION2(UnexpectedValueException, "a value other than zero", num_alloc_comps);
     }
 
-    // allocate VTK data array for this variable
+    // allocate VTK data array for this variable 
     vtkFloatArray *var_data = vtkFloatArray::New();
     var_data->SetNumberOfComponents(num_alloc_comps);
     var_data->SetNumberOfTuples(num_data_samples);
     float *fbuf = (float*) var_data->GetVoidPointer(0);
 
-    for (i = 0 ; i < num_components ; i++)
+    for (i = 0 ; i < num_alloc_comps ; i++)
     {
-        // determine name of the HDF5 dataset and open it
-        char variable[256];
-        char mixvar[512];
-        if (var_type == AVT_SCALAR_VAR)
+        int dim0(i/3), dim1(i%3);
+        const int offset(dim1 + num_dim_problem*dim0);
+
+        if (dim0 >= num_dim_problem || dim1 >= num_dim_problem)
         {
-            sprintf(variable, "/processor.%05d/level.%05d/patch.%05d/%s",
-                    patch_map[patch].processor_number,
-                    patch_map[patch].level_number,
-                    patch_map[patch].patch_number,
-                    var_name.c_str());
-            sprintf(mixvar, "/processor.%05d/level.%05d/patch.%05d/material_state/%s",
-                    patch_map[patch].processor_number,
-                    patch_map[patch].level_number,
-                    patch_map[patch].patch_number,
-                    var_name.c_str());
+            // fill in 0's when reading 2D data
+            int k;
+            for (k=0; k < num_data_samples; k++)
+            {
+                fbuf[k * num_alloc_comps + i] = 0.0;
+            }
         }
         else
         {
-            sprintf(variable, "/processor.%05d/level.%05d/patch.%05d/%s.%02d",
-                    patch_map[patch].processor_number,
-                    patch_map[patch].level_number,
-                    patch_map[patch].patch_number,
-                    var_name.c_str(), i);
-            sprintf(mixvar, "/processor.%05d/level.%05d/patch.%05d/material_state/%s.%02d",
-                    patch_map[patch].processor_number,
-                    patch_map[patch].level_number,
-                    patch_map[patch].patch_number,
-                    var_name.c_str(), i);
-        }
-        hid_t h5d_variable = H5Dopen(h5f_file, variable);
-        if (h5d_variable < 0)
-        {
-            EXCEPTION1(InvalidFilesException, file);
-        }
+            // determine name of the HDF5 dataset and open it 
+            char variable[256];
+            char mixvar[512];
+            if (var_type == AVT_SCALAR_VAR)
+            {
+                sprintf(variable, "/processor.%05d/level.%05d/patch.%05d/%s",
+                        patch_map[patch].processor_number,
+                        patch_map[patch].level_number,
+                        patch_map[patch].patch_number, 
+                        var_name.c_str());
+                sprintf(mixvar, "/processor.%05d/level.%05d/patch.%05d/material_state/%s",
+                        patch_map[patch].processor_number,
+                        patch_map[patch].level_number,
+                        patch_map[patch].patch_number, 
+                        var_name.c_str());
+            }
+            else
+            {
+                sprintf(variable, "/processor.%05d/level.%05d/patch.%05d/%s.%02d",
+                        patch_map[patch].processor_number,
+                        patch_map[patch].level_number,
+                        patch_map[patch].patch_number, 
+                        var_name.c_str(), offset);
+                sprintf(mixvar, "/processor.%05d/level.%05d/patch.%05d/material_state/%s.%02d",
+                        patch_map[patch].processor_number,
+                        patch_map[patch].level_number,
+                        patch_map[patch].patch_number, 
+                        var_name.c_str(), offset);
+            }
+            hid_t h5d_variable = H5Dopen(h5f_file, variable);
+            if (h5d_variable < 0)
+            {
+                EXCEPTION1(InvalidFilesException, file);
+            }
 
-        // check dataset size agrees with what we computed for num_data_samples
-        hid_t h5d_space = H5Dget_space(h5d_variable);
-        int hndims = H5Sget_simple_extent_ndims(h5d_space);
-        hsize_t *hdims = new hsize_t[hndims];
-        hsize_t *max_hdims = new hsize_t[hndims];
-        H5Sget_simple_extent_dims(h5d_space, hdims, max_hdims);
-        hsize_t hsum = 1;
-        for (int j = 0; j < hndims; j++)
-            hsum *= hdims[j];
-        if ((hsize_t) num_data_samples != hsum)
-        {
-            EXCEPTION2(UnexpectedValueException, num_data_samples, hsum);
-        }
-        H5Sclose(h5d_space);
-        delete [] hdims;
-        delete [] max_hdims;
+            // check dataset size agrees with what we computed for num_data_samples
+            hid_t h5d_space = H5Dget_space(h5d_variable);
+            int hndims = H5Sget_simple_extent_ndims(h5d_space);
+            hsize_t *hdims = new hsize_t[hndims];
+            hsize_t *max_hdims = new hsize_t[hndims];
+            H5Sget_simple_extent_dims(h5d_space, hdims, max_hdims);
+            hsize_t hsum = 1;
+            for (int j = 0; j < hndims; j++)
+              hsum *= hdims[j];
+            if ((hsize_t) num_data_samples != hsum)
+            {
+                EXCEPTION2(UnexpectedValueException, num_data_samples, hsum);
+            }
+            H5Sclose(h5d_space);
+            delete [] hdims;
+            delete [] max_hdims;
 
-        // create dataspace and selection to read directly into fbuf
-        hsize_t nvals = num_alloc_comps * num_data_samples;
-        hid_t memspace = H5Screate_simple(1, &nvals, &nvals);
+            // create dataspace and selection to read directly into fbuf
+            hsize_t nvals = num_alloc_comps * num_data_samples;
+            hid_t memspace = H5Screate_simple(1, &nvals, &nvals);
 #if HDF5_VERSION_GE(1,6,4)
-        hsize_t start = i;
+            hsize_t start = i;
 #else
-        hssize_t start = i;
+            hssize_t start = i;
 #endif
-        hsize_t stride = num_alloc_comps;
-        hsize_t count = num_data_samples;
-        H5Sselect_hyperslab(memspace, H5S_SELECT_SET, &start, &stride, &count, NULL);
+            hsize_t stride = num_alloc_comps;
+            hsize_t count = num_data_samples;
+            H5Sselect_hyperslab(memspace, H5S_SELECT_SET, &start, &stride, &count, NULL);
 
-        H5Dread(h5d_variable, H5T_NATIVE_FLOAT, memspace, H5S_ALL, H5P_DEFAULT, fbuf);
+            H5Dread(h5d_variable, H5T_NATIVE_FLOAT, memspace, H5S_ALL, H5P_DEFAULT, fbuf);
 
-        H5Dclose(h5d_variable);
-        H5Sclose(memspace);
+            H5Dclose(h5d_variable);      
+            H5Sclose(memspace);
 
-        //
-        // Ok, now read any material-specific fractional values for this component
-        //
-        hid_t h5d_mixvar = H5Dopen(h5f_file, mixvar);
-        if (h5d_mixvar < 0)
-            continue;
+            //
+            // Ok, now read any material-specific fractional values for this component
+            //
+            hid_t h5d_mixvar = H5Dopen(h5f_file, mixvar);
+            if (h5d_mixvar < 0)
+              continue;
 
-        // allocate a float buffer for the mixed values
-        h5d_space = H5Dget_space(h5d_mixvar);
-        hndims = H5Sget_simple_extent_ndims(h5d_space);
-        hdims = new hsize_t[hndims];
-        max_hdims = new hsize_t[hndims];
-        H5Sget_simple_extent_dims(h5d_space, hdims, max_hdims);
-        hsum = 1;
-        for (int j = 0; j < hndims; j++)
-            hsum *= hdims[j];
-        float *mbuf = new float[(int)hsum];
+            // allocate a float buffer for the mixed values
+            h5d_space = H5Dget_space(h5d_mixvar);
+            hndims = H5Sget_simple_extent_ndims(h5d_space);
+            hdims = new hsize_t[hndims];
+            max_hdims = new hsize_t[hndims];
+            H5Sget_simple_extent_dims(h5d_space, hdims, max_hdims);
+            hsum = 1;
+            for (int j = 0; j < hndims; j++)
+              hsum *= hdims[j];
+            float *mbuf = new float[(int)hsum];
 
-        // do the actual read
-        H5Dread(h5d_mixvar, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, mbuf);
+            // do the actual read
+            H5Dread(h5d_mixvar, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, mbuf);
 
-        //
-        // Create VisIt's mixed variable structure and stuff it into the cache
-        //
-        avtMixedVariable *mv = new avtMixedVariable(mbuf, (int) hsum,
-                                                    visit_var_name);
-        void_ref_ptr vr = void_ref_ptr(mv, avtMixedVariable::Destruct);
-        cache->CacheVoidRef(visit_var_name, AUXILIARY_DATA_MIXED_VARIABLE, timestep,
-                            patch, vr);
+            //
+            // Create VisIt's mixed variable structure and stuff it into the cache
+            //
+            avtMixedVariable *mv = new avtMixedVariable(mbuf, (int) hsum, 
+                                                        visit_var_name);
+            void_ref_ptr vr = void_ref_ptr(mv, avtMixedVariable::Destruct);
+            cache->CacheVoidRef(visit_var_name, AUXILIARY_DATA_MIXED_VARIABLE, timestep,
+                                patch, vr);
 
-        // Clean everything for the mixed var case up
-        H5Sclose(h5d_space);
-        delete [] hdims;
-        delete [] max_hdims;
-        H5Dclose(h5d_mixvar);
-    }
-
-    // fill in 0's when necessary
-    if (num_alloc_comps != num_components)
-    {
-        int i;
-        for (i=0; i < num_data_samples; i++)
-        {
-            int j;
-            for (j = num_components; j < num_alloc_comps; j++)
-                fbuf[i * num_alloc_comps + j] = 0.0;
+            // Clean everything for the mixed var case up
+            H5Sclose(h5d_space);
+            delete [] hdims;
+            delete [] max_hdims;
+            H5Dclose(h5d_mixvar);
         }
     }
 
@@ -1180,8 +1218,8 @@ avtSAMRAIFileFormat::ReadVar(int patch,
 //  Purpose:
 //    Reads material volume and species fraction arrays for a given material
 //
-//  Programmer:  Mark C. Miller, adapted from GetVar
-//  Creation:    December 12, 2003
+//  Programmer:  Mark C. Miller, adapted from GetVar 
+//  Creation:    December 12, 2003 
 //
 //  Modifications:
 //    Kathleen Bonnell, Mon Dec 22 15:06:41 PST 2003
@@ -1219,7 +1257,7 @@ avtSAMRAIFileFormat::ReadMatSpecFractions(int patch, string mat_name,
             break;
         }
     }
-
+    
     if (matNo == -1)
     {
         EXCEPTION1(InvalidVariableException, mat_name.c_str());
@@ -1228,12 +1266,12 @@ avtSAMRAIFileFormat::ReadMatSpecFractions(int patch, string mat_name,
     int dim = num_dim_problem < 3 ? num_dim_problem: 3;
     int num_data_samples = 1;
     for (i=0; i<dim; i++) {
-        num_data_samples *= patch_extents[patch].upper[i] -
+        num_data_samples *= patch_extents[patch].upper[i] - 
                             patch_extents[patch].lower[i] + 1 +
                             2 * mat_num_ghosts[i];
     }
 
-    char file[512];
+    char file[512];   
     sprintf(file, "%sprocessor_cluster.%05d.samrai",
         dir_name.c_str(), patch_map[patch].file_cluster_number);
 
@@ -1244,7 +1282,7 @@ avtSAMRAIFileFormat::ReadMatSpecFractions(int patch, string mat_name,
                       "materials/%s/%s-fractions",
             patch_map[patch].processor_number,
             patch_map[patch].level_number,
-            patch_map[patch].patch_number,
+            patch_map[patch].patch_number, 
             mat_name.c_str(), mat_name.c_str());
     }
     else
@@ -1253,7 +1291,7 @@ avtSAMRAIFileFormat::ReadMatSpecFractions(int patch, string mat_name,
                       "materials/%s/species/%s",
             patch_map[patch].processor_number,
             patch_map[patch].level_number,
-            patch_map[patch].patch_number,
+            patch_map[patch].patch_number, 
             mat_name.c_str(), spec_name.c_str());
     }
 
@@ -1288,10 +1326,10 @@ avtSAMRAIFileFormat::ReadMatSpecFractions(int patch, string mat_name,
 
     float *buffer = new float[num_data_samples];
 
-    H5Dread(h5d_variable, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5d_variable, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             buffer);
 
-    H5Dclose(h5d_variable);
+    H5Dclose(h5d_variable);      
 
     return buffer;
 }
@@ -1302,12 +1340,12 @@ avtSAMRAIFileFormat::ReadMatSpecFractions(int patch, string mat_name,
 //  Purpose: Read sparse mixed material information a la Silo's mixed structs
 //
 //  Programmer:  Mark C. Miller,
-//  Creation:    November 1, 2005
+//  Creation:    November 1, 2005 
 //
 // ****************************************************************************
 avtMaterial *
 avtSAMRAIFileFormat::ReadSparseMaterialData(int patch, const int *matnos,
-    const char **matnames)
+    const char **matnames) 
 {
     int i;
     int one = 1;
@@ -1328,7 +1366,7 @@ avtSAMRAIFileFormat::ReadSparseMaterialData(int patch, const int *matnos,
         ncells *= dims[i];
     }
 
-    char file[512];
+    char file[512];   
     sprintf(file, "%sprocessor_cluster.%05d.samrai",
         dir_name.c_str(), patch_map[patch].file_cluster_number);
 
@@ -1351,7 +1389,7 @@ avtSAMRAIFileFormat::ReadSparseMaterialData(int patch, const int *matnos,
     ReadDataset(h5_file, dsName,
         "int", 1, &len, (void**) &matlist, true);
 
-    // If the above read failed, it may be clean in one material.
+    // If the above read failed, it may be clean in one material. 
     // So, try to read that.
     if (len == 1)
     {
@@ -1448,10 +1486,10 @@ avtSAMRAIFileFormat::ReadSparseMaterialData(int patch, const int *matnos,
 //  Method: avtSAMRAIFileFormat::GetMaterial
 //
 //  Purpose:
-//      Gets an avtMaterial object for a given patch
+//      Gets an avtMaterial object for a given patch 
 //
-//  Programmer: Mark C. Miller
-//  Creation:   December 12, 2003
+//  Programmer: Mark C. Miller 
+//  Creation:   December 12, 2003 
 //
 //  Modifications:
 //    Mark C. Miller, Wed Jan  7 11:35:37 PST 2004
@@ -1465,11 +1503,11 @@ avtSAMRAIFileFormat::ReadSparseMaterialData(int patch, const int *matnos,
 //    compiles on all platforms.
 //
 //    Kathleen Bonnell, Mon May 23 16:55:35 PDT 2005
-//    Fix memory leaks.
+//    Fix memory leaks. 
 //
 //    Mark C. Miller, Mon Nov  5 19:10:12 PST 2007
 //    Added support for sparse material information
-//
+// 
 // ****************************************************************************
 
 avtMaterial *
@@ -1492,13 +1530,13 @@ avtSAMRAIFileFormat::GetMaterial(int patch, const char *matObjName)
         EXCEPTION1(InvalidVariableException, matObjName);
     }
 
-    // re-format global mat numbers and names
+    // re-format global mat numbers and names 
     int *matnos = new int[num_mats];
     char **matnames = new char*[num_mats];
     for (i = 0; i < num_mats; i++)
     {
         matnos[i] = i;
-        matnames[i] = CXX_strdup(mat_names[i].c_str());
+        matnames[i] = CXX_strdup(mat_names[i].c_str()); 
     }
 
     // if we have the newer, sparse format read and return that
@@ -1528,7 +1566,7 @@ avtSAMRAIFileFormat::GetMaterial(int patch, const char *matObjName)
 
         switch (matCompFlag)
         {
-            case 0: // this material covers no part of the patch
+            case 0: // this material covers no part of the patch 
                  break;
             case 1: // this material covers the patch, wholly
                 matList.push_back(i);
@@ -1568,7 +1606,7 @@ avtSAMRAIFileFormat::GetMaterial(int patch, const char *matObjName)
     // one material
     if ((oneMat == true) && (matList.size() > 1))
     {
-        EXCEPTION2(UnexpectedValueException, 1, matList.size());
+        EXCEPTION2(UnexpectedValueException, 1, (int)matList.size());
     }
 
     // compute logical size in each dimension of this patch
@@ -1603,7 +1641,7 @@ avtSAMRAIFileFormat::GetMaterial(int patch, const char *matObjName)
                               0,             //silomat->mix_zone,
                               0              //silomat->mix_vf
                               );
-
+     
 
         bytesInFile = 0.0;
         bytesInMem = (ncells * sizeof(int));
@@ -1677,8 +1715,8 @@ avtSAMRAIFileFormat::GetMaterial(int patch, const char *matObjName)
 //  Purpose: Converts full-zonal arrays of volume fraction fields into AVT's
 //  (and Silo's) material field plus mix arrays representation.
 //
-//  Programmer: Mark C. Miller
-//  Creation:   December 12, 2003
+//  Programmer: Mark C. Miller 
+//  Creation:   December 12, 2003 
 //
 // ****************************************************************************
 
@@ -1746,8 +1784,8 @@ avtSAMRAIFileFormat::ConvertVolumeFractionFields(vector<int> matIds,
                 if (matfield[z] == notSet)
                 {
                     // put the first entry in the list for this zone
-                    matfield[z] = -(mixlen+1);
-                    mix_mat [mixlen] = matIds[m];
+                    matfield[z] = -(mixlen+1); 
+                    mix_mat [mixlen] = matIds[m]; 
                     mix_vf  [mixlen] = frac[z];
                     mix_zone[mixlen] = z;
                     mix_next[mixlen] = 0;
@@ -1795,10 +1833,10 @@ avtSAMRAIFileFormat::ConvertVolumeFractionFields(vector<int> matIds,
 //  Method: avtSAMRAIFileFormat::DebugMixedMaterials
 //
 //  Purpose:
-//      Checks mixed material arrays for correctness
+//      Checks mixed material arrays for correctness 
 //
-//  Programmer: Mark C. Miller
-//  Creation:   December 12, 2003
+//  Programmer: Mark C. Miller 
+//  Creation:   December 12, 2003 
 //
 // ****************************************************************************
 
@@ -1861,18 +1899,18 @@ avtSAMRAIFileFormat::DebugMixedMaterials(int ncells, int* &matfield,
 //  Method: avtSAMRAIFileFormat::GetSpecies
 //
 //  Purpose:
-//      Gets an avtSpecies object for a given patch
+//      Gets an avtSpecies object for a given patch 
 //
-//  Programmer: Mark C. Miller
-//  Creation:   December 18, 2003
+//  Programmer: Mark C. Miller 
+//  Creation:   December 18, 2003 
 //
 //  Modifications:
 //    Mark C. Miller, Wed Jan  7 11:35:37 PST 2004
 //    Added stuff to compute amount of compression achieved
 //
 //    Kathleen Bonnell, Mon May 23 16:55:35 PDT 2005
-//    Fix memory leaks.
-//
+//    Fix memory leaks. 
+// 
 // ****************************************************************************
 
 avtSpecies *
@@ -1924,7 +1962,7 @@ avtSAMRAIFileFormat::GetSpecies(int patch, const char *specObjName)
            << patch << endl;
 
     //
-    // scan the material "extents" info to determine which species to read
+    // scan the material "extents" info to determine which species to read 
     //
     int totalNumSpecs = 0;
     vector<int> matList;
@@ -1938,7 +1976,7 @@ avtSAMRAIFileFormat::GetSpecies(int patch, const char *specObjName)
 
         switch (matCompFlag)
         {
-            case 0: // this material covers no part of the patch
+            case 0: // this material covers no part of the patch 
                  break;
             case 1: // this material covers the patch, wholly
             case 2: // this material covers the patch, partially
@@ -2057,7 +2095,7 @@ avtSAMRAIFileFormat::GetSpecies(int patch, const char *specObjName)
                                       species_mf);
 
     //
-    // free up species fields
+    // free up species fields 
     //
     currPatchMatId = 0;
     for (i = 0; i < num_mats; i++)
@@ -2096,7 +2134,7 @@ avtSAMRAIFileFormat::GetSpecies(int patch, const char *specObjName)
 //  Purpose: Convert from field per species to Silo representation
 //
 //  Programmer: Mark C. Miller
-//  Creation:   December 20, 2003
+//  Creation:   December 20, 2003 
 //
 //  Modifications:
 //    Mark C. Miller, Wed Jan  7 11:35:37 PST 2004
@@ -2159,7 +2197,7 @@ avtSAMRAIFileFormat::ConvertMassFractionFields(vector<int> matIds,
         }
         else // mixed zone
         {
-            speclist[i] = -INT_MAX;
+            speclist[i] = -INT_MAX; 
             int mixidx = -(matlist[i]+1);
             while (true)
             {
@@ -2252,11 +2290,11 @@ avtSAMRAIFileFormat::GetAuxiliaryData(const char *var, int patch,
         cur_var = var_names_num_components.find(name);
         if (cur_var == var_names_num_components.end())
             return NULL;
-
+    
         int num_components = (*cur_var).second.num_components;
-
+        
         if (num_components == 1 ) {
-
+          
             itree = new avtIntervalTree(num_patches, 1);
             for (int v = 0; v < num_vars; v++) {
                 if (var_names[v] == name) {
@@ -2264,7 +2302,7 @@ avtSAMRAIFileFormat::GetAuxiliaryData(const char *var, int patch,
                     for (int patch = 0 ; patch < num_patches ; patch++) {
 
                         if (var_extents[v][patch].data_is_defined) {
-                            double range[2] = { var_extents[v][patch].min,
+                            double range[2] = { var_extents[v][patch].min, 
                                                var_extents[v][patch].max };
                             itree->AddElement(patch, range);
                         }
@@ -2288,7 +2326,7 @@ avtSAMRAIFileFormat::GetAuxiliaryData(const char *var, int patch,
                     for (int v = 0; v < num_vars; v++) {
                         if (var_names[v] == name) {
                             if (var_extents[v][ipatch].data_is_defined) {
-                                range[i*2] = var_extents[v][ipatch].min;
+                                range[i*2] = var_extents[v][ipatch].min; 
                                 range[i*2+1] = var_extents[v][ipatch].max;
                             }
                             else {
@@ -2308,7 +2346,7 @@ avtSAMRAIFileFormat::GetAuxiliaryData(const char *var, int patch,
 
         }
         itree->Calculate(true);
-
+ 
         rv = (void *) itree;
         df = avtIntervalTree::Destruct;
 
@@ -2354,8 +2392,8 @@ avtSAMRAIFileFormat::GetAuxiliaryData(const char *var, int patch,
 //  Purpose:
 //    Populates IO Information Hints
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    August 19. 2004
+//  Programmer:  Mark C. Miller 
+//  Creation:    August 19. 2004 
 //
 // ****************************************************************************
 
@@ -2414,8 +2452,8 @@ avtSAMRAIFileFormat::GetCycleFromFilename(const char *f) const
 {
     if (f)
     {
-        const int len1 = strlen("00000/summary.samrai");
-        const int len2 = strlen(f);
+        const size_t len1 = strlen("00000/summary.samrai");
+        const size_t len2 = strlen(f);
         if (len2 > len1)
         {
             int cycle;
@@ -2565,7 +2603,7 @@ avtSAMRAIFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
                 {
                     vector<string>  tmp_string_vector;
 
-                    nmatspecVector.push_back(nmatspec[j]);
+                    nmatspecVector.push_back(nmatspec[j]); 
 
                     for (k = 0; k < nmatspec[j]; k++)
                         tmp_string_vector.push_back(mat_specs[mat_names[j]][k]);
@@ -2621,7 +2659,7 @@ avtSAMRAIFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
         //
         std::map<std::string, var_t>::const_iterator var_it;
         for (var_it = var_names_num_components.begin();
-             var_it != var_names_num_components.end();
+             var_it != var_names_num_components.end(); 
              var_it++) {
 
             if ((*var_it).first == "Coords") {
@@ -2630,7 +2668,7 @@ avtSAMRAIFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
 
             char *var_name = new char[(*var_it).first.size() + 20];
             sprintf(var_name, "%s", (*var_it).first.c_str());
-
+          
             // set the centering
             avtCentering centering;
             if ( (*var_it).second.cell_centered == 1)
@@ -2730,7 +2768,7 @@ avtSAMRAIFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
 //  Modifications:
 //
 //    Mark C. Miller, Mon Dec  8 12:03:06 PST 2003
-//    Added call to ReadAndCheckVDRVersions();
+//    Added call to ReadAndCheckVDRVersions(); 
 //    Added call to ReadVarNumGhosts();
 //
 //    Brad Whitlock, Fri Mar 5 10:19:32 PDT 2004
@@ -2837,7 +2875,7 @@ avtSAMRAIFileFormat::ReadMetaDataFile()
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadTime(hid_t &h5_file)
 {
 
@@ -2855,20 +2893,20 @@ avtSAMRAIFileFormat::ReadTime(hid_t &h5_file)
 //  Arguments:
 //    IN:  h5_file     the handle of the file to be read
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    December 8, 2003
+//  Programmer:  Mark C. Miller 
+//  Creation:    December 8, 2003 
 //
 //  Modifications:
 //    Kathleen Bonnell, Thu Apr  3 13:28:25 PDT 2008
 //    Fixed use of '=' where it should be '=='.
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadAndCheckVDRVersion(hid_t &h5_file)
 {
 //    cerr << "WARNING, SAMRAI VERSION CHECK DISABLED" << endl;
 //    return;
-
+   
     hid_t h5_dataset = H5Dopen(h5_file,"/BASIC_INFO/VDR_version_number");
     if (h5_dataset < 0) {
         char str[1024];
@@ -2918,7 +2956,7 @@ avtSAMRAIFileFormat::ReadAndCheckVDRVersion(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadTimeStepNumber(hid_t &h5_file)
 {
     bool isOptional = false;
@@ -2938,7 +2976,7 @@ avtSAMRAIFileFormat::ReadTimeStepNumber(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadTimeOfDump(hid_t &h5_file)
 {
     bool isOptional = false;
@@ -2958,7 +2996,7 @@ avtSAMRAIFileFormat::ReadTimeOfDump(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadNumDimensions(hid_t &h5_file)
 {
     bool isOptional = false;
@@ -2982,7 +3020,7 @@ avtSAMRAIFileFormat::ReadNumDimensions(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadXLO(hid_t &h5_file)
 {
     bool isOptional = false;
@@ -3002,7 +3040,7 @@ avtSAMRAIFileFormat::ReadXLO(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadNumLevels(hid_t &h5_file)
 {
     bool isOptional = false;
@@ -3026,7 +3064,7 @@ avtSAMRAIFileFormat::ReadNumLevels(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadDX(hid_t &h5_file)
 {
     bool isOptional = false;
@@ -3049,7 +3087,7 @@ avtSAMRAIFileFormat::ReadDX(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadNumPatches(hid_t &h5_file)
 {
     hid_t h5_dataset = H5Dopen(h5_file, "/BASIC_INFO/number_global_patches");
@@ -3059,9 +3097,9 @@ avtSAMRAIFileFormat::ReadNumPatches(hid_t &h5_file)
         EXCEPTION1(InvalidFilesException, str);
     }
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             &num_patches);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
 
@@ -3078,22 +3116,22 @@ avtSAMRAIFileFormat::ReadNumPatches(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadNumPatchesLevel(hid_t &h5_file)
 {
     hid_t h5_dataset = H5Dopen(h5_file,"/BASIC_INFO/number_patches_at_level");
     if (h5_dataset < 0) {
         char str[1024];
-        sprintf(str, "%s::/BASIC_INFO/number_patches_at_level",
+        sprintf(str, "%s::/BASIC_INFO/number_patches_at_level", 
                 file_name.c_str());
         EXCEPTION1(InvalidFilesException, str);
     }
 
     num_patches_level = new int[num_levels];
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             num_patches_level);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
 
@@ -3110,23 +3148,23 @@ avtSAMRAIFileFormat::ReadNumPatchesLevel(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadRatiosCoarserLevels(hid_t &h5_file)
 {
-    hid_t h5_dataset = H5Dopen(h5_file,
+    hid_t h5_dataset = H5Dopen(h5_file, 
                                "/BASIC_INFO/ratios_to_coarser_levels");
     if (h5_dataset < 0) {
         char str[1024];
-        sprintf(str, "%s::/BASIC_INFO/ratios_to_coarser_levels",
+        sprintf(str, "%s::/BASIC_INFO/ratios_to_coarser_levels", 
                 file_name.c_str());
         EXCEPTION1(InvalidFilesException, str);
     }
 
     ratios_coarser_levels = new int[num_levels * 3];
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             ratios_coarser_levels);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
 
@@ -3143,23 +3181,23 @@ avtSAMRAIFileFormat::ReadRatiosCoarserLevels(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadNumClusters(hid_t &h5_file)
 {
     hid_t h5_dataset = H5Dopen(h5_file, "/BASIC_INFO/number_file_clusters");
     if (h5_dataset < 0) {
         char str[1024];
-        sprintf(str, "%s::/BASIC_INFO/number_file_clusters",
+        sprintf(str, "%s::/BASIC_INFO/number_file_clusters", 
                 file_name.c_str());
         EXCEPTION1(InvalidFilesException, str);
     }
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             &num_clusters);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
-
+    
 // ****************************************************************************
 //  Method:  ReadNumProcessors
 //
@@ -3173,7 +3211,7 @@ avtSAMRAIFileFormat::ReadNumClusters(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadNumProcessors(hid_t &h5_file)
 {
     hid_t h5_dataset = H5Dopen(h5_file, "/BASIC_INFO/number_processors");
@@ -3183,12 +3221,12 @@ avtSAMRAIFileFormat::ReadNumProcessors(hid_t &h5_file)
         EXCEPTION1(InvalidFilesException, str);
     }
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             &num_procs);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
-
+    
 // ****************************************************************************
 //  Method:  ReadNumVariables
 //
@@ -3202,23 +3240,23 @@ avtSAMRAIFileFormat::ReadNumProcessors(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadNumVariables(hid_t &h5_file)
 {
     hid_t h5_dataset = H5Dopen(h5_file, "/BASIC_INFO/number_visit_variables");
     if (h5_dataset < 0) {
         char str[1024];
-        sprintf(str, "%s::/BASIC_INFO/number_visit_variables",
+        sprintf(str, "%s::/BASIC_INFO/number_visit_variables", 
                 file_name.c_str());
         EXCEPTION1(InvalidFilesException, str);
     }
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             &num_vars);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
-
+    
 // ****************************************************************************
 //  Method:  ReadVarCellCentered
 //
@@ -3232,7 +3270,7 @@ avtSAMRAIFileFormat::ReadNumVariables(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadVarCellCentered(hid_t &h5_file)
 {
     if (num_vars <= 0)
@@ -3247,9 +3285,9 @@ avtSAMRAIFileFormat::ReadVarCellCentered(hid_t &h5_file)
 
     var_cell_centered = new int[num_vars];
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             var_cell_centered);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
 
@@ -3266,7 +3304,7 @@ avtSAMRAIFileFormat::ReadVarCellCentered(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadGridType(hid_t &h5_file)
 {
     hid_t h5_dataset = H5Dopen(h5_file, "/BASIC_INFO/grid_type");
@@ -3280,7 +3318,7 @@ avtSAMRAIFileFormat::ReadGridType(hid_t &h5_file)
     int datatype_size = H5Tget_size(h5_disk_datatype);
 
     hid_t h5_mem_datatype = H5Tcopy(H5T_C_S1);
-    H5Tset_size(h5_mem_datatype, datatype_size);
+    H5Tset_size(h5_mem_datatype, datatype_size);  
 
     char *buffer = new char[datatype_size];
 
@@ -3288,7 +3326,7 @@ avtSAMRAIFileFormat::ReadGridType(hid_t &h5_file)
 
     H5Tclose(h5_mem_datatype);
     H5Tclose(h5_disk_datatype);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);        
 
     grid_type = buffer;
     delete [] buffer;
@@ -3310,7 +3348,7 @@ avtSAMRAIFileFormat::ReadGridType(hid_t &h5_file)
 //    Mark C. Miller, changed to use ReadDataset helper function
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadVarNames(hid_t &h5_file)
 {
     if (num_vars <= 0)
@@ -3339,7 +3377,7 @@ avtSAMRAIFileFormat::ReadVarNames(hid_t &h5_file)
 //    Modified to be a little more general
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadVarNumComponents(hid_t &h5_file)
 {
     bool isOptional = false;
@@ -3351,7 +3389,7 @@ avtSAMRAIFileFormat::ReadVarNumComponents(hid_t &h5_file)
       var_t var = { var_num_components[v], var_cell_centered[v],
                   { var_num_ghosts[v*3+0],
                     var_num_ghosts[v*3+1],
-                    var_num_ghosts[v*3+2]}};
+                    var_num_ghosts[v*3+2]}}; 
       var_names_num_components[var_name] = var;
     }
 
@@ -3369,10 +3407,10 @@ avtSAMRAIFileFormat::ReadVarNumComponents(hid_t &h5_file)
 //    IN:  h5_file     the handle of the file to be read
 //
 //  Programmer:  Mark C. Miller
-//  Creation:    December 8, 2003
+//  Creation:    December 8, 2003 
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadVarNumGhosts(hid_t &h5_file)
 {
     if (num_vars <= 0)
@@ -3449,18 +3487,18 @@ avtSAMRAIFileFormat::ReadVarNumGhosts(hid_t &h5_file)
 //    I modified the way the extents were read and stored for a vector.
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadVarExtents(hid_t &h5_file)
 {
     if (num_vars <= 0)
         return;
 
     hid_t h5_mem_datatype = H5Tcreate (H5T_COMPOUND, sizeof(var_extents_t));
-    H5Tinsert (h5_mem_datatype, "data_is_defined",
+    H5Tinsert (h5_mem_datatype, "data_is_defined", 
                HOFFSET(var_extents_t,data_is_defined), H5T_NATIVE_CHAR);
-    H5Tinsert (h5_mem_datatype, "min",
+    H5Tinsert (h5_mem_datatype, "min", 
                HOFFSET(var_extents_t,min), H5T_NATIVE_DOUBLE);
-    H5Tinsert (h5_mem_datatype, "max",
+    H5Tinsert (h5_mem_datatype, "max", 
                HOFFSET(var_extents_t,max), H5T_NATIVE_DOUBLE);
 
     var_extents = new var_extents_t* [num_vars];
@@ -3471,16 +3509,16 @@ avtSAMRAIFileFormat::ReadVarExtents(hid_t &h5_file)
         {
             EXCEPTION1(InvalidVariableException, var_names[v]);
         }
-
+    
         int num_components = (*cur_var).second.num_components;
 
         var_extents[v] = new var_extents_t[num_patches*num_components];
-
+      
         if (num_components == 1)
         {
             char ds_name[50];
             sprintf(ds_name, "/extents/%s-Extents", var_names[v].c_str());
-
+      
             hid_t h5_dataset = H5Dopen(h5_file, ds_name);
             if (h5_dataset < 0) {
                 char str[1024];
@@ -3490,7 +3528,7 @@ avtSAMRAIFileFormat::ReadVarExtents(hid_t &h5_file)
 
             H5Dread(h5_dataset, h5_mem_datatype, H5S_ALL, H5S_ALL,
                     H5P_DEFAULT, var_extents[v]);
-            H5Dclose(h5_dataset);
+            H5Dclose(h5_dataset);    
         }
         else
         {
@@ -3499,7 +3537,7 @@ avtSAMRAIFileFormat::ReadVarExtents(hid_t &h5_file)
                 char ds_name[50];
                 sprintf(ds_name, "/extents/%s.%02d-Extents",
                         var_names[v].c_str(), c);
-
+      
                 hid_t h5_dataset = H5Dopen(h5_file, ds_name);
                 if (h5_dataset < 0) {
                     char str[1024];
@@ -3509,7 +3547,7 @@ avtSAMRAIFileFormat::ReadVarExtents(hid_t &h5_file)
 
                 H5Dread(h5_dataset, h5_mem_datatype, H5S_ALL, H5S_ALL,
                         H5P_DEFAULT, &(var_extents[v][c*num_patches]));
-                H5Dclose(h5_dataset);
+                H5Dclose(h5_dataset);    
             }
         }
     }
@@ -3537,7 +3575,7 @@ avtSAMRAIFileFormat::ReadVarExtents(hid_t &h5_file)
 //    knowledge of extents of coordinate array if its an ALE grid
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadPatchExtents(hid_t &h5_file)
 {
     hid_t h5_dataset = H5Dopen(h5_file, "/extents/patch_extents");
@@ -3555,9 +3593,9 @@ avtSAMRAIFileFormat::ReadPatchExtents(hid_t &h5_file)
     hid_t h5_xlo_datatype = H5Tarray_create(H5T_NATIVE_DOUBLE, 1, dim, NULL);
     hid_t h5_xup_datatype = H5Tarray_create(H5T_NATIVE_DOUBLE, 1, dim, NULL);
 
-    int size = H5Tget_size(h5_lower_datatype) +
-               H5Tget_size(h5_upper_datatype) +
-               H5Tget_size(h5_xlo_datatype) +
+    int size = H5Tget_size(h5_lower_datatype) + 
+               H5Tget_size(h5_upper_datatype) + 
+               H5Tget_size(h5_xlo_datatype) + 
                H5Tget_size(h5_xup_datatype);
     hid_t h5_datatype = H5Tcreate (H5T_COMPOUND, size);
 
@@ -3565,15 +3603,15 @@ avtSAMRAIFileFormat::ReadPatchExtents(hid_t &h5_file)
     int offset_upper = H5Tget_size(h5_lower_datatype);
     int offset_xlo   = offset_upper + H5Tget_size(h5_upper_datatype);
     int offset_xup   = offset_xlo + H5Tget_size(h5_xlo_datatype);
-
+    
     H5Tinsert(h5_datatype, "lower", offset_lower, h5_lower_datatype);
     H5Tinsert(h5_datatype, "upper", offset_upper, h5_upper_datatype);
     H5Tinsert(h5_datatype, "xlo", offset_xlo, h5_xlo_datatype);
     H5Tinsert(h5_datatype, "xup", offset_xup, h5_xup_datatype);
 
-    H5Dread(h5_dataset, h5_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, h5_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             patch_extents);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);       
 
     H5Tclose(h5_lower_datatype);
     H5Tclose(h5_upper_datatype);
@@ -3608,7 +3646,7 @@ avtSAMRAIFileFormat::ReadPatchExtents(hid_t &h5_file)
             else
             {
                 patch_extents[p].xlo[2] = 0.0;
-                patch_extents[p].xup[2] = 0.0;
+                patch_extents[p].xup[2] = 0.0; 
             }
         }
     }
@@ -3629,7 +3667,7 @@ avtSAMRAIFileFormat::ReadPatchExtents(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadPatchMap(hid_t &h5_file)
 {
     hid_t h5_dataset = H5Dopen(h5_file, "/extents/patch_map");
@@ -3640,19 +3678,19 @@ avtSAMRAIFileFormat::ReadPatchMap(hid_t &h5_file)
     }
 
     hid_t h5_datatype = H5Tcreate (H5T_COMPOUND, sizeof(patch_map_t));
-    H5Tinsert (h5_datatype, "processor_number",
+    H5Tinsert (h5_datatype, "processor_number", 
                HOFFSET(patch_map_t,processor_number), H5T_NATIVE_INT);
-    H5Tinsert (h5_datatype, "file_cluster_number",
+    H5Tinsert (h5_datatype, "file_cluster_number", 
                HOFFSET(patch_map_t,file_cluster_number), H5T_NATIVE_INT);
-    H5Tinsert (h5_datatype, "level_number",
+    H5Tinsert (h5_datatype, "level_number", 
                HOFFSET(patch_map_t,level_number), H5T_NATIVE_INT);
-    H5Tinsert (h5_datatype, "patch_number",
+    H5Tinsert (h5_datatype, "patch_number", 
                HOFFSET(patch_map_t,patch_number), H5T_NATIVE_INT);
 
     patch_map = new patch_map_t[num_patches];
-
+      
     H5Dread(h5_dataset, h5_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, patch_map);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);      
     H5Tclose(h5_datatype);
 }
 
@@ -3670,7 +3708,7 @@ avtSAMRAIFileFormat::ReadPatchMap(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadChildArrayLength(hid_t &h5_file)
 {
     hid_t h5_dataset = H5Dopen(h5_file, "/BASIC_INFO/child_array_length");
@@ -3680,9 +3718,9 @@ avtSAMRAIFileFormat::ReadChildArrayLength(hid_t &h5_file)
         EXCEPTION1(InvalidFilesException, str);
     }
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             &child_array_length);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
 
@@ -3699,7 +3737,7 @@ avtSAMRAIFileFormat::ReadChildArrayLength(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadChildArray(hid_t &h5_file)
 {
     if (child_array_length == 0)
@@ -3714,9 +3752,9 @@ avtSAMRAIFileFormat::ReadChildArray(hid_t &h5_file)
 
     child_array = new int[child_array_length];
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             child_array);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
 
@@ -3733,7 +3771,7 @@ avtSAMRAIFileFormat::ReadChildArray(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadChildPointerArray(hid_t &h5_file)
 {
     if (child_array_length == 0)
@@ -3747,16 +3785,16 @@ avtSAMRAIFileFormat::ReadChildPointerArray(hid_t &h5_file)
     }
 
     hid_t h5_datatype = H5Tcreate (H5T_COMPOUND, sizeof(child_t));
-    H5Tinsert (h5_datatype, "offset",
+    H5Tinsert (h5_datatype, "offset", 
                HOFFSET(child_t,offset), H5T_NATIVE_INT);
-    H5Tinsert (h5_datatype, "number_children",
+    H5Tinsert (h5_datatype, "number_children", 
                HOFFSET(child_t,number_children), H5T_NATIVE_INT);
 
     child_pointer_array = new child_t[num_patches];
-
-    H5Dread(h5_dataset, h5_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+      
+    H5Dread(h5_dataset, h5_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             child_pointer_array);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);      
     H5Tclose(h5_datatype);
 }
 
@@ -3774,7 +3812,7 @@ avtSAMRAIFileFormat::ReadChildPointerArray(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadParentArrayLength(hid_t &h5_file)
 {
     hid_t h5_dataset = H5Dopen(h5_file, "/BASIC_INFO/parent_array_length");
@@ -3784,9 +3822,9 @@ avtSAMRAIFileFormat::ReadParentArrayLength(hid_t &h5_file)
         EXCEPTION1(InvalidFilesException, str);
     }
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             &parent_array_length);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
 
@@ -3803,7 +3841,7 @@ avtSAMRAIFileFormat::ReadParentArrayLength(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadParentArray(hid_t &h5_file)
 {
     if (parent_array_length == 0)
@@ -3818,9 +3856,9 @@ avtSAMRAIFileFormat::ReadParentArray(hid_t &h5_file)
 
     parent_array = new int[parent_array_length];
 
-    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             parent_array);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
 }
 
 
@@ -3837,7 +3875,7 @@ avtSAMRAIFileFormat::ReadParentArray(hid_t &h5_file)
 //  Creation:    August  20, 2003
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadParentPointerArray(hid_t &h5_file)
 {
     if (parent_array_length == 0)
@@ -3851,16 +3889,16 @@ avtSAMRAIFileFormat::ReadParentPointerArray(hid_t &h5_file)
     }
 
     hid_t h5_datatype = H5Tcreate (H5T_COMPOUND, sizeof(parent_t));
-    H5Tinsert (h5_datatype, "offset",
+    H5Tinsert (h5_datatype, "offset", 
                HOFFSET(parent_t,offset), H5T_NATIVE_INT);
-    H5Tinsert (h5_datatype, "number_parents",
+    H5Tinsert (h5_datatype, "number_parents", 
                HOFFSET(parent_t,number_parents), H5T_NATIVE_INT);
 
-    parent_pointer_array = new parent_t[num_patches];
+    parent_pointer_array = new parent_t[num_patches];      
 
-    H5Dread(h5_dataset, h5_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+    H5Dread(h5_dataset, h5_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             parent_pointer_array);
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);      
     H5Tclose(h5_datatype);
 }
 
@@ -3869,13 +3907,13 @@ avtSAMRAIFileFormat::ReadParentPointerArray(hid_t &h5_file)
 //  Method:  ReadMaterialInfo
 //
 //  Purpose:
-//    Read material information from the metadata file
+//    Read material information from the metadata file 
 //
 //  Arguments:
 //    IN:  h5_file     the handle of the file to be read
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    December 12, 2003
+//  Programmer:  Mark C. Miller 
+//  Creation:    December 12, 2003 
 //
 // ****************************************************************************
 void
@@ -3903,7 +3941,7 @@ avtSAMRAIFileFormat::ReadMaterialInfo(hid_t &h5_file)
     if (num_mat_vars == -1)
         num_mat_vars = 0;
 
-    // if we do have materials, all the remaining information is required
+    // if we do have materials, all the remaining information is required 
     isOptional = false;
 
     // read information on ghosting for material variables
@@ -3920,7 +3958,7 @@ avtSAMRAIFileFormat::ReadMaterialInfo(hid_t &h5_file)
       var_t var = { var_num_components[mv], 1,
                   { mat_num_ghosts[0],
                     mat_num_ghosts[1],
-                    mat_num_ghosts[2]}};
+                    mat_num_ghosts[2]}}; 
       mat_var_names_num_components[mat_var_name] = var;
     }
 
@@ -3928,7 +3966,7 @@ avtSAMRAIFileFormat::ReadMaterialInfo(hid_t &h5_file)
     ReadDataset(h5_file, "/extents/materials/sparse_material_list",
         "matinfo_t", 1, &num_patches, (void**) &sparse_mat_info, true);
 
-    // Read "extents" information for each material
+    // Read "extents" information for each material 
     for (int m = 0; m < num_mats && sparse_mat_info == 0; m++)
     {
         matinfo_t *tmpInfo = 0;
@@ -3949,7 +3987,7 @@ avtSAMRAIFileFormat::ReadMaterialInfo(hid_t &h5_file)
                 mat_names[m].c_str(), mat_var_names[mv].c_str());
             ReadDataset(h5_file, dsName, "matinfo_t", 1, &num_patches,
                 (void**) &tmpInfo, isOptional);
-
+            
             mat_var_names_matinfo[mat_names[m]][mat_var_names[mv]] = tmpInfo;
         }
     }
@@ -3965,7 +4003,7 @@ avtSAMRAIFileFormat::ReadMaterialInfo(hid_t &h5_file)
             int matCompFlag = mat_names_matinfo[mat_names[i]][p].mat_comp_flag;
             switch (matCompFlag)
             {
-                case 0: // this material covers no part of the patch
+                case 0: // this material covers no part of the patch 
                     n0++;
                     break;
                 case 1: // this material covers the patch, wholly
@@ -3984,7 +4022,7 @@ avtSAMRAIFileFormat::ReadMaterialInfo(hid_t &h5_file)
         }
     }
 
-    // if we need to infer the "void" material, adjust the material count/names
+    // if we need to infer the "void" material, adjust the material count/names 
     if (inferVoidMaterial)
     {
         string *new_mat_names = new string[num_mats+1];
@@ -3993,7 +4031,7 @@ avtSAMRAIFileFormat::ReadMaterialInfo(hid_t &h5_file)
         int i;
         for (i = 0; i < num_mats; i++)
             new_mat_names[i] = mat_names[i];
-        new_mat_names[num_mats] = inferredVoidMatName;
+        new_mat_names[num_mats] = inferredVoidMatName; 
 
         SAFE_DELETE(mat_names);
         mat_names = new_mat_names;
@@ -4006,13 +4044,13 @@ avtSAMRAIFileFormat::ReadMaterialInfo(hid_t &h5_file)
 //  Method:  ReadSpeciesInfo
 //
 //  Purpose:
-//    Read species information from the metadata file
+//    Read species information from the metadata file 
 //
 //  Arguments:
 //    IN:  h5_file     the handle of the file to be read
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    December 18, 2003
+//  Programmer:  Mark C. Miller 
+//  Creation:    December 18, 2003 
 //
 // ****************************************************************************
 void
@@ -4036,7 +4074,7 @@ avtSAMRAIFileFormat::ReadSpeciesInfo(hid_t &h5_file)
 
     nmatspec = new int[num_mats];
 
-    // for each material, try to obtain the names of its constituent species
+    // for each material, try to obtain the names of its constituent species 
     int i;
     bool atLeastOneMaterialHasSpecies = false;
     for (i = 0; i < num_mats; i++)
@@ -4070,10 +4108,10 @@ avtSAMRAIFileFormat::ReadSpeciesInfo(hid_t &h5_file)
     if (atLeastOneMaterialHasSpecies == false)
         return;
 
-    // if we do have species, all the remaining information is required
+    // if we do have species, all the remaining information is required 
     isOptional = false;
 
-    // Read "extents" information for each species
+    // Read "extents" information for each species 
     for (int m = 0; m < num_mats; m++)
     {
         int s;
@@ -4090,7 +4128,7 @@ avtSAMRAIFileFormat::ReadSpeciesInfo(hid_t &h5_file)
 
             ReadDataset(h5_file, dsName, "matinfo_t", 1, &num_patches,
                 (void**) &tmpInfo, isOptional);
-
+            
             mat_specs_matinfo[matName][specName] = tmpInfo;
         }
     }
@@ -4101,15 +4139,15 @@ avtSAMRAIFileFormat::ReadSpeciesInfo(hid_t &h5_file)
 //
 //  Purpose: Read any visit expressions defined in the file
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    November 1, 2007
+//  Programmer:  Mark C. Miller 
+//  Creation:    November 1, 2007 
 //
 //  Modifications:
 //    Mark C. Miller, Mon Mar 31 14:27:21 PDT 2008
 //    Remvoed extraneous cerr statement.
 //
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::ReadExpressions(hid_t &h5_file)
 {
     bool isOptional = true;
@@ -4131,13 +4169,13 @@ avtSAMRAIFileFormat::ReadExpressions(hid_t &h5_file)
 }
 
 // ****************************************************************************
-//  Method:  BuildDomainAuxiliaryInfo
+//  Method:  BuildDomainAuxiliaryInfo 
 //
 //  Purpose:
-//    Builds the domain nesting information object and caches it
+//    Builds the domain nesting information object and caches it 
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    October 13, 2003
+//  Programmer:  Mark C. Miller 
+//  Creation:    October 13, 2003 
 //
 //  Modifications:
 //
@@ -4163,8 +4201,11 @@ avtSAMRAIFileFormat::ReadExpressions(hid_t &h5_file)
 //     Mark C. Miller, Thu Sep 13 11:33:09 PDT 2007
 //     Skip this work if we're on the mdserver
 //
+//     Hank Childs, Mon Oct 10 11:17:27 PDT 2011
+//     Add support for refinement levels for AMR ghost exchange.
+//
 // ****************************************************************************
-void
+void 
 avtSAMRAIFileFormat::BuildDomainAuxiliaryInfo()
 {
 #ifdef MDSERVER
@@ -4246,6 +4287,20 @@ avtSAMRAIFileFormat::BuildDomainAuxiliaryInfo()
             sdb = new avtRectilinearDomainBoundaries(canComputeNeighborsFromExtents);
 
         sdb->SetNumDomains(num_patches);
+        
+        vector<int> refinement_ratios(num_levels-1, 1);
+        bool foundBadRefinement = false;
+        for (int i = 0 ; i < num_levels - 1 ; i++)
+        {
+            refinement_ratios[i] = ratios_coarser_levels[3*(i+1) + 0];
+            if (refinement_ratios[i] != ratios_coarser_levels[3*(i+1) + 1] ||
+                refinement_ratios[i] != ratios_coarser_levels[3*(i+1) + 2])
+            {
+                foundBadRefinement = true;
+            }
+        }
+        if (! foundBadRefinement)
+            sdb->SetRefinementRatios(refinement_ratios);
         for (int i = 0 ; i < num_patches ; i++)
         {
             int e[6];
@@ -4254,7 +4309,8 @@ avtSAMRAIFileFormat::BuildDomainAuxiliaryInfo()
             e[2] = patch_extents[i].lower[1];
             e[3] = patch_extents[i].upper[1]+1;
             e[4] = patch_extents[i].lower[2];
-            e[5] = patch_extents[i].upper[2]+1;
+            e[5] = patch_extents[i].upper[2]+((num_dim_problem >= 3) ? 1 : 0);
+
             sdb->SetIndicesForAMRPatch(i, patch_map[i].level_number, e);
         }
         sdb->CalculateBoundaries();
@@ -4274,12 +4330,15 @@ avtSAMRAIFileFormat::BuildDomainAuxiliaryInfo()
 //    conversion from a base-MAX_GHOST_LAYERS integer of num_dim_problem digits
 //    to a base-10 integer.
 //
-//  Programmer:  Mark C. Miller
-//  Creation:    December 9, 2003
+//  Programmer:  Mark C. Miller 
+//  Creation:    December 9, 2003 
 //
 //  Modifications:
 //    Mark C. Miller, Mon Mar 31 14:27:21 PDT 2008
 //    Modified to handle the 'materials' variable correctly.
+//
+//    Cyrus Harrison, Mon May 23 14:16:47 PDT 2011
+//    Added Nathan Masters' fix for ghost data w/ 'levels' and 'patches'.
 //
 // ****************************************************************************
 int
@@ -4292,7 +4351,9 @@ avtSAMRAIFileFormat::GetGhostCodeForVar(const char *visit_var_name)
     int num_ghosts[3];
 
     if (var_name == "amr_mesh" ||
-        var_name == "materials")
+        var_name == "materials" ||
+        var_name == "levels" ||
+        var_name  == "patches")
     {
         num_ghosts[0] = var_max_ghosts[0];
         num_ghosts[1] = var_max_ghosts[1];
@@ -4302,7 +4363,7 @@ avtSAMRAIFileFormat::GetGhostCodeForVar(const char *visit_var_name)
     {
         std::map<std::string, var_t>::const_iterator cur_var;
         cur_var = var_names_num_components.find(var_name);
-
+ 
         if (cur_var == var_names_num_components.end())
             return 0;
 
@@ -4315,7 +4376,7 @@ avtSAMRAIFileFormat::GetGhostCodeForVar(const char *visit_var_name)
     int powr = 1;
     for (int i = 0; i < num_dim_problem; i++)
     {
-        code += num_ghosts[i] * powr;
+        code += num_ghosts[i] * powr; 
         powr *= MAX_GHOST_LAYERS;
     }
 
@@ -4331,12 +4392,12 @@ avtSAMRAIFileFormat::GetGhostCodeForVar(const char *visit_var_name)
 //  by caller, compare to size in file and throw an exception if wrong.
 //
 //  Programmer:  Mark C. Miller, adapted from Walter Herrar Jimenez
-//  Creation:    December 11, 2003
+//  Creation:    December 11, 2003 
 //
 //  Modifications:
 //     Kathleen Bonnell, Mon Dec 22 15:06:41 PST 2003
 //     Added code dynamically allocate hdims max_hdims, so that code will build
-//     on IRIX.
+//     on IRIX. 
 //
 //     Brad Whitlock, Fri Mar 5 10:19:32 PDT 2004
 //     Changed for Windows compiler.
@@ -4344,7 +4405,7 @@ avtSAMRAIFileFormat::GetGhostCodeForVar(const char *visit_var_name)
 // ****************************************************************************
 bool
 avtSAMRAIFileFormat::ReadDataset(hid_t &hdfFile, const char *dsPath,
-    const char *typeName, int ndims, int *dims, void **data, bool isOptional)
+    const char *typeName, int ndims, int *dims, void **data, bool isOptional) 
 {
 
     // confirm total number of entries > 0
@@ -4426,7 +4487,7 @@ avtSAMRAIFileFormat::ReadDataset(hid_t &hdfFile, const char *dsPath,
         int datatype_size = H5Tget_size(h5_disk_datatype);
 
         hid_t h5_mem_datatype = H5Tcopy(H5T_C_S1);
-        H5Tset_size(h5_mem_datatype, datatype_size);
+        H5Tset_size(h5_mem_datatype, datatype_size);  
 
         char *buffer = new char[num_vals * datatype_size];
         string *tmp_data;
@@ -4437,7 +4498,7 @@ avtSAMRAIFileFormat::ReadDataset(hid_t &hdfFile, const char *dsPath,
             tmp_data = (string*) *data;
 
         // read the data
-        H5Dread(h5_dataset, h5_mem_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+        H5Dread(h5_dataset, h5_mem_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
                 buffer);
 
         // close up everything
@@ -4461,7 +4522,7 @@ avtSAMRAIFileFormat::ReadDataset(hid_t &hdfFile, const char *dsPath,
         else
             tmp_data = (int *) *data;
 
-        H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+        H5Dread(h5_dataset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             tmp_data);
 
         *data = (void *) tmp_data;
@@ -4475,7 +4536,7 @@ avtSAMRAIFileFormat::ReadDataset(hid_t &hdfFile, const char *dsPath,
         else
             tmp_data = (double *) *data;
 
-        H5Dread(h5_dataset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+        H5Dread(h5_dataset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             tmp_data);
 
         *data = (void *) tmp_data;
@@ -4489,7 +4550,7 @@ avtSAMRAIFileFormat::ReadDataset(hid_t &hdfFile, const char *dsPath,
         else
             tmp_data = (float *) *data;
 
-        H5Dread(h5_dataset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+        H5Dread(h5_dataset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             tmp_data);
 
         *data = (void *) tmp_data;
@@ -4498,15 +4559,15 @@ avtSAMRAIFileFormat::ReadDataset(hid_t &hdfFile, const char *dsPath,
     {
         // build the hdf5 type
         hid_t h5_mem_datatype = H5Tcreate (H5T_COMPOUND, sizeof(matinfo_t));
-        H5Tinsert (h5_mem_datatype, "data_is_defined",
+        H5Tinsert (h5_mem_datatype, "data_is_defined", 
                    HOFFSET(matinfo_t,data_is_defined), H5T_NATIVE_UCHAR);
-        H5Tinsert (h5_mem_datatype, "material_composition_flag",
+        H5Tinsert (h5_mem_datatype, "material_composition_flag", 
                    HOFFSET(matinfo_t,mat_comp_flag), H5T_NATIVE_INT);
-        H5Tinsert (h5_mem_datatype, "species_composition_flag",
+        H5Tinsert (h5_mem_datatype, "species_composition_flag", 
                    HOFFSET(matinfo_t,spec_comp_flag), H5T_NATIVE_INT);
-        H5Tinsert (h5_mem_datatype, "min",
+        H5Tinsert (h5_mem_datatype, "min", 
                    HOFFSET(matinfo_t,min), H5T_NATIVE_DOUBLE);
-        H5Tinsert (h5_mem_datatype, "max",
+        H5Tinsert (h5_mem_datatype, "max", 
                    HOFFSET(matinfo_t,max), H5T_NATIVE_DOUBLE);
 
         matinfo_t *tmp_data;
@@ -4516,7 +4577,7 @@ avtSAMRAIFileFormat::ReadDataset(hid_t &hdfFile, const char *dsPath,
         else
             tmp_data = (matinfo_t*) *data;
 
-        H5Dread(h5_dataset, h5_mem_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+        H5Dread(h5_dataset, h5_mem_datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, 
             tmp_data);
 
         H5Tclose(h5_mem_datatype);
@@ -4525,7 +4586,7 @@ avtSAMRAIFileFormat::ReadDataset(hid_t &hdfFile, const char *dsPath,
     }
 
 
-    H5Dclose(h5_dataset);
+    H5Dclose(h5_dataset);    
     return true;
 }
 
@@ -4546,7 +4607,7 @@ avtSAMRAIFileFormat::ReadDataset(hid_t &hdfFile, const char *dsPath,
 //    Use VISIT_SLASH_CHAR instead of '/' so that this works on Windows.
 //
 // ****************************************************************************
-string
+string 
 GetDirName(const char *path)
 {
     string dir = "";
@@ -4577,7 +4638,7 @@ float UniqueSpeciesMF::DefaultMinc = DEFAULT_MINC;
 // ****************************************************************************
 //  Constructor:  UniqueSpeciesMF
 //
-//  Programmer:  Mark C. Miller
+//  Programmer:  Mark C. Miller 
 //  Creation:    January 6, 2004
 //
 // ****************************************************************************
@@ -4601,7 +4662,7 @@ UniqueSpeciesMF::UniqueSpeciesMF(int initSize, float _minc)
 // ****************************************************************************
 //  Destructor:  ~UniqueSpeciesMF
 //
-//  Programmer:  Mark C. Miller
+//  Programmer:  Mark C. Miller 
 //  Creation:    January 6, 2004
 //
 // ****************************************************************************
@@ -4614,9 +4675,9 @@ UniqueSpeciesMF::~UniqueSpeciesMF()
 // ****************************************************************************
 //  Method:  UniqueSpeciesMF::GetSize
 //
-//  Purpose: Returns the current size of the species_mf array
+//  Purpose: Returns the current size of the species_mf array 
 //
-//  Programmer:  Mark C. Miller
+//  Programmer:  Mark C. Miller 
 //  Creation:    January 6, 2004
 //
 // ****************************************************************************
@@ -4629,9 +4690,9 @@ UniqueSpeciesMF::GetSize()
 // ****************************************************************************
 //  Method:  UniqueSpeciesMF::GetMaxSize
 //
-//  Purpose: Returns the current max size of the species_mf array
+//  Purpose: Returns the current max size of the species_mf array 
 //
-//  Programmer:  Mark C. Miller
+//  Programmer:  Mark C. Miller 
 //  Creation:    January 6, 2004
 //
 // ****************************************************************************
@@ -4644,9 +4705,9 @@ UniqueSpeciesMF::GetMaxSize()
 // ****************************************************************************
 //  Method:  UniqueSpeciesMF::GetData
 //
-//  Purpose: Returns the species_mf array
+//  Purpose: Returns the species_mf array 
 //
-//  Programmer:  Mark C. Miller
+//  Programmer:  Mark C. Miller 
 //  Creation:    January 6, 2004
 //
 // ****************************************************************************
@@ -4662,7 +4723,7 @@ UniqueSpeciesMF::GetData()
     if (nspecies_mf < max_nspecies_mf)
     {
         species_mf = (float*) realloc((void*)species_mf,
-                                      nspecies_mf * sizeof(float));
+                                      nspecies_mf * sizeof(float)); 
         max_nspecies_mf = nspecies_mf;
     }
 
@@ -4678,7 +4739,7 @@ UniqueSpeciesMF::GetData()
 //  Purpose: Installs a new species vector in the species_mf array and returns
 //  its index or returns the index of an existing matching vector.
 //
-//  Programmer:  Mark C. Miller
+//  Programmer:  Mark C. Miller 
 //  Creation:    January 6, 2004
 //
 // ****************************************************************************
@@ -4704,10 +4765,10 @@ UniqueSpeciesMF::IndexOfMFVector(float *mf_vector, int nvals)
         {
               max_nspecies_mf = (int) (max_nspecies_mf * minc);
             species_mf = (float*) realloc((void*)species_mf,
-                                          max_nspecies_mf * sizeof(float));
+                                          max_nspecies_mf * sizeof(float)); 
         }
 
-        // put the index for this mf vector into the map
+        // put the index for this mf vector into the map 
         vmap[hval].idx = nspecies_mf;
         retval = nspecies_mf;
 
@@ -4718,5 +4779,5 @@ UniqueSpeciesMF::IndexOfMFVector(float *mf_vector, int nvals)
     }
 
     return retval;
-
+    
 }

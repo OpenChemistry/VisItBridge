@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -112,6 +112,8 @@ typedef ref_ptr<avtSILRestriction> avtSILRestriction_p;
 //    Added higher level EnsureRestrictionCorrectness wrapper to help keep
 //    enum & material selection mutually exclusive. 
 //
+//    Mark C. Miller, Sun Aug 29 23:31:00 PDT 2010
+//    Added RestrictToSetsOfRole.
 // ****************************************************************************
 
 class DBATTS_API avtSILRestriction : public avtSIL
@@ -135,6 +137,9 @@ class DBATTS_API avtSILRestriction : public avtSIL
 
     void                      TurnOnAll(void);
     void                      TurnOffAll(void);
+
+    void                      RestrictToSetsOfRole(int role,
+                                  const std::vector<int> &collIndices);
 
     void                      SuspendCorrectnessChecking(void);
     void                      EnableCorrectnessChecking(void);

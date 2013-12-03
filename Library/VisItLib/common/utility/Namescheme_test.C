@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -37,12 +37,15 @@
 *****************************************************************************/
 #include <Namescheme.h>
 #include <string.h>
+//#include <iostream>
 //#include <stdio.h>
 
 int main()
 {
     int i;
     int P[100], U[4];
+    const char *N[3] = { "red", "green", "blue" };
+    const char *FileNumbers[] = {"1","2","3"};
 
     // Test a somewhat complex expression 
     Namescheme *ns = new Namescheme("@foo_%+03d@3-((n % 3)*(4+1)+1/2)+1");
@@ -85,15 +88,6 @@ int main()
     if (strcmp(ns->GetName(25), "level2,patch16") != 0) return 1; // F
     if (strcmp(ns->GetName(26), "level3,patch0")  != 0) return 1; // G
     if (strcmp(ns->GetName(30), "level3,patch4")  != 0) return 1; // H
-#if 0
-    printf("\"%s\"\n", ns->GetName( 1));
-    printf("\"%s\"\n", ns->GetName( 3));
-    printf("\"%s\"\n", ns->GetName( 8));
-    printf("\"%s\"\n", ns->GetName( 9));
-    printf("\"%s\"\n", ns->GetName(20));
-    printf("\"%s\"\n", ns->GetName(25));
-    printf("\"%s\"\n", ns->GetName(26));
-#endif
     delete ns;
 
     // Test multiple conversion specifiers
@@ -117,7 +111,7 @@ int main()
         P[i] = i*5;
     for (i = 0; i < 4; i++)
         U[i] = i*i;
-    ns = new Namescheme("#foo_%03dx%03d#$P[n]#$U[n%4]", P, U);
+    ns = new Namescheme("@foo_%03dx%03d@#P[n]@#U[n%4]", P, U);
     if (strcmp(ns->GetName(17), "foo_085x001") != 0)
         return 1;
     if (strcmp(ns->GetName(18), "foo_090x004") != 0)
@@ -128,6 +122,20 @@ int main()
         return 1;
     if (strcmp(ns->GetName(21), "foo_105x001") != 0)
         return 1;
+    delete ns;
+
+    // Test array-based references to char* valued array
+    ns = new Namescheme("Hfoo_%sH$N[n%3]", N);
+    if (strcmp(ns->GetName(17), "foo_blue") != 0) return 1;
+    if (strcmp(ns->GetName(6), "foo_red") != 0) return 1;
+    delete ns;
+
+    // Test McCandless' example
+    ns = new Namescheme("@%s%s@(n/4)?'myfilename.':'':@(n/4)?$/arr_dir/FileNumbers[n/4-1]:'':",FileNumbers);
+    if (strcmp(ns->GetName(0), "") != 0) return 1;
+    if (strcmp(ns->GetName(1), "") != 0) return 1;
+    if (strcmp(ns->GetName(4), "myfilename.1") != 0) return 1;
+    if (strcmp(ns->GetName(15), "myfilename.3") != 0) return 1;
     delete ns;
 
     return 0;

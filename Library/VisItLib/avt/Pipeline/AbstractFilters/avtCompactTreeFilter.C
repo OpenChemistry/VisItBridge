@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -65,6 +65,12 @@
 
 #include <DebugStream.h>
 
+#include <string>
+#include <vector>
+
+using std::string;
+using std::vector;
+
 
 // ****************************************************************************
 //  Constructor: avtCompactTreeFilter
@@ -80,6 +86,9 @@
 //    Hank Childs, Thu Sep 22 17:02:47 PDT 2005
 //    Initialize tolerance.
 //
+//    Dave Pugmire, Tue Aug 24 11:32:12 EDT 2010
+//    Add compact domain options.
+//
 // ****************************************************************************
 
 avtCompactTreeFilter::avtCompactTreeFilter()
@@ -88,6 +97,8 @@ avtCompactTreeFilter::avtCompactTreeFilter()
     createCleanPolyData = false;
     tolerance = 0;
     parallelMerge = false;
+    compactDomainMode = Never;
+    compactDomainThreshold = 0;
 }
 
 // ****************************************************************************
@@ -150,6 +161,9 @@ avtCompactTreeFilter::avtCompactTreeFilter()
 //    Rename "dynamic" to "streaming", since we really care about whether we
 //    are streaming, not about whether we are doing dynamic load balancing.
 //    And the two are no longer synonymous.
+//
+//    Dave Pugmire, Tue Aug 24 11:32:12 EDT 2010
+//    Add compact domain options.
 //
 // ****************************************************************************
 
@@ -242,6 +256,7 @@ avtCompactTreeFilter::Execute(void)
     {
         vtkAppendFilter *filter;
         vtkAppendPolyData *polyFilter;
+        bool compactAllGrids;
     } *pmap;
     
     pmap = new struct map;
@@ -260,6 +275,13 @@ avtCompactTreeFilter::Execute(void)
         }
         pmap->filter = vtkAppendFilter::New();
         pmap->polyFilter = vtkAppendPolyData::New();
+        
+        pmap->compactAllGrids = false;
+#if PARALLEL
+        if (compactDomainMode == Always || (compactDomainMode == Auto && nleaves >= compactDomainThreshold))
+            pmap->compactAllGrids = true;
+#endif
+        
         inTree->Traverse(CAddInputToAppendFilter, pmap, dummy);
         vtkDataSet *ds; 
         int nPolyInput = pmap->polyFilter->GetTotalNumberOfInputConnections();
@@ -304,8 +326,7 @@ avtCompactTreeFilter::Execute(void)
             {
                 vtkCleanPolyData *cpd = vtkCleanPolyData::New();
                 cpd->SetInputData((vtkPolyData *) ds);
-                cpd->SetInputConnection(pmap->polyFilter->GetOutputPort());
-				cpd->SetToleranceIsAbsolute(1);
+                cpd->SetToleranceIsAbsolute(1);
                 cpd->SetAbsoluteTolerance(tolerance);
                 cpd->Update();
                 outTree = new avtDataTree(cpd->GetOutput(), -1);
@@ -364,6 +385,13 @@ avtCompactTreeFilter::Execute(void)
             polyFilters[i] = vtkAppendPolyData::New();
             pmap->filter = filters[i];
             pmap->polyFilter = polyFilters[i];
+            
+            pmap->compactAllGrids = false;
+#if PARALLEL
+        if (compactDomainMode == Always || (compactDomainMode == Auto && child->GetNChildren() >= compactDomainThreshold))
+            pmap->compactAllGrids = true;
+#endif
+
             child->Traverse(CAddInputToAppendFilter, pmap, dummy);
             if (filters[i]->GetTotalNumberOfInputConnections() > 1)
             {

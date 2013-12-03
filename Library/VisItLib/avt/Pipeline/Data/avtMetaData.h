@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -56,6 +56,8 @@ class     avtMaterial;
 class     avtMixedVariable;
 class     avtSpecies;
 class     avtOriginatingSource;
+class     avtDomainBoundaries;
+class     avtDomainNesting;
 
 // ****************************************************************************
 //  Class: avtMetaData
@@ -115,6 +117,9 @@ class     avtOriginatingSource;
 //    Hank Childs, Tue Jan 27 11:11:30 PST 2009
 //    Added code to get histogram specifications and identifiers.
 //
+//    Eduard Deines / Hank Childs, Thu Aug  5 18:18:39 MDT 2010
+//    Add calls to grab domain nesting and boundary information.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtMetaData
@@ -125,6 +130,7 @@ class PIPELINE_API avtMetaData
 
     avtIntervalTree             *GetDataExtents(const char *var = NULL);
     avtIntervalTree             *GetSpatialExtents(const char *var = NULL);
+    avtIntervalTree             *GetSpatialExtents(int timeSlice, const char *var = NULL);
     bool                         GetHistogram(avtHistogramSpecification *);
     avtIdentifierSelection      *GetIdentifiers(std::vector<avtDataSelection *>);
 
@@ -135,11 +141,14 @@ class PIPELINE_API avtMetaData
                                              int = -1,
                                              bool = false);
 
+    avtDomainNesting            *GetDomainNesting(void);
+    avtDomainBoundaries         *GetDomainBoundaries(void);
+
   protected:
     avtOriginatingSource        *source;
 
     avtContract_p   GetContract(void);
-    avtContract_p   GetContract(int);
+    avtContract_p   GetContract(int domain, int timeSlice = -1);
 
   private:
     // These methods are defined to prevent accidental use of bitwise copy

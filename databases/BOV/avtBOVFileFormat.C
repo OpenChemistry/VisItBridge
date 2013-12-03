@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -49,6 +49,7 @@
 #include <snprintf.h>
 
 #include <vtkUnsignedCharArray.h>
+#include <vtkFieldData.h>
 #include <vtkFloatArray.h>
 #include <vtkDoubleArray.h>
 #include <vtkIntArray.h>
@@ -71,9 +72,21 @@
 
 #include <DebugStream.h>
 #include <BadDomainException.h>
+#include <ImproperUseException.h>
 #include <InvalidFilesException.h>
 #include <InvalidVariableException.h>
 
+#include <sstream>
+#include <vector>
+
+#ifdef _WIN32
+#define FSEEK _fseeki64
+#else
+#define FSEEK fseek
+#endif
+
+// Cast handle to gzFile.
+#define GZFILE(handle) ((gzFile)handle)
 
 static int FormatLine(char *line);
 
@@ -114,6 +127,9 @@ static bool fillSpace = true;
 //    Hank Childs, Thu Apr 24 13:24:51 PDT 2008
 //    Change initializations of char *'s that have been converted to strings.
 //
+//    Hank Childs, Tue Nov 30 11:41:44 PST 2010
+//    Initialize members for whether or not the time or cycle is accurate.
+//
 // ****************************************************************************
 
 avtBOVFileFormat::avtBOVFileFormat(const char *fname)
@@ -150,6 +166,9 @@ avtBOVFileFormat::avtBOVFileFormat(const char *fname)
     //
     file_pattern = "";
     cycle = 0;
+    cycleIsAccurate = false;
+    dtime = 0.;
+    timeIsAccurate = false;
     full_size[0] = 0;
     full_size[1] = 0;
     full_size[2] = 0;
@@ -211,6 +230,11 @@ avtBOVFileFormat::~avtBOVFileFormat()
 //  Programmer: Hank Childs
 //  Creation:   March 4, 2005
 //
+//  Modifications:
+//
+//    Hank Childs, Tue Nov 30 11:41:44 PST 2010
+//    Only overset the time if we know if it is accurate.
+//
 // ****************************************************************************
 
 void
@@ -218,7 +242,11 @@ avtBOVFileFormat::ActivateTimestep(void)
 {
     ReadTOC();
     if (metadata != NULL)
-        metadata->SetCycle(timestep, cycle);
+        if (cycleIsAccurate)
+            metadata->SetCycle(timestep, cycle);
+    if (metadata != NULL)
+        if (timeIsAccurate)
+            metadata->SetTime(timestep, dtime);
 }
 
 
@@ -241,6 +269,13 @@ avtBOVFileFormat::ActivateTimestep(void)
 //
 //    Jeremy Meredith, Thu Jul 24 14:55:41 EDT 2008
 //    Change most int's and long's to long longs to support >4GB files.
+//
+//    Cyrus Harrison, Mon Aug 23 13:44:07 PDT 2010
+//    Make sure coords on the edges of domains actually abut (avoid
+//    fp errors setting them explicty).
+//
+//    Hank Childs, Fri Nov 19 09:55:22 PST 2010
+//    Add a base_index so index select will work.
 //
 // ****************************************************************************
 
@@ -317,6 +352,7 @@ avtBOVFileFormat::GetMesh(int dom, const char *meshname)
 
     for (i = 0 ; i < dx ; i++)
         x->SetTuple1(i, x_start + i * (x_stop-x_start) / (dx-1));
+    x->SetTuple1(dx-1, x_stop);
 
     vtkFloatArray *y = vtkFloatArray::New();
     long long dy = bricklet_size[1];
@@ -338,6 +374,7 @@ avtBOVFileFormat::GetMesh(int dom, const char *meshname)
     y->SetNumberOfTuples(dy);
     for (i = 0 ; i < dy ; i++)
         y->SetTuple1(i, y_start + i * (y_stop-y_start) / (dy-1));
+    y->SetTuple1(dy-1, y_stop);
 
     vtkFloatArray *z = vtkFloatArray::New();
     long long dz = bricklet_size[2];
@@ -366,6 +403,7 @@ avtBOVFileFormat::GetMesh(int dom, const char *meshname)
         z->SetNumberOfTuples(dz);
         for (i = 0 ; i < dz ; i++)
             z->SetTuple1(i, z_start + i * (z_stop-z_start) / (dz-1));
+        z->SetTuple1(dz-1, z_stop);
     }
 
     int dims[3] = { dx, dy, dz };
@@ -376,6 +414,15 @@ avtBOVFileFormat::GetMesh(int dom, const char *meshname)
     x->Delete();
     y->Delete();
     z->Delete();
+
+    vtkIntArray *arr = vtkIntArray::New();
+    arr->SetNumberOfTuples(3);
+    arr->SetValue(0, x_off*bricklet_size[0]);
+    arr->SetValue(1, y_off*bricklet_size[1]);
+    arr->SetValue(2, z_off*bricklet_size[2]);
+    arr->SetName("base_index");
+    rv->GetFieldData()->AddArray(arr);
+    arr->Delete();
 
     return rv;
 }
@@ -411,6 +458,10 @@ avtBOVFileFormat::GetMesh(int dom, const char *meshname)
 //   Jeremy Meredith, Thu Jul 24 14:55:41 EDT 2008
 //   Change most int's and long's to long longs to support >4GB files.
 //
+//   Kathleen Biagas, Fri Jul 27 13:54:27 MST 2012
+//   Use FSEEK macro to get correct fseek version on Windows that will accept
+//   large offsets.
+//
 // ****************************************************************************
 
 template<class T>
@@ -425,7 +476,7 @@ ReadBricklet(FILE *fp, T *dest, const long long *full_size,
     long long zPage = start[2]*full_size[0]*full_size[1];
     long long seekOffset = zPage * sizeof(T) + offset;
     if(seekOffset > 0)
-        fseek(fp, seekOffset * ncomp, SEEK_SET);
+        FSEEK(fp, seekOffset * ncomp, SEEK_SET);
 
     // Now start reading the data
     long long dx = end[0] - start[0];
@@ -437,7 +488,7 @@ ReadBricklet(FILE *fp, T *dest, const long long *full_size,
          long long corner = start[1]*full_size[0] + start[0];
          seekOffset = (corner + extraseek) * sizeof(T);
          if(seekOffset > 0)
-             fseek(fp, seekOffset * ncomp, SEEK_CUR);
+             FSEEK(fp, seekOffset * ncomp, SEEK_CUR);
          extraseek = 0;
 
          for(long long y = start[1]; y < end[1]; ++y)
@@ -453,7 +504,7 @@ ReadBricklet(FILE *fp, T *dest, const long long *full_size,
                  long long left = start[0];
                  seekOffset = (right + left) * sizeof(T);
                  if(seekOffset > 0)
-                     fseek(fp, seekOffset * ncomp, SEEK_CUR);
+                     FSEEK(fp, seekOffset * ncomp, SEEK_CUR);
              }
          }
 
@@ -667,6 +718,10 @@ ReArrangeTuple2ToTuple3(T *start, vtkIdType nTuples)
 //    Brad Whitlock, Wed Apr  8 09:40:42 PDT 2009
 //    Added short int support.
 //
+//    Kathleen Biagas, Fri Jul 27 13:54:27 MST 2012
+//    Use FSEEK macro to get correct fseek version on Windows that will accept
+//    large offsets.
+//
 // ****************************************************************************
 
 void
@@ -703,10 +758,10 @@ avtBOVFileFormat::ReadWholeAndExtractBrick(void *dest, bool gzipped,
     {
         // Read past the specified offset.
         if(byteOffset > 0)
-            gzseek((gzFile)gz_handle, byteOffset, SEEK_SET);
+            gzseek(GZFILE(gz_handle), byteOffset, SEEK_SET);
 
         // Read the whole dataset
-        gzread((gzFile)gz_handle, whole_buff, whole_nelem * unit_size);
+        gzread(GZFILE(gz_handle), whole_buff, whole_nelem * unit_size);
     }
     else
     {
@@ -714,7 +769,7 @@ avtBOVFileFormat::ReadWholeAndExtractBrick(void *dest, bool gzipped,
 
         // Read past the specified offset.
         if(byteOffset > 0)
-            fseek(fp, byteOffset, SEEK_SET);
+            FSEEK(fp, byteOffset, SEEK_SET);
 
         size_t nread = fread(whole_buff, unit_size, whole_nelem, fp);
 
@@ -812,6 +867,9 @@ avtBOVFileFormat::ReadWholeAndExtractBrick(void *dest, bool gzipped,
 //    Brad Whitlock, Wed Apr  8 09:42:24 PDT 2009
 //    I added short int support.
 //
+//    Kathleen Biagas, Fri Jul 27 13:54:27 MST 2012
+//    Use FSEEK macro to get correct fseek version on Windows that will accept
+//    large offsets.
 // ****************************************************************************
 
 vtkDataArray *
@@ -1046,9 +1104,9 @@ avtBOVFileFormat::GetVar(int dom, const char *var)
         {
             // Read past the specified offset.
             if(byteOffset > 0)
-                gzseek((gzFile)gz_handle, byteOffset, SEEK_SET);
+                gzseek(GZFILE(gz_handle), byteOffset, SEEK_SET);
 
-            gzread((gzFile)gz_handle, rv->GetVoidPointer(0),
+            gzread(GZFILE(gz_handle), rv->GetVoidPointer(0),
                    nvals * dataNumComponents * unit_size);
         }
         else
@@ -1057,7 +1115,7 @@ avtBOVFileFormat::GetVar(int dom, const char *var)
             if(byteOffset > 0)
             {
                 debug4 << mName << "Seeking past " << byteOffset << " bytes" << endl;
-                fseek(file_handle, byteOffset, SEEK_SET);
+                FSEEK(file_handle, byteOffset, SEEK_SET);
             }
             
             size_t nread = fread(rv->GetVoidPointer(0), unit_size,
@@ -1192,7 +1250,7 @@ avtBOVFileFormat::GetVar(int dom, const char *var)
     // Close the file descriptors.
     //
     if (gzipped)
-        gzclose((gzFile)gz_handle);
+        gzclose(GZFILE(gz_handle));
     else
         fclose(file_handle);
 
@@ -1370,6 +1428,12 @@ avtBOVFileFormat::GetAuxiliaryData(const char *var, int domain,
 //    I made it use Nek domain boundaries for nodal data since this can
 //    dramatically cut memory usage for the domain boundaries structure.
 //
+//    Hank Childs, Sat Apr 24 18:21:42 PDT 2010
+//    Add proper support for time.
+//
+//    Hank Childs, Tue Nov 30 11:41:44 PST 2010
+//    Only overset the time if we know if it is accurate.
+//
 // ****************************************************************************
 
 void
@@ -1457,7 +1521,7 @@ avtBOVFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
 
     if (!avtDatabase::OnlyServeUpMetaData() && nbricks > 1)
     {
-        unsigned int size, rss;
+        unsigned long size, rss;
         GetMemorySize(size, rss);
         debug5 << "Memory size before creating domain boundaries object: "
                << size << ", rss=" << rss << endl;
@@ -1550,7 +1614,10 @@ avtBOVFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
                << size << ", rss=" << rss << endl;
     }
 
-    md->SetCycle(timestep, cycle);
+    if (cycleIsAccurate)
+        md->SetCycle(timestep, cycle);
+    if (timeIsAccurate)
+        md->SetTime(timestep, dtime);
 }
 
 
@@ -1594,7 +1661,43 @@ avtBOVFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
 //    Changed "eof" test to "good" test since eof alone might hang.
 //    Added a check in strict mode to make sure the first 100 lines are ASCII.
 //
+//    Hank Childs, Sat Apr 24 18:21:42 PDT 2010
+//    Add proper support for time.
+//
+//    Hank Childs, Tue Nov 30 11:41:44 PST 2010
+//    Add members for whether or not the time or cycle is accurate.
+//
+//    Gunther H. Weber, Thu Aug 18 18:13:14 PDT 2011
+//    Added support for reading NumPy files.
+//
+//    Gunther H. Weber, Tue Aug 23 10:47:35 PDT 2011
+//    Replaced dynamic headerLength array with fixed maxHeaderLength array and
+//    added check whether header can be read.
+//
+//    Gunther H. Weber, Wed Aug 31 10:19:21 PDT 2011
+//    Yet another fix for compiler issue. Since headerLen is unsigned short,
+//    reserve maximum possible length as buffer and skip test.
+//
+//    Kathleen Biagas, Fri Jul 27 13:54:27 MST 2012
+//    Added a conversion routine to read the numerical values from the input
+//    string, to get better conversion to long long.
+//
+//    Hank Childs, Mon Dec 10 16:06:52 PST 2012
+//    Add support for byte offsets longer than MAX_INT.
+//
+//    Brad Whitlock, Fri Apr 12 15:33:46 PDT 2013
+//    Fix cast on big endian machines.
+//
 // ****************************************************************************
+
+template <class T>
+void
+Convert(char *s, T &val)
+{
+    std::istringstream ss(s);
+    if ((ss >> val).fail())
+        EXCEPTION0(ImproperUseException);
+}
 
 void
 avtBOVFileFormat::ReadTOC(void)
@@ -1617,190 +1720,497 @@ avtBOVFileFormat::ReadTOC(void)
 
         int linecount = 0;
         char buff[32768]; // Is this big enough?
-        while (ifile.good())
+
+        char id[6];
+        ifile.read(id, 6);
+        if (strncmp(id, "\x93NUMPY", 6) == 0)
         {
-            buff[0] = '\0';
-            char *line = buff;
-            ifile.getline(line, 32768);
-            if (GetStrictMode() && linecount < 100)
+            debug1 << "BOV file is in NumPy format." << std::endl;
+            char version[2];
+            ifile.read(version, 2);
+            if (version[0] != 1 && version[1] != 0)
             {
-                linecount++;
-                if (!StringHelpers::IsPureASCII(line, 327678))
+                debug1 << "Unsupported NumPy file format version." << std::endl;
+                bool error=true;
+                BroadcastBool(error);
+                EXCEPTION1(InvalidFilesException, fname);
+            }
+            unsigned short headerLength;
+            ifile.read(reinterpret_cast<char*>(&headerLength), 2);
+            if (ifile.bad())
+            {
+                debug1 << "Cannot reader head length." << std::endl;
+                bool error=true;
+                BroadcastBool(error);
+            }
+#ifdef WORDS_BIGENDIAN
+            unsigned short tmp;
+            int16_Reverse_Endian(headerLength, reinterpret_cast<unsigned char*>(&tmp));
+            headerLength = tmp;
+#endif
+            // headerLength is "unsigned short" and thus always less than or equal 65535
+            char header[65535];
+            file_pattern = filenames[0];    // Filename is the same
+            byteOffset = 10 + headerLength;  // Skip header when reading data
+            ifile.read(header, headerLength);
+            if (header[0] != '{')
+            {
+                debug1 << "Missing '{' in NumPy file." << std::endl;
+                bool error=true;
+                BroadcastBool(error);
+                EXCEPTION1(InvalidFilesException, fname);
+            }
+            char *headerEnd = strchr(header, '}');
+            if (!headerEnd)
+            {
+                debug1 << "Missing '}' in NumPy file." << std::endl;
+                bool error=true;
+                BroadcastBool(error);
+                EXCEPTION1(InvalidFilesException, fname);
+            }
+            --headerEnd;
+            if (*headerEnd == ' ') --headerEnd;
+            if (*headerEnd == ',')
+            {
+                *headerEnd = 0;
+            }
+            else
+            {
+                ++headerEnd;
+                *headerEnd = 0;
+            }
+
+            char *currPos = header + 1;
+            bool readDescr = false;
+            bool readShape = false;
+            bool readFortranOrder = false;
+            bool fortranOrder = false;
+
+            while (*currPos)
+            {
+                if (*currPos == ' ') ++currPos; // Skip one space if there
+                if (*currPos != '\'')
                 {
+                    debug1 << "Missing ''' in NumPy file." << std::endl;
+                    bool error=true;
+                    BroadcastBool(error);
+                    EXCEPTION1(InvalidFilesException, fname);
+                }
+                ++currPos;
+                char *key = currPos;
+                char *keyEnd = strchr(currPos, '\'');
+                if (!keyEnd)
+                {
+                    debug1 << "Missing ''' in NumPy file." << std::endl;
+                    bool error=true;
+                    BroadcastBool(error);
+                    EXCEPTION1(InvalidFilesException, fname);
+                }
+                *keyEnd = 0;
+                currPos = keyEnd + 1;
+                if (*currPos != ':')
+                {
+                    debug1 << "Missing ':' in NumPy file." << std::endl;
+                    bool error=true;
+                    BroadcastBool(error);
+                    EXCEPTION1(InvalidFilesException, fname);
+                }
+                ++currPos;
+                if (*currPos == ' ') ++currPos;
+                if (strcmp(key, "descr") == 0)
+                {
+                    if (*currPos != '\'')
+                    {
+                        debug1 << "Missing ''' in NumPy file." << std::endl;
+                        bool error=true;
+                        BroadcastBool(error);
+                        EXCEPTION1(InvalidFilesException, fname);
+                    }
+                    ++currPos;
+                    bool endianSpecified = true;
+                    if (*currPos == '<')
+                        littleEndian = true;
+                    else if (*currPos == '>')
+                        littleEndian = false;
+                    else if (*currPos == '|')
+                        endianSpecified = false;
+                    else
+                    {
+                        debug1 << "Unregognized NumPy data type: " << currPos << std::endl;
+                        bool error=true;
+                        BroadcastBool(error);
+                        EXCEPTION1(InvalidFilesException, fname);
+                    }
+                    ++currPos;
+
+                    if (strncmp(currPos, "f8", 2) == 0 && endianSpecified)
+                    {
+                        dataFormat = DoubleData;
+                        currPos += 2;
+                    }
+                    else if (strncmp(currPos, "f4", 2) == 0 && endianSpecified)
+                    {
+                        dataFormat = FloatData;
+                        currPos += 2;
+                    }
+                    else if (strncmp(currPos, "i4", 2) == 0 && endianSpecified)
+                    {
+                        dataFormat = IntegerData;
+                        currPos += 2;
+                    }
+                    else if (strncmp(currPos, "i2", 2) == 0 && endianSpecified)
+                    {
+                        dataFormat = ShortData;
+                        currPos += 2;
+                    }
+                    else if (strncmp(currPos, "i1", 2) == 0)
+                    {
+                        dataFormat = ByteData;
+                        currPos += 2;
+                    }
+                    else
+                    {
+                        debug1 << "Unregognized NumPy data type: " << currPos << std::endl;
+                        bool error=true;
+                        BroadcastBool(error);
+                        EXCEPTION1(InvalidFilesException, fname);
+                    }
+                    if (*currPos != '\'')
+                    {
+                        debug1 << "Missing ''' in NumPy file." << std::endl;
+                        bool error=true;
+                        BroadcastBool(error);
+                        EXCEPTION1(InvalidFilesException, fname);
+                    }
+                    ++currPos;
+                    if (*currPos)
+                    {
+                        if (*currPos != ',')
+                        {
+                            debug1 << "Missing ',' in NumPy file." << std::endl;
+                            bool error=true;
+                            BroadcastBool(error);
+                            EXCEPTION1(InvalidFilesException, fname);
+                        }
+                        ++currPos;
+                    }
+                    readDescr = true;
+                }
+                else if (strcmp(key, "fortran_order") == 0)
+                {
+                    if (strncmp(currPos, "True", 4) == 0)
+                    {
+                        fortranOrder = true;
+                        currPos += 4;
+                    }
+                    else if (strncmp(currPos, "False", 5) == 0)
+                    {
+                        fortranOrder = false;
+                        currPos += 5;
+                    }
+                    else
+                    {
+                        debug1 << "Expected True or False" << std::endl;
+                        bool error=true;
+                        BroadcastBool(error);
+                        EXCEPTION1(InvalidFilesException, fname);
+                    }
+                    if (*currPos)
+                    {
+                        if (*currPos != ',')
+                        {
+                            debug1 << "Missing ',' in NumPy file." << std::endl;
+                            bool error=true;
+                            BroadcastBool(error);
+                            EXCEPTION1(InvalidFilesException, fname);
+                        }
+                        ++currPos;
+                    }
+                    readFortranOrder = true;
+                }
+                else if (strcmp(key, "shape") == 0)
+                {
+                    if (*currPos != '(')
+                    {
+                        debug1 << "Missing '(' in NumPy file." << std::endl;
+                        bool error=true;
+                        BroadcastBool(error);
+                        EXCEPTION1(InvalidFilesException, fname);
+                    }
+                    ++currPos;
+                    char *ptr = strchr(currPos, ',');
+                    if (!ptr)
+                    {
+                        debug1 << "Missing ',' in NumPy file." << std::endl;
+                        bool error=true;
+                        BroadcastBool(error);
+                        EXCEPTION1(InvalidFilesException, fname);
+                    }
+                    *ptr = 0;
+                    Convert(currPos, full_size[0]);
+                    currPos = ptr + 1;
+                    ptr = strchr(currPos, ',');
+                    bool is2D = false;
+                    if (!ptr)
+                    {
+                        is2D = true;
+                        ptr = strchr(currPos, ')');
+                        if (!ptr)
+                        {
+                            debug1 << "Missing ','  or ')' in NumPy file." << std::endl;
+                            bool error=true;
+                            BroadcastBool(error);
+                            EXCEPTION1(InvalidFilesException, fname);
+                        }
+                    }
+                    *ptr = 0;
+                    Convert(currPos, full_size[1]);
+                    currPos = ptr + 1;
+                    if (!is2D)
+                    {
+                        ptr = strchr(currPos, ')');
+                        if (!ptr)
+                        {
+                            debug1 << "Missing ')' in NumPy file." << std::endl;
+                            bool error=true;
+                            BroadcastBool(error);
+                            EXCEPTION1(InvalidFilesException, fname);
+                        }
+                        *ptr = 0;
+                        Convert(currPos, full_size[2]);
+                        currPos = ptr + 1;
+                    }
+                    else
+                    {
+                        full_size[2] = 1;
+                    }
+                    if (*currPos)
+                    {
+                        if (*currPos != ',')
+                        {
+                            debug1 << "Missing ',' in NumPy file." << std::endl;
+                            bool error=true;
+                            BroadcastBool(error);
+                            EXCEPTION1(InvalidFilesException, fname);
+                        }
+                        ++currPos;
+                    }
+                    readShape = true;
+                }
+                else
+                {
+                    debug1 << "Unrecognized key " << key << std::endl;
                     bool error=true;
                     BroadcastBool(error);
                     EXCEPTION1(InvalidFilesException, fname);
                 }
             }
 
-            int nparts = FormatLine(line);
-            if (nparts <= 0)
-                continue;
-            if (line[0] == '#')
-                continue;
-            else if (strcmp(line, "TIME:") == 0)
+            if (!fortranOrder)
             {
-                line += strlen("TIME:") + 1;
-                cycle = atoi(line);
-            }
-            else if (strcmp(line, "DATA_FILE:") == 0)
-            {
-                line += strlen("DATA_FILE:") + 1;
-                int len = strlen(line);
-                file_pattern = line;
-            }
-            else if (strcmp(line, "DATA_SIZE:") == 0)
-            {
-                line += strlen("DATA_SIZE:") + 1;
-                full_size[0] = atoi(line);
-                line += strlen(line)+1;
-                full_size[1] = atoi(line);
-                line += strlen(line)+1;
-                full_size[2] = atoi(line);
-            }
-            else if (strcmp(line, "DATA_FORMAT:") == 0)
-            {
-                line += strlen("DATA_FORMAT:") + 1;
-                if (strncmp(line, "FLOAT", strlen("FLOAT")) == 0 ||
-                    strncmp(line, "REAL", strlen("REAL")) == 0)
-                    dataFormat = FloatData;
-                else if (strncmp(line, "BYTE", strlen("BYTE")) == 0 ||
-                         strncmp(line, "CHAR", strlen("CHAR")) == 0)
-                    dataFormat = ByteData;
-                else if (strncmp(line, "DOUBLE", strlen("DOUBLE")) == 0)
-                    dataFormat = DoubleData;
-                else if (strncmp(line, "INT", strlen("INT")) == 0)
-                    dataFormat = IntegerData;
-                else if (strncmp(line, "SHORT", strlen("SHORT")) == 0)
-                    dataFormat = ShortData;
+                // Instead of reordering data, reorder axes
+                if (full_size[2] == 1)
+                    std::swap(full_size[0], full_size[1]);
                 else
-                    debug1 << "Unknown keyword for BOV byte data: " 
-                           << line << endl;
+                    std::swap(full_size[0], full_size[2]);
             }
-            else if (strcmp(line, "DATA_COMPONENTS:") == 0)
+        }
+        else
+        {
+            ifile.seekg(0, ios::beg);
+
+            while (ifile.good())
             {
-                line += strlen("DATA_COMPONENTS:") + 1;
-                if (strncmp(line, "COMPLEX", strlen("COMPLEX")) == 0)
-                    dataNumComponents = 2;
-                else
-                    dataNumComponents = atoi(line);
-            }
-            else if (strcmp(line, "DATA_BRICKLETS:") == 0)
-            {
-                line += strlen("DATA_BRICKLETS:") + 1;
-                bricklet_size[0] = atoi(line);
-                line += strlen(line)+1;
-                bricklet_size[1] = atoi(line);
-                line += strlen(line)+1;
-                bricklet_size[2] = atoi(line);
-            }
-            else if (strcmp(line, "VARIABLE:") == 0)
-            {
-                line += strlen("VARIABLE:") + 1;
-                int len = strlen(line);
-                varname = line;
-            }
-            else if (strcmp(line, "HAS_BOUNDARY:") == 0)
-            {
-                line += strlen("HAS_BOUNDARY:") + 1;
-                if (strcmp(line, "true") == 0)
+                buff[0] = '\0';
+                char *line = buff;
+                ifile.getline(line, 32768);
+                if (GetStrictMode() && linecount < 100)
                 {
-                    hasBoundaries = true;
+                    linecount++;
+                    if (!StringHelpers::IsPureASCII(line, 327678))
+                    {
+                        bool error=true;
+                        BroadcastBool(error);
+                        EXCEPTION1(InvalidFilesException, fname);
+                    }
                 }
-            }
-            else if (strcmp(line, "DATA_ENDIAN:") == 0)
-            {
-                line += strlen("DATA_ENDIAN:") + 1;
-                if (strcmp(line, "LITTLE") == 0)
-                    littleEndian = true;
-                else
-                    littleEndian = false;
-                declaredEndianess = true;
-            }
-            else if (strcmp(line, "VARIABLE_PALETTE_MIN:") == 0)
-            {
-                line += strlen("VARIABLE_PALETTE_MIN:") + 1;
-                min = atof(line);
-                byteToFloatTransform = true;
-            }
-            else if (strcmp(line, "VARIABLE_PALETTE_MAX:") == 0)
-            {
-                line += strlen("VARIABLE_PALETTE_MAX:") + 1;
-                max = atof(line);
-                byteToFloatTransform = true;
-            }
-            else if (strcmp(line, "VARIABLE_MIN:") == 0)
-            {
-                line += strlen("VARIABLE_MIN:") + 1;
-                min = atof(line);
-                byteToFloatTransform = true;
-            }
-            else if (strcmp(line, "VARIABLE_MAX:") == 0)
-            {
-                line += strlen("VARIABLE_MAX:") + 1;
-                max = atof(line);
-                byteToFloatTransform = true;
-            }
-            else if (strcmp(line, "BRICK_ORIGIN:") == 0)
-            {
-                line += strlen("BRICK_ORIGIN:") + 1;
-                origin[0] = atof(line);
-                line += strlen(line)+1;
-                origin[1] = atof(line);
-                line += strlen(line)+1;
-                origin[2] = atof(line);
-            }
-            else if (strcmp(line, "BRICK_SIZE:") == 0)
-            {
-                line += strlen("BRICK_SIZE:") + 1;
-                dimensions[0] = atof(line);
-                line += strlen(line)+1;
-                dimensions[1] = atof(line);
-                line += strlen(line)+1;
-                dimensions[2] = atof(line);
-            }
-            else if (strcmp(line, "VARIABLE_BRICK_MIN:") == 0)
-            {
-                line += strlen("VARIABLE_BRICK_MIN:") + 1;
-                int nbricks = nparts-1;
-                var_brick_min.clear();
-                var_brick_min.resize(nbricks);
-                for (int i = 0 ; i < nbricks ; i++)
+
+                int nparts = FormatLine(line);
+                if (nparts <= 0)
+                    continue;
+                if (line[0] == '#')
+                    continue;
+                else if (strcmp(line, "TIME:") == 0)
                 {
-                    var_brick_min[i] = atof(line);
-                    if (i != nbricks-1)
-                        line += strlen(line) + 1;
+                    line += strlen("TIME:") + 1;
+                    Convert(line, dtime);
+                    timeIsAccurate = true;
                 }
-            }
-            else if (strcmp(line, "VARIABLE_BRICK_MAX:") == 0)
-            {
-                line += strlen("VARIABLE_BRICK_MAX:") + 1;
-                int nbricks = nparts-1;
-                var_brick_max.clear();
-                var_brick_max.resize(nbricks);
-                for (int i = 0 ; i < nbricks ; i++)
+                else if (strcmp(line, "CYCLE:") == 0)
                 {
-                    var_brick_max[i] = atof(line);
-                    if (i != nbricks-1)
-                        line += strlen(line) + 1;
+                    line += strlen("CYCLE:") + 1;
+                    Convert(line, cycle);
+                    cycleIsAccurate = true;
                 }
-            }
-            else if (strcmp(line, "CENTERING:") == 0)
-            {
-                line += strlen("CENTERING:") + 1;
-                if (strstr(line, "zon") != NULL)
-                    nodalCentering = false;
-            }
-            else if (strcmp(line, "BYTE_OFFSET:") == 0)
-            {
-                line += strlen("BYTE_OFFSET:") + 1;
-                byteOffset = atoi(line);
-                byteOffset = byteOffset < 0 ? 0 : byteOffset;
-            }
-            else if (strcmp(line, "DIVIDE_BRICK:") == 0)
-            {
-                line += strlen("DIVIDE_BRICK:") + 1;
-                divideBrick = (strcmp(line, "true") == 0);
+                else if (strcmp(line, "DATA_FILE:") == 0)
+                {
+                    line += strlen("DATA_FILE:") + 1;
+                    int len = strlen(line);
+                    file_pattern = line;
+                }
+                else if (strcmp(line, "DATA_SIZE:") == 0)
+                {
+                    line += strlen("DATA_SIZE:") + 1;
+                    Convert(line, full_size[0]);
+                    line += strlen(line)+1;
+                    Convert(line, full_size[1]);
+                    line += strlen(line)+1;
+                    Convert(line, full_size[2]);
+                }
+                else if (strcmp(line, "DATA_FORMAT:") == 0)
+                {
+                    line += strlen("DATA_FORMAT:") + 1;
+                    if (strncmp(line, "FLOAT", strlen("FLOAT")) == 0 ||
+                            strncmp(line, "REAL", strlen("REAL")) == 0)
+                        dataFormat = FloatData;
+                    else if (strncmp(line, "BYTE", strlen("BYTE")) == 0 ||
+                            strncmp(line, "CHAR", strlen("CHAR")) == 0)
+                        dataFormat = ByteData;
+                    else if (strncmp(line, "DOUBLE", strlen("DOUBLE")) == 0)
+                        dataFormat = DoubleData;
+                    else if (strncmp(line, "INT", strlen("INT")) == 0)
+                        dataFormat = IntegerData;
+                    else if (strncmp(line, "SHORT", strlen("SHORT")) == 0)
+                        dataFormat = ShortData;
+                    else
+                        debug1 << "Unknown keyword for BOV byte data: " 
+                            << line << endl;
+                }
+                else if (strcmp(line, "DATA_COMPONENTS:") == 0)
+                {
+                    line += strlen("DATA_COMPONENTS:") + 1;
+                    if (strncmp(line, "COMPLEX", strlen("COMPLEX")) == 0)
+                        dataNumComponents = 2;
+                    else
+                        Convert(line, dataNumComponents);
+                }
+                else if (strcmp(line, "DATA_BRICKLETS:") == 0)
+                {
+                    line += strlen("DATA_BRICKLETS:") + 1;
+                    Convert(line, bricklet_size[0]);
+                    line += strlen(line)+1;
+                    Convert(line, bricklet_size[1]);
+                    line += strlen(line)+1;
+                    Convert(line, bricklet_size[2]);
+                }
+                else if (strcmp(line, "VARIABLE:") == 0)
+                {
+                    line += strlen("VARIABLE:") + 1;
+                    int len = strlen(line);
+                    varname = line;
+                }
+                else if (strcmp(line, "HAS_BOUNDARY:") == 0)
+                {
+                    line += strlen("HAS_BOUNDARY:") + 1;
+                    if (strcmp(line, "true") == 0)
+                    {
+                        hasBoundaries = true;
+                    }
+                }
+                else if (strcmp(line, "DATA_ENDIAN:") == 0)
+                {
+                    line += strlen("DATA_ENDIAN:") + 1;
+                    if (strcmp(line, "LITTLE") == 0)
+                        littleEndian = true;
+                    else
+                        littleEndian = false;
+                    declaredEndianess = true;
+                }
+                else if (strcmp(line, "VARIABLE_PALETTE_MIN:") == 0)
+                {
+                    line += strlen("VARIABLE_PALETTE_MIN:") + 1;
+                    Convert(line, min);
+                    byteToFloatTransform = true;
+                }
+                else if (strcmp(line, "VARIABLE_PALETTE_MAX:") == 0)
+                {
+                    line += strlen("VARIABLE_PALETTE_MAX:") + 1;
+                    Convert(line, max);
+                    byteToFloatTransform = true;
+                }
+                else if (strcmp(line, "VARIABLE_MIN:") == 0)
+                {
+                    line += strlen("VARIABLE_MIN:") + 1;
+                    Convert(line, min);
+                    byteToFloatTransform = true;
+                }
+                else if (strcmp(line, "VARIABLE_MAX:") == 0)
+                {
+                    line += strlen("VARIABLE_MAX:") + 1;
+                    Convert(line, max);
+                    byteToFloatTransform = true;
+                }
+                else if (strcmp(line, "BRICK_ORIGIN:") == 0)
+                {
+                    line += strlen("BRICK_ORIGIN:") + 1;
+                    Convert(line, origin[0]);
+                    line += strlen(line)+1;
+                    Convert(line, origin[1]);
+                    line += strlen(line)+1;
+                    Convert(line, origin[2]);
+                }
+                else if (strcmp(line, "BRICK_SIZE:") == 0)
+                {
+                    line += strlen("BRICK_SIZE:") + 1;
+                    Convert(line, dimensions[0]);
+                    line += strlen(line)+1;
+                    Convert(line, dimensions[1]);
+                    line += strlen(line)+1;
+                    Convert(line, dimensions[2]);
+                }
+                else if (strcmp(line, "VARIABLE_BRICK_MIN:") == 0)
+                {
+                    line += strlen("VARIABLE_BRICK_MIN:") + 1;
+                    int nbricks = nparts-1;
+                    var_brick_min.clear();
+                    var_brick_min.resize(nbricks);
+                    for (int i = 0 ; i < nbricks ; i++)
+                    {
+                        Convert(line, var_brick_min[i]);
+                        if (i != nbricks-1)
+                            line += strlen(line) + 1;
+                    }
+                }
+                else if (strcmp(line, "VARIABLE_BRICK_MAX:") == 0)
+                {
+                    line += strlen("VARIABLE_BRICK_MAX:") + 1;
+                    int nbricks = nparts-1;
+                    var_brick_max.clear();
+                    var_brick_max.resize(nbricks);
+                    for (int i = 0 ; i < nbricks ; i++)
+                    {
+                        Convert(line, var_brick_max[i]);
+                        if (i != nbricks-1)
+                            line += strlen(line) + 1;
+                    }
+                }
+                else if (strcmp(line, "CENTERING:") == 0)
+                {
+                    line += strlen("CENTERING:") + 1;
+                    if (strstr(line, "zon") != NULL)
+                        nodalCentering = false;
+                }
+                else if (strcmp(line, "BYTE_OFFSET:") == 0)
+                {
+                    line += strlen("BYTE_OFFSET:") + 1;
+                    Convert(line, byteOffset);
+                    byteOffset = byteOffset < 0 ? 0 : byteOffset;
+                }
+                else if (strcmp(line, "DIVIDE_BRICK:") == 0)
+                {
+                    line += strlen("DIVIDE_BRICK:") + 1;
+                    divideBrick = (strcmp(line, "true") == 0);
+                }
             }
         }
 
@@ -1822,7 +2232,7 @@ avtBOVFileFormat::ReadTOC(void)
         // Note that the "Broadcast<Type>" calls serve to both
         // send from processor 0 and receive on other processors
         // simultaneously.
-        vector<int> vals(16);
+        std::vector<int> vals(17);
         vals[0]  = cycle;
         vals[1]  = full_size[0];
         vals[2]  = full_size[1];
@@ -1837,8 +2247,9 @@ avtBOVFileFormat::ReadTOC(void)
         vals[11] = (int) declaredEndianess;
         vals[12] = (int) byteToFloatTransform;
         vals[13] = (int) nodalCentering;
-        vals[14] = byteOffset;
-        vals[15] = (int) divideBrick;
+        vals[14] = (int) divideBrick;
+        vals[15] = (int) cycleIsAccurate;
+        vals[16] = (int) timeIsAccurate;
         BroadcastIntVector(vals, PAR_Rank());
         cycle             = vals[0];
         full_size[0]      = vals[1];
@@ -1854,8 +2265,10 @@ avtBOVFileFormat::ReadTOC(void)
         declaredEndianess = (bool) vals[11];
         byteToFloatTransform = (bool) vals[12];
         nodalCentering    = (bool) vals[13];
-        byteOffset        = vals[14];
-        divideBrick       = (bool) vals[15];
+        divideBrick       = (bool) vals[14];
+        cycleIsAccurate   = (bool) vals[15];
+        timeIsAccurate    = (bool) vals[16];
+        BroadcastLongLong(byteOffset);
 
         bool hasExtents = false;
         if (var_brick_min.size() > 0)
@@ -1875,7 +2288,7 @@ avtBOVFileFormat::ReadTOC(void)
             BroadcastDoubleVector(var_brick_max, PAR_Rank());
         }
 
-        vector<double> valsd(8);
+        std::vector<double> valsd(9);
         valsd[0] = min;
         valsd[1] = max;
         valsd[2] = origin[0];
@@ -1884,6 +2297,7 @@ avtBOVFileFormat::ReadTOC(void)
         valsd[5] = dimensions[0];
         valsd[6] = dimensions[1];
         valsd[7] = dimensions[2];
+        valsd[8] = dtime;
         BroadcastDoubleVector(valsd, PAR_Rank());
         min           = valsd[0];
         max           = valsd[1];
@@ -1893,9 +2307,9 @@ avtBOVFileFormat::ReadTOC(void)
         dimensions[0] = valsd[5];
         dimensions[1] = valsd[6];
         dimensions[2] = valsd[7];
+        dtime         = valsd[8];
 
         BroadcastString(file_pattern, PAR_Rank());
-debug1 << "Pattern is " << file_pattern << endl;
         BroadcastString(varname, PAR_Rank());
     }
 

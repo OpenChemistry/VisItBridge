@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -40,38 +40,34 @@
 //                         avtIVPVTKTimeVaryingField.h                       //
 // ************************************************************************* //
 
-#ifndef AVT_IVPVTKTimeVaryingFIELD_H
-#define AVT_IVPVTKTimeVaryingFIELD_H
+#ifndef AVT_IVPVTKTIMEVARYINGFIELD_H
+#define AVT_IVPVTKTIMEVARYINGFIELD_H
 
 #include <avtIVPField.h>
-
-#include <vtkVisItInterpolatedVelocityField.h>
-
+#include <avtCellLocator.h>
 #include <ivp_exports.h>
 
+class vtkDataSet;
+class vtkDataArray;
 
 // ****************************************************************************
 //  Class:  avtIVPVTKTimeVaryingField
 //
 //  Purpose:
 //    A wrapper class to allow the use of vtkDataSets as IVP fields for 
-//    streamline integration. Uses vtkVisItInterpolatedVelocityField on top of 
+//    streamline integration. Uses vtkInterpolatedVelocityField on top of 
 //    the supplied vtkDataSet. 
 //
-//  Programmer:  Dave Pugmire (on behalf of Hank Childs)
-//  Creation:    Tue Feb 24 09:24:49 EST 2009
+//  Programmer:  Christoph Garth
+//  Creation:    Sun Feb 24 19:16:09 PST 2008
 //
 //  Modifications:
 //
 //   Dave Pugmire, Tue Mar 10 12:41:11 EDT 2009
-//   Add GetValidTimeRange.
+//   Added GetValidTimeRange function.
 //
 //   Hank Childs, Thu Apr  2 16:40:08 PDT 2009
-//   Use vtkVisItInterpolatedVelocityField.
-//
-//   Hank Childs, Tue Apr  7 08:52:59 CDT 2009
-//   Use a single vtkVisItInterpolatedVelocityField, which saves on
-//   computation.
+//   Use vtkVisItInterpolatedVelocityField, not vtktInterpolatedVelocityField.
 //
 //   Dave Pugmire, Mon Jun 8 2009, 11:44:01 EDT 2009
 //   Added ComputeScalarVariable, HasGhostZones and GetExtents methods.
@@ -82,37 +78,77 @@
 //   Dave Pugmire, Tue Dec 29 14:37:53 EST 2009
 //   Generalize the compute scalar variable.
 //
+//   Christoph Garth, Fri Jul 9, 10:10:22 PDT 2010
+//   Incorporate vtkVisItInterpolatedVelocityField in avtIVPVTKTimeVaryingField.
+//
+//   Christoph Garth, July 13 16:49:12 PDT 2010
+//   Compute scalars by index instead of by name.
+//
+//   Hank Childs, Sun Dec  5 10:18:13 PST 2010
+//   Indicate the velocity is not instantaneous.
+//
+//   Christoph Garth, Tue Mar 6 16:38:00 PDT 2012
+//   Moved ghost data handling into cell locator and changed IsInside()
+//   to only consider non-ghost cells.
+//
 // ****************************************************************************
 
-class IVP_API avtIVPVTKTimeVaryingField: public avtIVPField
+class IVP_API avtIVPVTKTimeVaryingField : public avtIVPField
 {
   public:
-                   avtIVPVTKTimeVaryingField(vtkVisItInterpolatedVelocityField *,
-                                             double t1, double t2);
-                   ~avtIVPVTKTimeVaryingField();
+    avtIVPVTKTimeVaryingField( vtkDataSet* dataset, avtCellLocator* locator,
+                               double t0, double t1 );
+    ~avtIVPVTKTimeVaryingField();
 
     // avtIVPField interface
-    avtVector      operator()(const double& t, const avtVector &pt) const;
-    double         ComputeVorticity(const double& t, const avtVector &pt) const;
-    double         ComputeScalarVariable(const std::string &var,
-                                         const double& t, 
-                                         const avtVector &pt) const;
-    
-    bool           IsInside( const double& t, const avtVector &pt) const;
+    virtual Result    operator()(const double& t,
+                                 const avtVector &pt,
+                                 avtVector &retV) const;
+
+    virtual Result    operator()(const double& t,
+                                 const avtVector &pt,
+                                 const avtVector &vel,
+                                 avtVector &retV) const
+    { return FAIL; }
+
+    virtual avtVector ConvertToCartesian(const avtVector& pt) const;
+    virtual avtVector ConvertToCylindrical(const avtVector& pt) const;
+
+    virtual double    ComputeVorticity(const double& t, const avtVector &pt) const;
+
+    virtual double    ComputeScalarVariable(unsigned char index,
+                                            const double& t,
+                                            const avtVector& x) const;
+
+    virtual void      SetScalarVariable( unsigned char index, 
+                                         const std::string& name );
+
+    Result         IsInside( const double& t, const avtVector &pt ) const;
     unsigned int   GetDimension() const;
-    void           SetNormalized( bool v );
-    virtual bool   GetValidTimeRange(double range[]) const;
-    virtual bool   HasGhostZones() const;
-    virtual void   GetExtents(double *extents) const;
+
+    virtual void   GetExtents( double extents[6] ) const;
+    virtual void   GetTimeRange( double range[2] ) const;
+    virtual bool   VelocityIsInstantaneous(void) { return false; };
+
+    static const char* NextTimePrefix;
 
   protected:
 
-    double                               time1, time2;
-    vtkVisItInterpolatedVelocityField   *iv;
-    bool           normalized;
-    
+    Result         FindCell( const double& t, const avtVector& p ) const;
+
+    vtkDataSet*            ds;
+    avtCellLocator*        loc;
+
+    vtkDataArray*          velData[2];
+    bool                   velCellBased;
+    std::vector<std::string>         sclDataName;
+    vtkDataArray*          sclData[2][256];
+    bool                   sclCellBased[256];
+    double                 t0, t1;
+
+    mutable avtVector               lastPos;
+    mutable vtkIdType               lastCell;
+    mutable avtInterpolationWeights lastWeights;
 };
 
 #endif
-
-

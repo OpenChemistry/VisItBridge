@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -228,7 +228,7 @@ avtUnstructuredPointBoundaries::Generate(vector<int> domainNum,
 
                 for (int k = 0; k < cl->GetNumberOfIds(); ++k)
                 {
-                    vtkIdType cellId = cl->GetId(k);
+                    int cellId = cl->GetId(k);
                     
                     //
                     // We shouldn't ghost 2D cells.
@@ -238,10 +238,10 @@ avtUnstructuredPointBoundaries::Generate(vector<int> domainNum,
                         || type == VTK_VERTEX || type == VTK_QUAD)
                         continue;
                     
-                    cells.insert(static_cast<int>(cellId));
+                    cells.insert(cellId);
                     ds->GetCellPoints(cellId, pl);
                     for (int m = 0; m < pl->GetNumberOfIds(); ++m)
-                        points.insert(static_cast<int>(pl->GetId(m)));
+                        points.insert(pl->GetId(m));
                 }
             }
 

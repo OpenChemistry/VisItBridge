@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -970,6 +970,11 @@ avtMFIXFileFormat::ReadInformation()
 // several unstructured meshes; it has been modified to produce a
 // structured mesh plus VisIt-style subsetting information.
 //
+// Modifications:
+//   Kathleen Biagas, Mon Jun 24 13:45:00 PDT 2013
+//   Added fix from Terry Jordan which allows reading of MFiX version
+//   1.8 files.
+//
 // ******************************************************************
 
 void avtMFIXFileFormat::ReadRestartFile()
@@ -1584,6 +1589,14 @@ void avtMFIXFileFormat::ReadRestartFile()
             this->BkEpsilon = true;
         }
     }
+
+    if (this->VersionNumber >= 1.7999)
+    {
+        for( int i = 0; i < this->MMAX; ++i)
+        {
+            this->SkipBytes(in,512);
+        }
+    }
 }
 
 vtkDataSet *
@@ -1678,7 +1691,7 @@ avtMFIXFileFormat::BuildMesh(int xDomain, int yDomain, int zDomain)
         rgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
         rgrid->GetInformation()->Set(
-            vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0);
+            vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0); 
 
         return rgrid;
     }
@@ -1744,7 +1757,7 @@ avtMFIXFileFormat::BuildMesh(int xDomain, int yDomain, int zDomain)
         rgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
         rgrid->GetInformation()->Set(
-            vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0);
+            vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0); 
 
         return rgrid;
     }
@@ -1820,7 +1833,7 @@ avtMFIXFileFormat::BuildMesh(int xDomain, int yDomain, int zDomain)
         sgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
         sgrid->GetInformation()->Set(
-            vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0);
+            vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0); 
 
         return sgrid;
     } else {
@@ -1905,7 +1918,7 @@ avtMFIXFileFormat::BuildMesh(int xDomain, int yDomain, int zDomain)
         sgrid->GetCellData()->AddArray(ghostCells);
         ghostCells->Delete(); // held alive by ref count
         sgrid->GetInformation()->Set(
-            vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0);
+            vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0); 
 
         return sgrid;
     }

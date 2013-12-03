@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -116,9 +116,12 @@ avtLinesFileFormat::~avtLinesFileFormat()
 //  Creation:   August 22, 2001
 //
 //  Modifications:
-//
 //    Hank Childs, Tue Apr  8 09:10:58 PDT 2003
 //    Make sure we have read in the file.
+//
+//    Brad Whitlock, Wed Jul 14 16:46:09 PDT 2010
+//    Increase the reference count for the polydata so VisIt will know it is
+//    really owned by the file format.
 //
 // ****************************************************************************
 
@@ -130,9 +133,9 @@ avtLinesFileFormat::GetMesh(int dom, const char *name)
         ReadFile();
     }
 
-    if (dom < 0 || dom >= lines.size())
+    if (dom < 0 || dom >= (int)lines.size())
     {
-        EXCEPTION2(BadIndexException, dom, lines.size());
+        EXCEPTION2(BadIndexException, dom, (int)lines.size());
     }
 
     if (strcmp(name, "Lines") != 0)
@@ -140,6 +143,7 @@ avtLinesFileFormat::GetMesh(int dom, const char *name)
         EXCEPTION1(InvalidVariableException, name);
     }
 
+    lines[dom]->Register(NULL);
     return lines[dom];
 }
 
@@ -219,7 +223,7 @@ avtLinesFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
     avtMeshMetaData *mesh = new avtMeshMetaData;
     mesh->name = "Lines";
     mesh->meshType = AVT_UNSTRUCTURED_MESH;
-    mesh->numBlocks = lines.size();
+    mesh->numBlocks = (int)lines.size();
     mesh->blockOrigin = 0;
     mesh->spatialDimension = 3;
     mesh->topologicalDimension = 1;
@@ -311,7 +315,7 @@ avtLinesFileFormat::ReadFile(void)
             {
                 headerName = lineName;
             }
-            cutoff.push_back(xl.size());
+            cutoff.push_back((int)xl.size());
         }
     }  
 
@@ -319,7 +323,7 @@ avtLinesFileFormat::ReadFile(void)
     // Now we can construct the lines as vtkPolyData.
     //
     int start = 0;
-    cutoff.push_back(xl.size());  // Make logic easier.
+    cutoff.push_back((int)xl.size());  // Make logic easier.
     for (int i = 0 ; i < cutoff.size() ; i++)
     {
         if (start == cutoff[i])

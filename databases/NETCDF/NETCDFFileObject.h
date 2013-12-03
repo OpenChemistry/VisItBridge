@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -51,7 +51,7 @@ typedef enum {NO_TYPE, CHARARRAY_TYPE, UCHARARRAY_TYPE, SHORTARRAY_TYPE,
 // Purpose:
 //   Abstract the NETCDF file a little.
 //
-// Notes:
+// Notes:      
 //
 // Programmer: Brad Whitlock
 // Creation:   Fri Aug 12 10:07:08 PDT 2005
@@ -68,7 +68,7 @@ typedef enum {NO_TYPE, CHARARRAY_TYPE, UCHARARRAY_TYPE, SHORTARRAY_TYPE,
 class NETCDFFileObject
 {
 public:
-    NETCDFFileObject(const char *name);
+    NETCDFFileObject(const char *name); 
     virtual ~NETCDFFileObject();
 
     bool IsOpen() const;
@@ -81,6 +81,8 @@ public:
                        int **dims, void **value);
     bool ReadAttribute(const char *varname, const char *attname,
                        TypeEnum *type, int *ndims, int **dims, void **value);
+    bool ReadAttributeAsDouble(const char *varname, const char *attname,
+                               TypeEnum *origType, double **values, int *nvalues);
     // Convenience functions
     bool ReadStringAttribute(const char *varname, const char *attname,
                              std::string &attval);
@@ -90,7 +92,7 @@ public:
     bool ReadVariable(const char *varname, TypeEnum *type, int *ndims,
                       int **dims, void **values);
     bool ReadVariableInto(const char *varname, TypeEnum t, void *arr);
-    bool ReadVariableInto(const char *varname, TypeEnum t,
+    bool ReadVariableInto(const char *varname, TypeEnum t, 
              const int *const starts, const int *const counts, void *arr);
     bool ReadVariableIntoAsFloat(const char *varname, float *arr);
 

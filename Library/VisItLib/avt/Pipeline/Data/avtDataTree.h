@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -52,10 +52,6 @@
 
 #include <avtDataRepresentation.h>
 
-using std::vector;
-using std::string;
-using std::set;
- 
 class vtkDataSet;
 class avtDataTree;
 class avtWebpage;
@@ -124,6 +120,9 @@ typedef void (*TraverseFunc)(avtDataRepresentation &, void *, bool &);
 //    won't insert a second, undesired assignment operator that does have
 //    a const argument (and is used unexpectedly).
 //
+//    Kathleen Bonnell, Thu Feb 17 09:16:46 PST 2011
+//    Added a PruneTree method that accepts a single string.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtDataTree
@@ -131,7 +130,7 @@ class PIPELINE_API avtDataTree
   public:
                              avtDataTree();
                              avtDataTree(vtkDataSet *, int);
-                             avtDataTree(vtkDataSet *, int, string s);
+                             avtDataTree(vtkDataSet *, int, std::string s);
                              avtDataTree(avtDataRepresentation &);
                              avtDataTree(int, vtkDataSet **, int *);
                              avtDataTree(int, vtkDataSet **,std::vector<int>&);
@@ -146,12 +145,14 @@ class PIPELINE_API avtDataTree
     virtual                 ~avtDataTree();
 
     avtDataTree             &operator=(const avtDataTree&);
+    avtDataTree             &operator=(const avtDataTree*);
 
     avtDataTree_p            GetChild(int);
     avtDataRepresentation   &GetDataRepresentation(void); 
     int                      GetNumberOfCells(int topoDim, bool polysOnly) const;
 
     vtkDataSet              *GetSingleLeaf(void);
+    std::string              GetDatasetAsString();
     int                      GetNumberOfLeaves(void);
     void                     Merge(avtDataTree_p);
 
@@ -165,13 +166,14 @@ class PIPELINE_API avtDataTree
     void                     Traverse(TraverseFunc, void *, bool &);
 
     vtkDataSet             **GetAllLeaves(int &);
-    void                     GetAllDomainIds(vector<int> &);
-    void                     GetAllLabels(vector<string> &);
-    void                     GetAllUniqueLabels(vector<string> &);
-    avtDataTree_p            PruneTree(const vector<int> &);
-    avtDataTree_p            PruneTree(const vector<int> &, vector<int> &);
-    avtDataTree_p            PruneTree(const vector<string> &);
-    avtDataTree_p            PruneTree(const vector<string> &, vector<string>&);
+    void                     GetAllDomainIds(std::vector<int> &);
+    void                     GetAllLabels(std::vector<std::string> &);
+    void                     GetAllUniqueLabels(std::vector<std::string> &);
+    avtDataTree_p            PruneTree(const std::vector<int> &);
+    avtDataTree_p            PruneTree(const std::vector<int> &, std::vector<int> &);
+    avtDataTree_p            PruneTree(const std::vector<std::string> &);
+    avtDataTree_p            PruneTree(const std::string &);
+    avtDataTree_p            PruneTree(const std::vector<std::string> &, std::vector<std::string>&);
 
     void                     WriteTreeStructure(ostream &, int indent = 0);
 
@@ -183,7 +185,7 @@ class PIPELINE_API avtDataTree
     avtDataRepresentation   *dataRep; 
 
     void                     AddLeafToList(vtkDataSet**, int &); 
-    void                     GetUniqueLabels(vector<string> &, set<string> &);
+    void                     GetUniqueLabels(std::vector<std::string> &, std::set<std::string> &);
 };
 
 

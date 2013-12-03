@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -88,6 +88,7 @@ void avtVarMetaData::Copy(const avtVarMetaData &obj)
     hasDataExtents = obj.hasDataExtents;
     minDataExtents = obj.minDataExtents;
     maxDataExtents = obj.maxDataExtents;
+    matRestricted = obj.matRestricted;
 
     avtVarMetaData::SelectAll();
 }
@@ -254,6 +255,7 @@ avtVarMetaData::operator == (const avtVarMetaData &obj) const
             (hasDataExtents == obj.hasDataExtents) &&
             (minDataExtents == obj.minDataExtents) &&
             (maxDataExtents == obj.maxDataExtents) &&
+            (matRestricted == obj.matRestricted) &&
             avtBaseVarMetaData::operator==(obj));
 }
 
@@ -406,6 +408,7 @@ avtVarMetaData::SelectAll()
     Select(ID_hasDataExtents, (void *)&hasDataExtents);
     Select(ID_minDataExtents, (void *)&minDataExtents);
     Select(ID_maxDataExtents, (void *)&maxDataExtents);
+    Select(ID_matRestricted,  (void *)&matRestricted);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -573,6 +576,8 @@ avtVarMetaData::UnsetExtents()
 //    Jeremy Meredith, Fri Aug 25 17:16:38 EDT 2006
 //    Added enumerated scalars.
 //
+//    Mark C. Miller, Thu Oct 21 17:15:46 PDT 2010
+//    Added mat-restricted information.
 // ****************************************************************************
 inline void
 Indent(ostream &out, int indent)
@@ -603,7 +608,7 @@ avtVarMetaData::Print(ostream &out, int indent) const
 
       case AVT_UNKNOWN_CENT:
       default:
-        out << "unknowing centering.";
+        out << "unknown centering.";
         break;
     }
     out << endl;
@@ -624,6 +629,22 @@ avtVarMetaData::Print(ostream &out, int indent) const
     {
         Indent(out, indent);
         out << "The extents are not set." << endl;
+    }
+
+    if (matRestricted.size())
+    {
+        Indent(out, indent);
+        out << "Restricted to material indices: " << matRestricted[0];
+        for (size_t i = 1; i < matRestricted.size(); i++)
+        {
+            out << ", " << matRestricted[i];
+            if (i%20 == 0)
+            {
+                out << endl;
+                Indent(out, indent);
+            }
+        }
+        out << endl;
     }
 }
 

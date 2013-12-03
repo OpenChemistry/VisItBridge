@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -54,6 +54,7 @@ class QvisWizard;
 class QWidget;
 class QString;
 class avtPluginFilter;
+class avtDatabaseMetaData;
 class ViewerPlot;
 class ExpressionList;
 
@@ -119,6 +120,16 @@ class ExpressionList;
 //    Brad Whitlock, Thu Feb  4 16:04:19 PST 2010
 //    I added a GetCategoryName method.
 //
+//    Rob Sisneros, Sun Aug 29 20:13:10 CDT 2010
+//    Add infrastructure for operators to create variables.
+//
+//    Hank Childs, Tue Aug 31 10:20:08 PDT 2010
+//    Remove unused method GetCreateVariables.
+//
+//    Hank Childs, Thu Dec 30 12:15:39 PST 2010
+//    Add the ability to create expressions based on scalars, vectors, or
+//    tensors.
+//
 // ****************************************************************************
 
 class PLUGIN_API GeneralOperatorPluginInfo
@@ -138,6 +149,7 @@ class PLUGIN_API CommonOperatorPluginInfo : public virtual GeneralOperatorPlugin
     virtual AttributeSubject *AllocAttributes() = 0;
     virtual void CopyAttributes(AttributeSubject *to,
                                 AttributeSubject *from) = 0;
+    virtual ExpressionList *GetCreatedExpressions(const avtDatabaseMetaData *md) {return NULL;}
 };
 
 class PLUGIN_API GUIOperatorPluginInfo : public virtual CommonOperatorPluginInfo
@@ -165,17 +177,26 @@ class PLUGIN_API ViewerOperatorPluginInfo : public virtual CommonOperatorPluginI
     virtual AttributeSubject *GetDefaultAtts() = 0;
     virtual void SetClientAtts(AttributeSubject *atts) = 0;
     virtual void GetClientAtts(AttributeSubject *atts) = 0;
+    virtual void GetClientAtts(AttributeSubject *atts,
+                               const bool activeOperator,
+                               const bool applyToAll)
+    {
+      GetClientAtts(atts);
+    };
 
     virtual void InitializeOperatorAtts(AttributeSubject *atts,
                                         const ViewerPlot *plot,
                                         const bool fromDefault) = 0;
+    virtual void UpdateOperatorAtts(AttributeSubject *atts,
+                                    const ViewerPlot *plot) = 0;
+    virtual std::string GetOperatorVarDescription(AttributeSubject *atts,
+                                                  const ViewerPlot *plot) = 0;
     virtual QString *GetMenuName() const = 0;
     virtual const char **XPMIconData() const { return 0; }
     virtual bool GetUserSelectable() const { return true; }
     virtual bool Removeable() const { return true; }
     virtual bool Moveable() const { return true; }
     virtual bool AllowsSubsequentOperators() const { return true; }
-    virtual ExpressionList *GetCreatedVariables(const char *mesh) {return NULL;}
 };
 
 class PLUGIN_API EngineOperatorPluginInfo : public virtual CommonOperatorPluginInfo

@@ -39,14 +39,13 @@
 #****************************************************************************/
 
 SET(AVTIVP_SOURCES
+avtCellLocator.C
 avtIVPAdamsBashforth.C
-avtIVPDopri5.C
 avtIVPSolver.C
 avtIVPM3DC1Field.C
 avtIVPM3DC1Integrator.C
 avtIVPVTKField.C
 avtIVPVTKTimeVaryingField.C
-avtStreamline.C
 MemStream.C
 )
 
@@ -55,6 +54,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}
 ${VISIT_COMMON_INCLUDES}
 ${VISIT_SOURCE_DIR}/avt/Math
 ${VISIT_SOURCE_DIR}/visit_vtk/full
+${VISIT_SOURCE_DIR}/visit_vtk/lightweight
 ${VTK_INCLUDE_DIRS}
 )
 

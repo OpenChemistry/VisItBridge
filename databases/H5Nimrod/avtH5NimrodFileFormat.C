@@ -1,6 +1,6 @@
 /*****************************************************************************
  *
- * Copyright (c) 2000 - 2006, The Regents of the University of California
+ * Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
  * Produced at the Lawrence Berkeley National Laboratory
  * All rights reserved.
  *
@@ -51,10 +51,9 @@
 #include <avtDatabaseMetaData.h>
 
 #include <Expression.h>
-#include <BadIndexException.h>
+#include <NonCompliantException.h>
 #include <InvalidFilesException.h>
 #include <InvalidVariableException.h>
-#include <UnexpectedValueException.h>
 #include <vtkStructuredGrid.h>
 #include <vtkPoints.h>
 #include <vtkCellType.h>
@@ -62,6 +61,8 @@
 #include <vector>
 
 #include <DebugStream.h>
+
+#include <visit-hdf5.h>
 
 using
 std::string;
@@ -130,19 +131,31 @@ avtH5NimrodFileFormat::avtH5NimrodFileFormat (const char *filename):
 {
     // INITIALIZE DATA MEMBERS
     fname = filename;
-    hid_t file;
-    hid_t root_id, group_id;
+    hid_t file_id, root_id, group_id;
     char *string_attrib;
     float time;
-    file = H5Fopen (filename, H5F_ACC_RDONLY, H5P_DEFAULT);
 
-    if (file < 0)
-        EXCEPTION1 (InvalidFilesException, filename);
+    // Init HDF5 and turn off error message printing.
+    H5open();
+    H5Eset_auto( NULL, NULL );
+
+    // Check for a valid H5NIMROD file
+    if( H5Fis_hdf5( filename ) < 0 )
+        EXCEPTION1( InvalidFilesException, filename );
+
+    if ((file_id = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT)) < 0)
+      EXCEPTION1( InvalidFilesException, filename );
 
     hsize_t i, npoints;
 
     // Read attributes
-    root_id = H5Gopen (file, "/");
+    root_id = H5Gopen (file_id, "/");
+
+    if ( root_id < 0 )
+    {
+        H5Fclose(file_id);        
+        EXCEPTION1( InvalidVariableException, "H5NIMROD Group Open - root group '/' was not found" );
+    }
 
     dbg_string_attrib(root_id, "Description");
     dbg_string_attrib(root_id, "Source");
@@ -150,17 +163,17 @@ avtH5NimrodFileFormat::avtH5NimrodFileFormat (const char *filename):
     if (H5NIMROD_read_attrib (root_id, "time", &time) == H5NIMROD_ERR)
     {
         H5Gclose(root_id);
-        H5Fclose(file);
-        EXCEPTION1 (InvalidFilesException, filename);
+        H5Fclose(file_id);
+        EXCEPTION1( InvalidVariableException, "H5NIMROD Read Attribute - 'time' was not found or was the wrong type." );
     }
 
     debug5 << "time: " << time << std::endl;
-    hid_t grid_id = H5Gopen (file, "/GRID");
+    hid_t grid_id = H5Gopen (file_id, "/GRID");
     if (grid_id < 0)
     {
         H5Gclose(root_id);
-        H5Fclose(file);
-        EXCEPTION1 (InvalidFilesException, filename);
+        H5Fclose(file_id);
+        EXCEPTION1( InvalidVariableException, "H5NIMROD Group Open - '/GRID' was not found" );
     }
 
     string_attrib = NULL;
@@ -173,9 +186,8 @@ avtH5NimrodFileFormat::avtH5NimrodFileFormat (const char *filename):
             debug5 << "Cannot handle non cartesian coordinates" << std::endl;
             H5Gclose(root_id);
             H5Gclose(grid_id);
-            H5Fclose(file);
-            EXCEPTION2(UnexpectedValueException, "Cartesian - XYZ",
-                       string_attrib);
+            H5Fclose(file_id);
+            EXCEPTION1( InvalidVariableException, "H5NIMROD Read Attribute - 'Cartesian - XYZ' was not found or was the wrong type." );
         }
         free(string_attrib);
     }
@@ -193,9 +205,8 @@ avtH5NimrodFileFormat::avtH5NimrodFileFormat (const char *filename):
         debug5 << "Cannot handle unstructured mesh" << std::endl;
         H5Gclose(root_id);
         H5Gclose(grid_id);
-        H5Fclose (file);
-        EXCEPTION2 (UnexpectedValueException, "Structured",
-                    string_attrib ? string_attrib : "NULL");
+        H5Fclose (file_id);
+        EXCEPTION1( InvalidVariableException, "H5NIMROD Read Attribute - 'Topology' was not found or not 'Structured'" );
     }
     if(string_attrib)
     {
@@ -210,8 +221,8 @@ avtH5NimrodFileFormat::avtH5NimrodFileFormat (const char *filename):
         debug5 << "Cannot handle other than 3 dimensional data" << std::endl;
         H5Gclose(root_id);
         H5Gclose(grid_id);
-        H5Fclose (file);
-        EXCEPTION2 (UnexpectedValueException, 3, ndims);
+        H5Fclose (file_id);
+        EXCEPTION1( InvalidVariableException, "H5NIMROD Read Dimensions - Grid dataset 'X' does not have three dimensions" );
     }
     // points
     for (i = 0, npoints = 1; i < ndims; i++)
@@ -227,9 +238,11 @@ avtH5NimrodFileFormat::avtH5NimrodFileFormat (const char *filename):
             H5G_GROUP,
             NULL);
     debug5<< "num_groups = "<<num_groups <<endl;
-    char name[MAXLENGTH], name1[MAXLENGTH], name2[MAXLENGTH];
+    char name[MAXLENGTH], name1[MAXLENGTH], name2[MAXLENGTH],
+      stepnumber[MAXLENGTH];
 
     nsteps = 0;
+
     for (int idx = 0; idx < num_groups; idx++)
     {
         int len_of_name = MAXLENGTH;
@@ -240,8 +253,35 @@ avtH5NimrodFileFormat::avtH5NimrodFileFormat (const char *filename):
         {
             sprintf (name1, "/%s", name);
             stepnames.push_back( name );
+
             nsteps++;
+
             group_id = H5Gopen (root_id, name1);
+
+            memset( stepnumber, 0, MAXLENGTH );
+
+            if (H5NIMROD_read_attrib (group_id, "Step number", &stepnumber) == H5NIMROD_ERR)
+            {
+              H5Gclose(group_id);
+              H5Fclose(file_id);
+              EXCEPTION1( InvalidVariableException, "H5NIMROD Read Attribute - 'Step number' was not found or wrong type" );
+            }
+
+            cycles.push_back( atoi(stepnumber) );
+
+            debug5 << "step number: " << stepnumber << std::endl;
+
+            if (H5NIMROD_read_attrib (group_id, "time", &time) == H5NIMROD_ERR)
+            {
+              H5Gclose(group_id);
+              H5Fclose(file_id);
+              EXCEPTION1( InvalidVariableException, "H5NIMROD Read Attribute - 'time' was not found or wrong type" );
+            }
+
+            times.push_back( time );
+
+            debug5 << "time: " << time << std::endl;
+
             nvectorvars = H5NIMROD_get_num_objects_matching_pattern (group_id,
                     name1,
                     H5G_GROUP,
@@ -281,7 +321,7 @@ avtH5NimrodFileFormat::avtH5NimrodFileFormat (const char *filename):
     H5Gclose (group_id);
     H5Gclose (grid_id);
     H5Gclose (root_id);
-    H5Fclose (file);
+    H5Fclose (file_id);
 }
 
 
@@ -350,10 +390,15 @@ avtH5NimrodFileFormat::PopulateDatabaseMetaData (avtDatabaseMetaData * md,
     int spatial_dimension = ndims;
     int topological_dimension = ndims;
     double *extents = NULL;
+    int bounds[3];
 
+    bounds[0] = grid_dims[0];
+    bounds[1] = grid_dims[1];
+    bounds[2] = grid_dims[2];
 
     AddMeshToMetaData (md, "Mesh", AVT_CURVILINEAR_MESH, extents, nblocks,
-            block_origin, spatial_dimension, topological_dimension);
+                       block_origin, spatial_dimension, topological_dimension,
+                       bounds);
 
     for (int idx = 0; idx < nscalarvars; idx++)
     {
@@ -361,7 +406,7 @@ avtH5NimrodFileFormat::PopulateDatabaseMetaData (avtDatabaseMetaData * md,
         string varname = scalarvarnames[idx];
         // AVT_NODECENT, AVT_ZONECENT, AVT_UNKNOWN_CENT
         avtCentering cent = AVT_NODECENT;
-        AddScalarVarToMetaData (md, varname, mesh_for_this_var, cent);
+        AddScalarVarToMetaData (md, varname, mesh_for_this_var, cent, extents);
     }
     for (int idx = 0; idx < nvectorvars; idx++)
     {
@@ -370,11 +415,14 @@ avtH5NimrodFileFormat::PopulateDatabaseMetaData (avtDatabaseMetaData * md,
         // AVT_NODECENT, AVT_ZONECENT, AVT_UNKNOWN_CENT
         avtCentering cent = AVT_NODECENT;
         AddVectorVarToMetaData (md, varname, mesh_for_this_var, cent,
-                vectorvardims[idx]);
+                                vectorvardims[idx], extents);
     }
 
+    md->SetCyclesAreAccurate(true);
+    md->SetCycles( cycles );
 
-
+    md->SetTimesAreAccurate(true);
+    md->SetTimes( times );
 }
 
 
@@ -416,7 +464,10 @@ avtH5NimrodFileFormat::GetMesh (int timestate, const char *meshname)
     hid_t file;
     file = H5Fopen (fname.c_str (), H5F_ACC_RDONLY, H5P_DEFAULT);
     if (file < 0)
-        EXCEPTION1 (InvalidFilesException, fname.c_str ());
+    {
+      EXCEPTION2( NonCompliantException, "H5NIMROD File Open",
+                  "File '" + fname + "' can not be opened" );
+    }
 
     hid_t grid_id = H5Gopen (file, "/GRID");
     vtkpoints->SetNumberOfPoints (npoints);
@@ -481,7 +532,10 @@ avtH5NimrodFileFormat::GetVar (int timestate, const char *varname)
     file = H5Fopen (fname.c_str (), H5F_ACC_RDONLY, H5P_DEFAULT);
 
     if (file < 0)
-        EXCEPTION1 (InvalidFilesException, fname.c_str ());
+    {
+      EXCEPTION2( NonCompliantException, "H5NIMROD File Open",
+                  "File '" + fname + "' can not be opened" );
+    }
 
     hid_t root_id, group_id;
     root_id = H5Gopen (file, "/");
@@ -538,7 +592,10 @@ avtH5NimrodFileFormat::GetVectorVar (int timestate, const char *varname)
     file = H5Fopen (fname.c_str (), H5F_ACC_RDONLY, H5P_DEFAULT);
 
     if (file < 0)
-        EXCEPTION1 (InvalidFilesException, fname.c_str ());
+    {
+      EXCEPTION2( NonCompliantException, "H5NIMROD File Open",
+                  "File '" + fname + "' can not be opened" );
+    }
 
     hid_t root_id, group_id;
     root_id = H5Gopen (file, "/");
@@ -602,3 +659,42 @@ avtH5NimrodFileFormat::GetVectorVar (int timestate, const char *varname)
 }
 
 
+// ****************************************************************************
+//  Method: avtH5NimrodFileFormat::GetCycles
+//
+//  Purpose:
+//      Returns the cycles
+//
+//  Arguments:
+//      c          the cycles
+//
+//  Programmer: allen
+//  Creation:   
+//
+// ****************************************************************************
+
+
+void avtH5NimrodFileFormat::GetCycles(std::vector<int> &c)
+{
+    c = cycles;
+}
+
+
+// ****************************************************************************
+//  Method: avtH5NimrodFileFormat::GetTimes
+//
+//  Purpose:
+//      Returns the times
+//
+//  Arguments:
+//      t          the times
+//
+//  Programmer: allen
+//  Creation:   
+//
+// ****************************************************************************
+
+void avtH5NimrodFileFormat::GetTimes(std::vector<double> &t)
+{
+    t = times;
+}

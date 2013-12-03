@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -53,7 +53,8 @@
 #define H5_USE_16_API
 #include <hdf5.h>
 
-using std::string;
+#include <string>
+
 class parallelBuffer;
 
 // ****************************************************************************
@@ -86,8 +87,8 @@ class avtGTCFileFormat : public avtSTMDFileFormat
     virtual void           PopulateDatabaseMetaData(avtDatabaseMetaData *);
     void                   ReadVariable( int domain, int varIdx, int varDim, float **ptrVar );
     
-    string                 IndexToVarName( int idx ) const;
-    int                    VarNameToIndex( const string &var ) const;
+    std::string            IndexToVarName( int idx ) const;
+    int                    VarNameToIndex( const std::string &var ) const;
     hid_t                  fileHandle, particleHandle;
     int                    nVars, nTotalPoints, nPoints;
     bool                   initialized;

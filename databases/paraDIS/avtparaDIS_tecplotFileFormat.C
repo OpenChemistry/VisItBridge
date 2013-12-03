@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -65,7 +65,7 @@
 #include <avtParallel.h>
 #endif
 
-using     std::string;
+using     namespace std;
 
 
 // ****************************************************************************
@@ -704,7 +704,6 @@ avtparaDIS_tecplotFileFormat::GetVar(const char *varname)
     string err = string("GetTecplotVar: rejected varname ") + varname +" because it does not begin with 'paraDIS_Tecplot_' or does not contain '_var_'";
     cerr << err << endl; 
     EXCEPTION1(VisItException, err.c_str()); 
-    return false; 
   }
   /*  Get the variable number. 
       Note that it does not matter if this is the line mesh or the 
@@ -723,7 +722,7 @@ avtparaDIS_tecplotFileFormat::GetVar(const char *varname)
   }
   if (varnum == mNumVars) {
     cerr << "Warning: possible malformed tecplot variable: Could not determine varnum from apparently valid tecplot variable name: " << varname <<endl;
-    return false; 
+    return NULL; 
   }
   debug4 << "Looking for varnum " << varnum << endl; 
 

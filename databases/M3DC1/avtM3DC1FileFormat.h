@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -82,14 +82,19 @@ class avtM3DC1FileFormat : public avtMTSDFileFormat
     // If you know the times and cycle numbers, overload this function.
     // Otherwise, VisIt will make up some reasonable ones for you.
     //
-    // virtual void        GetCycles(std::vector<int> &);
-    // virtual void        GetTimes(std::vector<double> &);
-    //
+    virtual void        GetCycles(std::vector<int> &);
+    virtual void        GetTimes(std::vector<double> &);
 
     virtual int            GetNTimesteps(void);
 
     virtual const char    *GetType(void)   { return "M3DC1"; };
     virtual void           FreeUpResources(void); 
+
+    virtual bool CanCacheVariable(const char *var);
+    virtual void RegisterDataSelections(const std::vector<avtDataSelection_p> &sels,
+                                        std::vector<bool> *selectionsApplied);
+
+    virtual bool ProcessDataSelections(int *mins, int *maxs, int *strides);
 
     virtual vtkDataSet    *GetMesh(int, const char *);
     virtual vtkDataArray  *GetVar(int, const char *);
@@ -100,7 +105,6 @@ class avtM3DC1FileFormat : public avtMTSDFileFormat
     vtkDataArray  *GetFieldVar(int, const char *);
 
     vtkPoints *GetMeshPoints(float *elements,
-                             int poloidalPlanes,
                              int refinementLevel);
 
     float * GetElements(int timestate, const char *meshname);
@@ -112,26 +116,41 @@ class avtM3DC1FileFormat : public avtMTSDFileFormat
     bool ReadStringAttribute( hid_t parentID, const char *attr, std::string *value );
     hid_t NormalizeH5Type( hid_t type );
 
+    // Some stuff to keep track of data selections
+    std::vector<avtDataSelection_p> selList;
+    std::vector<bool>              *selsApplied;
+
+    bool processDataSelections;
+    bool haveReadWholeData;
+
     // DATA MEMBERS
     hid_t m_fileID;
     std::string m_filename;
-    int m_refinementLevel;
-    int m_poloidalPlanes;
+    int m_refinement;
     avtCentering m_dataLocation;
-    float m_perturbationScale;
 
-    std::vector<float> m_timeSteps;
+    std::vector<int>    m_cycles;
+    std::vector<double> m_times;
 
-  public:
+public:
     std::vector<std::string> m_scalarVarNames;
     std::vector<std::string> m_fieldVarNames;
 
     // Variables read from mesh and field attributes.
     int nelms;
+    int nvertices;
+    int nplanes;
 
+    int element_dimension;
+    unsigned int element_size;
+    unsigned int scalar_size;
+    
   protected:
-    virtual void           PopulateDatabaseMetaData(avtDatabaseMetaData *, int);
+
+    virtual void PopulateDatabaseMetaData(avtDatabaseMetaData *, int);
+
+    static herr_t linkIterator(hid_t, const char *, const H5L_info_t *, void *);
+    static herr_t groupIterator(hid_t, const char *, void *);
+
 };
-
-
 #endif

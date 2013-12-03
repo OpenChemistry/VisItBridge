@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -147,7 +147,7 @@ avtSASFileFormat::avtSASFileFormat(const char *filename)
     int header = 0;
     READ(f, (char *)&header, 4);
     CLOSE(f);
-
+    
     bSwapEndian = false;
     if (header == 0x20000000)
     {
@@ -221,7 +221,7 @@ avtSASFileFormat::GetNTimesteps(void)
     if (aTimes.size() == 0)
         ReadTimeStepData();
 
-    return aTimes.size();
+    return (int)aTimes.size();
 }
 
 
@@ -251,7 +251,7 @@ avtSASFileFormat::GetTimes(std::vector<double> &outTimes)
 //  Method: avtSASFileFormat::GetCycles
 //
 //  Purpose:
-//      Returns metadata on the simulation cycle for each dump.  The data
+//      Returns metadata on the simulation cycle for each dump.  The data 
 //      doesn't contain cycle metadata, but returning it here has the nice
 //      side effect of making the query over time and pick over time do
 //      the right thing by default.
@@ -390,7 +390,7 @@ avtSASFileFormat::GetMesh(int /*timestate*/, int domain, const char * /*meshname
     }
 
     grid = vtkUnstructuredGrid::New();
-
+    
     int f = OPEN(geomFileName.c_str(), O_RDONLY | O_BINARY);
 
     // Size is: fortran header/footer + 80 char title +
@@ -399,7 +399,7 @@ avtSASFileFormat::GetMesh(int /*timestate*/, int domain, const char * /*meshname
                                     sizeof(int)*2 + sizeof(int)*3 + sizeof(double)*3;
 
     LSEEK64(f, iAssemblyDiskLoc + domain*iAssemblyInstanceSize + sizeof(int)*3 + 80, SEEK_SET);
-
+ 
     int iAssemblyID = ReadInt(f);
     int iAssemblyType = ReadInt(f);
     int iChannelOffset = ReadInt(f);
@@ -431,9 +431,9 @@ avtSASFileFormat::GetMesh(int /*timestate*/, int domain, const char * /*meshname
     {
         for (ii = 0; ii < pType->nUniquePts; ii++)
         {
-            pPoints->SetPoint( jj*pType->nUniquePts + ii,
-                               pos[0]+pType->aUniquePts[ii*2],
-                               pos[1]+pType->aUniquePts[ii*2+1],
+            pPoints->SetPoint( jj*pType->nUniquePts + ii, 
+                               pos[0]+pType->aUniquePts[ii*2], 
+                               pos[1]+pType->aUniquePts[ii*2+1], 
                                pos[2]+pType->aZVals[jj] );
         }
     }
@@ -447,7 +447,7 @@ avtSASFileFormat::GetMesh(int /*timestate*/, int domain, const char * /*meshname
     {
         int  iCurrChannelGlobalID = iChannelOffset+pType->aChannelIDs[ii];
 
-        // See if I need to exclude this channel because the data to go
+        // See if I need to exclude this channel because the data to go 
         // with it is missing.
         if (!bDataFileIsMissing)
         {
@@ -525,11 +525,11 @@ avtSASFileFormat::GetMesh(int /*timestate*/, int domain, const char * /*meshname
 vtkDataArray *
 avtSASFileFormat::GetVar(int timestate, int domain, const char *varname)
 {
-    if (strcmp(varname, "temperature")   != 0 &&
-        strcmp(varname, "channel_id")    != 0 &&
-        strcmp(varname, "channel_type")  != 0 &&
-        strcmp(varname, "assembly_id")   != 0 &&
-        strcmp(varname, "assembly_type") != 0)
+    if (strcmp(varname, "temperature")   != 0 && 
+        strcmp(varname, "channel_id")    != 0 && 
+        strcmp(varname, "channel_type")  != 0 && 
+        strcmp(varname, "assembly_id")   != 0 && 
+        strcmp(varname, "assembly_type") != 0) 
         EXCEPTION1(InvalidVariableException, varname);
 
     if (!aAssemblyTypes)
@@ -583,7 +583,7 @@ avtSASFileFormat::GetVar(int timestate, int domain, const char *varname)
         int iGlobalChannelID = iChannelOffset+pType->aChannelIDs[ii];
 
         // If the data file is missing, some code below to skip channels does not apply
-        if (bDataFileIsMissing)
+        if (bDataFileIsMissing)  
         {
             if (strcmp(varname, "channel_id") == 0)
             {
@@ -626,7 +626,7 @@ avtSASFileFormat::GetVar(int timestate, int domain, const char *varname)
         {
             LSEEK64(f, iTimeOffset+iChannelPos, SEEK_SET );
             ReadDoubleArray(f, tmpData, iChannelLen);
-
+    
             // TODO:  See if this is very slow--calling malloc every time or something
             for (jj = 0; jj < iChannelLen; jj++)
                 rv->InsertNextValue( (float)tmpData[jj] );
@@ -695,7 +695,7 @@ avtSASFileFormat::GetVectorVar(int, int, const char *varname)
 //  Method: avtSASFileFormat::ReadAssemblyTypes
 //
 //  Purpose:
-//      Parses the first section of the geometry file, which contains the
+//      Parses the first section of the geometry file, which contains the 
 //      templates for the assembly types.  The xy points are merged in this
 //      routine as well.
 //
@@ -730,7 +730,7 @@ avtSASFileFormat::ReadAssemblyTypes()
     {
         EXCEPTION1(InvalidDBTypeException, "This reader supports only SAS version 1.0 files.");
     }
-    // Seek past two 8-char strings for dump date and time, a fortran footer,
+    // Seek past two 8-char strings for dump date and time, a fortran footer, 
     // a fortran header, an 80-char title, and a fortran footer
     LSEEK64(f, 8+8+sizeof(int)+sizeof(int)+80+sizeof(int), SEEK_CUR );
 
@@ -774,7 +774,7 @@ avtSASFileFormat::ReadAssemblyTypes()
 
         int nPts = (curr - aPts) / 2;
 
-        // Find epsilon
+        // Find epsilon        
         double minx = FLT_MAX, miny = FLT_MAX, maxx = -FLT_MAX, maxy = -FLT_MAX;
         for (jj = 0; jj < nPts; jj+=2)
         {
@@ -793,12 +793,12 @@ avtSASFileFormat::ReadAssemblyTypes()
         // Create a list of unique points, and indices into the list
         double *aTmpUniquePts = new double[nPts*2];
         int nUniquePts = 0;
-
+        
         curr = aPts;
         for (jj = 0; jj < aAssemblyTypes[ii].nChannels; jj++)
         {
             // This just sets the 4th slot to -1 instead of garbage, in the cases of wedge-shaped channels
-            aAssemblyTypes[ii].aChannelPts[ jj*4 + 3 ] = -1;
+            aAssemblyTypes[ii].aChannelPts[ jj*4 + 3 ] = -1;  
 
             for (kk = 0; kk < aAssemblyTypes[ii].aChannelSizes[jj]; kk++, curr+=2)
             {
@@ -817,8 +817,8 @@ avtSASFileFormat::ReadAssemblyTypes()
                     aTmpUniquePts[mm*2+1] = curr[1];
                     nUniquePts++;
                 }
-                // mm is now the index in the unique point list where curr point was
-                // either found or inserted.
+                // mm is now the index in the unique point list where curr point was 
+                // either found or inserted.  
                 aAssemblyTypes[ii].aChannelPts[ jj*4 + kk ] = mm;
             }
         }
@@ -831,7 +831,7 @@ avtSASFileFormat::ReadAssemblyTypes()
         delete[] aPts;
         delete[] aTmpUniquePts;
     }
-
+    
     // Finally, read the number of subassemblys, and record the location on disk of the first one.
     ReadInt(f);
     nAssemblys = ReadInt(f);
@@ -857,7 +857,7 @@ avtSASFileFormat::ReadAssemblyTypes()
 //  Modifications:
 //    David Bremer, Sep 7, 2007
 //    Changed file io api to handle large files.
-//    Changed to allow reads of files that had a truncated write, just
+//    Changed to allow reads of files that had a truncated write, just 
 //    issuing a warning when a problem is detected.
 // ****************************************************************************
 
@@ -865,7 +865,7 @@ void
 avtSASFileFormat::ReadTimeStepData()
 {
     int f = OPEN(dataFileName.c_str(), O_RDONLY | O_BINARY);
-
+    
     boost::int64_t end = LSEEK64(f, 0, SEEK_END);
     LSEEK64(f, 0, SEEK_SET);
 
@@ -900,14 +900,14 @@ avtSASFileFormat::ReadTimeStepData()
     ReadDoubleArray(f, &time, 1);
     aTimes.push_back(time);
 
-    // Read the first timestep to determine the size of each timestep,
+    // Read the first timestep to determine the size of each timestep, 
     // position and number of channels, etc.
     iTimeStepSize = sizeof(int)*3 + sizeof(double); //size of the time/num channels line
 
     nChannels = ReadInt(f);
     aChannels = new int[nChannels*3];
 
-    // Read the channel metadata--id, numvals, offset--and skip the field data
+    // Read the channel metadata--id, numvals, offset--and skip the field data 
     ReadInt(f);
     for (ii = 0; ii < nChannels; ii++)
     {
@@ -1051,7 +1051,7 @@ avtSASFileFormat::FindChannel(int globalChannelID, int *length, int *fileoffset)
 //  Method: avtSASFileFormat::ReadInt
 //
 //  Purpose:
-//      Reads and, if necessary, byte-swaps an int
+//      Reads and, if necessary, byte-swaps an int 
 //
 //  Programmer: David Bremer
 //  Creation:   Mon Jul 30 19:38:14 PDT 2007
@@ -1062,7 +1062,7 @@ avtSASFileFormat::FindChannel(int globalChannelID, int *length, int *fileoffset)
 // ****************************************************************************
 
 int
-avtSASFileFormat::ReadInt(int f)
+avtSASFileFormat::ReadInt(int f) 
 {
     int tmp;
     READ(f, (char *)&tmp, sizeof(int) );
@@ -1078,7 +1078,7 @@ avtSASFileFormat::ReadInt(int f)
 //  Method: avtSASFileFormat::ReadDoubleArray
 //
 //  Purpose:
-//      Reads and, if necessary, byte-swaps an array of doubles
+//      Reads and, if necessary, byte-swaps an array of doubles 
 //
 //  Programmer: David Bremer
 //  Creation:   Mon Jul 30 19:38:14 PDT 2007
@@ -1088,8 +1088,8 @@ avtSASFileFormat::ReadInt(int f)
 //    Changed file io api to handle large files.
 // ****************************************************************************
 
-void
-avtSASFileFormat::ReadDoubleArray(int f, double *array, int num)
+void          
+avtSASFileFormat::ReadDoubleArray(int f, double *array, int num) 
 {
     READ(f, (char *)array, sizeof(double)*num );
 
@@ -1112,8 +1112,8 @@ avtSASFileFormat::ReadDoubleArray(int f, double *array, int num)
 //    Changed file io api to handle large files.
 // ****************************************************************************
 
-string
-avtSASFileFormat::ReadFortranString(int f)
+string     
+avtSASFileFormat::ReadFortranString(int f) 
 {
     string tmp;
     int len = 0;
@@ -1124,7 +1124,7 @@ avtSASFileFormat::ReadFortranString(int f)
     char *t = new char[len+1];
     READ(f, t, len);
     t[len] = 0;
-
+    
     //erase trailing spaces
     for (char *p = t+len-1; p >= t; p--)
     {

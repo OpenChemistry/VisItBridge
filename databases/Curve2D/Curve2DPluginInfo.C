@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,7 +43,7 @@
 #include <Curve2DPluginInfo.h>
 
 #include <visit-config.h>
-extern "C" DBP_EXPORT const char *Curve2DVisItPluginVersion = VISIT_VERSION;
+VISIT_PLUGIN_VERSION(Curve2D,DBP_EXPORT)
 
 // ****************************************************************************
 //  Function:  GetGeneralInfo
@@ -150,7 +150,7 @@ Curve2DGeneralPluginInfo::EnabledByDefault() const
 bool
 Curve2DGeneralPluginInfo::HasWriter() const
 {
-    return false;
+    return true;
 }
 // ****************************************************************************
 //  Method:  Curve2DGeneralPluginInfo::GetDefaultFilePatterns

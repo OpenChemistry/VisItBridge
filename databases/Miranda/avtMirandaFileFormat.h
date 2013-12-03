@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -48,8 +48,6 @@
 #include <string>
 #include <vector>
 
-using std::string;
-using std::vector;
 class DBOptionsAttributes;
 
 
@@ -90,7 +88,7 @@ class avtMirandaFileFormat : public avtMTMDFileFormat
     virtual void           GetCycles(std::vector<int> &c)    {c = aCycles;}
     virtual void           GetTimes(std::vector<double> &t)  {t = aSimTimes;}
 
-    virtual int            GetNTimesteps(void)  {return aCycles.size();}
+    virtual int            GetNTimesteps(void)  {return (int)aCycles.size();}
 
     virtual const char    *GetType(void)   { return "Miranda"; }
     virtual void           FreeUpResources(void); 
@@ -100,31 +98,37 @@ class avtMirandaFileFormat : public avtMTMDFileFormat
     virtual vtkDataArray  *GetVectorVar(int, int, const char *);
 
   protected:
+    std::string                 sFileVersion; 
     int                    dim;           // dimensionality.  2 or 3
     int                    flatDim;       // if dim==2, flatDim == 0,1,or 2
     
+
     double                 fOrigin[3];    // sample 0,0,0 is centered on fOrigin
     double                 fStride[3];    // spacing between samples
     
-    int                    iBlockSize[3];
+    int                    iGlobalDim[3];  // dimension of entire domain
+
+    int                    iBlockSize[3]; // size of miranda compute domains per processor -- for version 2.0, this is smaller than the actual output to disk because it has zero shared nodes with adjacent blocks
+    int                    iInteriorSize[3]; // format 2.0:  size of interior viz blocks written to disk for blocks 0 to iNumBlocks[i-2]
+    int                    iBoundarySize[3];// format 2.0:  size of viz blocks written to disk for block iNumBlocks[i-1] (upper edge of domain)
     int                    iNumBlocks[3];
     
-    vector<string>         aVarNames;
-    vector<int>            aVarNumComps;
-    vector<vector<float> > aVarMinMax;    // Current Miranda dumps write min/max
+    std::vector<std::string> aVarNames;
+    std::vector<int>         aVarNumComps;
+    std::vector<std::vector<float> > aVarMinMax;    // Current Miranda dumps write min/max
                                           // of last timestep, so for now this 
                                           // is almost unused.
 
-    vector<string>         aMatNames;     // Material names. Size is 0 if there
+    std::vector<std::string> aMatNames;     // Material names. Size is 0 if there
                                           // is no material set. If present, the
                                           // material set comes after all vars.
-    vector<int>            aCycles;
-    vector<double>         aSimTimes;
+    std::vector<int>       aCycles;
+    std::vector<double>    aSimTimes;
     
-    string                 fileTemplate;
-    string                 gridTemplate;
+    std::string            fileTemplate;
+    std::string            gridTemplate;
 
-    vector<int>            domainMap;     // has 3-int tuple for each block--
+    std::vector<int>       domainMap;     // has 3-int tuple for each block--
                                           // domain index to i,j,k block.
 
     int                    iFileOrder[3]; // 2,1,0; or 0,1,2; or another permutation
@@ -132,18 +136,19 @@ class avtMirandaFileFormat : public avtMTMDFileFormat
                                           // replaces gridTemplate and domainMap
 
     bool                   bCurvilinear;
-
+    bool                   bZonal;
 
     virtual void           PopulateDatabaseMetaData(avtDatabaseMetaData *, int);
     virtual void           DomainToIJK(int domain, int &i, int &j, int &k);
 
+    void                   GetBlockDims(int domain, int dims[3]);
+    virtual vtkDataSet    *GetCurvilinearMesh2(int domain);
     virtual vtkDataSet    *GetCurvilinearMesh(int domain);
     virtual vtkDataSet    *GetRectilinearMesh(int domain);
-
-    virtual void           PackData(float *dst, const float * const *src, 
+     void                   InterleaveData(float *__restrict dst, float *__restrict src, int *dstDim, int nComp);
+    virtual void           PackData(float *__restrict dst, const  float * const  *__restrict src, 
                                     const int *dstDim, int nComp, bool interleave);
-
-    virtual void           ReadRawScalar(FILE *fd, int iComp, float *out, const char *filename);
+    virtual void           ReadRawScalar(FILE *fd, int iComp, float *out, const char *filename, int domain);
     virtual void           FindNeighborDomains(int domain, int *neighbors, int *realdim);
 
     static  void           SkipToEndOfLine( ifstream &f, bool bCheckForBadTokens = true );

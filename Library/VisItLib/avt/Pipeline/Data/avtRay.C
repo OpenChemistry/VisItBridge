@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -81,7 +81,7 @@ avtRay::avtRay(int ns, int nv)
     numVariables = nv;
     for (i = 0 ; i < numVariables ; i++)
     {
-        sample[i] = new float[numSamples];
+        sample[i] = new double[numSamples];
     }
     for (i = numVariables ; i < AVT_VARIABLE_LIMIT ; i++)
     {
@@ -163,7 +163,7 @@ avtRay::~avtRay()
 // ****************************************************************************
 
 bool
-avtRay::GetSample(int index, float s[AVT_VARIABLE_LIMIT]) const
+avtRay::GetSample(int index, double s[AVT_VARIABLE_LIMIT]) const
 {
     if (index > numSamples || index < 0)
     {
@@ -350,7 +350,7 @@ avtRay::Finalize(void)
                  continue;
              if (sample[numVariables-1][z] <= 0.)
                  continue;
-             float denom = 1. / sample[numVariables-1][z];
+             double denom = 1. / sample[numVariables-1][z];
              for (int i = 0 ; i < numVariables-1 ; i++)
              {
                  sample[i][z] *= denom;

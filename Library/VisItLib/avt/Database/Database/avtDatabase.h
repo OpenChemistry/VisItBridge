@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -45,8 +45,9 @@
 
 #include <database_exports.h>
 
-#include <vector>
 #include <list>
+#include <string>
+#include <vector>
 
 #include <void_ref_ptr.h>
 
@@ -63,6 +64,7 @@ class   avtDatabaseMetaData;
 class   avtDataValidity;
 class   avtDataObjectSource;
 class   avtSIL;
+class   avtVariableCache;
 class   PickAttributes;
 class   PickVarInfo;
 
@@ -294,6 +296,13 @@ typedef struct {
 //    Jeremy Meredith, Fri Jan  8 16:15:02 EST 2010
 //    Added ability to turn on stricter file format error checking.
 //
+//    Hank Childs, Fri Nov 26 15:52:25 PST 2010
+//    Make cache available externally so filters from the pipeline can cache
+//    their data structures.
+//
+//   Dave Pugmire, Fri Feb  8 17:22:01 EST 2013
+//   Added support for ensemble databases. (multiple time values)
+//
 // ****************************************************************************
 
 class DATABASE_API avtDatabase
@@ -325,6 +334,7 @@ class DATABASE_API avtDatabase
     virtual void                PopulateIOInformation(int stateIndex,
                                     avtIOInformation& ioInfo) {;};
 
+    virtual avtVariableCache   *GetCache(void) { return NULL; };
     virtual void                ClearCache(void);
     virtual void                FreeUpResources(void);
     virtual bool                MetaDataIsInvariant(void);
@@ -367,6 +377,8 @@ class DATABASE_API avtDatabase
                                     { return ignoreExtents; };
 
     virtual void                SetStrictMode(bool) { }
+    virtual void                SetIsEnsemble(bool v);
+    virtual bool                GetIsEnsemble();
 
     // methods useful for decomposing rectlinear data on the fly during read
     static double               RectilinearDecompCost(int i, int j, int k,
@@ -402,6 +414,7 @@ class DATABASE_API avtDatabase
     bool                                  *invariantSIL;
 
     bool                                   ignoreExtents;
+    bool                                   isEnsemble;
 
     void                        GetNewMetaData(int stateIndex,
                                     bool forceReadAllCyclesTimes = false);
@@ -425,7 +438,7 @@ class DATABASE_API avtDatabase
     void                        PopulateDataObjectInformation(avtDataObject_p&,
                                                   const char *,
                                                   int,
-                                                  const vector<bool> &selsApplied,
+                                                  const std::vector<bool> &selsApplied,
                                                   avtDataRequest_p =NULL);
     bool                        GetExtentsFromAuxiliaryData(avtDataRequest_p spec,
                                                             const char *var,

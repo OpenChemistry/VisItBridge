@@ -59,6 +59,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "vtkPolyDataAlgorithm.h"
 
+// ***************************************************************************
+//  Class: vtkVisItCutter
+//
+//  Modifications:
+//    Eric Brugger, Thu Jan 10 12:02:36 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ***************************************************************************
+
 class VISIT_VTK_API vtkTensorReduceFilter : public vtkPolyDataAlgorithm
 {
 public:
@@ -76,7 +85,10 @@ protected:
   vtkTensorReduceFilter();
   ~vtkTensorReduceFilter() {};
 
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
+  virtual int RequestData(vtkInformation *,
+                          vtkInformationVector **,
+                          vtkInformationVector *);
+  virtual int FillInputPortInformation(int port, vtkInformation *info);
 
   int stride;
   int numEls;
@@ -87,5 +99,3 @@ private:
 };
 
 #endif
-
-

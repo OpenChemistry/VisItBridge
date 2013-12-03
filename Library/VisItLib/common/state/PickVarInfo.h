@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -41,6 +41,7 @@
 #include <state_exports.h>
 #include <string>
 #include <AttributeSubject.h>
+
 #include "snprintf.h"
 
 // ****************************************************************************
@@ -68,13 +69,23 @@ public:
         None
     };
 
+    // These constructors are for objects of this class
     PickVarInfo();
     PickVarInfo(const PickVarInfo &obj);
+protected:
+    // These constructors are for objects derived from this class
+    PickVarInfo(private_tmfs_t tmfs);
+    PickVarInfo(const PickVarInfo &obj, private_tmfs_t tmfs);
+public:
     virtual ~PickVarInfo();
 
     virtual PickVarInfo& operator = (const PickVarInfo &obj);
     virtual bool operator == (const PickVarInfo &obj) const;
     virtual bool operator != (const PickVarInfo &obj) const;
+private:
+    void Init();
+    void Copy(const PickVarInfo &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -158,6 +169,7 @@ public:
     void PrintSymmetricTensor(std::string &, const std::vector<double> &, int, int, int);
     bool HasInfo(void);
     void PrintArray(std::string &, const std::vector<double> &, int, int, int);
+    void CreateOutputMapNode(const std::string &, MapNode &);
 
     // IDs that can be used to identify fields in case statements
     enum {
@@ -174,7 +186,8 @@ public:
         ID_matNames,
         ID_numSpecsPerMat,
         ID_treatAsASCII,
-        ID_floatFormat
+        ID_floatFormat,
+        ID__LAST
     };
 
 private:
@@ -195,6 +208,8 @@ private:
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define PICKVARINFO_TMFS "sss*d*s*d*bisi*s*i*bs"
 
 #endif

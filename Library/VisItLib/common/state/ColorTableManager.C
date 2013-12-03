@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -144,7 +144,9 @@ ColorTableManager::Export(const std::string &ctName,
 // Creation:   Thu Jul 3 18:24:52 PST 2003
 //
 // Modifications:
-//   
+//   Brad Whitlock, Fri Apr 27 17:36:00 PDT 2012
+//   Look in a system place too.
+//
 // ****************************************************************************
 
 bool
@@ -154,8 +156,12 @@ ColorTableManager::ImportColorTables(ColorTableAttributes *cta)
     // Read the user's home VisIt directory and import all of the color tables.
     //
     ctAtts = cta;
-    return ReadAndProcessDirectory(GetUserVisItDirectory(), ImportHelper,
-                                   (void*)this, false);
+    std::string ctdir(GetVisItResourcesDirectory(VISIT_RESOURCES_COLORTABLES));
+    bool r1 = ReadAndProcessDirectory(ctdir, ImportHelper,
+                                      (void*)this, false);
+    bool r2 = ReadAndProcessDirectory(GetUserVisItDirectory(), ImportHelper,
+                                      (void*)this, false);
+    return r1 || r2;
 }
 
 // ****************************************************************************
@@ -181,12 +187,10 @@ ColorTableManager::ImportColorTables(ColorTableAttributes *cta)
 //   I removed the exception and made the function return a bool.
 //
 // ****************************************************************************
-
 bool
-ColorTableManager::WriteConfigFile(const char *filename)
+ColorTableManager::WriteConfigFile(std::ostream& out)
 {
     DataNode topLevel("topLevel");
-
     // Create the color table node.
     DataNode *ctNode = new DataNode("ColorTable");
     topLevel.AddNode(ctNode);
@@ -195,21 +199,29 @@ ColorTableManager::WriteConfigFile(const char *filename)
     // Let the color table create add its information to tbe node.
     ccpl.CreateNode(ctNode, false, true);
 
-    // Try to open the output file.
-    if((fp = fopen(filename, "wb")) == 0)
-    {
-        return false;
-    }
-
     // Write the output file.
-    fprintf(fp, "<?xml version=\"1.0\"?>\n");
-    WriteObject(ctNode);
-
-    // Close the file
-    fclose(fp);
-    fp = 0;
+    out << "<?xml version=\"1.0\"?>\n";
+    WriteObject(out, ctNode);
 
     return true;
+}
+
+bool
+ColorTableManager::WriteConfigFile(const char *filename)
+{
+    std::ofstream outf;
+
+    // Try to open the output file.
+    outf.open(filename, ios::out | ios::binary);
+    if(outf.is_open() == false)
+        return false;
+
+    bool res = WriteConfigFile(outf);
+
+    // Close the file
+    outf.close();
+
+    return res;
 }
 
 // ****************************************************************************
@@ -227,25 +239,34 @@ ColorTableManager::WriteConfigFile(const char *filename)
 // Modifications:
 //   
 // ****************************************************************************
+DataNode *
+ColorTableManager::ReadConfigFile(std::istream& in)
+{
+    DataNode *node = 0;
+
+    // Read the XML tag and ignore it.
+    FinishTag(in);
+
+    // Create a root node and use it to read the visit tree.
+    node = new DataNode("FileRoot");
+    ReadObject(in, node);
+    return node;
+}
 
 DataNode *
 ColorTableManager::ReadConfigFile(const char *filename)
 {
-    DataNode *node = 0;
+    std::ifstream inf;
+    DataNode* node = NULL;
 
     // Try and open the file for reading.
-    if((fp = fopen(filename, "r")) == 0)
+    inf.open(filename, ios::in);
+    if(inf.is_open() == false)
         return node;
 
-    // Read the XML tag and ignore it.
-    FinishTag();
+    node = ReadConfigFile(inf);
 
-    // Create a root node and use it to read the visit tree.
-    node = new DataNode("FileRoot");
-    ReadObject(node);
-
-    fclose(fp);
-    fp = 0;
+    inf.close();
 
     return node;
 }

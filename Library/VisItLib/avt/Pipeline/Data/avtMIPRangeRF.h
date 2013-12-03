@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -83,7 +83,7 @@ class PIPELINE_API avtMIPRangeRF : public avtRayFunction
     virtual            ~avtMIPRangeRF();
 
     virtual void        GetRayValue(const avtRay *, 
-                                    unsigned char [3], float);
+                                    unsigned char [3], double);
 
   protected:
     double                 thresholdMin, thresholdMax;

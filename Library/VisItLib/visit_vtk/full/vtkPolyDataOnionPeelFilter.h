@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -82,9 +82,7 @@
 
 class vtkIdList;
 
-
-
-//*****************************************************************************
+// ****************************************************************************
 //  Modifications:
 //    Kathleen Bonnell, Thu Aug 15 18:37:59 PDT 2002  
 //    Added a bool return for Intialize method.  Changed SetSeedCell method 
@@ -102,9 +100,10 @@ class vtkIdList;
 //    Jeremy Meredith, Thu Aug  7 14:21:23 EDT 2008
 //    Adjacency type string should have been const char*.
 //
-//*****************************************************************************
-
-
+//    Eric Brugger, Wed Jan  9 11:50:57 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
 
 typedef void (*BadSeedCallback)(void *, int, int, bool);
 
@@ -143,8 +142,6 @@ public:
   vtkBooleanMacro(ReconstructOriginalCells,int);
   vtkGetMacro(ReconstructOriginalCells,int);
 
- 
-
   // Description:
   // Specify which type of adjacency to use when determining neighbor cells.
   // There are two choices:  Face Adjacency and Node Adjacency.
@@ -156,7 +153,7 @@ public:
        { this->SetAdjacencyType(VTK_NODE_ADJACENCY); };
   const char *GetAdjacencyTypeAsString();
 
-  bool Initialize(vtkDataSet*, const int = VTK_INT_MAX);
+  bool Initialize();
 
   void SetBadSeedCallback(BadSeedCallback, void *);
  
@@ -166,18 +163,24 @@ protected:
   vtkPolyDataOnionPeelFilter();
   ~vtkPolyDataOnionPeelFilter();
 
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-  int FillInputPortInformation(int, vtkInformation*);
-  void Grow(vtkDataSet*);
-  void GenerateOutputGrid(vtkDataSet*, vtkPolyData*);
+  virtual int RequestData(vtkInformation *,
+                          vtkInformationVector **,
+                          vtkInformationVector *);
+  virtual int FillInputPortInformation(int port, vtkInformation *info);
 
-  void FindCellNeighborsByNodeAdjacency(vtkIdList *, vtkIdList*, vtkDataSet*);
-  void FindCellNeighborsByFaceAdjacency(vtkIdList *, vtkIdList*, vtkDataSet*);
-  void FindCellsCorrespondingToOriginal(int, vtkIdList*, vtkDataSet*);
-  void FindCellsCorrespondingToOriginal(vtkIdList *, vtkIdList*, vtkDataSet*);
-  void FindNodesCorrespondingToOriginal(int, vtkIdList*, vtkDataSet*);
+  void Grow();
+  void GenerateOutputGrid();
+
+  void FindCellNeighborsByNodeAdjacency(vtkIdList *, vtkIdList*);
+  void FindCellNeighborsByFaceAdjacency(vtkIdList *, vtkIdList*);
+  void FindCellsCorrespondingToOriginal(int, vtkIdList*);
+  void FindCellsCorrespondingToOriginal(vtkIdList *, vtkIdList*);
+  void FindNodesCorrespondingToOriginal(int, vtkIdList*);
 
 // Protected Data Members
+
+  vtkDataSet *input;
+  vtkPolyData *output;
 
   vtkIdList *layerCellIds;
   vtkIdList *cellOffsets;
@@ -198,7 +201,6 @@ protected:
 private:
   vtkPolyDataOnionPeelFilter(const vtkPolyDataOnionPeelFilter&);
   void operator=(const vtkPolyDataOnionPeelFilter&);
-
 };
 
 inline const char *vtkPolyDataOnionPeelFilter::GetAdjacencyTypeAsString(void)
@@ -214,5 +216,3 @@ inline const char *vtkPolyDataOnionPeelFilter::GetAdjacencyTypeAsString(void)
 }
 
 #endif
-
-

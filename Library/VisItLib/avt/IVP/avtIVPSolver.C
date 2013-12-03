@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -55,6 +55,23 @@
 //
 // ****************************************************************************
 
+avtIVPSolver::avtIVPSolver() : convertToCartesian(0), convertToCylindrical(0),
+                               order(1)
+{
+}
+
+
+// ****************************************************************************
+//  Method: avtIVPSolver::GetState
+//
+//  Purpose:
+//      Gets the state of the IVP solver.
+//
+//  Programmer: Christoph Garth
+//  Creation:   February 25, 2008
+//
+// ****************************************************************************
+
 void
 avtIVPSolver::GetState( avtIVPState& state )
 {
@@ -66,6 +83,7 @@ avtIVPSolver::GetState( avtIVPState& state )
     aiss.Reset(avtIVPStateHelper::GET, state._data);
     this->AcceptStateVisitor(aiss);
 }
+
 
 // ****************************************************************************
 //  Method: avtIVPSolver::PutState
@@ -86,3 +104,17 @@ avtIVPSolver::PutState(const avtIVPState& state)
 }
 
 
+avtIVPSolver::Result
+avtIVPSolver::ConvertResult(const avtIVPField::Result &res) const
+{
+    if (res == avtIVPField::OK)
+        return OK;
+    else if (res == avtIVPField::OUTSIDE_SPATIAL)
+        return OUTSIDE_SPATIAL;
+    else if (res == avtIVPField::OUTSIDE_BOTH)
+        return OUTSIDE_SPATIAL;
+    else if (res == avtIVPField::OUTSIDE_TEMPORAL)
+        return OUTSIDE_TEMPORAL;
+    else
+        return UNSPECIFIED_ERROR;
+}

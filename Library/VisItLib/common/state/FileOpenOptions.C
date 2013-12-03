@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -818,7 +818,7 @@ FileOpenOptions::RemoveOpenOptions(int index)
 int
 FileOpenOptions::GetNumOpenOptions() const
 {
-    return openOptions.size();
+    return (int)openOptions.size();
 }
 
 // ****************************************************************************
@@ -1216,11 +1216,11 @@ FileOpenOptions::AddAssumedFormatsToPreferred(const stringVector &given)
 {
     // for each format, prepend it; visit them in reverse order
     // so the first one given winds up first in the new list
-    for (int i=given.size()-1; i>=0; i--)
+    for (int i=(int)given.size()-1; i>=0; i--)
     {
         // get its actual ID
         std::string id = "";
-        for (int j=0; j<typeIDs.size(); j++)
+        for (size_t j=0; j<typeIDs.size(); j++)
         {
             if (given[i] == typeIDs[j] ||
                 given[i] == typeNames[j])
@@ -1236,7 +1236,7 @@ FileOpenOptions::AddAssumedFormatsToPreferred(const stringVector &given)
         // make a new list with this given one at the front
         stringVector newPreferredIDs;
         newPreferredIDs.push_back(id);
-        for (int j=0; j<preferredIDs.size(); j++)
+        for (size_t j=0; j<preferredIDs.size(); j++)
         {
             if (preferredIDs[j] != id)
                 newPreferredIDs.push_back(preferredIDs[j]);
@@ -1264,11 +1264,11 @@ void
 FileOpenOptions::AddFallbackFormatsToPreferred(const stringVector &given)
 {
     // for each format, append it
-    for (int i=0; i<given.size(); i++)
+    for (size_t i=0; i<given.size(); i++)
     {
         // get its actual ID
         std::string id = "";
-        for (int j=0; j<typeIDs.size(); j++)
+        for (size_t j=0; j<typeIDs.size(); j++)
         {
             if (given[i] == typeIDs[j] ||
                 given[i] == typeNames[j])
@@ -1283,7 +1283,7 @@ FileOpenOptions::AddFallbackFormatsToPreferred(const stringVector &given)
 
         // make a new list with this given one at the back
         stringVector newPreferredIDs;
-        for (int j=0; j<preferredIDs.size(); j++)
+        for (size_t j=0; j<preferredIDs.size(); j++)
         {
             if (preferredIDs[j] != id)
                 newPreferredIDs.push_back(preferredIDs[j]);

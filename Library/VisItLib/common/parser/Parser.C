@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -63,6 +63,19 @@ Parser::Parser()
 {
     G = NULL;
     Init();
+}
+
+// ****************************************************************************
+//  Destructor:  Parser::~Parser
+//
+//  Programmer:  David Camp
+//  Creation:    Tue Jan 11 11:09:24 PST 2011
+//
+// ****************************************************************************
+Parser::~Parser()
+{
+    if (G)
+        delete G;
 }
 
 // ****************************************************************************
@@ -173,7 +186,7 @@ Parser::Reduce(int r)
     int i;
     for (i=0; i<len; i++)
     {
-        int index = elems.size() - len + i;
+        int index = (int)elems.size() - len + i;
         E.push_back(elems[index].node);
         T.push_back(elems[index].token);
         p.Join(elems[index].pos);

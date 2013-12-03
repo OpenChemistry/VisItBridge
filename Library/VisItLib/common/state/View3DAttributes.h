@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -41,6 +41,7 @@
 #include <state_exports.h>
 #include <AttributeSubject.h>
 
+
 // ****************************************************************************
 // Class: View3DAttributes
 //
@@ -59,13 +60,23 @@
 class STATE_API View3DAttributes : public AttributeSubject
 {
 public:
+    // These constructors are for objects of this class
     View3DAttributes();
     View3DAttributes(const View3DAttributes &obj);
+protected:
+    // These constructors are for objects derived from this class
+    View3DAttributes(private_tmfs_t tmfs);
+    View3DAttributes(const View3DAttributes &obj, private_tmfs_t tmfs);
+public:
     virtual ~View3DAttributes();
 
     virtual View3DAttributes& operator = (const View3DAttributes &obj);
     virtual bool operator == (const View3DAttributes &obj) const;
     virtual bool operator != (const View3DAttributes &obj) const;
+private:
+    void Init();
+    void Copy(const View3DAttributes &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -79,6 +90,8 @@ public:
     void SelectViewUp();
     void SelectImagePan();
     void SelectCenterOfRotation();
+    void SelectAxis3DScales();
+    void SelectShear();
 
     // Property setting methods
     void SetViewNormal(const double *viewNormal_);
@@ -94,6 +107,9 @@ public:
     void SetEyeAngle(double eyeAngle_);
     void SetCenterOfRotationSet(bool centerOfRotationSet_);
     void SetCenterOfRotation(const double *centerOfRotation_);
+    void SetAxis3DScaleFlag(bool axis3DScaleFlag_);
+    void SetAxis3DScales(const double *axis3DScales_);
+    void SetShear(const double *shear_);
 
     // Property getting methods
     const double *GetViewNormal() const;
@@ -114,6 +130,11 @@ public:
     bool         GetCenterOfRotationSet() const;
     const double *GetCenterOfRotation() const;
           double *GetCenterOfRotation();
+    bool         GetAxis3DScaleFlag() const;
+    const double *GetAxis3DScales() const;
+          double *GetAxis3DScales();
+    const double *GetShear() const;
+          double *GetShear();
 
     // Persistence methods
     virtual bool CreateNode(DataNode *node, bool completeSave, bool forceAdd);
@@ -144,7 +165,11 @@ public:
         ID_perspective,
         ID_eyeAngle,
         ID_centerOfRotationSet,
-        ID_centerOfRotation
+        ID_centerOfRotation,
+        ID_axis3DScaleFlag,
+        ID_axis3DScales,
+        ID_shear,
+        ID__LAST
     };
 
 private:
@@ -161,9 +186,14 @@ private:
     double eyeAngle;
     bool   centerOfRotationSet;
     double centerOfRotation[3];
+    bool   axis3DScaleFlag;
+    double axis3DScales[3];
+    double shear[3];
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define VIEW3DATTRIBUTES_TMFS "DDDddddDdbdbDbDD"
 
 #endif

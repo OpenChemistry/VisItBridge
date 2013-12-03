@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -51,7 +51,7 @@
 #define __vtkLinesFromOriginalCells_h
 #include <visit_vtk_exports.h>
 
-#include <vtkPolyDataAlgorithm.h>
+#include "vtkPolyDataAlgorithm.h"
 
 class VISIT_VTK_API vtkLinesFromOriginalCells : public vtkPolyDataAlgorithm
 {
@@ -63,15 +63,13 @@ protected:
   vtkLinesFromOriginalCells();
   ~vtkLinesFromOriginalCells();
 
-  // Usual data generation method
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
+  virtual int RequestData(vtkInformation *,
+                          vtkInformationVector **,
+                          vtkInformationVector *);
 
 private:
   vtkLinesFromOriginalCells(const vtkLinesFromOriginalCells&);
   void operator=(const vtkLinesFromOriginalCells&);
-
 };
 
 #endif
-
-

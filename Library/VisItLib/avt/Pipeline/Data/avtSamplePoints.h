@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -93,7 +93,7 @@ class PIPELINE_API  avtSamplePoints : public avtDataObject
                                                    std::vector<std::string> &);
     int                         GetNumberOfVariables(void);
     int                         GetNumberOfRealVariables(void) 
-                                                   { return varnames.size(); };
+                                                   { return static_cast<int>(varnames.size()); };
     const std::string          &GetVariableName(int);
     int                         GetVariableSize(int);
     virtual int                 GetNumberOfCells(bool polysOnly = false) const

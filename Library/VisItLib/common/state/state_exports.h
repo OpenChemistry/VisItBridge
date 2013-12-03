@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -39,7 +39,7 @@
 #ifndef STATE_EXPORTS_H
 #define STATE_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(_WIN32)
 # if defined(STATE_EXPORTS) || defined(visitcommon_EXPORTS)
 #   define STATE_API __declspec(dllexport)
 # else

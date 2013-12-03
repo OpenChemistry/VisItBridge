@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -40,8 +40,6 @@
 #include <vtkImageData.h>
 #include <vtkPointData.h>
 #include <vtkObjectFactory.h>
-#include <vtkInformation.h>
-#include <vtkStreamingDemandDrivenPipeline.h>
 
 
 //------------------------------------------------------------------------------
@@ -58,18 +56,16 @@ vtkPPMWriter::vtkPPMWriter()
   this->FileLowerLeft = 1;
 }
 
-void vtkPPMWriter::WriteFileHeader(ofstream *file, vtkImageData *cache)
+void vtkPPMWriter::WriteFileHeader(ofstream *file, vtkImageData *cache, int wExt[6])
 {
-  int ext[6];
-  int min0, max0, min1, max1;
+  int min0 = wExt[0], 
+      max0 = wExt[1], 
+      min1 = wExt[2], 
+      max1 = wExt[3], 
+      min2 = wExt[4], 
+      max2 = wExt[5];
   int width, height;
-  // Find the length of the rows to write.
-  this->GetInputInformation()->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT(), ext);
-
-  min0 = ext[0];
-  max0 = ext[1];
-  min1 = ext[2];
-  max1 = ext[3];
+  
   width = (max0 - min0 + 1);
   height = (max1 - min1 + 1);
 
@@ -82,7 +78,7 @@ void vtkPPMWriter::WriteFileHeader(ofstream *file, vtkImageData *cache)
 
 
 void vtkPPMWriter::WriteFile(ofstream *file, vtkImageData *data,
-                             int extent[6])
+                             int extent[6], int wExt[6])
 {
   int idx1;
   int rowLength, i; // in bytes
@@ -92,7 +88,6 @@ void vtkPPMWriter::WriteFile(ofstream *file, vtkImageData *data,
   unsigned long target;
   float progress = this->Progress;
   float area;
-  int *wExtent;
   
   bpp = data->GetNumberOfScalarComponents();
   
@@ -113,11 +108,10 @@ void vtkPPMWriter::WriteFile(ofstream *file, vtkImageData *data,
   // Row length of x axis
   rowLength = extent[1] - extent[0] + 1;
 
-  wExtent = this->GetInputInformation()->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT());
   area = ((extent[5] - extent[4] + 1)*(extent[3] - extent[2] + 1)*
           (extent[1] - extent[0] + 1)) / 
-    ((wExtent[5] -wExtent[4] + 1)*(wExtent[3] -wExtent[2] + 1)*
-     (wExtent[1] -wExtent[0] + 1));
+    ((wExt[5] -wExt[4] + 1)*(wExt[3] -wExt[2] + 1)*
+     (wExt[1] -wExt[0] + 1));
     
   target = (unsigned long)((extent[5]-extent[4]+1)*
                            (extent[3]-extent[2]+1)/(50.0*area));

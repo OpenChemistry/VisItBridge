@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -84,11 +84,14 @@ class UTILITY_API Namescheme
 
     static const int max_expstrs;
     static const int max_fmtlen;
+    static const int max_retstrs = 32;
+    static char *retstrbuf[max_retstrs];
 
     static void FreeTree(DBexprnode *tree);
     static DBexprnode *UpdateTree(DBexprnode *tree, const char t, int v, char *s);
     static DBexprnode *BuildExprTree(const char **porig);
-    static int SaveString(Namescheme *ns, const char *sval);
+    static int SaveInternalString(Namescheme *ns, char const * const sval);
+    static char *SaveReturnedString(char const * const sval);
     static int EvalExprTree(Namescheme *ns, DBexprnode *tree, int n);
 
     char *fmt;            // orig. format string
@@ -102,6 +105,7 @@ class UTILITY_API Namescheme
     char **arrnames;      // array names used by array refs
     const int **arrvals;  // pointer to actual array data assoc. with each name
     char **exprstrs;      // expressions to be evaluated for each conv. spec.
+    DBexprnode **exprtrees; // Built expression trees for each conv. spec.
 };
 
 #endif

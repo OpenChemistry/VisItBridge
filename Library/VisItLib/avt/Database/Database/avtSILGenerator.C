@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -114,6 +114,13 @@ static SILCategoryRole CategoryFromCollectionClassName(string classStr);
 //    Hank Childs, Tue Dec  8 08:34:22 PST 2009
 //    Added some data members that enable smaller SILs.
 //
+//    Cyrus Harrison, Wed Aug 25 08:35:22 PDT 2010
+//    Support selection of domains, even if we only have
+//    a single domain.
+//
+//    Kathleen Biagas, Thu Aug 22 10:00:11 PDT 2013
+//    Pass groupNames to AddGroups call.
+//
 // ****************************************************************************
 
 void
@@ -138,10 +145,10 @@ avtSILGenerator::CreateSIL(avtDatabaseMetaData *md, avtSIL *sil)
         // Create the mesh and add it to the SIL.
         //
         const avtMeshMetaData *mesh = md->GetMesh(i);
-        int id = (mesh->numBlocks > 1 ? -1 : 0);
+        int id = -1;
         avtSILSet_p set = new avtSILSet(mesh->name, id);
         int topIndex = sil->AddWhole(set);
- 
+
         const avtMaterialMetaData *mat = md->GetMaterialOnMesh(mesh->name);
         bool useArrays = (mat == NULL);
 
@@ -150,25 +157,23 @@ avtSILGenerator::CreateSIL(avtDatabaseMetaData *md, avtSIL *sil)
         // exist.
         //
         vector<int> domainList;
-        if (mesh->numBlocks > 1)
+        vector<int> groupList;
+        if (mesh->numGroups > 0)
         {
-            vector<int> groupList;
-            if (mesh->numGroups > 0)
-            {
-                groupList = AddGroups(sil, topIndex, mesh->numGroups, mesh->groupOrigin,
-                          mesh->groupPieceName, mesh->groupTitle);
-            }
-            int t1 = visitTimer->StartTimer();
-            AddSubsets(sil, topIndex, mesh->numBlocks, mesh->blockOrigin,
-                       domainList, mesh->blockTitle, mesh->blockPieceName,
-                       mesh->blockNames, mesh->blockNameScheme, useArrays);
-            visitTimer->StopTimer(t1, "Adding subsets");
-            if (mesh->numGroups > 0)
-            {
-                AddGroupCollections(sil, topIndex, mesh->numGroups, 
-                          domainList, mesh->groupIds, mesh->groupIdsBasedOnRange,
-                          mesh->blockTitle, groupList);
-            }
+            groupList = AddGroups(sil, topIndex, mesh->numGroups, 
+                        mesh->groupOrigin, mesh->groupPieceName, 
+                        mesh->groupTitle, mesh->groupNames);
+        }
+        int t1 = visitTimer->StartTimer();
+        AddSubsets(sil, topIndex, mesh->numBlocks, mesh->blockOrigin,
+                    domainList, mesh->blockTitle, mesh->blockPieceName,
+                    mesh->blockNames, mesh->blockNameScheme, useArrays);
+        visitTimer->StopTimer(t1, "Adding subsets");
+        if (mesh->numGroups > 0)
+        {
+            AddGroupCollections(sil, topIndex, mesh->numGroups,
+                        domainList, mesh->groupIds, mesh->groupIdsBasedOnRange,
+                        mesh->blockTitle, groupList);
         }
         domainListList.push_back(domainList);
 
@@ -179,13 +184,9 @@ avtSILGenerator::CreateSIL(avtDatabaseMetaData *md, avtSIL *sil)
         if (mat != NULL)
         {
             int id = -1;
-            if (mesh->numBlocks == 1)
-            {
-                id = 0;
-            }
             AddMaterials(sil, topIndex, mat->name, mat->materialNames,
                          matList, id);
- 
+
             //
             // Add the species if they exist
             //
@@ -241,7 +242,7 @@ avtSILGenerator::CreateSIL(avtDatabaseMetaData *md, avtSIL *sil)
         const avtMeshMetaData *mesh = md->GetMesh(i);
         const avtMaterialMetaData *mat = md->GetMaterialOnMesh(mesh->name);
 
-        if (mat != NULL && mesh->numBlocks > 1)
+        if (mat != NULL)
         {
             avtSILMatrix_p matrix = new avtSILMatrix(domainListList[i],
                                                 SIL_DOMAIN, mesh->blockTitle,
@@ -415,11 +416,16 @@ avtSILGenerator::AddSubsets(avtSIL *sil, int parent, int num, int origin,
 //    Add flags for AMR efficiency.  Separate out the collection code to its
 //    own routine.
 //
+//    Kathleen Biagas, Thu Aug 22 10:00:35 PDT 2013
+//    Added groupNames argument. If empty or size doesn't match numGroups,
+//    names will be generated as before.
+//
 // ****************************************************************************
  
 std::vector<int>
 avtSILGenerator::AddGroups(avtSIL *sil, int top, int numGroups, int origin,
-                           const std::string &piece, const std::string &gTitle)
+                           const std::string &piece, const std::string &gTitle,
+                           const std::vector< std::string > &gNames)
 {
     int  i;
  
@@ -430,7 +436,9 @@ avtSILGenerator::AddGroups(avtSIL *sil, int top, int numGroups, int origin,
     for (i = 0 ; i < numGroups ; i++)
     {
         char name[1024];
-        if (strstr(piece.c_str(), "%") != NULL)
+        if (!gNames.empty() && gNames.size() == numGroups)
+            sprintf(name, gNames[i].c_str());
+        else if (strstr(piece.c_str(), "%") != NULL)
             sprintf(name, piece.c_str(), i+origin);
         else
             sprintf(name, "%s%d", piece.c_str(), i+origin);
@@ -467,10 +475,10 @@ avtSILGenerator::AddGroups(avtSIL *sil, int top, int numGroups, int origin,
 
 void
 avtSILGenerator::AddGroupCollections(avtSIL *sil, int top, int numGroups, 
-                           const vector<int> &domList, const vector<int> &groupIds,
-                           const vector<int> &groupIdsBasedOnRange,
-                           const string &bTitle,
-                           const vector<int> &groupList)
+        const vector<int> &domList, const vector<int> &groupIds,
+        const vector<int> &groupIdsBasedOnRange,
+        const string &bTitle,
+        const vector<int> &groupList)
 {
     int  i;
     int t1 = visitTimer->StartTimer();
@@ -495,8 +503,8 @@ avtSILGenerator::AddGroupCollections(avtSIL *sil, int top, int numGroups,
      
         //
         // Things aren't very well sorted here -- we want all of the domains,
-        // sorted by groupId.  Let's try to be efficient and use the qsort routine
-        // provided by stdlib to do this.
+        // sorted by groupId.  Let's try to be efficient and use the qsort 
+        // routine provided by stdlib to do this.
         //
         int nDoms = domList.size();
         int *records = new int[2*nDoms];
@@ -525,10 +533,10 @@ avtSILGenerator::AddGroupCollections(avtSIL *sil, int top, int numGroups,
      
             if (thisGroupsList.size() > 0)
             {
-                avtSILEnumeratedNamespace *ns = new avtSILEnumeratedNamespace(
-                                                                   thisGroupsList);
-                avtSILCollection_p coll = new avtSILCollection(bTitle, SIL_DOMAIN,
-                                                               groupList[i], ns);
+                avtSILEnumeratedNamespace *ns = 
+                    new avtSILEnumeratedNamespace(thisGroupsList);
+                avtSILCollection_p coll = 
+                    new avtSILCollection(bTitle, SIL_DOMAIN, groupList[i], ns);
                 sil->AddCollection(coll);
             }
         }

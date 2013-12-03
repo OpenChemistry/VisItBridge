@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -37,7 +37,7 @@
 *****************************************************************************/
 
 // ************************************************************************* //
-//                             avtDataRequest.C                        //
+//                             avtDataRequest.C                              //
 // ************************************************************************* //
 
 #include <avtDataRequest.h>
@@ -179,6 +179,16 @@ using     std::map;
 //    Mark C. Miller, Wed Mar  3 07:59:15 PST 2010
 //    Changed form of conditional compilation check for HAVE_BILIB from
 //    numeric test to existence test.
+//
+//    Hank Childs, Fri Sep  3 12:10:47 PDT 2010
+//    Added support for "velocityMustBeContinuous".
+//
+//    Brad Whitlock, Thu Sep  1 10:56:43 PDT 2011
+//    Added selectionName.
+//
+//    Brad Whitlock, Wed Jan  4 16:52:54 PST 2012
+//    Add missingDataBehavior.
+//
 // ****************************************************************************
 
 avtDataRequest::avtDataRequest(const char *var, int ts,
@@ -191,6 +201,7 @@ avtDataRequest::avtDataRequest(const char *var, int ts,
     needGlobalZones = false;
     needGlobalNodes = false;
     needInternalSurfaces = false;
+    velocityMustBeContinuous = false;
     mustDoMIR = false;
     getBoundarySurfaceRep = false;
     getSimplifiedNestingRep = false;
@@ -232,6 +243,9 @@ avtDataRequest::avtDataRequest(const char *var, int ts,
 
     variable  = new char[strlen(var)+1];
     strcpy(variable, var);
+
+    selectionName = std::string();
+    missingDataBehavior = MISSING_DATA_REMOVE;
 
     //
     // Assume the 'orig' variable is the input variable.  If this is not true,
@@ -343,6 +357,12 @@ avtDataRequest::avtDataRequest(const char *var, int ts,
 //    Jeremy Meredith, Tue Aug  4 10:48:26 EDT 2009
 //    Added comment for Youngs algorithm.
 //
+//    Hank Childs, Fri Sep  3 12:10:47 PDT 2010
+//    Added support for "velocityMustBeContinuous".
+//
+//    Brad Whitlock, Wed Jan  4 16:52:54 PST 2012
+//    Add missingDataBehavior.
+//
 // ****************************************************************************
 
 avtDataRequest::avtDataRequest(const char *var, int ts, int ch)
@@ -354,6 +374,7 @@ avtDataRequest::avtDataRequest(const char *var, int ts, int ch)
     needGlobalZones = false;
     needGlobalNodes = false;
     mustDoMIR = false;
+    velocityMustBeContinuous = false;
     needInternalSurfaces = false;
     getBoundarySurfaceRep = false;
     getSimplifiedNestingRep = false;
@@ -391,6 +412,9 @@ avtDataRequest::avtDataRequest(const char *var, int ts, int ch)
 
     variable  = new char[strlen(var)+1];
     strcpy(variable, var);
+
+    selectionName = std::string();
+    missingDataBehavior = MISSING_DATA_REMOVE;
 
     //
     // Assume the 'db' variable is the input variable.  If this is not true,
@@ -643,6 +667,15 @@ avtDataRequest::avtDataRequest(avtDataRequest_p spec)
 //    Jeremy Meredith, Fri Feb 13 11:22:39 EST 2009
 //    Added MIR iteration capability.
 //
+//    Hank Childs, Fri Sep  3 12:10:47 PDT 2010
+//    Added support for "velocityMustBeContinuous".
+//
+//    Brad Whitlock, Thu Sep  1 10:58:43 PDT 2011
+//    Added selectionName.
+//
+//    Brad Whitlock, Wed Jan  4 16:52:54 PST 2012
+//    Add missingDataBehavior.
+//
 // ****************************************************************************
 
 avtDataRequest &
@@ -683,6 +716,7 @@ avtDataRequest::operator=(const avtDataRequest &spec)
     needGlobalZones                 = spec.needGlobalZones;
     needGlobalNodes                 = spec.needGlobalNodes;
     needInternalSurfaces            = spec.needInternalSurfaces;
+    velocityMustBeContinuous        = spec.velocityMustBeContinuous;
     getBoundarySurfaceRep           = spec.getBoundarySurfaceRep;
     getSimplifiedNestingRep         = spec.getSimplifiedNestingRep;
     needValidFaceConnectivity       = spec.needValidFaceConnectivity;
@@ -711,6 +745,8 @@ avtDataRequest::operator=(const avtDataRequest &spec)
     transformVectorsDuringProject   = spec.transformVectorsDuringProject;
     needPostGhostMaterialInfo       = spec.needPostGhostMaterialInfo;
     secondaryVariables              = spec.secondaryVariables;
+    selectionName                   = spec.selectionName;
+    missingDataBehavior             = spec.missingDataBehavior;
 
     selList = spec.selList;
 
@@ -827,6 +863,12 @@ avtDataRequest::operator=(const avtDataRequest &spec)
 //    Jeremy Meredith, Fri Feb 13 11:22:39 EST 2009
 //    Added MIR iteration capability.
 //
+//    Hank Childs, Fri Sep  3 12:10:47 PDT 2010
+//    Added support for "velocityMustBeContinuous".
+//
+//    Brad Whitlock, Wed Jan  4 16:52:54 PST 2012
+//    Add missingDataBehavior.
+//
 // ****************************************************************************
 
 bool
@@ -890,6 +932,11 @@ avtDataRequest::operator==(const avtDataRequest &ds)
     }
 
     if (needInternalSurfaces != ds.needInternalSurfaces)
+    {
+        return false;
+    }
+
+    if (velocityMustBeContinuous != ds.velocityMustBeContinuous)
     {
         return false;
     }
@@ -1038,6 +1085,12 @@ avtDataRequest::operator==(const avtDataRequest &ds)
     if (needPostGhostMaterialInfo != ds.needPostGhostMaterialInfo)
         return false;
  
+    //if (selectionName != ds.selectionName)
+    //    return false;
+
+    if (missingDataBehavior != ds.missingDataBehavior)
+        return false;
+
     return true;
 }
 
@@ -1427,6 +1480,23 @@ avtDataRequest::GetAllDataSelections() const
 
 
 // ****************************************************************************
+//  Method: avtDataRequest::GetAllDataSelections
+//
+//  Purpose: Gets all data selections in the specification 
+//
+//  Programmer: Hank Childs
+//  Creation:   December 11, 2012
+//
+// ****************************************************************************
+
+std::vector<avtDataSelection_p>
+avtDataRequest::GetAllDataSelections()
+{
+    return selList;
+}
+
+
+// ****************************************************************************
 //  Method: avtDataRequest::InitAdmissibleDataTypes
 //
 //  Purpose: Initialize admissible data types to all true
@@ -1434,24 +1504,19 @@ avtDataRequest::GetAllDataSelections() const
 //  Programmer: Mark C. Miller 
 //  Creation:   March 23, 2005 
 //
+//  Modifications:
+//    Brad Whitlock, Thu Apr 12 15:18:01 PDT 2012
+//    Use AllAdmissibleDataTypes().
+//
 // ****************************************************************************
 
 void
 avtDataRequest::InitAdmissibleDataTypes()
 {
     admissibleDataTypes.clear();
-    admissibleDataTypes[VTK_BIT]            = true;
-    admissibleDataTypes[VTK_CHAR]           = true;
-    admissibleDataTypes[VTK_UNSIGNED_CHAR]  = true;
-    admissibleDataTypes[VTK_SHORT]          = true;
-    admissibleDataTypes[VTK_UNSIGNED_SHORT] = true;
-    admissibleDataTypes[VTK_INT]            = true;
-    admissibleDataTypes[VTK_UNSIGNED_INT]   = true;
-    admissibleDataTypes[VTK_LONG]           = true;
-    admissibleDataTypes[VTK_UNSIGNED_LONG]  = true;
-    admissibleDataTypes[VTK_FLOAT]          = true;
-    admissibleDataTypes[VTK_DOUBLE]         = true;
-    admissibleDataTypes[VTK_ID_TYPE]        = true;
+    std::vector<int> alltypes(AllAdmissibleDataTypes());
+    for(size_t i = 0; i < alltypes.size(); ++i)
+        admissibleDataTypes[alltypes[i]] = true;
 }
 
 // ****************************************************************************
@@ -1470,14 +1535,14 @@ avtDataRequest::InitAdmissibleDataTypes()
 // ****************************************************************************
 
 void
-avtDataRequest::UpdateAdmissibleDataTypes(vector<int> admissibleTypes)
+avtDataRequest::UpdateAdmissibleDataTypes(const vector<int> &admissibleTypes)
 {
     std::map<int,bool>::iterator it;
     for (it = admissibleDataTypes.begin();
          it != admissibleDataTypes.end(); it++)
     {
         bool isAnAdmissibleType = false;
-        for (int i = 0; i < admissibleTypes.size(); i++)
+        for (size_t i = 0; i < admissibleTypes.size(); i++)
         {
             if (admissibleTypes[i] == it->first)
             {
@@ -1488,6 +1553,66 @@ avtDataRequest::UpdateAdmissibleDataTypes(vector<int> admissibleTypes)
         if (isAnAdmissibleType == false)
             it->second = false;
     }
+}
+
+void
+avtDataRequest::UpdateAdmissibleDataTypes(int dt1)
+{
+    std::vector<int> vec;
+    vec.push_back(dt1);
+    UpdateAdmissibleDataTypes(vec);
+}
+
+void
+avtDataRequest::UpdateAdmissibleDataTypes(int dt1, int dt2)
+{
+    std::vector<int> vec;
+    vec.push_back(dt1);
+    vec.push_back(dt2);
+    UpdateAdmissibleDataTypes(vec);
+}
+
+void
+avtDataRequest::UpdateAdmissibleDataTypes(int dt1, int dt2, int dt3)
+{
+    std::vector<int> vec;
+    vec.push_back(dt1);
+    vec.push_back(dt2);
+    vec.push_back(dt3);
+    UpdateAdmissibleDataTypes(vec);
+}
+
+// ****************************************************************************
+// Method: avtDataRequest::AllAdmissibleDataTypes
+//
+// Purpose: 
+//   Return a vector containing all possible admissible types.
+//
+// Programmer: Brad Whitlock
+// Creation:   Thu Apr 12 15:18:17 PDT 2012
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+std::vector<int>
+avtDataRequest::AllAdmissibleDataTypes()
+{
+    std::vector<int> types;
+    types.push_back(VTK_BIT);
+    types.push_back(VTK_CHAR);
+    types.push_back(VTK_SIGNED_CHAR);
+    types.push_back(VTK_UNSIGNED_CHAR);
+    types.push_back(VTK_SHORT);
+    types.push_back(VTK_UNSIGNED_SHORT);
+    types.push_back(VTK_INT);
+    types.push_back(VTK_UNSIGNED_INT);
+    types.push_back(VTK_LONG);
+    types.push_back(VTK_UNSIGNED_LONG);
+    types.push_back(VTK_FLOAT);
+    types.push_back(VTK_DOUBLE);
+    types.push_back(VTK_ID_TYPE);
+    return types;
 }
 
 // ****************************************************************************
@@ -1799,6 +1924,15 @@ avtSILSpecification::operator==(const avtSILSpecification &s)
 //    Jeremy Meredith, Tue Aug  4 10:49:32 EDT 2009
 //    Added MIR algorithm enumeration values to page.
 //
+//    Hank Childs, Fri Sep  3 12:10:47 PDT 2010
+//    Added support for "velocityMustBeContinuous".
+//
+//    Brad Whitlock, Thu Sep  1 11:01:51 PDT 2011
+//    Added selectionName.
+//
+//    Brad Whitlock, Wed Jan  4 16:55:23 PST 2012
+//    Added missing data behavior.
+//
 // ****************************************************************************
 
 static const char *
@@ -1842,6 +1976,7 @@ avtDataRequest::DebugDump(avtWebpage *webpage)
     webpage->AddTableEntry2("mayRequireZones", YesOrNo(mayRequireZones));
     webpage->AddTableEntry2("mustDoMIR", YesOrNo(mustDoMIR));
     webpage->AddTableEntry2("needInternalSurfaces", YesOrNo(needInternalSurfaces));
+    webpage->AddTableEntry2("velocityMustBeContinuous", YesOrNo(velocityMustBeContinuous));
     webpage->AddTableEntry2("Get data set as only material boundaries", YesOrNo(getBoundarySurfaceRep));
     webpage->AddTableEntry2("Get data set in a simplified form for showing domain nesting", 
                                     YesOrNo(getSimplifiedNestingRep));
@@ -1901,6 +2036,14 @@ avtDataRequest::DebugDump(avtWebpage *webpage)
     webpage->AddTableEntry2("usesAllDomains", YesOrNo(usesAllDomains));
     webpage->AddTableEntry2("transformVectorsDuringProject", YesOrNo(transformVectorsDuringProject));
     webpage->AddTableEntry2("needPostGhostMaterialInfo", YesOrNo(needPostGhostMaterialInfo));
+    webpage->AddTableEntry2("selectionName", selectionName.c_str());
+    if(missingDataBehavior == MISSING_DATA_IGNORE)
+        webpage->AddTableEntry2("missingDataBehavior", "MISSING_DATA_IGNORE");
+    else if(missingDataBehavior == MISSING_DATA_REMOVE)
+        webpage->AddTableEntry2("missingDataBehavior", "MISSING_DATA_REMOVE");
+    else
+        webpage->AddTableEntry2("missingDataBehavior", "MISSING_DATA_IDENTIFY");
+
     webpage->EndTable();
 }
 

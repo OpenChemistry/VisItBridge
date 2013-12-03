@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -275,6 +275,33 @@ avtSTMDFileFormatInterface::GetAuxiliaryData(const char *var, int ts, int dom,
     }
 
     return timesteps[ts]->GetAuxiliaryData(var, dom, type, args, df);
+}
+
+
+// ****************************************************************************
+//  Method: avtSTMDFileFormatInterface::CreateCacheNameIncludingSelections
+//
+//  Purpose:
+//      Creates a name that can be used for caching, including any of the
+//      selections that may be applied.
+//
+//  Arguments:
+//      var     The variable.
+//      ts      The time step.
+//      dom     The domain.
+//
+//  Returns:    A mangled version of the name.
+//
+//  Programmer: Hank Childs
+//  Creation:   December 20, 2011
+//
+// ****************************************************************************
+
+std::string
+avtSTMDFileFormatInterface::CreateCacheNameIncludingSelections(std::string var, 
+                                                               int ts, int dom)
+{
+    return timesteps[ts]->CreateCacheNameIncludingSelections(var);
 }
 
 

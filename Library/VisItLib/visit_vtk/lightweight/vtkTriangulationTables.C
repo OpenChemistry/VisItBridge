@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -849,3 +849,44 @@ int lineVerticesFromEdges[1][2] =
     {0,1}
 };
 
+int poly5VerticesFromEdges[5][2] =
+{
+    {0,1},
+    {1,2},
+    {2,3},
+    {3,4},
+    {4,0}
+};
+
+int poly6VerticesFromEdges[6][2] =
+{
+    {0,1},
+    {1,2},
+    {2,3},
+    {3,4},
+    {4,5},
+    {5,0}
+};
+
+int poly7VerticesFromEdges[7][2] =
+{
+    {0,1},
+    {1,2},
+    {2,3},
+    {3,4},
+    {4,5},
+    {5,6},
+    {6,0}
+};
+
+int poly8VerticesFromEdges[8][2] =
+{
+    {0,1},
+    {1,2},
+    {2,3},
+    {3,4},
+    {4,5},
+    {5,6},
+    {6,7},
+    {7,0}
+};

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -41,6 +41,7 @@
 #include <state_exports.h>
 #include <string>
 #include <AttributeSubject.h>
+
 #include <Axes2D.h>
 #include <Axes3D.h>
 #include <FontAttributes.h>
@@ -89,13 +90,23 @@ public:
         SmartDirectory
     };
 
+    // These constructors are for objects of this class
     AnnotationAttributes();
     AnnotationAttributes(const AnnotationAttributes &obj);
+protected:
+    // These constructors are for objects derived from this class
+    AnnotationAttributes(private_tmfs_t tmfs);
+    AnnotationAttributes(const AnnotationAttributes &obj, private_tmfs_t tmfs);
+public:
     virtual ~AnnotationAttributes();
 
     virtual AnnotationAttributes& operator = (const AnnotationAttributes &obj);
     virtual bool operator == (const AnnotationAttributes &obj) const;
     virtual bool operator != (const AnnotationAttributes &obj) const;
+private:
+    void Init();
+    void Copy(const AnnotationAttributes &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -121,6 +132,7 @@ public:
     void SetUserInfoFlag(bool userInfoFlag_);
     void SetUserInfoFont(const FontAttributes &userInfoFont_);
     void SetDatabaseInfoFlag(bool databaseInfoFlag_);
+    void SetTimeInfoFlag(bool timeInfoFlag_);
     void SetDatabaseInfoFont(const FontAttributes &databaseInfoFont_);
     void SetDatabaseInfoExpansionMode(PathExpansionMode databaseInfoExpansionMode_);
     void SetDatabaseInfoTimeScale(double databaseInfoTimeScale_);
@@ -146,6 +158,7 @@ public:
     const FontAttributes &GetUserInfoFont() const;
           FontAttributes &GetUserInfoFont();
     bool                 GetDatabaseInfoFlag() const;
+    bool                 GetTimeInfoFlag() const;
     const FontAttributes &GetDatabaseInfoFont() const;
           FontAttributes &GetDatabaseInfoFont();
     PathExpansionMode    GetDatabaseInfoExpansionMode() const;
@@ -198,7 +211,6 @@ public:
 
     // User-defined methods
     const ColorAttribute GetDiscernibleBackgroundColor() const;
-    virtual void ProcessOldVersions(DataNode *parentNode, const char *configVersion);
 
     // IDs that can be used to identify fields in case statements
     enum {
@@ -207,6 +219,7 @@ public:
         ID_userInfoFlag,
         ID_userInfoFont,
         ID_databaseInfoFlag,
+        ID_timeInfoFlag,
         ID_databaseInfoFont,
         ID_databaseInfoExpansionMode,
         ID_databaseInfoTimeScale,
@@ -221,7 +234,8 @@ public:
         ID_backgroundImage,
         ID_imageRepeatX,
         ID_imageRepeatY,
-        ID_axesArray
+        ID_axesArray,
+        ID__LAST
     };
 
 private:
@@ -230,6 +244,7 @@ private:
     bool           userInfoFlag;
     FontAttributes userInfoFont;
     bool           databaseInfoFlag;
+    bool           timeInfoFlag;
     FontAttributes databaseInfoFont;
     int            databaseInfoExpansionMode;
     double         databaseInfoTimeScale;
@@ -248,6 +263,8 @@ private:
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define ANNOTATIONATTRIBUTES_TMFS "aababbaiddbaaiaaisiia"
 
 #endif

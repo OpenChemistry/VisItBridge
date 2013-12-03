@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,6 +43,7 @@
 #include <NETCDFFileObject.h>
 
 #include <avtADAPTFileFormat.h>
+#include <avtBOUTFileFormat.h>
 #include <avtBasicNETCDFFileFormat.h>
 #include <avtLODIFileFormat.h>
 #include <avtLODIParticleFileFormat.h>
@@ -51,6 +52,49 @@
 #include <avtFVCOMParticleFileFormat.h>
 #include <avtFVCOM_MTMDFileFormat.h>
 #include <avtCCSMFileFormat.h>
+
+// ****************************************************************************
+// Method: DetectAWENETCDF
+//
+// Purpose: 
+//   Determine whether the file is AWE NETCDF.
+//
+// Returns:    True if the file looks like AWE NETCDF; false otherwise.
+//
+// Programmer: Satheesh Maheswaran
+// Creation:   Thu Oct 25 10:31:04 PDT 2012
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+static bool DetectAWENETCDF(NETCDFFileObject *f)
+{
+    bool retval = false;
+
+    // If format has not been recognised yet, see if it looks like an AWEnetCDF file
+    // Look for a variable called "codevers" (but not concerned what's in it)
+    // (InqVariable() would also work if we really don't want to see codevers contents)
+    TypeEnum vartyp = NO_TYPE;
+    int ndims = 0, *dims = 0;
+    void *values = 0;
+
+    if(f->ReadVariable("codevers", &vartyp, &ndims, &dims, &values))
+    {
+        debug4 << "Database seems to be AWEnetCDF format - found codevers";
+        if(vartyp == CHARARRAY_TYPE && ndims == 1 && *dims > 0)
+        {
+          char *codevers_val = (char *)values;
+          debug4 << " = \"" << codevers_val  << "\"" ;
+        }
+        debug4 << "; Abandoning NETCDF reader." << endl;
+        delete [] dims;
+        free_void_mem(values, vartyp);
+        retval = true;
+    }
+
+    return retval;
+}
 
 // ****************************************************************************
 // Method: NETCDF_CreateFileFormatInterface
@@ -82,6 +126,12 @@
 //
 //   Brad Whitlock, Thu Oct 29 16:23:33 PDT 2009
 //   I separated the Basic reader into MT and ST flavors.
+//
+//   Satheesh Maheswaran, Thu Oct 25 10:31:04 PDT 2012
+//   Add DetectAWENETCDF function call.
+//
+//   Eric Brugger, Thu Aug  1 13:15:07 PDT 2013
+//   Add BOUT file format.
 //
 // ****************************************************************************
 
@@ -151,14 +201,28 @@ NETCDF_CreateFileFormatInterface(const char * const *list, int nList, int nBlock
                 debug4 << "Database is avtCCSM_STSD_FileFormat" << endl;
             }
 
-            if(flavor == -1 && avtBasic_MTSD_NETCDFFileFormat::Identify(f))
+            if(flavor == -1 && avtBOUTFileFormat::Identify(f))
             {
                 flavor = 9;
+                debug4 << "Database is avtBOUTFileFormat" << endl;
+            }
+
+            if(flavor == -1 && avtBasic_MTSD_NETCDFFileFormat::Identify(f))
+            {
+                flavor = 10;
                 debug4 << "Database is avtBasic_MTSD_NETCDFFileFormat" << endl;
             }
 
             if(flavor == -1)
+            {
+                if(DetectAWENETCDF(f))
+                {
+                    delete f;
+                    return NULL;
+                }
+
                 debug4 << "Database is avtBasic_STSD_NETCDFFileFormat" << endl;
+            }
         }
         CATCH(VisItException)
         {
@@ -197,6 +261,9 @@ NETCDF_CreateFileFormatInterface(const char * const *list, int nList, int nBlock
             ffi = avtCCSM_STSD_FileFormat::CreateInterface(f, list, nList, nBlock);
             break;
         case 9:
+            ffi = avtBOUTFileFormat::CreateInterface(f, list, nList, nBlock);
+            break;
+        case 10:
             ffi = avtBasic_MTSD_NETCDFFileFormat::CreateInterface(f, list, nList, nBlock);
             break;
         default:

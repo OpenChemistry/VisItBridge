@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -139,8 +139,10 @@ avtFilter::~avtFilter()
 void
 avtFilter::UpdateProgress(int current, int total)
 {
+#ifndef VISIT_THREADS
     avtDataObjectSource::UpdateProgress(current, total, GetType(),
                                         GetDescription());
+#endif // VISIT_THREADS
 }
 
 
@@ -414,6 +416,10 @@ avtFilter::ModifyContractAndDoBookkeeping(avtContract_p contract)
 //    Mark C. Miller, Tue Apr  5 10:30:16 PDT 2005
 //    Added code to set admissible types to float
 //
+//    Brad Whitlock, Fri Apr 20 14:47:48 PDT 2012
+//    Let double through too. Gradually, we'll let them all through here and 
+//    limit the individual filters that can't handle it.
+//
 // ****************************************************************************
 
 avtContract_p
@@ -424,6 +430,7 @@ avtFilter::ModifyContract(avtContract_p contract)
     //
     vector<int> dataTypes;
     dataTypes.push_back(VTK_FLOAT);
+    dataTypes.push_back(VTK_DOUBLE);
     contract->GetDataRequest()->UpdateAdmissibleDataTypes(dataTypes);
 
     return contract;
@@ -643,7 +650,7 @@ avtFilter::GetMetaData(void)
 //  Method: avtFilter::GetGeneralContract
 //
 //  Purpose:
-//      Gets a pipeline that the load balancer knows not to muck with.
+//      Gets a pipeline that the load balancer knows not to mess with.
 //
 //  Programmer: Hank Childs
 //  Creation:   June 6, 2001
@@ -720,9 +727,9 @@ avtFilter::TryDataExtents(double *outexts, const char *varname)
     }
 
     //
-    // Our first preference is for the effective extents.
+    // Our first preference is for the desired extents.
     //
-    avtExtents *eff = atts.GetEffectiveDataExtents(varname);
+    avtExtents *eff = atts.GetDesiredDataExtents(varname);
     if (eff->HasExtents())
     {
         eff->CopyTo(outexts);
@@ -733,7 +740,7 @@ avtFilter::TryDataExtents(double *outexts, const char *varname)
         //
         // If we had the extents in the meta-data, use that.
         //
-        avtExtents *tr = atts.GetTrueDataExtents(varname);
+        avtExtents *tr = atts.GetOriginalDataExtents(varname);
         if (tr->HasExtents())
         {
             tr->CopyTo(outexts);
@@ -782,6 +789,17 @@ avtFilter::TryDataExtents(double *outexts, const char *varname)
 //    Hank Childs, Sun Jan 30 14:25:00 PST 2005
 //    Be leery of case where there is no input variable.
 //
+//    Hank Childs, Thu Aug 26 13:02:28 PDT 2010
+//    Change named of extents object.
+//
+//    Hank Childs, Thu Sep 23 13:57:01 PDT 2010
+//    Be more aggressive in setting back extents.  Also set it correctly
+//    with the input ... not with the output (wrong).
+//
+//    Hank Childs, Sun Nov 21 12:14:19 PST 2010
+//    Allow for input extents to be used in more cases for non-active 
+//    variables.
+//
 // ****************************************************************************
 
 void
@@ -797,13 +815,23 @@ avtFilter::GetDataExtents(double *outexts, const char *varname)
 
     bool hadThemAlready = false;
     avtDataAttributes &atts = GetInput()->GetInfo().GetAttributes();
-    if (varname == NULL || 
-        (atts.ValidActiveVariable() && atts.GetVariableName() == varname))
+    bool checkExtents = false;
+    if (varname != NULL)
     {
-        avtExtents *exts = atts.GetCumulativeTrueDataExtents();
+        if (atts.ValidVariable(varname))
+            checkExtents = true;
+    }
+    else
+    {
+        if (atts.ValidActiveVariable())
+            checkExtents = true;
+    }
+    if (checkExtents)
+    {
+        avtExtents *exts = atts.GetThisProcsOriginalDataExtents(varname);
         if (exts->HasExtents())
         {
-            atts.GetCumulativeTrueDataExtents()->CopyTo(outexts);
+            atts.GetThisProcsOriginalDataExtents(varname)->CopyTo(outexts);
             hadThemAlready = true;
         }
     }
@@ -815,15 +843,21 @@ avtFilter::GetDataExtents(double *outexts, const char *varname)
 
     UnifyMinMax(outexts, 2, 2);
 
-    if (varname == NULL)
+    //
+    // We now have determined the true data extents, so we may as well 
+    // set them back.
+    //
+    avtExtents *e = NULL;
+    TRY
     {
-        //
-        // We now have determined the true spatial extents, so we may as well 
-        // set them back.
-        //
-        GetOutput()->GetInfo().GetAttributes().GetTrueDataExtents()
-                                                                ->Set(outexts);
+        e = GetInput()->GetInfo().GetAttributes().GetOriginalDataExtents(varname);
     }
+    CATCH(ImproperUseException)
+    {
+    }
+    ENDTRY
+    if (e != NULL)
+        e->Set(outexts);
 }
 
 
@@ -850,9 +884,9 @@ avtFilter::TrySpatialExtents(double *outexts) const
     const avtDataAttributes &atts = GetInput()->GetInfo().GetAttributes();
 
     //
-    // Our first preference is for the effective extents.
+    // Our first preference is for the desired extents.
     //
-    avtExtents *eff = atts.GetEffectiveSpatialExtents();
+    avtExtents *eff = atts.GetDesiredSpatialExtents();
     if (eff->HasExtents())
     {
         eff->CopyTo(outexts);
@@ -863,7 +897,7 @@ avtFilter::TrySpatialExtents(double *outexts) const
         //
         // If we had the extents in the meta-spatial, use that.
         //
-        avtExtents *tr = atts.GetTrueSpatialExtents();
+        avtExtents *tr = atts.GetOriginalSpatialExtents();
         if (tr->HasExtents())
         {
             tr->CopyTo(outexts);
@@ -892,10 +926,17 @@ avtFilter::TrySpatialExtents(double *outexts) const
 //
 //    Mark C. Miller, Sat Jan 31 13:31:08 PST 2004
 //    Added altsize argument of 6 to UnifyMinMax call
+//
+//    Hank Childs, Thu Aug 26 13:02:28 PDT 2010
+//    Change named of extents object.
+//
+//    Hank Childs, Tue Nov 30 20:38:36 PST 2010
+//    Better support for getting extents when extents aren't known a priori.
+//
 // ****************************************************************************
 
 void
-avtFilter::GetSpatialExtents(double *newexts) const
+avtFilter::GetSpatialExtents(double *newexts)
 {
     if (TrySpatialExtents(newexts))
     {
@@ -906,23 +947,26 @@ avtFilter::GetSpatialExtents(double *newexts) const
     }
 
     const avtDataAttributes &atts = GetInput()->GetInfo().GetAttributes();
-    atts.GetCumulativeTrueSpatialExtents()->CopyTo(newexts);
+    if (atts.GetThisProcsOriginalSpatialExtents()->HasExtents())
+        atts.GetThisProcsOriginalSpatialExtents()->CopyTo(newexts);
+    else
+        SearchDataForSpatialExtents(newexts);
 
     UnifyMinMax(newexts, atts.GetSpatialDimension()*2, 6);
 
     //
-    // We now have determined the true spatial extents, so we may as well set
+    // We now have determined the original spatial extents, so we may as well set
     // them back.
     //
-    atts.GetTrueSpatialExtents()->Set(newexts);
+    atts.GetOriginalSpatialExtents()->Set(newexts);
 }
 
 
 // ****************************************************************************
-//  Method: avtFilter::TryCurrentDataExtents
+//  Method: avtFilter::TryActualDataExtents
 //
 //  Purpose:
-//      Tries to get the current data extents, but only if they are available
+//      Tries to get the actual data extents, but only if they are available
 //      (does not resort to parallel unification).
 //
 //  Returns:    True if the extents were succesfully retrieved.
@@ -934,17 +978,22 @@ avtFilter::GetSpatialExtents(double *newexts) const
 //  Programmer: Kathleen Bonnell
 //  Creation:   October 2, 2001
 //
+//  Modifications:
+//
+//     Hank Childs, Thu Aug 26 13:02:28 PDT 2010
+//     Change named of extents object.
+//
 // ****************************************************************************
 
 bool
-avtFilter::TryCurrentDataExtents(double *outexts)
+avtFilter::TryActualDataExtents(double *outexts)
 {
     avtDataAttributes &atts = GetInput()->GetInfo().GetAttributes();
 
-    avtExtents *current = atts.GetCurrentDataExtents();
-    if (current->HasExtents())
+    avtExtents *actual = atts.GetActualDataExtents();
+    if (actual->HasExtents())
     {
-        current->CopyTo(outexts);
+        actual->CopyTo(outexts);
         return true;
     }
 
@@ -953,7 +1002,7 @@ avtFilter::TryCurrentDataExtents(double *outexts)
 
 
 // ****************************************************************************
-//  Method: avtFilter::GetCurrentDataExtents
+//  Method: avtFilter::GetActualDataExtents
 //
 //  Purpose:
 //      Gets the data extents -- parallel unification or not.
@@ -977,12 +1026,15 @@ avtFilter::TryCurrentDataExtents(double *outexts)
 //    DataExtents now restricted to only 2 components, regardless of variable
 //    dimension.
 // 
+//    Hank Childs, Thu Aug 26 13:02:28 PDT 2010
+//    Change named of extents object.
+//
 // ****************************************************************************
 
 void
-avtFilter::GetCurrentDataExtents(double *newexts)
+avtFilter::GetActualDataExtents(double *newexts)
 {
-    if (TryCurrentDataExtents(newexts))
+    if (TryActualDataExtents(newexts))
     {
          //
          // We had them lying around -- no parallel communication necessary.
@@ -991,23 +1043,23 @@ avtFilter::GetCurrentDataExtents(double *newexts)
     }
 
     avtDataAttributes &atts = GetInput()->GetInfo().GetAttributes();
-    atts.GetCumulativeCurrentDataExtents()->CopyTo(newexts);
+    atts.GetThisProcsActualDataExtents()->CopyTo(newexts);
 
     UnifyMinMax(newexts, 2, 2);
 
     //
-    // We now have determined the current data extents, so we may as well set
+    // We now have determined the actual data extents, so we may as well set
     // them back.
     //
-    atts.GetCurrentDataExtents()->Set(newexts);
+    atts.GetActualDataExtents()->Set(newexts);
 }
 
 
 // ****************************************************************************
-//  Method: avtFilter::TryCurrentSpatialExtents
+//  Method: avtFilter::TryActualSpatialExtents
 //
 //  Purpose:
-//    Tries to get the currentspatial extents, but only if they are available
+//    Tries to get the actual spatial extents, but only if they are available
 //    (does not resort to parallel unification).
 //
 //  Returns:    True if the extents were succesfully retrieved.
@@ -1018,20 +1070,25 @@ avtFilter::GetCurrentDataExtents(double *newexts)
 //  Programmer: Kathleen Bonnell
 //  Creation:   October 2, 2001
 //
+//  Modifications:
+//
+//     Hank Childs, Thu Aug 26 13:02:28 PDT 2010
+//     Change named of extents object.
+//
 // ****************************************************************************
 
 bool
-avtFilter::TryCurrentSpatialExtents(double *outexts)
+avtFilter::TryActualSpatialExtents(double *outexts)
 {
     avtDataAttributes &atts = GetInput()->GetInfo().GetAttributes();
 
     //
-    // Our first preference is for the effective extents.
+    // Our first preference is for the desired extents.
     //
-    avtExtents *current = atts.GetCurrentSpatialExtents();
-    if (current->HasExtents())
+    avtExtents *actual = atts.GetActualSpatialExtents();
+    if (actual->HasExtents())
     {
-        current->CopyTo(outexts);
+        actual->CopyTo(outexts);
         return true;
     }
 
@@ -1040,10 +1097,10 @@ avtFilter::TryCurrentSpatialExtents(double *outexts)
 
 
 // ****************************************************************************
-//  Method: avtFilter::GetCurrentSpatialExtents
+//  Method: avtFilter::GetActualSpatialExtents
 //
 //  Purpose:
-//    Gets the current spatial extents -- parallel unification or not.
+//    Gets the actual spatial extents -- parallel unification or not.
 //
 //  Arguments:
 //    outexts   A place to hold the retrieved extents.
@@ -1056,12 +1113,15 @@ avtFilter::TryCurrentSpatialExtents(double *outexts)
 //    Mark C. Miller, Sat Jan 31 13:31:08 PST 2004
 //    Added altsize argument of 6 to UnifyMinMax call
 //
+//    Hank Childs, Thu Aug 26 13:02:28 PDT 2010
+//    Change named of extents object.
+//
 // ****************************************************************************
 
 void
-avtFilter::GetCurrentSpatialExtents(double *outexts)
+avtFilter::GetActualSpatialExtents(double *outexts)
 {
-    if (TryCurrentSpatialExtents(outexts))
+    if (TryActualSpatialExtents(outexts))
     {
          //
          // We had them lying around -- no parallel communication necessary.
@@ -1070,15 +1130,15 @@ avtFilter::GetCurrentSpatialExtents(double *outexts)
     }
 
     avtDataAttributes &atts = GetInput()->GetInfo().GetAttributes();
-    atts.GetCumulativeCurrentSpatialExtents()->CopyTo(outexts);
+    atts.GetThisProcsActualSpatialExtents()->CopyTo(outexts);
 
     UnifyMinMax(outexts, atts.GetSpatialDimension()*2, 6);
 
     //
-    // We now have determined the true spatial extents, so we may as well set
+    // We now have determined the actual spatial extents, so we may as well set
     // them back.
     //
-    GetOutput()->GetInfo().GetAttributes().GetCurrentSpatialExtents()
+    GetOutput()->GetInfo().GetAttributes().GetActualSpatialExtents()
                                                                 ->Set(outexts);
 }
 
@@ -1229,6 +1289,26 @@ avtFilter::RegisterDynamicAttribute(avtDynamicAttribute *da)
 
 void
 avtFilter::SearchDataForDataExtents(double *, const char *)
+{
+    EXCEPTION0(ImproperUseException);
+}
+
+
+// ****************************************************************************
+//  Method: avtFilter::SearchDataForSpatialExtents
+//
+//  Purpose:
+//      This should search through the actual data to find the spatial extents.
+//      Since this class does not know what type of data it has, it will
+//      throw an exception.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 30, 2010
+//
+// ****************************************************************************
+
+void
+avtFilter::SearchDataForSpatialExtents(double *)
 {
     EXCEPTION0(ImproperUseException);
 }
@@ -1483,6 +1563,200 @@ avtFilter::CreateNamedSelection(avtContract_p c, const std::string &selname)
         return NULL;
  
     return GetInput()->GetSource()->CreateNamedSelection(c, selname);
+}
+
+
+// ****************************************************************************
+//  Method: avtFilter::FetchArbitraryRefPtr
+//
+//  Purpose:
+//      Checks to see if a void_ref_ptr was cached in the pipeline and fetches
+//      it if so.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 28, 2010
+//
+// ****************************************************************************
+
+void_ref_ptr
+avtFilter::FetchArbitraryRefPtr(int dependencies, const char *name, int dom, 
+                                int ts, const char *type)
+{
+    // If we can't cache it, then there's something in the pipeline that
+    // subset the cells, transforms the data, etc.
+    // So, even if there is something in the cache, we can't use it ... it 
+    // might be appropriate for a different pipeline, but not ours.
+    bool canUse = CheckDependencies(dependencies);
+    if (! canUse)
+    {
+        void_ref_ptr vrp;
+        return vrp;
+    }
+
+    avtOriginatingSource *source = GetInput()->GetOriginatingSource();
+    return source->FetchArbitraryRefPtr(name, dom, ts, type);
+}
+
+
+// ****************************************************************************
+//  Method: avtFilter::StoreArbitraryRefPtr
+//
+//  Purpose:
+//      Stores a ref_ptr in the database cache.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 28, 2010
+//
+// ****************************************************************************
+
+void
+avtFilter::StoreArbitraryRefPtr(int dependencies, const char *name, int dom, 
+                                int ts, const char *type, void_ref_ptr vrp)
+{
+    bool canUse = CheckDependencies(dependencies);
+    if (! canUse)
+    {
+        debug5 << "Cannot cache " << type << " for " << name << " because "
+               << "dependencies were not satisfied.\n"
+               << "This is an informational message, not an error." << endl;
+        return;
+    }
+
+    avtOriginatingSource *source = GetInput()->GetOriginatingSource();
+    source->StoreArbitraryRefPtr(name, dom, ts, type, vrp);
+}
+
+
+// ****************************************************************************
+//  Method: avtFilter::CheckDependencies
+//
+//  Purpose:
+//      Checks to see if the dependencies are satisfied for caching.
+//
+//  Arguments:
+//     dependencies    A bit vector of CacheItemDependences
+//
+//  Returns:
+//     true if you can use the cache, false if the dependencies are violated.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 28, 2010
+//
+// ****************************************************************************
+
+bool
+avtFilter::CheckDependencies(int dependencies)
+{
+    if ((dependencies & DATA_DEPENDENCE) && (! CanCacheDataItem()))
+        return false;
+    if ((dependencies & SPATIAL_DEPENDENCE) && (! CanCacheSpatialItem()))
+        return false;
+    if ((dependencies & CONNECTIVITY_DEPENDENCE) && (! CanCacheConnectivityItem()))
+        return false;
+    
+    return true;
+}
+
+
+// ****************************************************************************
+//  Method: avtFilter::CanCacheDataItem
+//
+//  Purpose:
+//      Determines whether or not a data item can be cached.  If the scalar
+//      field has been modified, then it should not be cached.  This typically
+//      only happens when we commandeer variables (i.e. we take some existing
+//      variable and overwrite it for our own purposes).  And we don't do that
+//      very often.
+//
+//      So this method just checks to see if the zones haven't been modified, 
+//      etc.
+//
+//  Returns:   true if items that have a data dependence can be cached.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 28, 2010
+//
+// ****************************************************************************
+
+bool
+avtFilter::CanCacheDataItem(void)
+{
+    avtDataValidity &validity = GetInput()->GetInfo().GetValidity();
+    if (! validity.GetDataMetaDataPreserved())
+       return false;
+    if (! validity.GetZonesPreserved())
+       return false;
+    if (! validity.GetNodesPreserved())
+       return false;
+    if (! validity.GetOriginalZonesIntact())
+       return false;
+
+    return true;
+}
+
+
+// ****************************************************************************
+//  Method: avtFilter::CanCacheSpatialItem
+//
+//  Purpose:
+//      Determines whether or not a spatial item can be cached. 
+//
+//  Returns:   true if items that have a spatial dependence can be cached.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 28, 2010
+//
+//  Modifications:
+//
+//    Hank Childs, Sun Nov 28 12:34:06 PST 2010
+//    Fix up goof in initial implementation.
+//
+// ****************************************************************************
+
+bool
+avtFilter::CanCacheSpatialItem(void)
+{
+    avtDataValidity &validity = GetInput()->GetInfo().GetValidity();
+    if (! validity.GetSpatialMetaDataPreserved())
+       return false;
+    if (! validity.GetZonesPreserved())
+       return false;
+    if (! validity.GetNodesPreserved())
+       return false;
+    if (! validity.GetOriginalZonesIntact())
+       return false;
+    if (validity.GetPointsWereTransformed())
+       return false;
+
+    return true;
+}
+
+
+// ****************************************************************************
+//  Method: avtFilter::CanCacheConnectivityItem
+//
+//  Purpose:
+//      Determines if a mesh connectivity item can be cached.
+//
+//  Returns:   true if items that have a mesh dependence can be cached.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 28, 2010
+//
+// ****************************************************************************
+
+bool
+avtFilter::CanCacheConnectivityItem(void)
+{
+    avtDataValidity &validity = GetInput()->GetInfo().GetValidity();
+    if (! validity.GetZonesPreserved())
+       return false;
+    if (! validity.GetNodesPreserved())
+       return false;
+    if (! validity.GetOriginalZonesIntact())
+       return false;
+
+    return true;
 }
 
 

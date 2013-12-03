@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -96,6 +96,17 @@ class avtSourceFromDatabase;
 //    Mark C. Miller, Mon Nov  9 10:40:34 PST 2009
 //    Changed interface to main transform method to operate on a single
 //    dataset instead of a dataset collection.
+//
+//    Brad Whitlock, Sun Apr 22 00:01:35 PDT 2012
+//    I added some methods that test for excess precision.
+//
+//    Eric Brugger, Wed Jul 25 09:01:14 PDT 2012
+//    I modified the multi-pass discretizion of CSG meshes to only process
+//    a portion of the mesh on each processor instead of the entire mesh.
+//
+//    Kathleen Biagas, Wed Aug  7 15:42:57 PDT 2013
+//    Add methods that test for insufficient precision.
+//
 // ****************************************************************************
 
 class DATABASE_API avtTransformManager
@@ -112,12 +123,22 @@ class DATABASE_API avtTransformManager
                                    boolVector &selectionsApplied,
                                    avtDatabaseMetaData *md);
 
-    bool                       TransformMaterialDataset(const avtDatabaseMetaData *const md,
+    bool                       TransformMaterialDataset(avtDatabaseMetaData *md,
                                    const avtDataRequest_p &spec, avtMaterial **mat, int);
 
     void                       ClearTimestep(int ts) { cache.ClearTimestep(ts); };
 
   private:
+    bool                       CoordinatesHaveExcessPrecision(vtkDataSet *ds,
+                                   bool needNativePrecision) const;
+    bool                       DataHasExcessPrecision(vtkDataArray *da, 
+                                   bool needNativePrecision) const;
+    bool                       CoordinatesHaveInsufficientPrecision(
+                                   vtkDataSet *ds,
+                                   bool needNativePrecision) const;
+    bool                       DataHasInsufficientPrecision(vtkDataArray *da,
+                                   bool needNativePrecision) const;
+
     vtkDataSet                *NativeToFloat(const avtDatabaseMetaData *const md,
                                              const avtDataRequest_p &spec,
                                              vtkDataSet *ds, int dom);
@@ -126,7 +147,7 @@ class DATABASE_API avtTransformManager
                                    const avtDataRequest_p &dataRequest,
                                    const char *vname, const char *type,
                                    int ts, int dom, const char *mat);
-    vtkDataSet                *CSGToDiscrete(const avtDatabaseMetaData *const md,
+    vtkDataSet                *CSGToDiscrete(avtDatabaseMetaData *md,
                                              const avtDataRequest_p &spec,
                                              vtkDataSet *ds, int);
     vtkDataSet                *AddVertexCellsToPointsOnlyDataset(avtDatabaseMetaData *md,

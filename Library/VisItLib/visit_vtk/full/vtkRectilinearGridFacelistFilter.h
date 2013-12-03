@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -49,9 +49,10 @@
 #include <visit_vtk_exports.h>
 
 #include "vtkPolyDataAlgorithm.h"
-#include <vtkPolyData.h>
-#include <vtkRectilinearGrid.h>
+
 class     vtkIdTypeArray;
+class     vtkRectilinearGrid;
+
 #include <vector>
 
 // ****************************************************************************
@@ -66,7 +67,8 @@ class     vtkIdTypeArray;
 //
 // ****************************************************************************
 
-class VISIT_VTK_API vtkRectilinearGridFacelistFilter : public vtkPolyDataAlgorithm
+class VISIT_VTK_API vtkRectilinearGridFacelistFilter :
+  public vtkPolyDataAlgorithm
 {
 public:
   vtkTypeMacro(vtkRectilinearGridFacelistFilter,vtkPolyDataAlgorithm);
@@ -85,8 +87,10 @@ protected:
   vtkRectilinearGridFacelistFilter();
   ~vtkRectilinearGridFacelistFilter() {};
 
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-  int FillInputPortInformation(int, vtkInformation *);
+  virtual int RequestData(vtkInformation *,
+                          vtkInformationVector **,
+                          vtkInformationVector *);
+  virtual int FillInputPortInformation(int port, vtkInformation *info);
 
   int  ForceFaceConsolidation;
 
@@ -100,5 +104,3 @@ private:
 };
 
 #endif
-
-

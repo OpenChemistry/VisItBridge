@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -50,7 +50,7 @@
 #include <avtDataSelection.h>
 
 #include <vector>
-
+#include <string>
 
 // ****************************************************************************
 //  Class: avtIdentifierSelection
@@ -66,6 +66,12 @@
 //    Hank Childs, Thu Mar  6 09:05:59 PST 2008
 //    Add Destruct method.
 //
+//    Hank Childs, Tue Dec 20 14:43:08 PST 2011
+//    Add method DescriptionString.
+//
+//    Brad Whitlock, Thu Mar 15 14:13:59 PDT 2012
+//    Added idVar.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtIdentifierSelection : public avtDataSelection 
@@ -78,15 +84,20 @@ class PIPELINE_API avtIdentifierSelection : public avtDataSelection
 
     virtual const char *    GetType() const
                                 { return "Identifier Data Selection"; }; 
+    virtual std::string     DescriptionString(void);
 
     void                    SetIdentifiers(const std::vector<double> &a)
                                 { ids = a; };
     const std::vector<double> &GetIdentifiers(void) { return ids; };
 
+    void                    SetIdVariable(const std::string &id) {idVar = id; }
+    const std::string      &GetIdVariable() const {return idVar; }
+
     bool                    operator==(const avtIdentifierSelection &) const;
 
   private:
     std::vector<double>     ids;
+    std::string             idVar;
 
     // These methods are defined to prevent accidental use of bitwise copy
     // implementations.  If you want to re-define them to do something

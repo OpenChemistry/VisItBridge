@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,6 +46,7 @@
 
 #include <Connection.h>
 #include <deque>
+#include <JSONNode.h>
 
 // ****************************************************************************
 // Class: SocketConnection
@@ -64,7 +65,8 @@
 //   Added Fill, DirectRead, DirectWrite, NeedsRead methods.
 //
 // ****************************************************************************
-
+class MapNode;
+class JSONNode;
 class COMM_API SocketConnection : public Connection
 {
 public:
@@ -73,15 +75,33 @@ public:
 
     virtual int  Fill();
     virtual void Flush();
+    virtual void Flush(AttributeSubject*);
     virtual long Size();
     virtual void Write(unsigned char value);
     virtual void Read(unsigned char *address);
     virtual void Append(const unsigned char *buf, int count);
     virtual long DirectRead(unsigned char *buf, long len);
     virtual long DirectWrite(const unsigned char *buf, long len);
+    virtual long ReadHeader(unsigned char *buf, long len);
+    virtual long WriteHeader(const unsigned char *buf, long len);
     virtual bool NeedsRead(bool blocking = false) const;
     virtual int  GetDescriptor() const;
-private:
+protected:
+    int Write(int id,MapNode *mapnode);
+    void WriteToBuffer(MapNode *mapnode,
+                       bool write,
+                       int id,
+                       int& totalLen,
+                       int &totalSize);
+    int Write(int id,
+              JSONNode& node,
+              JSONNode& metadata);
+    void WriteToBuffer(const JSONNode& node,
+                       const JSONNode& metadata,
+                       bool write,
+                       int id,
+                       int& totalLen,
+                       int &totalSize);
     std::deque<unsigned char> buffer;
     DESCRIPTOR                descriptor;
     int                       zeroesRead;

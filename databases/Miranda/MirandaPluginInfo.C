@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,7 +43,7 @@
 #include <MirandaPluginInfo.h>
 
 #include <visit-config.h>
-extern "C" DBP_EXPORT const char *MirandaVisItPluginVersion = VISIT_VERSION;
+VISIT_PLUGIN_VERSION(Miranda,DBP_EXPORT)
 
 // ****************************************************************************
 //  Function:  GetGeneralInfo
@@ -95,7 +95,7 @@ MirandaGeneralPluginInfo::GetName() const
 const char *
 MirandaGeneralPluginInfo::GetVersion() const
 {
-    return "1.0";
+    return "2.0";
 }
 
 // ****************************************************************************
@@ -114,7 +114,7 @@ MirandaGeneralPluginInfo::GetVersion() const
 const char *
 MirandaGeneralPluginInfo::GetID() const
 {
-    return "Miranda_1.0";
+    return "Miranda_2.0";
 }
 // ****************************************************************************
 //  Method: MirandaGeneralPluginInfo::EnabledByDefault

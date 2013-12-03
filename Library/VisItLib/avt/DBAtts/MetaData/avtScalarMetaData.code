@@ -126,6 +126,9 @@ Definition:
 //    Jeremy Meredith, Fri Aug 25 17:16:38 EDT 2006
 //    Added enumerated scalars.
 //
+//    Brad Whitlock, Wed Jan  4 14:58:08 PST 2012
+//    Added missing data values.
+//
 // ****************************************************************************
 inline void
 Indent(ostream &out, int indent)
@@ -157,6 +160,29 @@ avtScalarMetaData::Print(ostream &out, int indent) const
         Indent(out, indent);
         out << "This variable does not contain enumerated values." << endl;
     }
+
+    switch(missingDataType)
+    {
+    case MissingData_Value:
+        Indent(out, indent);
+        out << "Missing value: " << missingData[0] << endl;
+        break;
+    case MissingData_Valid_Min:
+        Indent(out, indent);
+        out << "Missing value less than: " << missingData[0] << endl;
+        break;
+    case MissingData_Valid_Max:
+        Indent(out, indent);
+        out << "Missing value greater than: " << missingData[0] << endl;
+        break;
+    case MissingData_Valid_Range:
+        Indent(out, indent);
+        out << "Missing value outside range: ["
+            << missingData[0] << ", " << missingData[1] << "]" << endl;
+        break;
+    default:
+        break;
+    }
 }
 
 Function: AddEnumGraphEdge
@@ -187,7 +213,7 @@ avtScalarMetaData::AddEnumNameValue(std::string name, double val)
     enumRanges.push_back(val);
     enumRanges.push_back(val);
 
-    return enumNames.size() - 1;
+    return (int)enumNames.size() - 1;
 }
 
 Function: AddEnumNameRange
@@ -213,7 +239,7 @@ avtScalarMetaData::AddEnumNameRange(std::string name, double min, double max)
     enumRanges.push_back(min);
     enumRanges.push_back(max);
 
-    return enumNames.size() - 1;
+    return (int)enumNames.size() - 1;
 }
 
 Function: SetEnumAlwaysExcludeValue
@@ -381,7 +407,7 @@ avtScalarMetaData::ComboValFromDigits(const std::vector<std::vector<int> > &ptMa
     int row, col;
     *id = 0.0;
     std::list<int>::const_reverse_iterator it;
-    for (col = digits.size()-1, it = digits.rbegin(); col >= 0; col--, it++)
+    for (col = (int)digits.size()-1, it = digits.rbegin(); col >= 0; col--, it++)
     {
         for (row = 0; row <= *it; row++)
             *id += ptMap[row][col];

@@ -69,14 +69,15 @@
 
 #ifndef __vtkVisItGlyph3D_h
 #define __vtkVisItGlyph3D_h
+#include <visit_vtk_exports.h>
 
 #include <vtkPolyDataAlgorithm.h>
-#include <visit_vtk_exports.h>
 
 #define VTK_SCALE_BY_SCALAR 0
 #define VTK_SCALE_BY_VECTOR 1
-#define VTK_SCALE_BY_VECTORCOMPONENTS 2
-#define VTK_DATA_SCALING_OFF 3
+#define VTK_SCALE_BY_TENSOR 2
+#define VTK_SCALE_BY_VECTORCOMPONENTS 3
+#define VTK_DATA_SCALING_OFF 4
 
 #define VTK_COLOR_BY_SCALE  0
 #define VTK_COLOR_BY_SCALAR 1
@@ -91,6 +92,14 @@
 #define VTK_INDEXING_BY_SCALAR 1
 #define VTK_INDEXING_BY_VECTOR 2
 
+// ***************************************************************************
+//  Class: vtkVisItGlyph3D
+//
+//  Modifications:
+//    Eric Brugger, Thu Jan 10 13:00:03 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ***************************************************************************
 
 class VISIT_VTK_API vtkVisItGlyph3D : public vtkPolyDataAlgorithm
 {
@@ -106,17 +115,12 @@ public:
   static vtkVisItGlyph3D *New();
 
   // Description:
-  // Get the number of source objects used to define the glyph
-  // table. Specify the number of sources before defining a table of glyphs.
-  void SetNumberOfSources(int num);
-  int GetNumberOfSources();
-
-  // Description:
-  // Set the source to use for he glyph.
+  // Set the source to use for the glyph. Old style. See SetSourceConnection.
   void SetSourceData(vtkPolyData *pd) {this->SetSourceData(0,pd);};
 
   // Description:
   // Specify a source object at a specified table location.
+  // Old style. See SetSourceConnection.
   void SetSourceData(int id, vtkPolyData *pd);
 
   // Description:
@@ -143,10 +147,12 @@ public:
   // Either scale by scalar or by vector/normal magnitude.
   vtkSetMacro(ScaleMode,int);
   vtkGetMacro(ScaleMode,int);
-  void SetScaleModeToScaleByScalar() 
+  void SetScaleModeToScaleByScalar()
     {this->SetScaleMode(VTK_SCALE_BY_SCALAR);};
-  void SetScaleModeToScaleByVector() 
+  void SetScaleModeToScaleByVector()
     {this->SetScaleMode(VTK_SCALE_BY_VECTOR);};
+  void SetScaleModeToScaleByTensor()
+    {this->SetScaleMode(VTK_SCALE_BY_TENSOR);};
   void SetScaleModeToScaleByVectorComponents()
     {this->SetScaleMode(VTK_SCALE_BY_VECTORCOMPONENTS);};
   void SetScaleModeToDataScalingOff()
@@ -157,25 +163,25 @@ public:
   // Either color by scale, scalar or by vector/normal magnitude.
   vtkSetMacro(ColorMode,int);
   vtkGetMacro(ColorMode,int);
-  void SetColorModeToColorByScale() 
+  void SetColorModeToColorByScale()
     {this->SetColorMode(VTK_COLOR_BY_SCALE);};
-  void SetColorModeToColorByScalar() 
+  void SetColorModeToColorByScalar()
     {this->SetColorMode(VTK_COLOR_BY_SCALAR);};
-  void SetColorModeToColorByVector() 
+  void SetColorModeToColorByVector()
     {this->SetColorMode(VTK_COLOR_BY_VECTOR);};
-  void SetColorModeToColorBySingleColor() 
+  void SetColorModeToColorBySingleColor()
     {this->SetColorMode(VTK_COLOR_BY_SINGLE_COLOR);};
   const char *GetColorModeAsString();
 
   // Description:
   // Specify scale factor to scale object by.
-  vtkSetMacro(ScaleFactor,float);
-  vtkGetMacro(ScaleFactor,float);
+  vtkSetMacro(ScaleFactor,double);
+  vtkGetMacro(ScaleFactor,double);
 
   // Description:
   // Specify range to map scalar values into.
-  vtkSetVector2Macro(Range,float);
-  vtkGetVectorMacro(Range,float,2);
+  vtkSetVector2Macro(Range,double);
+  vtkGetVectorMacro(Range,double,2);
 
   // Description:
   // Turn on/off orienting of input geometry along vector/normal.
@@ -184,7 +190,7 @@ public:
   vtkGetMacro(Orient,int);
 
   // Description:
-  // Turn on/off clamping of "scalar" values to range. (Scalar value may be 
+  // Turn on/off clamping of "scalar" values to range. (Scalar value may be
   //  vector magnitude if ScaleByVector() is enabled.)
   vtkSetMacro(Clamping,int);
   vtkBooleanMacro(Clamping,int);
@@ -196,7 +202,7 @@ public:
   vtkGetMacro(VectorMode,int);
   void SetVectorModeToUseVector() {this->SetVectorMode(VTK_USE_VECTOR);};
   void SetVectorModeToUseNormal() {this->SetVectorMode(VTK_USE_NORMAL);};
-  void SetVectorModeToVectorRotationOff() 
+  void SetVectorModeToVectorRotationOff()
     {this->SetVectorMode(VTK_VECTOR_ROTATION_OFF);};
   const char *GetVectorModeAsString();
 
@@ -221,7 +227,7 @@ public:
   vtkBooleanMacro(GeneratePointIds,int);
 
   // Description:
-  // Enable/disable the 2D treatment of vectors.
+  // Enable/disable the 2D treatment of vectors
   vtkSetMacro(TreatVectorsAs2D,int);
   vtkGetMacro(TreatVectorsAs2D,int);
   vtkBooleanMacro(TreatVectorsAs2D,int);
@@ -236,60 +242,65 @@ public:
   // If you want to use an arbitrary scalars array, then set its name here.
   // By default this in NULL and the filter will use the active scalar array.
   vtkGetStringMacro(InputScalarsSelection);
-  void SelectInputScalars(const char *fieldName) 
+  void SelectInputScalars(const char *fieldName)
     {this->SetInputScalarsSelection(fieldName);}
 
   // Description:
   // If you want to use an arbitrary vectors array, then set its name here.
   // By default this in NULL and the filter will use the active vector array.
   vtkGetStringMacro(InputVectorsSelection);
-  void SelectInputVectors(const char *fieldName) 
+  void SelectInputVectors(const char *fieldName)
     {this->SetInputVectorsSelection(fieldName);}
 
   // Description:
   // If you want to use an arbitrary normals array, then set its name here.
   // By default this in NULL and the filter will use the active normal array.
   vtkGetStringMacro(InputNormalsSelection);
-  void SelectInputNormals(const char *fieldName) 
+  void SelectInputNormals(const char *fieldName)
     {this->SetInputNormalsSelection(fieldName);}
 
   vtkGetStringMacro(ScalarsForColoring);
-  void SelectScalarsForColoring(const char *fieldName) 
+  void SelectScalarsForColoring(const char *fieldName)
     {this->SetScalarsForColoring(fieldName);}
 
   vtkGetStringMacro(ScalarsForScaling);
-  void SelectScalarsForScaling(const char *fieldName) 
+  void SelectScalarsForScaling(const char *fieldName)
     {this->SetScalarsForScaling(fieldName);}
 
   vtkGetStringMacro(VectorsForColoring);
-  void SelectVectorsForColoring(const char *fieldName) 
+  void SelectVectorsForColoring(const char *fieldName)
     {this->SetVectorsForColoring(fieldName);}
 
   vtkGetStringMacro(VectorsForScaling);
-  void SelectVectorsForScaling(const char *fieldName) 
+  void SelectVectorsForScaling(const char *fieldName)
     {this->SetVectorsForScaling(fieldName);}
 
-  int SetFullFrameScaling(int useIt, const double *s);
+  vtkGetStringMacro(TensorsForScaling);
+  void SelectTensorsForScaling(const char *fieldName)
+    {this->SetTensorsForScaling(fieldName);}
 
+  int SetFullFrameScaling(int useIt, const double *s);
 
 protected:
   vtkVisItGlyph3D();
   ~vtkVisItGlyph3D();
 
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-  int RequestInformation (vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-  int RequestUpdateExtent(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-  int FillInputPortInformation(int, vtkInformation *);
+  virtual int RequestData(vtkInformation *,
+                          vtkInformationVector **,
+                          vtkInformationVector *);
+  virtual int RequestUpdateExtent(vtkInformation *,
+                                  vtkInformationVector **,
+                                  vtkInformationVector *);
+  virtual int FillInputPortInformation(int port, vtkInformation *info);
 
-  vtkPolyData* GetSource(int, vtkInformationVector *);
+  vtkPolyData* GetSource(int idx, vtkInformationVector *sourceInfo);
 
-  int NumberOfSources; // Number of source objects
   vtkPolyData **Source; // Geometry to copy to each point
   int Scaling; // Determine whether scaling of geometry is performed
   int ScaleMode; // Scale by scalar value or vector magnitude
   int ColorMode; // new scalars based on scale, scalar or vector
-  float ScaleFactor; // Scale factor to use to scale geometry
-  float Range[2]; // Range to use to perform scalar scaling
+  double ScaleFactor; // Scale factor to use to scale geometry
+  double Range[2]; // Range to use to perform scalar scaling
   int Orient; // boolean controls whether to "orient" data
   int VectorMode; // Orient/scale via normal or via vector data
   int Clamping; // whether to clamp scale factor
@@ -309,11 +320,13 @@ protected:
   char *ScalarsForScaling;
   char *VectorsForColoring;
   char *VectorsForScaling;
+  char *TensorsForScaling;
 
   vtkSetStringMacro(ScalarsForColoring);
   vtkSetStringMacro(ScalarsForScaling);
   vtkSetStringMacro(VectorsForColoring);
   vtkSetStringMacro(VectorsForScaling);
+  vtkSetStringMacro(TensorsForScaling);
 
   int    UseFullFrameScaling;
   double FullFrameScaling[3];
@@ -331,9 +344,13 @@ inline const char *vtkVisItGlyph3D::GetScaleModeAsString(void)
     {
     return "ScaleByScalar";
     }
-  else if ( this->ScaleMode == VTK_SCALE_BY_VECTOR ) 
+  else if ( this->ScaleMode == VTK_SCALE_BY_VECTOR )
     {
     return "ScaleByVector";
+    }
+  else if ( this->ScaleMode == VTK_SCALE_BY_TENSOR )
+    {
+    return "ScaleByTensor";
     }
   else 
     {
@@ -349,11 +366,11 @@ inline const char *vtkVisItGlyph3D::GetColorModeAsString(void)
     {
     return "ColorByScalar";
     }
-  else if ( this->ColorMode == VTK_COLOR_BY_VECTOR ) 
+  else if ( this->ColorMode == VTK_COLOR_BY_VECTOR )
     {
     return "ColorByVector";
     }
-  else if ( this->ColorMode == VTK_COLOR_BY_SINGLE_COLOR ) 
+  else if ( this->ColorMode == VTK_COLOR_BY_SINGLE_COLOR )
     {
     return "ColorBySingleColor";
     }
@@ -367,15 +384,15 @@ inline const char *vtkVisItGlyph3D::GetColorModeAsString(void)
 // Return the vector mode as a character string.
 inline const char *vtkVisItGlyph3D::GetVectorModeAsString(void)
 {
-  if ( this->VectorMode == VTK_USE_VECTOR) 
+  if ( this->VectorMode == VTK_USE_VECTOR)
     {
     return "UseVector";
     }
-  else if ( this->VectorMode == VTK_USE_NORMAL) 
+  else if ( this->VectorMode == VTK_USE_NORMAL)
     {
     return "UseNormal";
     }
-  else 
+  else
     {
     return "VectorRotationOff";
     }
@@ -385,15 +402,15 @@ inline const char *vtkVisItGlyph3D::GetVectorModeAsString(void)
 // Return the index mode as a character string.
 inline const char *vtkVisItGlyph3D::GetIndexModeAsString(void)
 {
-  if ( this->IndexMode == VTK_INDEXING_OFF) 
+  if ( this->IndexMode == VTK_INDEXING_OFF)
     {
     return "IndexingOff";
     }
-  else if ( this->IndexMode == VTK_INDEXING_BY_SCALAR) 
+  else if ( this->IndexMode == VTK_INDEXING_BY_SCALAR)
     {
     return "IndexingByScalar";
     }
-  else 
+  else
     {
     return "IndexingByVector";
     }

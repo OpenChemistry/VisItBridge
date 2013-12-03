@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -38,8 +38,8 @@
 
 #ifndef VTK_VISIT_CLIPPER_H
 #define VTK_VISIT_CLIPPER_H
-
 #include <visit_vtk_exports.h>
+
 #include "vtkUnstructuredGridAlgorithm.h"
 
 class vtkImplicitFunction;
@@ -80,10 +80,16 @@ class vtkUnstructuredGrid;
 //    for non-traditional cell types (hex-20).  Also add support for data
 //    types beyond floats.
 //
+//    Brad Whitlock, Tue Mar 27 15:30:23 PDT 2012
+//    Group members into FilterState class so it's easier to pass the filter's
+//    state to internal template functions.
+//
+//    Kathleen Biagas, Tue Aug 15 11:22:11 MST 2012
+//    Renamed SetUpClipFunction to ModifyClip.  Added SetPrecomputeClipScalars.
+//
 // ****************************************************************************
 
-class VISIT_VTK_API vtkVisItClipper
-    : public vtkUnstructuredGridAlgorithm
+class VISIT_VTK_API vtkVisItClipper : public vtkUnstructuredGridAlgorithm
 {
   public:
     vtkTypeMacro(vtkVisItClipper,vtkUnstructuredGridAlgorithm);
@@ -99,39 +105,52 @@ class VISIT_VTK_API vtkVisItClipper
     virtual void SetUseZeroCrossings(bool);
     virtual vtkUnstructuredGrid *GetOtherOutput();
 
-    void SetCellList(int *, int);
-    virtual void SetUpClipFunction(int) { ; };
+    void SetCellList(const vtkIdType *, vtkIdType);
+    void SetPrecomputeClipScalars(const bool v);
+    virtual void ModifyClip(vtkDataSet *, vtkIdType) {; };
 
+    struct FilterState
+    {
+        FilterState();
+       ~FilterState();
+        void SetCellList(const vtkIdType *, vtkIdType);
+        void SetClipFunction(vtkImplicitFunction *func);
+        void SetClipScalars(vtkDataArray *, double);
+        void ClipDataset(vtkDataSet *in_ds, vtkUnstructuredGrid *out_ds);
+
+        const vtkIdType     *CellList;
+        vtkIdType            CellListSize;
+  
+        vtkImplicitFunction *clipFunction;
+        vtkDataArray        *scalarArrayAsVTK;
+        double               scalarCutoff;
+
+        vtkUnstructuredGrid *otherOutput;
+
+        bool                 removeWholeCells;
+        bool                 insideOut;
+        bool                 useZeroCrossings;
+        bool                 computeInsideAndOut;
+        bool                 precomputeClipScalars;
+    };
 
   protected:
     vtkVisItClipper();
     ~vtkVisItClipper();
 
-    int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-    int FillInputPortInformation(int port, vtkInformation *info);
+    virtual int RequestData(vtkInformation *,
+                            vtkInformationVector **,
+                            vtkInformationVector *);
+    virtual int FillInputPortInformation(int port, vtkInformation *info);
+
     void ClipDataset(vtkDataSet *, vtkUnstructuredGrid *);
 
-    int *CellList;
-    int  CellListSize;
   private:
-    bool   removeWholeCells;
-    bool   insideOut;
-    vtkImplicitFunction *clipFunction;
-    bool   iOwnData;
-    float *scalarArray;
-    vtkDataArray *scalarArrayAsVTK;
-    float  scalarCutoff;
-    bool   scalarFlip;
-    bool   useZeroCrossings;
-    bool   computeInsideAndOut;
-
-    vtkUnstructuredGrid *otherOutput;
+    // Contains the state for the filter.
+    FilterState state;
 
     vtkVisItClipper(const vtkVisItClipper&);  // Not implemented.
     void operator=(const vtkVisItClipper&);  // Not implemented.
 };
 
-
 #endif
-
-

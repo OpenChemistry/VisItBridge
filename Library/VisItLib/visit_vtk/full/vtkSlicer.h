@@ -20,13 +20,18 @@
 
 #ifndef __vtkSlicer_h
 #define __vtkSlicer_h
-
 #include <visit_vtk_exports.h>
+
 #include "vtkPolyDataAlgorithm.h"
-#include <vtkRectilinearGrid.h>
-#include <vtkStructuredGrid.h>
-#include <vtkUnstructuredGrid.h>
-#include <vtkPolyData.h>
+
+// ***************************************************************************
+//  Class: vtkSlicer
+//
+//  Modifications:
+//    Eric Brugger, Thu Jan 10 10:19:26 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ***************************************************************************
 
 class VISIT_VTK_API vtkSlicer : public vtkPolyDataAlgorithm
 {
@@ -47,30 +52,34 @@ public:
   // Description:
   // Specify a cell list to cut against.  This allows outside modules to 
   // perform optimizations on which cells are cut.
-  void SetCellList(int *, int);
+  void SetCellList(vtkIdType *, vtkIdType);
 
 protected:
   vtkSlicer();
   ~vtkSlicer();
 
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-  int FillInputPortInformation(int, vtkInformation*);
-  void RectilinearGridExecute(vtkRectilinearGrid*, vtkPolyData*);
-  void StructuredGridExecute(vtkStructuredGrid*, vtkPolyData*);
-  void UnstructuredGridExecute(vtkUnstructuredGrid*, vtkPolyData*);
-  void GeneralExecute(vtkDataSet*, vtkPolyData*);
-  void SliceDataset(vtkDataSet *, vtkPolyData *);
+  virtual int RequestData(vtkInformation *,
+                          vtkInformationVector **,
+                          vtkInformationVector *);
+  virtual int FillInputPortInformation(int port, vtkInformation *info);
+
+  void RectilinearGridExecute();
+  void StructuredGridExecute();
+  void UnstructuredGridExecute();
+  void GeneralExecute();
+  void SliceDataset(vtkDataSet *, vtkPolyData *, bool);
   
-  int *CellList;
-  int  CellListSize;
+  vtkDataSet *input;
+  vtkPolyData *output;
+
+  vtkIdType *CellList;
+  vtkIdType  CellListSize;
   double Normal[3];
   double Origin[3];
+
 private:
   vtkSlicer(const vtkSlicer&);  // Not implemented.
   void operator=(const vtkSlicer&);  // Not implemented.
 };
 
-
 #endif
-
-

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,8 +46,6 @@
 #include <vtkStructuredPoints.h>
 #include <vtkStructuredPointsReader.h>
 #include <vtkStructuredPointsWriter.h>
-#include <vtkInformation.h>
-#include <vtkStreamingDemandDrivenPipeline.h>
 
 #include <avtImageRepresentation.h>
 #include <avtCommonDataFunctions.h>
@@ -598,7 +596,6 @@ avtImageRepresentation::NewImage(int width, int height)
     image->SetOrigin(0., 0., 0.);
     image->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
 
-
     return image;
 }
 
@@ -736,6 +733,9 @@ CreateStringFromVTKInput(vtkImageData *img, unsigned char *&str, int &len)
 //     Removed call to SetSource(NULL) as it now removes information necessary
 //     for the dataset.
 //
+//    Kathleen Biagas, Fri Jan 25 16:40:41 PST 2013
+//    Call update on reader, not data object.
+//
 // ****************************************************************************
 
 void avtImageRepresentation::GetImageFromString(unsigned char *str,
@@ -766,6 +766,7 @@ void avtImageRepresentation::GetImageFromString(unsigned char *str,
     reader->SetInputArray(charArray);
     reader->Update();
     img = reader->GetOutput();
+    img->SetScalarType(VTK_UNSIGNED_CHAR, img->GetInformation());
     img->Register(NULL);
     //  calling SetSource sets' PipelineInformation to NULL, and then
     //  vtkImageData no longer knows its scalar data type, and who knows

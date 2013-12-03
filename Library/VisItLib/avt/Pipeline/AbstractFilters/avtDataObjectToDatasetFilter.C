@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -44,6 +44,7 @@
 
 #include <avtCommonDataFunctions.h>
 
+#include <DebugStream.h>
 #include <TimingsManager.h>
 
 bool avtDataObjectToDatasetFilter::vtkDebugMode = false;
@@ -154,6 +155,10 @@ avtDataObjectToDatasetFilter::OutputSetActiveVariable(const char *varname)
 //    Cyrus Harrison, Sat Aug 11 19:48:30 PDT 2007
 //    Add support for vtk-debug mode.
 //
+//    Kathleen Biagas, Thu Apr 26 13:57:42 PDT 2012
+//    Add debug statement to aid in debugging new filters that inadvertently
+//    trigger the transformation.
+//
 // ****************************************************************************
 
 void
@@ -166,6 +171,8 @@ avtDataObjectToDatasetFilter::PostExecute(void)
     if ((atts.GetSpatialDimension()==3 && atts.GetTopologicalDimension()<3) ||
         (atts.GetSpatialDimension()==2 && atts.GetTopologicalDimension()<2))
     {
+        debug3 << "avtDataObjectToDatastFilter converting ugrids to polydata "
+               << "in postex." << endl;
         int t0 = visitTimer->StartTimer();
         tree->Traverse(CConvertUnstructuredGridToPolyData, NULL, dummy);
         visitTimer->StopTimer(t0, "converting ugrids to polydata in postex");

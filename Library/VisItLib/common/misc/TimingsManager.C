@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -69,6 +69,7 @@ int ftime(struct timeb *);
 
 
 TimingsManager   *visitTimer = NULL;
+static int        firstTimer = -1;
 
 static struct TIMEINFO initTimeInfo;
 
@@ -256,6 +257,12 @@ TimingsManager::Initialize(const char *fname)
 //  Programmer: Mark C. Miller 
 //  Creation:   July 26, 2006 
 //
+//  Modifications:
+//
+//    Hank Childs, Fri Feb 11 11:12:22 PST 2011
+//    Turn off WithholdOutputTimings.  Also terminate timer for how long the
+//    process is running.
+//
 // ****************************************************************************
 
 void
@@ -263,7 +270,10 @@ TimingsManager::Finalize()
 {
     if (visitTimer)
     {
+        if (firstTimer >= 0)
+            visitTimer->StopTimer(firstTimer, "Total component run time");
         visitTimer->StopAllUnstoppedTimers();
+        visitTimer->WithholdOutput(false);
         visitTimer->DumpTimings();
         delete visitTimer;
         visitTimer = 0;
@@ -335,12 +345,20 @@ TimingsManager::SetFilename(const std::string &fname)
 //  Programmer: Eric Brugger
 //  Creation:   November 5, 2001
 //
+//  Modifications:
+//
+//    Hank Childs, Fri Feb 11 11:12:22 PST 2011
+//    Initialize a timer that can keep track of how long the process is 
+//    running.
+//
 // ****************************************************************************
 
 void
 TimingsManager::Enable(void)
 {
     enabled = true;
+    if (firstTimer < 0)
+        firstTimer = visitTimer->StartTimer();
 }
 
 
@@ -596,9 +614,9 @@ TimingsManager::LookupTimer(const std::string &nm)
 
     if (enabled)
     {
-        int numT = times.size();
+        size_t numT = times.size();
         debug1<<"numT= "<<numT<<endl;
-        for (int i = 0 ; i < numT ; i++)
+        for (size_t i = 0 ; i < numT ; i++)
         {
             debug1<<i<<": "<<summaries[i]<<endl;
             if (summaries[i].find(nm,0) != std::string::npos)
@@ -703,6 +721,10 @@ TimingsManager::DumpTimings(void)
 //    Hank Childs, Fri Sep 14 13:01:08 PDT 2007
 //    Changed to reflect new handling of values.
 //
+//    Hank Childs, Thu Feb  3 07:29:24 PST 2011
+//    Change the string from "Unknown", since it was confusing folks looking
+//    at the files.
+//
 // ****************************************************************************
 
 void
@@ -713,7 +735,7 @@ TimingsManager::StopAllUnstoppedTimers()
     //
     for (int i = 0 ; i < visitTimer->GetNValues(); i++)
         if (usedEntry[i])
-            visitTimer->StopTimer(i, "Unknown");
+            visitTimer->StopTimer(i, "A StartTimer call was unmatched!  Elapsed time since StartTimer: ");
 }
 
 // ****************************************************************************
@@ -761,8 +783,8 @@ TimingsManager::DumpTimings(ostream &out)
     if (neverOutput)
         return;
 
-    int numT = times.size();
-    for (int i = 0 ; i < numT ; i++)
+    size_t numT = times.size();
+    for (size_t i = 0 ; i < numT ; i++)
     {
         out << "Timing for " << summaries[i].c_str() << " took " << times[i] << endl;
     }

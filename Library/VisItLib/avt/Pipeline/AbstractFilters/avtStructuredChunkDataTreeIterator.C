@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -47,6 +47,8 @@
 #include <vtkUnstructuredGrid.h>
 
 #include <TimingsManager.h>
+
+#include <vector>
 
 
 // ****************************************************************************
@@ -129,7 +131,7 @@ avtStructuredChunkDataTreeIterator::ExecuteDataTree(vtkDataSet *in_ds, int domai
     }
 
     int ncells = in_ds->GetNumberOfCells();
-    vector<avtStructuredMeshChunker::ZoneDesignation> designation(ncells);
+    std::vector<avtStructuredMeshChunker::ZoneDesignation> designation(ncells);
     // cell-dims
     dims[0] -= 1;
     dims[1] -= 1;
@@ -139,7 +141,7 @@ avtStructuredChunkDataTreeIterator::ExecuteDataTree(vtkDataSet *in_ds, int domai
     visitTimer->StopTimer(t0, "Structured Chunk DataTreeIterator: Getting assignments");
     
     vtkUnstructuredGrid *ugrid = NULL;
-    vector<vtkDataSet *> grids;
+    std::vector<vtkDataSet *> grids;
 
     int t1 = visitTimer->StartTimer();
     avtStructuredMeshChunker::ChunkStructuredMesh(in_ds, designation,
@@ -158,7 +160,7 @@ avtStructuredChunkDataTreeIterator::ExecuteDataTree(vtkDataSet *in_ds, int domai
     for (int i = 0 ; i < grids.size() ; i++)
         out_ds[i] = grids[i];
     out_ds[grids.size()] = out_ugrid;
-    avtDataTree_p rv = new avtDataTree(grids.size()+1, out_ds, domain, label);
+    avtDataTree_p rv = new avtDataTree((int)grids.size()+1, out_ds, domain, label);
     delete [] out_ds;
     if (out_ugrid != NULL)
         out_ugrid->Delete();

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -53,7 +53,7 @@
 
 class   avtCachableItem;
 class   vtkObject;
-
+class   vtkInformationDoubleVectorKey;
 
 #define HASH_SIZE 25
 
@@ -128,6 +128,9 @@ typedef struct
 //    Store the data set's domain in the objectDomainPointer.  This allows us
 //    to avoid an O(n^2) algorithm.
 //
+//    Hank Childs, Mon Jan 10 20:25:10 PST 2011
+//    Add method ClearVariablesWithString.
+//
 // ****************************************************************************
 
 class DATABASE_API avtVariableCache
@@ -145,6 +148,12 @@ class DATABASE_API avtVariableCache
     static const char     *DATASET_NAME;
     static const char     *DATA_SPECIFICATION;
 
+    // VTK keys for transmitting offset information                                                                                                           
+    static vtkInformationDoubleVectorKey* OFFSET_3();
+    static vtkInformationDoubleVectorKey* OFFSET_3_COMPONENT_0();
+    static vtkInformationDoubleVectorKey* OFFSET_3_COMPONENT_1();
+    static vtkInformationDoubleVectorKey* OFFSET_3_COMPONENT_2();
+  
     vtkObject             *GetVTKObject(const char *name, const char *type,
                                         int ts, int domain, const char *mat);
     void                   CacheVTKObject(const char *name, const char *type,
@@ -173,6 +182,7 @@ class DATABASE_API avtVariableCache
                                          int *ts, int domain, void_ref_ptr vrp) const;
 
     void                   ClearTimestep(int);
+    void                   ClearVariablesWithString(const std::string &);
 
     void                   Print(ostream &);
 
@@ -266,6 +276,7 @@ class DATABASE_API avtVariableCache
                                          int *ts, int dom, const char **mat,
                                          avtCachableItem *) const;
         void                         ClearTimestep(int);
+        void                         ClearVariablesWithString(const std::string &);
     
         void                         Print(ostream &, int);
 

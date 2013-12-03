@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,15 +46,26 @@ using namespace StringHelpers;
 using std::vector;
 using std::string;
 
+static string slash_swap_for_os(string const in)
+{
+    string out = in;
+#ifdef WIN32
+    for (i = 0; i < in.size(); i++)
+        if (in[i] == '/') out[i] = '\\';
+#endif
+    return out;
+}
+
 int main(int argc, char **argv)
 {
     vector<int> falseNegatives;
     vector<int> falsePositives;
 
     //
-    // conversions that should succeed
+    // Test validation of printf style format strings
     //
 
+    // Validations that should succeed
     if (!ValidatePrintfFormatString("%d %d %d", "int", "int", "int"))
         falseNegatives.push_back(__LINE__);
     if (!ValidatePrintfFormatString("%.3f %#0d", "float", "int"))
@@ -102,25 +113,23 @@ int main(int argc, char **argv)
         const std::string spaces = "/spaces/in the/path";
         std::string s = lgl_one + ":" + lgl + ":" + abs + ":" + spaces;
         std::vector<std::string> splitstr = split(s, ':');
-        assert(splitstr.size() == 4);
+        assert(splitstr.size() == 4); // HOOKS_IGNORE
         if(splitstr[0] != lgl_one) { falseNegatives.push_back(__LINE__); }
         if(splitstr[1] != lgl)     { falseNegatives.push_back(__LINE__); }
         if(splitstr[2] != abs)     { falseNegatives.push_back(__LINE__); }
         if(splitstr[3] != spaces)  { falseNegatives.push_back(__LINE__); }
     }
 
-    //
-    // conversions that should fail
-    //
+    // Validations that should fail
     {
         std::string s = "::::";
         std::vector<std::string> splitstr = split(s, ':');
-        assert(splitstr.size() == 4);
+        assert(splitstr.size() == 4); // HOOKS_IGNORE
     }
     {
         std::string s = "a:b:c:";
         std::vector<std::string> splitstr = split(s, ':');
-        assert(splitstr.size() == 3);
+        assert(splitstr.size() == 3); // HOOKS_IGNORE
         if(splitstr[0] != "a") { falsePositives.push_back(__LINE__); }
         if(splitstr[1] != "b") { falsePositives.push_back(__LINE__); }
         if(splitstr[2] != "c") { falsePositives.push_back(__LINE__); }
@@ -128,7 +137,7 @@ int main(int argc, char **argv)
     {
         std::string no_colon = "test";
         std::vector<std::string> splitstr = split(no_colon, ':');
-        assert(splitstr.size() == 1);
+        assert(splitstr.size() == 1); // HOOKS_IGNORE
         if(splitstr[0] != no_colon) { falsePositives.push_back(__LINE__); }
     }
 
@@ -178,42 +187,183 @@ int main(int argc, char **argv)
         cerr << endl;
     }
 
-#define CHECK_PLURAL(noun,pnoun)                         \
-    if (Plural(#noun) != #pnoun)                        \
-    {                                                        \
-        cerr << "Problem pluralizing " #pnoun << endl;        \
-        return 1;                                        \
+    //
+    // Test noun pluralization
+    //
+#define CHECK_PLURAL(noun,pnoun)                       \
+    if (Plural(#noun) != #pnoun)                       \
+    {                                                  \
+        cerr << "Problem pluralizing " #pnoun << endl; \
+        pluralizing_errors++;                          \
     }
 
-    CHECK_PLURAL(matrix,matrices);
-    CHECK_PLURAL(stratum,strata);
-    CHECK_PLURAL(patch,patches);
-    CHECK_PLURAL(domain,domains);
-    CHECK_PLURAL(source,sources);
-    CHECK_PLURAL(assembly,assemblies);
+    int pluralizing_errors = 0;
+    //           Singular noun          Plural form
+    //           ----------------------------------
+    CHECK_PLURAL(matrix,                matrices);
+    CHECK_PLURAL(stratum,               strata);
+    CHECK_PLURAL(patch,                 patches);
+    CHECK_PLURAL(domain,                domains);
+    CHECK_PLURAL(source,                sources);
+    CHECK_PLURAL(assembly,              assemblies);
 
+    //
     // test ExtractRESubstr
+    //
     string filename = "/usr/gapps/visit/data/foo.silo.bz2";
     string ext = ExtractRESubstr(filename.c_str(), "<\\.(gz|bz|bz2|zip)$>");
     const char *bname = Basename(filename.c_str());
-    string dcname = StringHelpers::ExtractRESubstr(bname, "<(.*)\\.(gz|bz|bz2|zip)$> \\1");
+    string dcname = ExtractRESubstr(bname, "<(.*)\\.(gz|bz|bz2|zip)$> \\1");
 
+    int extract_substr_errors = 0;
     if (ext != ".bz2")
     {
         cerr << "Problem with ExtractRESubstr" << endl;
-        return 1;
+        extract_substr_errors++;
     }
     if (string(bname) != "foo.silo.bz2")
     {
         cerr << "Problem with Basename" << endl;
-        return 1;
+        extract_substr_errors++;
     }
     if (dcname != "foo.silo")
     {
         cerr << "Problem with ExtractRESubstr" << endl;
-        return 1;
+        extract_substr_errors++;
     }
 
-    return falseNegatives.size() + falsePositives.size();
+    //
+    // All tests involving pathnames are written using the unix slash
+    // character convention ('/') but the slash_swap_for_os func 
+    // swaps it as necessary. We should add some tests that test the
+    // "C:" leading part of windows pathnames. The utilities don't
+    // handle that yet either.
+    //
 
+    //
+    // Test Basename and Dirname
+    //
+#define CHECK_PATHNAMES(path,dir,base)                                \
+    {                                                                 \
+        string _path = slash_swap_for_os(path);                       \
+        string _dir  = slash_swap_for_os(dir);                        \
+        string _base = slash_swap_for_os(base);                       \
+        if (string(Basename(_path)) != string(_base))                 \
+        {                                                             \
+            cerr << "Got Basename(" << _path << ") = \""              \
+                 << Basename(_path) << "\", expected " << _base << endl; \
+            pathname_errors++;                                        \
+        }                                                             \
+        if (string(Dirname(_path)) != string(_dir))                   \
+        {                                                             \
+            cerr << "Got Dirname(" << _path << ") = \""               \
+                 << Dirname(_path) << "\", expected " << _dir << endl; \
+            pathname_errors++;                                        \
+        }                                                             \
+    }
+
+    int pathname_errors = 0;
+#ifdef WIN32
+    CHECK_PATHNAMES("C:/usr/lib",    "C:/usr",        "lib");
+    CHECK_PATHNAMES("D:/usr/",       "D:/",           "usr");
+    CHECK_PATHNAMES("A:/usr",        "A:/",           "usr");
+    CHECK_PATHNAMES("usr",           ".",             "usr");
+    CHECK_PATHNAMES("C:/",           "C:/",           "C:/");
+    CHECK_PATHNAMES(".",             ".",             ".");
+    CHECK_PATHNAMES("..",            ".",             "..");
+#else
+    //              Expected behavior as documented in
+    //              section 3 of unix manual...
+    //              --------------------------------------
+    //              path           dirname        basename
+    CHECK_PATHNAMES("/usr/lib",    "/usr",        "lib");
+    CHECK_PATHNAMES("/usr/",       "/",           "usr");
+    CHECK_PATHNAMES("/usr",        "/",           "usr");
+    CHECK_PATHNAMES("usr",         ".",           "usr");
+    CHECK_PATHNAMES("/",           "/",           "/");
+    CHECK_PATHNAMES(".",           ".",           ".");
+    CHECK_PATHNAMES("..",          ".",           "..");
+#endif
+
+#define CHECK_NORMALIZE(path,result)                                    \
+    {                                                                   \
+        string _path = slash_swap_for_os(path);                         \
+        string _result = slash_swap_for_os(result);                     \
+        if (string(Normalize(_path)) != string(_result))                \
+        {                                                               \
+            cerr << "Got \"" << Normalize(_path)                        \
+                 << "\" normalizing " << _path << endl                  \
+                 << "Expected " << _result << endl;                     \
+            pathname_errors++;                                          \
+        }                                                               \
+    }
+
+    CHECK_NORMALIZE("./././a/b/c/d/../../e/././f////../..///", "a/b");
+    CHECK_NORMALIZE("b/..", ".");
+    CHECK_NORMALIZE("a/b/c/d/..////.////./../../..", ".");
+    CHECK_NORMALIZE("a/b/c/../../../..", "");
+
+#define CHECK_ABSNAME(cwd,path,result)                                  \
+    {                                                                   \
+        bool chkval;                                                    \
+        string _cwd  = slash_swap_for_os(cwd?cwd:"");                   \
+        string _path = slash_swap_for_os(path?path:"");                 \
+        string _result = slash_swap_for_os(result);                     \
+        if (cwd && path)                                                \
+            chkval = string(Absname(_cwd,_path)) != string(_result);    \
+        else if (cwd)                                                   \
+            chkval = string(Absname(_cwd.c_str(),path)) != string(_result);\
+        else                                                            \
+            chkval = string(Absname(cwd,_path.c_str())) != string(_result);\
+        if (chkval)                                                     \
+        {                                                               \
+            cerr << "Got \"" << Absname(_cwd,_path)                     \
+                 << "\" when forming absolute path name from..." << endl\
+                 << _cwd << endl                                        \
+                 << _path << endl                                       \
+                 << "Expected " << _result << endl;                     \
+            pathname_errors++;                                          \
+        }                                                               \
+    }
+    
+
+    CHECK_ABSNAME("/a/b/c",
+                  "d/e/f",
+                  "/a/b/c/d/e/f");
+
+    CHECK_ABSNAME(0x0,
+                  "/d/e/f",
+                  "/d/e/f");
+
+    CHECK_ABSNAME("",
+                  "/d/e/f",
+                  "/d/e/f");
+
+    CHECK_ABSNAME("/a/b/c",
+                  0x0,
+                  "/a/b/c");
+
+    CHECK_ABSNAME("/a/b/c",
+                  "",
+                  "/a/b/c");
+
+    CHECK_ABSNAME("/a/b/c",
+                  "/d/e/f",
+                  "/d/e/f");
+
+    CHECK_ABSNAME("/foo/bar/gorfo/",
+                  "./peanut/orange/",
+                  "/foo/bar/gorfo/peanut/orange");
+
+    CHECK_ABSNAME("/foo/bar/mark//./../sandy/sue/..////.././steve",
+                  "../kerry/apple///banana/./././///../../../grape",
+                  "/foo/bar/grape");
+
+    int all_errors = falseNegatives.size() +
+                     falsePositives.size() +
+                     pluralizing_errors +
+                     extract_substr_errors +
+                     pathname_errors;
+
+    return all_errors > 0;
 }

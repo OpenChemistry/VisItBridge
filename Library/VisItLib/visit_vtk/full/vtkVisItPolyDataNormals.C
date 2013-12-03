@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -94,23 +94,18 @@ vtkVisItPolyDataNormals::vtkVisItPolyDataNormals()
 // ****************************************************************************
 int
 vtkVisItPolyDataNormals::RequestData(vtkInformation *vtkNotUsed(request),
-    vtkInformationVector **inputVector,
-    vtkInformationVector *outputVector)
+    vtkInformationVector **vtkNotUsed(inputVector),
+    vtkInformationVector *vtkNotUsed(outputVector))
 {
-    vtkInformation* inInfo = inputVector[0]->GetInformationObject(0);
-    vtkInformation* outInfo = outputVector->GetInformationObject(0);
-
     // get the input and output
-    vtkPolyData *input = vtkPolyData::SafeDownCast(
-         inInfo->Get(vtkDataObject::DATA_OBJECT()));
-    vtkPolyData *output = vtkPolyData::SafeDownCast(
-         outInfo->Get(vtkDataObject::DATA_OBJECT()));
+    vtkPolyData *input = GetPolyDataInput(0);
+    vtkPolyData *output = GetOutput();
 
     if (ComputePointNormals)
     {
         if (input->GetPointData()->GetNormals() != NULL)
         {
-            output->ShallowCopy(input);
+            GetOutput()->ShallowCopy(this->GetInput());
             return 1;
         }
 
@@ -129,7 +124,7 @@ vtkVisItPolyDataNormals::RequestData(vtkInformation *vtkNotUsed(request),
         // Cell normals
         if (input->GetCellData()->GetNormals() != NULL)
         {
-            output->ShallowCopy(input);
+            GetOutput()->ShallowCopy(this->GetInput());
             return 1;
         }
 
@@ -164,7 +159,7 @@ vtkVisItPolyDataNormals::RequestData(vtkInformation *vtkNotUsed(request),
 //    Hank Childs, Fri Jul 30 09:00:51 PDT 2004
 //    Copy along cell data from verts and lines as well.
 //
-//    Kathleen Bonnell, Fri Feb 24 09:43:20 PST 2006
+//    Kathleen Bonnell, Fri Feb 24 09:43:20 PST 2006 
 //    Avoid divide-by-zero errors.
 //
 //    Kathleen Bonnell, Wed Mar 29 10:52:43 PST 2006
@@ -191,7 +186,7 @@ vtkVisItPolyDataNormals::ExecutePointWithoutSplitting(
     vtkPoints    *inPts = input->GetPoints();
 
     int nCells  = inCA->GetNumberOfCells();
-    int nOtherCells = input->GetVerts()->GetNumberOfCells() +
+    int nOtherCells = input->GetVerts()->GetNumberOfCells() + 
                       input->GetLines()->GetNumberOfCells();
     int nTotalCells = nCells + nOtherCells;
 
@@ -204,7 +199,7 @@ vtkVisItPolyDataNormals::ExecutePointWithoutSplitting(
     output->GetFieldData()->ShallowCopy(input->GetFieldData());
 
     // Allocate and copy the output points; there will be no extras
-    vtkPoints *outPts = vtkPoints::New();
+    vtkPoints *outPts = vtkPoints::New(inPts->GetDataType());
     outPts->SetNumberOfPoints(nPoints);
     outPD->CopyAllocate(inPD,nPoints);
     int ptIdx = 0;
@@ -325,12 +320,17 @@ vtkVisItPolyDataNormals::ExecutePointWithoutSplitting(
 //  Programmer:  Jeremy Meredith
 //  Creation:    August 13, 2003
 //
+//  Modifications:
+//
+//    Hank Childs, Fri Aug 27 14:37:31 PDT 2010
+//    Change to double precision to accomodate accumulating very large normals.
+//
 // ****************************************************************************
 struct NormalEntry
 {
     int          oldId;  // The id of this point before it was split
     int          newId;  // The new id of this node
-    float        n[3];   // The accumulated normal
+    double       n[3];   // The accumulated normal
     float        nn[3];  // The normalized normal
     NormalEntry *next;   // The next entry in the linked list for this oldId
 
@@ -352,7 +352,7 @@ struct NormalEntry
 //
 //  Programmer:  Jeremy Meredith
 //  Creation:    August 13, 2003
-//
+//  
 //  Modifications:
 //      Sean Ahern, Mon Mar  5 14:47:42 EST 2007
 //      Removed fixed length on normal lists.
@@ -444,7 +444,7 @@ protected:
 
 
 // ****************************************************************************
-//  Method: vtkVisItPolyDataNormals::ExecutePointWithSplitting
+//  Method: vtkVisItPolyDataNormals::ExecutePointWithSplitting 
 //
 //  Purpose:
 //    Create normals at the points, and duplicate nodes along
@@ -459,7 +459,7 @@ protected:
 //  Modifications:
 //    Kathleen Bonnell, Fri Aug 22 16:48:20 PDT 2003
 //    Pass along Verts and Lines.  Added test for ne->oldId < 0 when
-//    adding original points and normals.
+//    adding original points and normals. 
 //
 //    Hank Childs, Fri Jan 30 09:35:46 PST 2004
 //    Use pointer arithmetic to avoid VTK calls.
@@ -470,10 +470,10 @@ protected:
 //    Hank Childs, Fri Jul 30 09:00:51 PDT 2004
 //    Account for cell data in verts and lines.
 //
-//    Kathleen Bonnell, Tue Nov 16 10:29:25 PST 2004
-//    Make nOtherCells be the count of verts and lines (not polys and lines).
+//    Kathleen Bonnell, Tue Nov 16 10:29:25 PST 2004 
+//    Make nOtherCells be the count of verts and lines (not polys and lines). 
 //
-//    Kathleen Bonnell, Fri Feb 24 09:43:20 PST 2006
+//    Kathleen Bonnell, Fri Feb 24 09:43:20 PST 2006 
 //    Avoid divide-by-zero errors.
 //
 //    Hank Childs, Thu Jun  5 15:00:05 PDT 2008
@@ -555,9 +555,9 @@ vtkVisItPolyDataNormals::ExecutePointWithSplitting(vtkPolyData *input,
             // Accumulate the normals calculated from every adjacent edge pair.
             inPts->GetPoint(cell[0],v1);
             inPts->GetPoint(cell[1],v2);
-
+            
             double ax, ay, az, bx, by, bz;
-            for (j = 0 ; j < nVerts ; j++)
+            for (j = 0 ; j < nVerts ; j++) 
             {
                 v0[0] = v1[0]; v0[1] = v1[1]; v0[2] = v1[2];
                 v1[0] = v2[0]; v1[1] = v2[1]; v1[2] = v2[2];
@@ -626,7 +626,7 @@ vtkVisItPolyDataNormals::ExecutePointWithSplitting(vtkPolyData *input,
             else if (found) // not the first, but we found a match
             {
                 // This is where we accumulate the normals at the nodes
-                float *n = ne->n;
+                double *n = ne->n;
                 n[0] += normal[0];
                 n[1] += normal[1];
                 n[2] += normal[2];
@@ -678,7 +678,7 @@ vtkVisItPolyDataNormals::ExecutePointWithSplitting(vtkPolyData *input,
 
     // Create the output points array
     int nOutPts = normalList.GetTotalNumberOfEntries();
-    vtkPoints *outPts = vtkPoints::New();
+    vtkPoints *outPts = vtkPoints::New(inPts->GetDataType());
     outPts->SetNumberOfPoints(nOutPts);
     outPD->CopyAllocate(inPD,nOutPts);
 
@@ -702,7 +702,7 @@ vtkVisItPolyDataNormals::ExecutePointWithSplitting(vtkPolyData *input,
             newNormalPtr[3*i+1] = 0;
             newNormalPtr[3*i+2] = 1;
         }
-        else
+        else 
         {
             outPts->SetPoint(i, inPts->GetPoint(ne->oldId));
             outPD->CopyData(inPD, ne->oldId, i);
@@ -832,9 +832,9 @@ vtkVisItPolyDataNormals::ExecuteCell(vtkPolyData *input, vtkPolyData *output)
             // Accumulate the normals calculated from every adjacent edge pair.
             inPts->GetPoint(cell[0],v1);
             inPts->GetPoint(cell[1],v2);
-
+            
             double ax, ay, az, bx, by, bz;
-            for (int j = 0 ; j < nVerts ; j++)
+            for (int j = 0 ; j < nVerts ; j++) 
             {
                 v0[0] = v1[0]; v0[1] = v1[1]; v0[2] = v1[2];
                 v1[0] = v2[0]; v1[1] = v2[1]; v1[2] = v2[2];
@@ -877,7 +877,7 @@ vtkVisItPolyDataNormals::ExecuteCell(vtkPolyData *input, vtkPolyData *output)
         //
         connPtr += nVerts;
     }
-
+        
     // The triangle strips come after the polys.  So add normals for them.
     numPrimitivesWithoutNormals = 0;
     numPrimitivesWithoutNormals += input->GetStrips()->GetNumberOfCells();

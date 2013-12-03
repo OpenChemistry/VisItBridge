@@ -48,7 +48,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "vtkDataSetAlgorithm.h"
 
-
+// ****************************************************************************
+//  Class: vtkDataSetRemoveGhostCells
+//
 //  Modifications: 
 //    Kathleen Bonnell, Wed Jul 10 16:02:56 PDT 2002
 //    Removed FindCellMins and FindCellMax methods.
@@ -62,6 +64,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //    Hank Childs, Sun Oct 28 10:48:50 PST 2007
 //    Added GhostZoneTypesToRemove
 //
+//    Eric Brugger, Wed Jan  9 14:56:34 PST 2013
+//    Modified to inherit from vtkDataSetAlgorithm.
+//
+// ****************************************************************************
 class VISIT_VTK_API vtkDataSetRemoveGhostCells : public vtkDataSetAlgorithm
 {
 public:
@@ -79,17 +85,22 @@ protected:
   vtkDataSetRemoveGhostCells();
   ~vtkDataSetRemoveGhostCells() {};
 
+  virtual int RequestData(vtkInformation *,
+                          vtkInformationVector **,
+                          vtkInformationVector *);
+
+  // Specific data generation methods
+  void StructuredGridExecute();
+  void UnstructuredGridExecute();
+  void RectilinearGridExecute();
+  void PolyDataExecute();
+  void GenericExecute();
+
+  vtkDataSet *input;
+  vtkDataSet *output;
+
   unsigned char GhostNodeTypesToRemove;
   unsigned char GhostZoneTypesToRemove;
-
-  // Usual data generation method
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-  // Specific data generation methods
-  void StructuredGridExecute(vtkStructuredGrid *input, vtkStructuredGrid *output);
-  void UnstructuredGridExecute(vtkUnstructuredGrid *input, vtkUnstructuredGrid *output);
-  void RectilinearGridExecute(vtkRectilinearGrid *input, vtkRectilinearGrid *output);
-  void PolyDataExecute(vtkPolyData *input, vtkPolyData *output);
-  void GenericExecute(vtkDataSet *input, vtkDataSet *output);
 
 private:
   vtkDataSetRemoveGhostCells(const vtkDataSetRemoveGhostCells&);

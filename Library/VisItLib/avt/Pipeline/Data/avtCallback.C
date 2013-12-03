@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -65,6 +65,8 @@ LightList                     avtCallback::lightList;
 
 bool                          avtCallback::nowinMode = false;
 bool                          avtCallback::swRendering = false;
+bool                          avtCallback::useManta = false;
+bool                          avtCallback::safeMode = false;
 
 UpdatePlotAttributesCallback  avtCallback::updatePlotAttributesCallback = NULL;
 void                         *avtCallback::updatePlotAttributesCallbackArgs 
@@ -75,6 +77,8 @@ void                         *avtCallback::getDatabaseCallbackArgs = NULL;
 
 bool                          avtCallback::haveRenderingException = false;
 std::string                   avtCallback::renderingExceptionMessage;
+
+std::string                   avtCallback::auxSessionKey;
 
 
 // ****************************************************************************

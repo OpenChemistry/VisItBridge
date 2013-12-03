@@ -20,6 +20,20 @@
     <Field name="spatialDimension" label="Spatial dimension" type="int" access="public">
       3
     </Field>
+    <Field name="hasLogicalBounds" label="Has logical bounds" type="bool" access="public">
+      false
+    </Field>
+    <Field name="logicalBounds" label="Logical bounds for structured meshes" type="intArray" length="3" access="public">
+      0
+      0
+      0
+    </Field>
+    <Field name="hasNumberCells" label="Has number of cells" type="bool" access="public">
+      false
+    </Field>
+    <Field name="numberCells" label="Number of cells for a mesh" type="int" access="public">
+      0
+    </Field>
     <Field name="topologicalDimension" label="Topological dimension" type="int" access="public">
       3
     </Field>
@@ -78,6 +92,8 @@
     </Field>
     <Field name="groupTitle" label="Group titles" type="string" access="public">
       groups
+    </Field>
+    <Field name="groupNames" label="Group names" type="stringVector" access="public">
     </Field>
     <Field name="groupIds" label="Group ids" type="intVector" access="public">
     </Field>
@@ -153,6 +169,12 @@
     <Field name="hideFromGUI" label="hideFromGUI" type="bool" access="public">
       false
     </Field>
+    <Field name="LODs" label="LODs" type="int" access="public">
+      1
+    </Field>
+    <Field name="presentGhostZoneTypes" label="Present ghost zone types" type="int" access="public">
+      0
+    </Field>
     <Function name="avtMeshMetaData2" user="true" member="true">
     </Function>
     <Function name="avtMeshMetaData3" user="true" member="true">
@@ -160,6 +182,14 @@
     <Function name="SetExtents" user="true" member="true">
     </Function>
     <Function name="UnsetExtents" user="true" member="true">
+    </Function>
+    <Function name="SetBounds" user="true" member="true">
+    </Function>
+    <Function name="UnsetBounds" user="true" member="true">
+    </Function>
+    <Function name="SetNumberCells" user="true" member="true">
+    </Function>
+    <Function name="UnsetNumberCells" user="true" member="true">
     </Function>
     <Function name="Print" user="true" member="true">
     </Function>

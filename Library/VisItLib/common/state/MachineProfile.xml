@@ -26,6 +26,17 @@
     <Field name="sshPort" label="SSH port" type="int">
       22
     </Field>
+    <Field name="sshCommandSpecified" label="SSH command specified" type="bool">
+      false
+    </Field>
+    <Field name="sshCommand" label="SSH command" type="stringVector">
+      ssh
+    </Field>
+    <Field name="useGateway" label="Use gateway" type="bool">
+      false
+    </Field>
+    <Field name="gatewayHost" label="Gateway host" type="string">
+    </Field>
     <Field name="clientHostDetermination" label="Client host determination" type="enum" subtype="ClientHostDetermination">
       MachineName
     </Field>
@@ -34,12 +45,28 @@
     <Field name="tunnelSSH" label="Tunnel data connections through SSH" type="bool">
       false
     </Field>
+    <Field name="maximumNodesValid" label="Number of nodes is valid" type="bool">
+      false
+    </Field>
+    <Field name="maximumNodes" label="Number of nodes in the cluster" type="int">
+      1
+    </Field>
+    <Field name="maximumProcessorsValid" label="Number of processors is valid" type="bool">
+      false
+    </Field>
+    <Field name="maximumProcessors" label="Number of processors in the cluster" type="int">
+      1
+    </Field>
     <Field name="launchProfiles" label="launchProfiles" type="attVector" subtype="LaunchProfile">
     </Field>
     <Field name="activeProfile" label="activeProfile" type="int">
       -1
     </Field>
     <Function name="defaultUserName" user="true" member="true">
+    </Function>
+    <Function name="UserName" user="true" member="true">
+    </Function>
+    <Function name="Default" user="true" member="true">
     </Function>
     <Function name="SplitHostPattern" user="true" member="true">
     </Function>
@@ -60,6 +87,12 @@
     <Function name="CreateNode" user="false" member="true">
     </Function>
     <Function name="SelectOnlyDifferingFields" user="true" member="true">
+    </Function>
+    <Function name="SetMaximumNodes" user="false" member="true">
+    </Function>
+    <Function name="SetMaximumProcessors" user="false" member="true">
+    </Function>
+    <Function name="Print" user="true" member="true">
     </Function>
     <Include file="source" quoted="false">
       Utility.h

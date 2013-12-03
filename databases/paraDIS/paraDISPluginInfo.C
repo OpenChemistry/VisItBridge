@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,7 +43,7 @@
 #include <paraDISPluginInfo.h>
 
 #include <visit-config.h>
-extern "C" DBP_EXPORT const char *paraDISVisItPluginVersion = VISIT_VERSION;
+VISIT_PLUGIN_VERSION(paraDIS,DBP_EXPORT)
 
 // ****************************************************************************
 //  Function:  GetGeneralInfo
@@ -95,7 +95,7 @@ paraDISGeneralPluginInfo::GetName() const
 const char *
 paraDISGeneralPluginInfo::GetVersion() const
 {
-    return "1.0a1";
+    return "2.3.4";
 }
 
 // ****************************************************************************
@@ -114,7 +114,7 @@ paraDISGeneralPluginInfo::GetVersion() const
 const char *
 paraDISGeneralPluginInfo::GetID() const
 {
-    return "paraDIS_1.0a1";
+    return "paraDIS_2.3.4";
 }
 // ****************************************************************************
 //  Method: paraDISGeneralPluginInfo::EnabledByDefault
@@ -169,6 +169,7 @@ paraDISGeneralPluginInfo::GetDefaultFilePatterns() const
     defaultPatterns.push_back("*.prds");
     defaultPatterns.push_back("*.dat");
     defaultPatterns.push_back("*.data");
+    defaultPatterns.push_back("*.meta");
 
     return defaultPatterns;
 }

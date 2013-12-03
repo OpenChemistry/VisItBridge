@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -88,6 +88,7 @@ avtBOVWriter : public virtual avtDatabaseWriter
 
     virtual bool   SupportsTargetChunks(void) { return true; };
     virtual bool   SupportsTargetZones(void) { return true; };
+    virtual bool   SupportsOutputZonal(void) { return true; };
 
     // Doing material interface reconstruction does nothing for us. 
     // So we may as well report that we can already do it, so the MIR

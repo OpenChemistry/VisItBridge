@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -71,5 +71,9 @@ extern VISIT_VTK_LIGHT_API int triVerticesFromEdges[3][2];
 extern VISIT_VTK_LIGHT_API int quadVerticesFromEdges[4][2];
 extern VISIT_VTK_LIGHT_API int pixelVerticesFromEdges[4][2];
 extern VISIT_VTK_LIGHT_API int lineVerticesFromEdges[1][2];
+extern VISIT_VTK_LIGHT_API int poly5VerticesFromEdges[5][2];
+extern VISIT_VTK_LIGHT_API int poly6VerticesFromEdges[6][2];
+extern VISIT_VTK_LIGHT_API int poly7VerticesFromEdges[7][2];
+extern VISIT_VTK_LIGHT_API int poly8VerticesFromEdges[8][2];
 
 #endif

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -108,6 +108,12 @@ avtCCSM_MTSD_FileFormat::Identify(NETCDFFileObject *fileObject)
 //    MTSD now accepts grouping multiple files into longer sequences, so
 //    its interface has changed to accept both a number of timestep groups
 //    and a number of blocks.
+//
+//    Jeremy Meredith, Wed Jun 29 10:34:03 EDT 2011
+//    Creating the file format with a null fileobject prevents it from
+//    creating one of its own in the constructor.  Don't do it that way.
+//    This change makes it work like the other readers.
+//
 // ****************************************************************************
 
 avtFileFormatInterface *
@@ -121,8 +127,15 @@ avtCCSM_MTSD_FileFormat::CreateInterface(NETCDFFileObject *f,
         ffl[i] = new avtMTSDFileFormat*[nBlock];
         for (int j = 0 ; j < nBlock ; j++)
         {
-            ffl[i][j] = new avtCCSM_MTSD_FileFormat(list[i*nBlock+j],
-                                                    (i==0) ? f : NULL);
+            if(f != 0)
+            {
+                ffl[i][j] = new avtCCSM_MTSD_FileFormat(list[i*nBlock+j], f);
+                f = 0;
+            }
+            else
+            {
+                ffl[i][j] = new avtCCSM_MTSD_FileFormat(list[i*nBlock+j]);
+            }
         }
     }
 
@@ -295,7 +308,7 @@ avtCCSM_STSD_FileFormat::GetCycle()
 {
     intVector cycles;
     reader->GetCycles(cycles);
-    return (cycles.size() > 0) ? cycles[0] : 0;
+    return (cycles.size() > 0) ? cycles[0] : avtFileFormat::INVALID_CYCLE;
 }
 
 double
@@ -303,7 +316,7 @@ avtCCSM_STSD_FileFormat::GetTime()
 {
     doubleVector times;
     reader->GetTimes(times);
-    return (times.size() > 0) ? times[0] : 0;
+    return (times.size() > 0) ? times[0] : avtFileFormat::INVALID_TIME;
 }
 
 void

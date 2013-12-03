@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -332,7 +332,7 @@ avtProteinDataBankFileFormat::GetMesh(const char *orig_meshname)
                       atoms[j].y,
                       atoms[j].z);
     }
-
+ 
     vtkCellArray *lines = vtkCellArray::New();
     pd->SetLines(lines);
     for (int k = 0 ; k < bonds.size() ; k++)
@@ -506,7 +506,7 @@ avtProteinDataBankFileFormat::GetVar(const char *orig_varname)
             memcpy(cptr, atoms[i].name, 5);
             cptr += 5;
         }
-        return labels;
+        return labels;       
     }
 
     if (string(varname) == "resname")
@@ -520,7 +520,7 @@ avtProteinDataBankFileFormat::GetVar(const char *orig_varname)
             memcpy(cptr, atoms[i].resname, 4);
             cptr += 4;
         }
-        return labels;
+        return labels;       
     }
 
     if (string(varname) == "longresname")
@@ -541,7 +541,7 @@ avtProteinDataBankFileFormat::GetVar(const char *orig_varname)
                 strcpy(cptr, atoms[i].resname);
             cptr += maxlen;
         }
-        return labels;
+        return labels;       
     }
 
     if (string(varname) == "elementname")
@@ -555,7 +555,7 @@ avtProteinDataBankFileFormat::GetVar(const char *orig_varname)
             memcpy(cptr, atoms[i].element, 3);
             cptr += 3;
         }
-        return labels;
+        return labels;       
     }
 
     if (string(varname) == "compoundname")
@@ -579,7 +579,7 @@ avtProteinDataBankFileFormat::GetVar(const char *orig_varname)
             strcpy(cptr, compoundNames[atoms[i].compound].c_str());
             cptr += maxlen;
         }
-        return labels;
+        return labels;       
     }
 
     return NULL;
@@ -1079,11 +1079,11 @@ avtProteinDataBankFileFormat::ReadAllMetaData()
 //    We don't want to close and re-open the file every time we want to
 //    start back at the beginning, so we encapsulate the logic to both
 //    ensure the file is still opened (in case it got closed or was never
-//    opened) and to reset the flags and seek back to the beginning, in
+//    opened) and to reset the flags and seek back to the beginning, in 
 //    this function.
 //
 //  Arguments:
-//
+//    
 //
 //  Programmer:  Jeremy Meredith
 //  Creation:    March 23, 2006
@@ -1151,7 +1151,7 @@ avtProteinDataBankFileFormat::ReadAtomsForModel(int model)
     if (allatoms[model].size() > 0)
         return;
 
-    vector<Atom> &atoms = allatoms[model];
+    vector<Atom> &atoms = allatoms[model];    
     atoms.clear();
 
     char line[82];
@@ -1231,7 +1231,7 @@ void
 avtProteinDataBankFileFormat::CreateBondsFromModel(int model)
 {
     CreateBondsFromModel_Fast(model);
-
+    
 #if 0 // to generate bonds from CONECT records, re-enable this
 
     // NOTE: this needs to be updated to create bonds
@@ -1350,7 +1350,7 @@ ScanFloat(const char *line, int len, int start, int end, float *val)
 //    Added Jeremy's fix for yet another style of ATOM line.
 //
 //    Jeremy Meredith, Mon Aug 28 17:58:02 EDT 2006
-//    Changed the scanning to (a) match the PDB spec document more
+//    Changed the scanning to (a) match the PDB spec document more 
 //    effectively, (b) be faster, and (c) handle some missing elements
 //    (short lines) better.
 //

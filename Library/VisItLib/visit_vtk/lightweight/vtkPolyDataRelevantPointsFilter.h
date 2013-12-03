@@ -50,7 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // .SECTION Caveats
 //
 // .SECTION See Also
-// vtkPolyDataToPolyDataFilter
+// vtkPolyDataAlgorithm
 
 #ifndef __vtkPolyDataRelevantPointsFilter_h
 #define __vtkPolyDataRelevantPointsFilter_h
@@ -59,14 +59,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "vtkPolyDataAlgorithm.h"
 
 // ***************************************************************************
-// Modifications:
-//   Kathleen Bonnell, Wed Mar  6 15:14:29 PST 2002 
-//   Replace 'GetClassName' with vtkTypeMacro to match VTK 4.0 API.
-//   Moved unimplmented copy constructor and operator= to private section. 
+//  Modifications:
+//    Kathleen Bonnell, Wed Mar  6 15:14:29 PST 2002 
+//    Replace 'GetClassName' with vtkTypeMacro to match VTK 4.0 API.
+//    Moved unimplmented copy constructor and operator= to private section. 
+//
+//    Eric Brugger, Wed Jan  9 13:12:39 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
 // ***************************************************************************
 
 class VISIT_VTK_LIGHT_API vtkPolyDataRelevantPointsFilter : 
-public vtkPolyDataAlgorithm
+  public vtkPolyDataAlgorithm
 {
 public:
   static vtkPolyDataRelevantPointsFilter *New();
@@ -77,14 +81,13 @@ protected:
   vtkPolyDataRelevantPointsFilter(){};
  ~vtkPolyDataRelevantPointsFilter(){};
 
-  // Usual data generation method
- int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
+  virtual int RequestData(vtkInformation *,
+                          vtkInformationVector **,
+                          vtkInformationVector *);
 
 private:
   vtkPolyDataRelevantPointsFilter(const vtkPolyDataRelevantPointsFilter&); 
-  void operator=(const vtkPolyDataRelevantPointsFilter&);
+  void operator=(const vtkPolyDataRelevantPointsFilter&); 
 };
 
 #endif
-
-

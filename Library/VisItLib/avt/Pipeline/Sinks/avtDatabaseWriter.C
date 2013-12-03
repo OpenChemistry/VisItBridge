@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -51,6 +51,9 @@
 
 #include <NoInputException.h>
 
+#include <string>
+#include <vector>
+
 
 // ****************************************************************************
 //  Method: avtDatabaseWriter constructor
@@ -70,6 +73,9 @@
 //    Added a saved pipeline spec in case we need to re-execute the
 //    pipeline to get the requested variables.
 //
+//    Hank Childs, Fri Sep  7 17:54:21 PDT 2012
+//    Initialize shouldOutputZonal.
+//
 // ****************************************************************************
 
 avtDatabaseWriter::avtDatabaseWriter()
@@ -82,6 +88,7 @@ avtDatabaseWriter::avtDatabaseWriter()
 
     shouldChangeChunks = false;
     shouldChangeTotalZones = false;
+    shouldOutputZonal = false;
     nTargetChunks = 1;
     targetTotalZones = 1;
     savedContract = NULL;
@@ -143,6 +150,25 @@ avtDatabaseWriter::SetTargetZones(VISIT_LONG_LONG nZones)
     shouldChangeTotalZones = true;
     targetTotalZones = nZones;
     return SupportsTargetZones();
+}
+
+
+// ****************************************************************************
+//  Method: avtDatabaseWriter::SetOutputZonal
+//
+//  Purpose:
+//      Tells the writer to output zonal variables.
+//
+//  Programmer: Hank Childs
+//  Creation:   September 7, 2012
+//
+// ****************************************************************************
+
+bool
+avtDatabaseWriter::SetOutputZonal(bool val)
+{
+    shouldOutputZonal = val;
+    return (shouldOutputZonal ? SupportsOutputZonal() : true);
 }
 
 
@@ -370,7 +396,7 @@ avtDatabaseWriter::Write(const std::string &filename,
                         continue;
                     bool shouldAdd = false;
                     bool canAdd = false;
-                    string varname = expr->GetName();
+                    std::string varname = expr->GetName();
                     //
                     // We only want the expressions that correspond to the 
                     // mesh we are operating on.  If there is more than one 

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -1330,6 +1330,7 @@ avtMaterial::SimplifyHeavilyMixedZones(int maxMats) const
     delete [] new_mix_vf;
     delete [] top_mat;
     delete [] top_vf;
+    delete [] top_orig_idx;
 
     return rv;
 }

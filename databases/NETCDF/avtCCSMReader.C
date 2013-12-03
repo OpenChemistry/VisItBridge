@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -130,6 +130,14 @@ avtCCSMReader::~avtCCSMReader()
 //    Brad Whitlock, Thu Oct 29 11:04:18 PDT 2009
 //    I made it support both time-varying and static variables.
 //
+//    Gunther H. Weber, Tue May 17 19:48:29 PDT 2011
+//    Populate varToDimensions map even if a null pointer is passed as
+//    avtDatabaseMetaData. Otherwise the reader will not work with .visit
+//    files listing multiple time steps.
+//
+//    Hank Childs, Thu Jul 26 13:50:25 PDT 2012
+//    Improve detection of 2D meshes.
+//
 // ****************************************************************************
 
 void
@@ -237,7 +245,7 @@ avtCCSMReader::PopulateDatabaseMetaData(int timeState, avtDatabaseMetaData *md)
                 if(vardims[dim] != timedim)
                 {
                     vDims.push_back(vardims[dim]);
-                    d = dimSizes[vardims[dim]];
+                    d = (int)dimSizes[vardims[dim]];
                     elems *= d;
                 }
                 else
@@ -271,7 +279,11 @@ avtCCSMReader::PopulateDatabaseMetaData(int timeState, avtDatabaseMetaData *md)
                             SNPRINTF(tmp, 100, "x%d", meshDims[j]);
                         else
                             SNPRINTF(tmp, 100, "%d", meshDims[j]);
-                        ++nSpatialDims;
+                        bool skipIt = false;
+                        if (nSpatialDims == 2 && meshDims[j] == 1)
+                            skipIt = true;
+                        if (!skipIt)
+                            ++nSpatialDims;
 
                         meshName += tmp;
                     }
@@ -357,26 +369,31 @@ avtCCSMReader::PopulateDatabaseMetaData(int timeState, avtDatabaseMetaData *md)
                     smd->hasUnits = fileObject->ReadStringAttribute(
                         varname, "units", smd->units);
                     smd->validVariable = nSpatialDims <= 3;
+                    HandleMissingData(varname, smd);
                     md->Add(smd);
+                }
 
-                    // So we can keep track of the var's size
-                    varToDimensions[varname] = meshDims;
+                // So we can keep track of the var's size
+                varToDimensions[varname] = meshDims;
 
-                    debug4 << "Variable " << varname << " on mesh " << meshName << " with size: {";
-                    for(int j = 0; j < meshDims.size(); ++j)
-                        debug4 << meshDims[j] << ", ";
-                    debug4 << "}" << endl;
+                debug4 << "Variable " << varname << " on mesh " << meshName << " with size: {";
+                for(int j = 0; j < meshDims.size(); ++j)
+                    debug4 << meshDims[j] << ", ";
+                debug4 << "}" << endl;
 
-                    // Add a global variable too.
-                    std::string globalVar = std::string("global/") + varname;
-                    smd = new avtScalarMetaData(globalVar,
+                // Add a global variable too.
+                std::string globalVar = std::string("global/") + varname;
+                varToDimensions[globalVar] = meshDims;
+                if(md != 0)
+                {
+                    avtScalarMetaData *smd = new avtScalarMetaData(globalVar,
                         globalMesh, AVT_ZONECENT);
                     smd->hasUnits = fileObject->ReadStringAttribute(
                         varname, "units", smd->units);
                     smd->validVariable = nSpatialDims <= 3;
+                    HandleMissingData(varname, smd); // yes, we want varname
                     md->Add(smd);
-                    varToDimensions[globalVar] = meshDims;
-                } 
+                }
             }
         } // if nc_inc_var
     } // for nVars
@@ -838,6 +855,9 @@ avtCCSMReader::GetMesh(int timestate, const char *var)
 //    Brad Whitlock, Thu Oct 29 11:00:44 PDT 2009
 //    I made it use varToDimensions to get the variable size.
 //
+//    Brad Whitlock, Fri Jan  6 13:40:53 PST 2012
+//    I added support for scaling and offsets.
+//
 // ****************************************************************************
 
 #define READVAR(VTKTYPE) \
@@ -935,9 +955,21 @@ avtCCSMReader::GetVar(int timestate, const char *var)
            << dimCounts[3] << "}\n";
 
     if(t == CHARARRAY_TYPE || t == UCHARARRAY_TYPE)
+    {
         READVAR(vtkUnsignedCharArray)
+
+        vtkDataArray *scaled = ApplyScaleAndOffset(realvar, retval);
+        retval->Delete();
+        retval = scaled;
+    }
     else if(t == SHORTARRAY_TYPE)
+    {
         READVAR(vtkShortArray)
+
+        vtkDataArray *scaled = ApplyScaleAndOffset(realvar, retval);
+        retval->Delete();
+        retval = scaled;
+    }
     else if(t == INTEGERARRAY_TYPE)
         READVAR(vtkIntArray)
     else if(t == LONGARRAY_TYPE)
@@ -953,4 +985,3 @@ avtCCSMReader::GetVar(int timestate, const char *var)
 
     return retval;
 }
-

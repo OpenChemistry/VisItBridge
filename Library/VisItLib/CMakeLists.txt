@@ -18,7 +18,7 @@ if(WIN32)
   add_definitions(-DWIN32)
 endif()
 
-CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/visit-cmake.h.in
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/include/visit-cmake.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/visit-config.h @ONLY IMMEDIATE)
 
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/common/misc/ConfigureInfo.C.in

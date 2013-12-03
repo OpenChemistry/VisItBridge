@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,6 +42,7 @@
 #include <string>
 #include <AttributeSubject.h>
 
+
 // ****************************************************************************
 // Class: MovieAttributes
 //
@@ -72,13 +73,23 @@ public:
         Later
     };
 
+    // These constructors are for objects of this class
     MovieAttributes();
     MovieAttributes(const MovieAttributes &obj);
+protected:
+    // These constructors are for objects derived from this class
+    MovieAttributes(private_tmfs_t tmfs);
+    MovieAttributes(const MovieAttributes &obj, private_tmfs_t tmfs);
+public:
     virtual ~MovieAttributes();
 
     virtual MovieAttributes& operator = (const MovieAttributes &obj);
     virtual bool operator == (const MovieAttributes &obj) const;
     virtual bool operator != (const MovieAttributes &obj) const;
+private:
+    void Init();
+    void Copy(const MovieAttributes &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -111,10 +122,12 @@ public:
     void SetStereoFlags(const intVector &stereoFlags_);
     void SetTemplateFile(const std::string &templateFile_);
     void SetSendEmailNotification(bool sendEmailNotification_);
+    void SetUseScreenCapture(bool useScreenCapture_);
     void SetEmailAddress(const std::string &emailAddress_);
     void SetFps(int fps_);
     void SetStartIndex(int startIndex_);
     void SetEndIndex(int endIndex_);
+    void SetStride(int stride_);
 
     // Property getting methods
     GenerationMethodEnum     GetGenerationMethod() const;
@@ -138,11 +151,13 @@ public:
     const std::string        &GetTemplateFile() const;
           std::string        &GetTemplateFile();
     bool                     GetSendEmailNotification() const;
+    bool                     GetUseScreenCapture() const;
     const std::string        &GetEmailAddress() const;
           std::string        &GetEmailAddress();
     int                      GetFps() const;
     int                      GetStartIndex() const;
     int                      GetEndIndex() const;
+    int                      GetStride() const;
 
     // Persistence methods
     virtual bool CreateNode(DataNode *node, bool completeSave, bool forceAdd);
@@ -183,10 +198,13 @@ public:
         ID_stereoFlags,
         ID_templateFile,
         ID_sendEmailNotification,
+        ID_useScreenCapture,
         ID_emailAddress,
         ID_fps,
         ID_startIndex,
-        ID_endIndex
+        ID_endIndex,
+        ID_stride,
+        ID__LAST
     };
 
 private:
@@ -202,13 +220,17 @@ private:
     intVector          stereoFlags;
     std::string        templateFile;
     bool               sendEmailNotification;
+    bool               useScreenCapture;
     std::string        emailAddress;
     int                fps;
     int                startIndex;
     int                endIndex;
+    int                stride;
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define MOVIEATTRIBUTES_TMFS "iisss*u*i*i*d*i*sbbsiiii"
 
 #endif

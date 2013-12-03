@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400142
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -48,8 +48,6 @@
 #ifndef AVT_Velodyne_FILE_FORMAT_H
 #define AVT_Velodyne_FILE_FORMAT_H
 
-#include <map>
-using std::map;
 #include <vector>
 #include <string>
 #include <vtkPoints.h>

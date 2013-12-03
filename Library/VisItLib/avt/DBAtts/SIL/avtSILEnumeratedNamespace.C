@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -133,7 +133,7 @@ avtSILEnumeratedNamespace::ContainsElement(int e) const
     }
     else if (sortedElems)
     {
-        int min = 0, max = elements.size()-1;
+        int min = 0, max = static_cast<int>(elements.size())-1;
         int mid = (max+min)/2;
         while (min <= max)
         {

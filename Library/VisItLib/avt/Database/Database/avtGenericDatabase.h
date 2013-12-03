@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -339,6 +339,13 @@ class     vtkUnstructuredGrid;
 //    Jeremy Meredith, Fri Jan  8 16:15:02 EST 2010
 //    Added ability to turn on stricter file format error checking.
 //
+//    Hank Childs, Fri Nov 26 15:52:25 PST 2010
+//    Make cache available externally so filters from the pipeline can cache
+//    their data structures.
+//
+//   Dave Pugmire, Fri Feb  8 17:22:01 EST 2013
+//   Added support for ensemble databases. (multiple time values)
+//
 // ****************************************************************************
 
 class DATABASE_API avtGenericDatabase : public avtDatasetDatabase
@@ -370,6 +377,10 @@ class DATABASE_API avtGenericDatabase : public avtDatasetDatabase
                                     const int dom, std::string &);
 
     virtual void               SetStrictMode(bool);
+
+    virtual avtVariableCache  *GetCache(void) { return &cache; };
+
+    virtual void                SetIsEnsemble(bool v);
 
   protected:
     avtFileFormatInterface    *Interface;
@@ -528,7 +539,7 @@ class DATABASE_API avtGenericDatabase : public avtDatasetDatabase
     void                       EnumScalarSelect(avtDatasetCollection &,
                                                 const boolVector &,
                                                 const avtDatabaseMetaData*,
-                                                const string &);
+                                                const std::string &);
     void                       CreateOriginalZones(avtDatasetCollection &,
                                                    intVector &, 
                                                    avtSourceFromDatabase *);

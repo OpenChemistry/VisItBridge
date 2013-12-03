@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -51,15 +51,14 @@
 #include <avtDataRequest.h>
 #include <avtContract.h>
 
+class     vtkObject;
 
 class     avtInlinePipelineSource;
 class     avtMetaData;
 
 
-typedef avtDataRequest_p (*LoadBalanceFunction)(void *,
-                                                   avtContract_p);
-typedef bool                   (*StreamingCheckFunction)(void *,
-                                                   avtContract_p);
+typedef avtDataRequest_p       (*LoadBalanceFunction)(void *, avtContract_p);
+typedef bool                   (*StreamingCheckFunction)(void *,avtContract_p);
 typedef void                   (*InitializeProgressCallback)(void *, int);
 
 
@@ -124,6 +123,15 @@ typedef void                   (*InitializeProgressCallback)(void *, int);
 //    Hank Childs, Thu Jun 12 16:12:38 PDT 2008
 //    Add method CanDoStreaming.
 //
+//    Hank Childs, Thu Aug 26 16:57:24 PDT 2010
+//    Add data member for the last contract.
+//
+//    Hank Childs, Fri Nov 26 16:26:55 PST 2010
+//    Add support for caching of arbitrary objects.
+//
+//    Hank Childs, Tue Dec 11 14:39:58 PST 2012
+//    Add method for getting last data selections.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtOriginatingSource : virtual public avtQueryableSource
@@ -150,6 +158,21 @@ class PIPELINE_API avtOriginatingSource : virtual public avtQueryableSource
                                        void *args, avtContract_p,
                                        VoidRefList &);
 
+    virtual vtkObject             *FetchArbitraryVTKObject(const char *name,
+                                                           int dom, int ts,
+                                                           const char *type);
+    virtual void                   StoreArbitraryVTKObject(const char *name,
+                                                           int dom, int ts,
+                                                           const char *type,
+                                                           vtkObject *);
+    virtual void_ref_ptr           FetchArbitraryRefPtr(const char *name,
+                                                        int dom, int ts,
+                                                        const char *type);
+    virtual void                   StoreArbitraryRefPtr(const char *name,
+                                                        int dom, int ts,
+                                                        const char *type,
+                                                        void_ref_ptr);
+
     virtual bool                   Update(avtContract_p);
     virtual bool                   CanDoStreaming(avtContract_p) {return true;}
 
@@ -162,8 +185,9 @@ class PIPELINE_API avtOriginatingSource : virtual public avtQueryableSource
                                          { numberOfExecutions = numEx;
                                            haveIssuedProgress = false; };
 
-    virtual avtDataRequest_p GetFullDataRequest(void);
-    avtContract_p     GetGeneralContract(void);
+    virtual avtDataRequest_p       GetFullDataRequest(void);
+    avtContract_p                  GetGeneralContract(void);
+    std::vector<avtDataSelection_p>  GetSelectionsForLastExecution(void);
 
     // Define this so derived types don't have to.
     virtual void                   Query(PickAttributes *){;};
@@ -198,7 +222,7 @@ class PIPELINE_API avtOriginatingSource : virtual public avtQueryableSource
                                        void *args, avtDataRequest_p,
                                        VoidRefList &);
 
-    avtDataRequest_p         BalanceLoad(avtContract_p);
+    avtDataRequest_p               BalanceLoad(avtContract_p);
 
     virtual bool                   UseLoadBalancer(void) { return true; };
     virtual bool                   ArtificialPipeline(void) { return false; };
@@ -218,6 +242,9 @@ class PIPELINE_API avtOriginatingSource : virtual public avtQueryableSource
     // of progress.
     int                            numberOfExecutions;
     bool                           haveIssuedProgress;
+
+  protected:
+    avtContract_p                  lastContract;
 };
 
 

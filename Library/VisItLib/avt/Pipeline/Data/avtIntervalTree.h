@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -94,6 +94,10 @@
 //    Kathleen Bonnell, Thu Jun 11 08:24:04 PDT 2009
 //    Added optional tolerance argument to GetElementListsFromLine.
 //
+//    Hank Childs, Mon Sep 13 18:52:30 PDT 2010
+//    Added options for accelerating size queries and whether or not to 
+//    optimize for repeated queries.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtIntervalTree
@@ -114,6 +118,8 @@ class PIPELINE_API avtIntervalTree
     void                      GetElementsListFromRange(const double *,
                                                       const double *,
                                                       std::vector<int>&) const;
+    int                       GetNumberOfElementsInRange(const double *,
+                                                         const double *) const;
     void                      GetElementsFromAxiallySymmetricLineIntersection(
                                        const double *, const double *,
                                        std::vector<int>&) const;
@@ -123,7 +129,11 @@ class PIPELINE_API avtIntervalTree
                                           intVector &, doubleVector &, 
                                           const double* = NULL) const; 
 
-    void                      AddElement(int, double *);
+    void                      AccelerateSizeQueries(void);
+    void                      OptimizeForRepeatedQueries(void) 
+                                         { optimizeForRepeatedQueries = true; };
+
+    void                      AddElement(int, const double *);
     void                      Calculate(bool = false);
 
     int                       GetNLeaves(void) const { return nElements; };
@@ -138,6 +148,10 @@ class PIPELINE_API avtIntervalTree
 
     double                   *nodeExtents;
     int                      *nodeIDs;
+
+    bool                      optimizeForRepeatedQueries;
+    bool                      accelerateSizeQueries;
+    int                      *numElementsBeneathThisNode;
 
     bool                      hasBeenCalculated;
     bool                      requiresCommunication;

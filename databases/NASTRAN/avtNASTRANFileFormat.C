@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,12 +43,7 @@
 #include <avtNASTRANFileFormat.h>
 #include <avtNASTRANOptions.h>
 
-#include <errno.h>
-#include <map>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <string>
-#include <limits.h>
+using namespace NASTRANDBOptions;
 
 #include <vtkCellType.h>
 #include <vtkFloatArray.h>
@@ -84,8 +79,18 @@
 #include <vtkUnstructuredGridRelevantPointsFilter.h>
 #endif
 
-using     std::string;
-using     std::map;
+#include <errno.h>
+#include <limits.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+#include <map>
+#include <string>
+#include <vector>
+
+using std::map;
+using std::string;
+using std::vector;
 
 #define ALL_LINES -1
 #define INVALID_MAT_ID -INT_MAX
@@ -216,7 +221,9 @@ avtNASTRANFileFormat::ActivateTimestep()
 //    Mark C. Miller, Mon May 11 14:21:22 PDT 2009
 //    Ok, I 'fixed' this funky logic again. The above 'fix' caused the alg.
 //    to basically completely fail.
+//
 // ****************************************************************************
+
 static float Getf(const char *s)
 {
     char *ends;
@@ -237,7 +244,7 @@ static float Getf(const char *s)
     bool haveSeenNumChars = false;
     while (!haveSeenNumChars || (*p != '-' && *p != '+' && *p != '\0'))
     {
-        if ('0' <= *p && *p <= '9' || *p == '.' || *p == '+' || *p == '-')
+        if (('0' <= *p && *p <= '9') || *p == '.' || *p == '+' || *p == '-')
             haveSeenNumChars = true;
         *q++ = *p++;
     }
@@ -910,7 +917,7 @@ avtNASTRANFileFormat::ReadFile(const char *name, int nLines)
 #endif
 
     if (matCountOpt == -1)
-        matCountOpt = uniqMatIds.size();
+        matCountOpt = (int)uniqMatIds.size();
 
     visitTimer->StopTimer(total, "Loading NASTRAN file");
 
@@ -1051,7 +1058,7 @@ avtNASTRANFileFormat::GetMaterial(const char *mat)
         char msg[256];
         SNPRINTF(msg, sizeof(msg), "Material count specified in read options, %d, "
             "does not match what is actually found in the file, %d",
-            matCountOpt, uniqMatIds.size());
+            matCountOpt, (int)uniqMatIds.size());
         EXCEPTION1(ImproperUseException, msg);
     }
 

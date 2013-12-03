@@ -21,16 +21,17 @@
 #include <vtkCellData.h>
 #include <vtkContourValues.h>
 #include <vtkDataSet.h>
-#include <vtkFloatArray.h>
+#include <vtkDoubleArray.h>
 #include <vtkGenericCell.h>
 #include <vtkImplicitFunction.h>
+#include <vtkInformation.h>
+#include <vtkInformationVector.h>
 #include <vtkMergePoints.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkPolyData.h>
 #include <vtkUnstructuredGrid.h>
-#include <vtkInformation.h>
-#include <vtkInformationVector.h>
+#include <vtkVisItUtility.h>
 
 #include <math.h>
 
@@ -69,9 +70,10 @@ vtkVisItCutter::~vtkVisItCutter()
 
 // Overload standard modified time function. If cut functions is modified,
 // or contour values modified, then this object is modified as well.
-unsigned long vtkVisItCutter::GetMTime()
+unsigned long
+vtkVisItCutter::GetMTime()
 {
-  unsigned long mTime=this->Superclass::GetMTime();
+  unsigned long mTime=this->vtkPolyDataAlgorithm::GetMTime();
   unsigned long contourValuesMTime=this->ContourValues->GetMTime();
   unsigned long time;
  
@@ -92,74 +94,107 @@ unsigned long vtkVisItCutter::GetMTime()
   return mTime;
 }
 
-// Cut through data generating surface.
+// ****************************************************************************
+//  Method: vtkLineoutFilter::RequestData.
 //
-int vtkVisItCutter::RequestData(vtkInformation *vtkNotUsed(request),
-                                vtkInformationVector **inputVector,
-                                vtkInformationVector *outputVector)
+//  Purpose:
+//    Cut through data generating surface.
+//
+//  Modifications:
+//    Eric Brugger, Thu Jan 10 11:47:09 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
+
+int
+vtkVisItCutter::RequestData(
+  vtkInformation *vtkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *outputVector)
 {
+  vtkDebugMacro(<< "Executing cutter");
+
   // get the info objects
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
 
-  // get the input and output
-  vtkDataSet *input = vtkDataSet::SafeDownCast(
-      inInfo->Get(vtkDataObject::DATA_OBJECT()));
-  vtkPolyData *output = vtkPolyData::SafeDownCast(
-      outInfo->Get(vtkDataObject::DATA_OBJECT()));
-
-  vtkDebugMacro(<< "Executing cutter");
+  //
+  // Initialize some frequently used values.
+  //
+  input  = vtkDataSet::SafeDownCast(
+    inInfo->Get(vtkDataObject::DATA_OBJECT()));
+  output = vtkPolyData::SafeDownCast(
+    outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
   if (!input)
     {
     vtkErrorMacro("No input specified");
-    return 0;
+    return 1;
     }
   
   if (!this->CutFunction)
     {
     vtkErrorMacro("No cut function specified");
-    return 0;
+    return 1;
     }
 
   if ( input->GetNumberOfPoints() < 1 )
     {
     vtkErrorMacro("Input data set is empty");
-    return 0;
+    return 1;
     }
   
   if (input->GetDataObjectType() == VTK_UNSTRUCTURED_GRID)
     { 
     vtkDebugMacro(<< "Executing Unstructured Grid Cutter");   
-    this->UnstructuredGridCutter(input, output);
+    this->UnstructuredGridCutter();
     }
   else
     {
     vtkDebugMacro(<< "Executing DataSet Cutter");
-    this->DataSetCutter(input, output);
+    this->DataSetCutter();
     }
 
   return 1;
 }
 
+// ****************************************************************************
+//  Method: vtkVisItCutter::FillInputPortInformation
+//
+// ****************************************************************************
+
+int
+vtkVisItCutter::FillInputPortInformation(int, vtkInformation *info)
+{
+  info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
+  return 1;
+}
+
 // ***************************************************************************
+//  Method: vtkVisItCutter::DataSetCutter
+//
 //  Modifications:
 //    Kathleen Bonnell, Wed Apr 27 18:47:18 PDT 2005
 //    Call new method ContourCell, so that CellData can be handled correctly.
 //    Concatenate the different output CellData Objects in the proper order: 
 //    Verts, Lines, Polys.
 //
+//    Eric Brugger, Thu Jan 10 11:47:09 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
 // ***************************************************************************
-void vtkVisItCutter::DataSetCutter(vtkDataSet *input, vtkPolyData *output)
+
+void
+vtkVisItCutter::DataSetCutter()
 {
   vtkIdType cellId, i;
   int iter;
   vtkPoints *cellPts;
-  vtkFloatArray *cellScalars;
+  vtkDoubleArray *cellScalars;
   vtkGenericCell *cell;
   vtkCellArray *newVerts, *newLines, *newPolys;
   vtkPoints *newPoints;
-  vtkFloatArray *cutScalars;
+  vtkDoubleArray *cutScalars;
   double value, s;
   vtkIdType estimatedSize, numCells=input->GetNumberOfCells();
   vtkIdType numPts=input->GetNumberOfPoints();
@@ -174,7 +209,7 @@ void vtkVisItCutter::DataSetCutter(vtkDataSet *input, vtkPolyData *output)
   int abortExecute=0;
 
   
-  cellScalars=vtkFloatArray::New();
+  cellScalars=vtkDoubleArray::New();
 
   // Create objects to hold output of contour operation
   //
@@ -185,7 +220,7 @@ void vtkVisItCutter::DataSetCutter(vtkDataSet *input, vtkPolyData *output)
     estimatedSize = 1024;
     }
 
-  newPoints = vtkPoints::New();
+  newPoints = vtkVisItUtility::NewPoints(input);
   newPoints->Allocate(estimatedSize,estimatedSize/2);
   newVerts = vtkCellArray::New();
   newVerts->Allocate(estimatedSize,estimatedSize/2);
@@ -193,7 +228,7 @@ void vtkVisItCutter::DataSetCutter(vtkDataSet *input, vtkPolyData *output)
   newLines->Allocate(estimatedSize,estimatedSize/2);
   newPolys = vtkCellArray::New();
   newPolys->Allocate(estimatedSize,estimatedSize/2);
-  cutScalars = vtkFloatArray::New();
+  cutScalars = vtkDoubleArray::New();
   cutScalars->SetNumberOfTuples(numPts);
 
 
@@ -361,19 +396,26 @@ void vtkVisItCutter::DataSetCutter(vtkDataSet *input, vtkPolyData *output)
 }
 
 // ***************************************************************************
+//  Method: vtkVisItCutter::UnstructuredGridCutter
+//
 //  Modifications:
 //    Kathleen Bonnell, Fri May 13 15:03:26 PDT 2005
 //    Fix memory leak.
 //
+//    Eric Brugger, Thu Jan 10 11:47:09 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
 // ***************************************************************************
-void vtkVisItCutter::UnstructuredGridCutter(vtkDataSet *input, vtkPolyData *output)
+
+void
+vtkVisItCutter::UnstructuredGridCutter()
 {
   vtkIdType cellId, i;
   int iter;
-  vtkFloatArray *cellScalars;
+  vtkDataArray *cellScalars;
   vtkCellArray *newVerts, *newLines, *newPolys;
   vtkPoints *newPoints;
-  vtkFloatArray *cutScalars;
+  vtkDoubleArray *cutScalars;
   double value, s;
   vtkIdType estimatedSize, numCells=input->GetNumberOfCells();
   vtkIdType numPts=input->GetNumberOfPoints();
@@ -400,7 +442,7 @@ void vtkVisItCutter::UnstructuredGridCutter(vtkDataSet *input, vtkPolyData *outp
       estimatedSize = 1024;
     }
 
-  newPoints = vtkPoints::New();
+  newPoints = vtkVisItUtility::NewPoints(input);
   newPoints->Allocate(estimatedSize,estimatedSize/2);
   newVerts = vtkCellArray::New();
   newVerts->Allocate(estimatedSize,estimatedSize/2);
@@ -408,7 +450,7 @@ void vtkVisItCutter::UnstructuredGridCutter(vtkDataSet *input, vtkPolyData *outp
   newLines->Allocate(estimatedSize,estimatedSize/2);
   newPolys = vtkCellArray::New();
   newPolys->Allocate(estimatedSize,estimatedSize/2);
-  cutScalars = vtkFloatArray::New();
+  cutScalars = vtkDoubleArray::New();
   cutScalars->SetNumberOfTuples(numPts);
 
   // Interpolate data along edge. If generating cut scalars, do necessary setup
@@ -450,10 +492,10 @@ void vtkVisItCutter::UnstructuredGridCutter(vtkDataSet *input, vtkPolyData *outp
   vtkIdType progressInterval = numCuts/20 + 1;
   int cut=0;
 
-  vtkUnstructuredGrid *grid = (vtkUnstructuredGrid *)input;
+  vtkUnstructuredGrid *grid = vtkUnstructuredGrid::SafeDownCast(input);
   vtkIdType *cellArrayPtr = grid->GetCells()->GetPointer();
-  float *scalarArrayPtr = cutScalars->GetPointer(0);
-  float tempScalar;
+  double *scalarArrayPtr = cutScalars->GetPointer(0);
+  double tempScalar;
   cellScalars = cutScalars->NewInstance();
   cellScalars->SetNumberOfComponents(cutScalars->GetNumberOfComponents());
   cellScalars->Allocate(VTK_CELL_SIZE*cutScalars->GetNumberOfComponents());
@@ -645,7 +687,9 @@ void vtkVisItCutter::UnstructuredGridCutter(vtkDataSet *input, vtkPolyData *outp
 
 // Specify a spatial locator for merging points. By default, 
 // an instance of vtkMergePoints is used.
-void vtkVisItCutter::SetLocator(vtkPointLocator *locator)
+
+void
+vtkVisItCutter::SetLocator(vtkPointLocator *locator)
 {
   if ( this->Locator == locator ) 
     {
@@ -675,6 +719,8 @@ void vtkVisItCutter::CreateDefaultLocator()
 }
 
 // ***************************************************************************
+//  Function: CellContour
+//
 //  Modifications:
 //    Kathleen Bonnell, Wed Apr 27 18:47:18 PDT 2005
 //    Using 'Contour' can create havoc with the CellData array, because 
@@ -696,18 +742,19 @@ void vtkVisItCutter::CreateDefaultLocator()
 //    cell dimension.
 //
 // ***************************************************************************
+
 void
 CellContour(vtkCell *cell, double value, 
-                            vtkDataArray *cellScalars,
-                            vtkPointLocator *locator,
-                            vtkCellArray *newVerts,
-                            vtkCellArray *newLines,
-                            vtkCellArray *newPolys,
-                            vtkPointData *inPD, vtkPointData *outPD,
-                            vtkCellData *inCD, vtkIdType cellId,
-                            vtkCellData *vert_outCD,
-                            vtkCellData *line_outCD,
-                            vtkCellData *poly_outCD)
+            vtkDataArray *cellScalars,
+            vtkPointLocator *locator,
+            vtkCellArray *newVerts,
+            vtkCellArray *newLines,
+            vtkCellArray *newPolys,
+            vtkPointData *inPD, vtkPointData *outPD,
+            vtkCellData *inCD, vtkIdType cellId,
+            vtkCellData *vert_outCD,
+            vtkCellData *line_outCD,
+            vtkCellData *poly_outCD)
 {
   vtkCellArray *empty = vtkCellArray::New();
   int nP = newPolys->GetNumberOfCells();
@@ -751,6 +798,11 @@ CellContour(vtkCell *cell, double value,
 
     empty->Delete();
 }
+
+// ****************************************************************************
+//  Method: vtkVisItCutter::PrintSelf
+//
+// ****************************************************************************
 
 void vtkVisItCutter::PrintSelf(ostream& os, vtkIndent indent)
 {

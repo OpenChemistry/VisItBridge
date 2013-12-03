@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -48,8 +48,24 @@
 #include <avtDomainBoundaries.h>
 #include <visitstream.h>
 
+#include <vector>
+
 // Forward declaration.
-class DATABASE_API avtStructuredDomainBoundaries;
+class avtStructuredDomainBoundaries;
+
+typedef enum
+{
+    SAME_REFINEMENT_LEVEL = 0,
+    MORE_FINE,
+    MORE_COARSE
+} RefinementRelationship;
+
+typedef enum
+{
+    SYMMETRIC_NEIGHBOR = 0, // Normal case ... we give ghost data to each other
+    DONOR_NEIGHBOR,
+    RECIPIENT_NEIGHBOR
+} NeighborRelationship;
 
 //
 //  Class:  Neighbor
@@ -66,6 +82,17 @@ struct Neighbor
     int nextents[6];
     int zextents[6];
     int type;
+
+    // A neighbor associates some implied domain with the domain stored in the data
+    // member this->domain.  ("Implied" meaning the domain in Boundary->domain
+    // which in turn has a vector of Neighbors.)
+    // A neighbor relationship of DONOR means that this->domain
+    // is a donor to the implied domain.  
+    // A refinement relationship of MORE_FINE means that this->domain is more fine
+    // than the implied domain.
+    RefinementRelationship refinement_rel;
+    std::vector<int>       refinement_ratio;
+    NeighborRelationship   neighbor_rel;
 };
 
 // ****************************************************************************
@@ -77,6 +104,12 @@ struct Neighbor
 //    Hank Childs, Tue Jul  5 14:05:09 PDT 2005
 //    Removed method FindNeighborIndex which did not work if two domains
 //    shared multiple boundaries.
+//
+//    Hank Childs, Tue Jan  4 11:33:47 PST 2011
+//    Add support for ghost data across refinement levels.
+//
+//    Gunther H. Weber, Wed Jul 18 15:38:36 PDT 2012
+//    Support anisotropic refinement.
 //
 // ****************************************************************************
 struct Boundary
@@ -94,7 +127,7 @@ struct Boundary
 
     int              domain;
     int              expand[6];
-    vector<Neighbor> neighbors;
+    std::vector<Neighbor> neighbors;
     // old extents
     int              oldnextents[6];
     int              oldzextents[6];
@@ -112,8 +145,11 @@ struct Boundary
   public:
     // Creation methods
     void   SetExtents(int[6]);
-    void   AddNeighbor(int,int,int[3],int[6]);
-    void   DeleteNeighbor(int, vector<Boundary> &);
+    void   AddNeighbor(int,int,int[3],int[6],
+                       RefinementRelationship = SAME_REFINEMENT_LEVEL,
+                       const std::vector<int>& ref_ratio = std::vector<int>(3, 1),
+                       NeighborRelationship = SYMMETRIC_NEIGHBOR);
+    void   DeleteNeighbor(int, std::vector<Boundary> &);
     void   Finish();
     // Utility methods
     bool   IsGhostZone(int,int);
@@ -145,19 +181,21 @@ class BoundaryHelperFunctions
   private:
     avtStructuredDomainBoundaries *sdb;
   public:
+    typedef T Storage;
+
     BoundaryHelperFunctions(avtStructuredDomainBoundaries *sdb_) : sdb(sdb_) { }
 
     T   ***InitializeBoundaryData();
     void   FillBoundaryData(int, const T*, T***, bool, int=1);
-    void   FillMixedBoundaryData(int,avtMaterial*,const T*,T***,int***,int***,vector<int>&);
+    void   FillMixedBoundaryData(int,avtMaterial*,const T*,T***,int***,int***,std::vector<int>&);
     void   FillRectilinearBoundaryData(int, const T*, const T*, const T*, T***);
-    void   CommunicateBoundaryData(const vector<int>&, T***, bool, int=1);
-    void   CommunicateMixedBoundaryData(const vector<int>&,T***,int***,int***,vector< vector<int> > &);
+    void   CommunicateBoundaryData(const std::vector<int>&, T***, bool, int=1);
+    void   CommunicateMixedBoundaryData(const std::vector<int>&,T***,int***,int***,std::vector< std::vector<int> > &);
     void   CopyOldValues(int, const T*, T*, bool, int=1);
     void   CopyOldMixedValues(avtMaterial*,const T*, T*);
     void   CopyOldRectilinearValues(int, const T*, T*, int);
     void   SetNewBoundaryData(int, T***, T*, bool, int=1);
-    void   SetNewMixedBoundaryData(int,avtMaterial*,const vector< vector<int> >&,int***,T***,int***,int***,int*,T*,int*,int*,int*,int&);
+    void   SetNewMixedBoundaryData(int,avtMaterial*,const std::vector< std::vector<int> >&,int***,T***,int***,int***,int*,T*,int*,int*,int*,int&);
     void   SetNewRectilinearBoundaryData(int, T***, T*, T*, T*);
     void   FakeNonexistentBoundaryData(int, T*, bool, int=1);
     void   FreeBoundaryData(T***);
@@ -230,6 +268,24 @@ class BoundaryHelperFunctions
 //    Add data members for creating domain boundaries for AMR data sets more
 //    efficiently.
 //
+//    Hank Childs, Tue Jan  4 11:33:47 PST 2011
+//    Add support for ghost data across refinement levels.
+//
+//    Hank Childs, Thu Sep 29 14:49:20 PDT 2011
+//    Add extra data members to CreateGhostZones.  This allows 
+//    REFINED_ZONE_IN_AMR_GRID to be properly represented in zones that are 
+//    also DUPLICATED_ZONE_INTERNAL_TO_PROBLEM.
+//
+//    Brad Whitlock, Sun Apr 22 09:59:55 PDT 2012
+//    Support for double.
+//
+//    Gunther H. Weber, Thu Jun 14 17:31:00 PDT 2012
+//    Add method to select new ghost zone generation method for AMRStichCell
+//    operator.
+//
+//    Gunther H. Weber, Wed Jul 18 15:38:36 PDT 2012
+//    Support anisotropic refinement.
+//
 // ****************************************************************************
 
 class DATABASE_API avtStructuredDomainBoundaries :  public avtDomainBoundaries
@@ -239,10 +295,17 @@ class DATABASE_API avtStructuredDomainBoundaries :  public avtDomainBoundaries
     virtual ~avtStructuredDomainBoundaries();
 
     static void Destruct(void *);
+    static void SetCreateGhostsForTIntersections(bool createGhosts = false)
+    {
+        createGhostsForTIntersections = createGhosts;
+    }
 
     void     SetNumDomains(int nd);
     void     SetExtents(int domain, int e[6]);
-    void     AddNeighbor(int domain, int d,int mi, int o[3], int e[6]);
+    void     AddNeighbor(int domain, int d,int mi, int o[3], int e[6],
+                         RefinementRelationship = SAME_REFINEMENT_LEVEL,
+                         const std::vector<int>& ref_ratio = std::vector<int>(3, 1),
+                         NeighborRelationship = SYMMETRIC_NEIGHBOR);
     void     Finish(int domain);
 
     void     GetExtents(int domain, int e[6]);
@@ -250,78 +313,97 @@ class DATABASE_API avtStructuredDomainBoundaries :  public avtDomainBoundaries
     //  methods for cases where neighbors can be computed
     void  SetIndicesForRectGrid(int domain, int e[6]);
     void  SetIndicesForAMRPatch(int domain, int level, int e[6]);
+    void  SetRefinementRatios(const std::vector<int> &r); // Isotropic refinement ratios
+    void  SetRefinementRatios(const std::vector< std::vector<int> > &r) { ref_ratios = r; }; // Anisotropic refinement ratios
     void  CalculateBoundaries(void);
     void  GetNeighborPresence(int domain, bool *hasNeighbor, 
                               std::vector<int> &);
 
-    virtual vector<vtkDataArray*>     ExchangeScalar(vector<int>   domainNum,
-                                             bool                  isPointData,
-                                             vector<vtkDataArray*> scalars);
+    std::vector<Neighbor>                  GetNeighbors(int domain);
 
-    virtual vector<vtkDataArray*>     ExchangeFloatVector(vector<int> domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeScalar(std::vector<int>   domainNum,
+                                             bool                  isPointData,
+                                             std::vector<vtkDataArray*> scalars);
+
+    virtual std::vector<vtkDataArray*>     ExchangeFloatVector(std::vector<int> domainNum,
                                             bool                   isPointData,
-                                            vector<vtkDataArray*>  vectors);
+                                            std::vector<vtkDataArray*>  vectors);
 
-    virtual vector<vtkDataArray*>     ExchangeIntVector(vector<int>  domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeDoubleVector(std::vector<int> domainNum,
+                                            bool                   isPointData,
+                                            std::vector<vtkDataArray*>  vectors);
+
+    virtual std::vector<vtkDataArray*>     ExchangeIntVector(std::vector<int>  domainNum,
                                              bool                  isPointData,
-                                             vector<vtkDataArray*> vectors);
+                                             std::vector<vtkDataArray*> vectors);
 
-    virtual vector<avtMaterial*>      ExchangeMaterial(vector<int>   domainNum,
-                                              vector<avtMaterial*>   mats);
+    virtual std::vector<avtMaterial*>      ExchangeMaterial(std::vector<int>   domainNum,
+                                              std::vector<avtMaterial*>   mats);
 
-    virtual vector<avtMixedVariable*> ExchangeMixVar(vector<int>     domainNum,
-                                        const vector<avtMaterial*>   mats,
-                                        vector<avtMixedVariable*>    mixvars);
+    virtual std::vector<avtMixedVariable*> ExchangeMixVar(std::vector<int> domainNum,
+                                              const std::vector<avtMaterial*>   mats,
+                                              std::vector<avtMixedVariable*>    mixvars);
 
-    virtual void                      CreateGhostNodes(vector<int>   domainNum,
-                                                    vector<vtkDataSet*> meshes,
-                                                    vector<int> &);
+    virtual void                           CreateGhostNodes(std::vector<int>   domainNum,
+                                              std::vector<vtkDataSet*> meshes,
+                                              std::vector<int> &);
 
-    virtual bool                      RequiresCommunication(avtGhostDataType);
-    virtual bool                      ConfirmMesh(vector<int>      domainNum,
-                                               vector<vtkDataSet*> meshes);
-    virtual void                      ResetCachedMembers();
+    virtual bool                           RequiresCommunication(avtGhostDataType);
+    virtual bool                           ConfirmMesh(std::vector<int>      domainNum,
+                                               std::vector<vtkDataSet*> meshes);
+    virtual void                           ResetCachedMembers();
 
   private:
-    virtual vector<vtkDataArray*>     ExchangeFloatScalar(vector<int> domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeFloatScalar(std::vector<int> domainNum,
                                              bool                  isPointData,
-                                             vector<vtkDataArray*> scalars);
+                                             std::vector<vtkDataArray*> scalars);
 
-    virtual vector<vtkDataArray*>     ExchangeIntScalar(vector<int>  domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeDoubleScalar(std::vector<int> domainNum,
                                              bool                  isPointData,
-                                             vector<vtkDataArray*> scalars);
+                                             std::vector<vtkDataArray*> scalars);
 
-    virtual vector<vtkDataArray*>     ExchangeUCharScalar(vector<int> domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeIntScalar(std::vector<int>  domainNum,
                                              bool                  isPointData,
-                                             vector<vtkDataArray*> scalars);
+                                             std::vector<vtkDataArray*> scalars);
 
+    virtual std::vector<vtkDataArray*>     ExchangeUCharScalar(std::vector<int> domainNum,
+                                             bool                  isPointData,
+                                             std::vector<vtkDataArray*> scalars);
+
+
+    static bool                       createGhostsForTIntersections;
 
   protected:
     // data
-    vector<Boundary> wholeBoundary;
-    vector<Boundary> boundary;
+    std::vector<Boundary>                   wholeBoundary;
+    std::vector<Boundary>                   boundary;
 
     // data for cases where neighbors can be computed
-    bool shouldComputeNeighborsFromExtents;
-    vector<int>   extents;
-    vector<int>   levels;
-    vector<int>   domain2proc;
+    bool                                    shouldComputeNeighborsFromExtents;
+    std::vector<int>                        extents;
+    std::vector<int>                        levels;
+    std::vector<int>                        domain2proc;
 
-    int           maxAMRLevel;
-    bool          haveCalculatedBoundaries;
+    int                                     maxAMRLevel;
+    std::vector<std::vector <int> >         ref_ratios;
+    bool                                    haveCalculatedBoundaries;
 
     friend class BoundaryHelperFunctions<int>;
     friend class BoundaryHelperFunctions<float>;
+    friend class BoundaryHelperFunctions<double>;
     friend class BoundaryHelperFunctions<unsigned char>;
+
     BoundaryHelperFunctions<int>           *bhf_int;
     BoundaryHelperFunctions<float>         *bhf_float;
+    BoundaryHelperFunctions<double>        *bhf_double;
     BoundaryHelperFunctions<unsigned char> *bhf_uchar;
 
     // helper methods
-    vector<int> CreateDomainToProcessorMap(const vector<int>&);
-    void        CreateCurrentDomainBoundaryInformation(const vector<int>&);
+    std::vector<int> CreateDomainToProcessorMap(const std::vector<int>&);
+    void        CreateCurrentDomainBoundaryInformation(const std::vector<int>&);
     bool       *SetExistence(int, bool);
-    void        CreateGhostZones(vtkDataSet *, vtkDataSet *, Boundary *);
+    void        CreateGhostZones(vtkDataSet *, vtkDataSet *, Boundary *,
+                                 bool = false, int = -1, unsigned char *** = NULL);
 
     friend ostream &operator<<(ostream&, Boundary&);
 };
@@ -335,8 +417,14 @@ class DATABASE_API avtCurvilinearDomainBoundaries
     avtCurvilinearDomainBoundaries(bool _canComputeNeighborsFromExtents = false) :
         avtStructuredDomainBoundaries(_canComputeNeighborsFromExtents) {;};
    
-    virtual vector<vtkDataSet*>    ExchangeMesh(vector<int>         domainNum,
-                                                vector<vtkDataSet*> meshes);
+    virtual std::vector<vtkDataSet*>    ExchangeMesh(std::vector<int> domainNum,
+                                                std::vector<vtkDataSet*> meshes);
+  protected:
+    template <typename Helper>
+    void ExchangeMesh(Helper *bhf, int vtktype,
+                      std::vector<int> domainNum, 
+                      std::vector<vtkDataSet*> meshes,
+                      std::vector<vtkDataSet*> &out);
 };
 
 
@@ -348,8 +436,8 @@ class DATABASE_API avtRectilinearDomainBoundaries
     avtRectilinearDomainBoundaries(bool _canComputeNeighborsFromExtents = false) :
         avtStructuredDomainBoundaries(_canComputeNeighborsFromExtents) {;};
 
-    virtual vector<vtkDataSet*>    ExchangeMesh(vector<int>         domainNum,
-                                                vector<vtkDataSet*> meshes);
+    virtual std::vector<vtkDataSet*>    ExchangeMesh(std::vector<int> domainNum,
+                                                std::vector<vtkDataSet*> meshes);
 };
 
 

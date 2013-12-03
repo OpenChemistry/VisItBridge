@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,7 +46,6 @@
 #include <avtMTSDFileFormat.h>
 
 #include <vector>
-using std::vector;
 
 #define MAX_XYZ_VARS 6
 
@@ -97,15 +96,15 @@ class avtXYZFileFormat : public avtMTSDFileFormat
     bool                           metaDataRead;
     int                            nTimeSteps;
     int                            nVars;
-    vector<int>                    nAtoms;
+    std::vector<int>               nAtoms;
     XYZStyle                       fileStyle;
     bool                           corruptElement;
 
-    vector< vector<int> >          e;
-    vector< vector<float> >        x;
-    vector< vector<float> >        y;
-    vector< vector<float> >        z;
-    vector< vector<float> >        v[MAX_XYZ_VARS];
+    std::vector< std::vector<int> >   e;
+    std::vector< std::vector<float> > x;
+    std::vector< std::vector<float> > y;
+    std::vector< std::vector<float> > z;
+    std::vector< std::vector<float> > v[MAX_XYZ_VARS];
 
     virtual void    PopulateDatabaseMetaData(avtDatabaseMetaData *, int);
     void            OpenFileAtBeginning();

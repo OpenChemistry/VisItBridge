@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -68,6 +68,11 @@
 //  Programmer: Mark C. Miller 
 //  Creation:   August 16, 2005 
 //
+//  Modifications:
+//
+//    Hank Childs, Tue Dec 20 14:43:08 PST 2011
+//    Add method DescriptionString.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtResampleSelection : public avtDataSelection 
@@ -78,6 +83,7 @@ class PIPELINE_API avtResampleSelection : public avtDataSelection
 
     virtual const char *    GetType() const
                                 { return "Resample Data Selection"; }; 
+    virtual std::string     DescriptionString(void);
 
     void                    SetNDims(int _ndims)
                                 { ndims = _ndims; };

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -47,6 +47,9 @@
 #include <vtkAppendFilter.h>
 #include <vtkDataSet.h>
 #include <vtkDataSetWriter.h>
+#include <vtkUnstructuredGrid.h>
+#include <vtkAppendPolyData.h>
+#include <vtkGeometryFilter.h>
 
 #include <avtCommonDataFunctions.h>
 #include <avtDataRepresentation.h>
@@ -58,6 +61,14 @@
 #include <NoInputException.h>
 #include <DebugStream.h>
 #include <TimingsManager.h>
+
+#include <set>
+#include <string>
+#include <vector>
+
+using std::set;
+using std::string;
+using std::vector;
 
 
 // ****************************************************************************
@@ -562,7 +573,13 @@ avtDataTree::~avtDataTree()
 avtDataTree&
 avtDataTree::operator=(const avtDataTree &rhs)
 {
-    if (this != &rhs)
+    return( this->operator=(&rhs) );
+}
+
+avtDataTree&
+avtDataTree::operator=(const avtDataTree *rhs)
+{
+    if (this != rhs)
     {
         if (dataRep != NULL) 
         {
@@ -580,16 +597,16 @@ avtDataTree::operator=(const avtDataTree &rhs)
             children = NULL;
         }
 
-        nChildren = rhs.nChildren;
+        nChildren = rhs->nChildren;
         if (nChildren > 0)
         {
             children = new avtDataTree_p [nChildren];
             for (int i = 0; i < nChildren; i++)
-               children[i] = rhs.children[i];
+               children[i] = rhs->children[i];
         } 
         else
         {
-            dataRep = new avtDataRepresentation(*(rhs.dataRep)); 
+            dataRep = new avtDataRepresentation(*(rhs->dataRep)); 
         } 
     }
     return *this;
@@ -698,7 +715,7 @@ avtDataTree::GetNumberOfCells(int topoDim, bool polysOnly) const
 }
 
 // ****************************************************************************
-//  Method: avtDataTree::GetAllLeaves
+//  Method: avtDataTree::G
 //
 //  Purpose:
 //    Returns as vtkDataSet * all leaves of this tree. 
@@ -809,6 +826,8 @@ avtDataTree::GetSingleLeaf(void)
     vtkDataSet **ds = GetAllLeaves(nLeaves);
     if (nLeaves != 1)
     {
+        delete [] ds;
+
         // Hmmm... we were earlier quoted one leaf, but now we got more than
         // one.
         debug1 << "avtDataTree::GetSingleLeaf ... unexpected case."
@@ -1031,7 +1050,7 @@ avtDataTree::PruneTree(const vector<int> &list)
     }
     else
     {
-        rv = new avtDataTree(pmap.new_nodes.size(), &(pmap.new_nodes[0]));
+        rv = new avtDataTree(static_cast<int>(pmap.new_nodes.size()), &(pmap.new_nodes[0]));
     }
 
     visitTimer->StopTimer(t0, "Prune tree (vector<int>)");
@@ -1537,4 +1556,92 @@ avtDataTree::DebugDump(avtWebpage *webpage, const char *prefix,
     }
 }
 
+
+// ****************************************************************************
+//  Method: avtDataTree::PruneTree
+//
+//  Purpose:
+//    Prunes tree based on single label.
+//
+//  Returns:
+//    The pruned tree.
+//      
+//  Arguments:
+//    label       The label that we want to include in the pruned tree.
+//
+//  Programmer: Kathleen Bonnell 
+//  Creation:   February 16, 2011 
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+avtDataTree_p
+avtDataTree::PruneTree(const string &label)
+{
+    vector<string> sv;
+    sv.push_back(label);
+    return PruneTree(sv);
+}
+
+// ****************************************************************************
+//  Method: avtDataTree::GetDataSetAsString
+//
+//  Purpose:
+//    Returns DataSet As String with VTK Format
+//
+//  Returns:
+//    The pruned tree.
+//
+//  Arguments:
+//
+//  Programmer: Hari Krishnan
+//  Creation:   October 16, 2012
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+std::string
+avtDataTree::GetDatasetAsString()
+{
+    int nLeaves = 0;
+    vtkDataSet **ds = GetAllLeaves(nLeaves);
+
+    if(nLeaves <= 0) return "";
+
+//    vtkDataSetWriter* writer = vtkDataSetWriter::New();
+//    writer->SetFileTypeToASCII();
+//    writer->WriteToOutputStringOn();
+//    writer->SetInput(ds[0]);
+//    writer->Write();
+//    std::string res = writer->GetOutputString();
+//    writer->Delete();
+//    return res;
+
+    vtkAppendFilter* vaf = vtkAppendFilter::New();
+
+    for(int i = 0; i < nLeaves; ++i)
+        vaf->AddInputData(ds[i]);
+
+    vtkGeometryFilter* vu = vtkGeometryFilter::New();
+
+    vu->AddInputData(vaf->GetOutput());
+    vtkDataSet* dataset = dynamic_cast<vtkDataSet*>(vu->GetOutput());
+
+    vtkDataSetWriter* writer = vtkDataSetWriter::New();
+
+    writer->SetFileTypeToASCII();
+    writer->WriteToOutputStringOn();
+    writer->SetInputData(dataset);
+    writer->Write();
+
+    std::string res(writer->GetOutputString(),writer->GetOutputStringLength());
+    delete [] ds;
+    vaf->Delete();
+    vu->Delete();
+    writer->Delete();
+
+    return res;
+}
 

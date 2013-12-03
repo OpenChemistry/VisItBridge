@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -506,11 +506,10 @@ AnnotationObjectList::SetFromNode(DataNode *parentNode)
     if(searchNode == 0)
         return;
 
-    DataNode *node;
     DataNode **children;
-    // Clear all the AnnotationObjects.
-    ClearAnnotations();
 
+    // Clear all the AnnotationObjects if we got any.
+    bool clearedAnnotations = false;
     // Go through all of the children and construct a new
     // AnnotationObject for each one of them.
     children = searchNode->GetChildren();
@@ -520,6 +519,11 @@ AnnotationObjectList::SetFromNode(DataNode *parentNode)
         {
             if(children[i]->GetKey() == std::string("AnnotationObject"))
             {
+                if (!clearedAnnotations)
+                {
+                    ClearAnnotations();
+                    clearedAnnotations = true;
+                }
                 AnnotationObject temp;
                 temp.SetFromNode(children[i]);
                 AddAnnotation(temp);
@@ -669,7 +673,7 @@ AnnotationObjectList::RemoveAnnotation(int index)
 int
 AnnotationObjectList::GetNumAnnotations() const
 {
-    return annotation.size();
+    return (int)annotation.size();
 }
 
 // ****************************************************************************

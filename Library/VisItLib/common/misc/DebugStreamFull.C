@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -160,36 +160,36 @@ signalhandler_core(int sig)
     {
       case SIGILL:
           debug1 << "signalhandler_core: SIG!" << endl;
-          close_streams(); abort();
+          close_streams(); abort(); // HOOKS_IGNORE
           break;
       case SIGABRT:
           debug1 << "signalhandler_core: SIGBRT!" << endl;
-          close_streams(); abort();
+          close_streams(); abort(); // HOOKS_IGNORE
           break;
       case SIGFPE:
           debug1 << "signalhandler_core: SIGFPE!" << endl;
-          close_streams(); abort();
+          close_streams(); abort(); // HOOKS_IGNORE
           break;
       case SIGSEGV:
           debug1 << "signalhandler_core: SIGSEGV!" << endl;
-          close_streams(); abort();
+          close_streams(); abort(); // HOOKS_IGNORE
           break;
 #if !defined(_WIN32)
       case SIGBUS:
           debug1 << "signalhandler_core: SIGBUS!" << endl;
-          close_streams(); abort();
+          close_streams(); abort(); // HOOKS_IGNORE
           break;
       case SIGQUIT:
           debug1 << "signalhandler_core: SIGQUIT!" << endl;
-          close_streams(); abort();
+          close_streams(); abort(); // HOOKS_IGNORE
           break;
       case SIGTRAP:
           debug1 << "signalhandler_core: SIGTRAP!" << endl;
-          close_streams(); abort();
+          close_streams(); abort(); // HOOKS_IGNORE
           break;
       case SIGSYS:
           debug1 << "signalhandler_core: SIGSYS!" << endl;
-          close_streams(); abort();
+          close_streams(); abort(); // HOOKS_IGNORE
           break;
 #endif
     }
@@ -228,11 +228,11 @@ signalhandler_exit(int sig)
     {
       case SIGTERM:
           debug1 << "signalhandler_exit: SIGTERM!" << endl;
-          close_streams(); exit(-1);
+          close_streams(); exit(-1); // HOOKS_IGNORE
           break;
       case SIGINT:
           debug1 << "signalhandler_exit: SIGINT!" << endl;
-          close_streams(); exit(-1);
+          close_streams(); exit(-1); // HOOKS_IGNORE
           break;
     }
 }
@@ -489,10 +489,14 @@ DebugStreamFull::DebugStreamFull(int level_) : ostream(new DebugStreamBuf)
 //    Change the DebugStreamBuf member to be a pointered value instead of a
 //    referenced value so that it works with the MIPSpro compiler.
 //
+//    Mark C. Miller, Tue Jan 11 09:27:18 PST 2011
+//    Added missing call to delete buf. Since above change in 2004, we have 
+//    been leaking these bufs on exit.
 // ****************************************************************************
 DebugStreamFull::~DebugStreamFull()
 {
     buf->close();
+    delete buf;
 }
 
 

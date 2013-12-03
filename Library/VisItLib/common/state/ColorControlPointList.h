@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -39,7 +39,9 @@
 #ifndef COLORCONTROLPOINTLIST_H
 #define COLORCONTROLPOINTLIST_H
 #include <state_exports.h>
+#include <string>
 #include <AttributeSubject.h>
+
 class ColorControlPoint;
 
 // ****************************************************************************
@@ -60,13 +62,30 @@ class ColorControlPoint;
 class STATE_API ColorControlPointList : public AttributeSubject
 {
 public:
+    enum SmoothingMethod
+    {
+        None,
+        Linear,
+        CubicSpline
+    };
+
+    // These constructors are for objects of this class
     ColorControlPointList();
     ColorControlPointList(const ColorControlPointList &obj);
+protected:
+    // These constructors are for objects derived from this class
+    ColorControlPointList(private_tmfs_t tmfs);
+    ColorControlPointList(const ColorControlPointList &obj, private_tmfs_t tmfs);
+public:
     virtual ~ColorControlPointList();
 
     virtual ColorControlPointList& operator = (const ColorControlPointList &obj);
     virtual bool operator == (const ColorControlPointList &obj) const;
     virtual bool operator != (const ColorControlPointList &obj) const;
+private:
+    void Init();
+    void Copy(const ColorControlPointList &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -78,7 +97,7 @@ public:
     void SelectControlPoints();
 
     // Property setting methods
-    void SetSmoothingFlag(bool smoothingFlag_);
+    void SetSmoothing(SmoothingMethod smoothing_);
     void SetEqualSpacingFlag(bool equalSpacingFlag_);
     void SetDiscreteFlag(bool discreteFlag_);
     void SetExternalFlag(bool externalFlag_);
@@ -86,7 +105,7 @@ public:
     // Property getting methods
     const AttributeGroupVector &GetControlPoints() const;
           AttributeGroupVector &GetControlPoints();
-    bool GetSmoothingFlag() const;
+    SmoothingMethod GetSmoothing() const;
     bool GetEqualSpacingFlag() const;
     bool GetDiscreteFlag() const;
     bool GetExternalFlag() const;
@@ -107,6 +126,12 @@ public:
     ColorControlPoint &operator [] (int i);
     const ColorControlPoint &operator [] (int i) const;
 
+    // Enum conversion functions
+    static std::string SmoothingMethod_ToString(SmoothingMethod);
+    static bool SmoothingMethod_FromString(const std::string &, SmoothingMethod &);
+protected:
+    static std::string SmoothingMethod_ToString(int);
+public:
 
     // Keyframing methods
     virtual std::string               GetFieldName(int index) const;
@@ -115,29 +140,34 @@ public:
     virtual bool                      FieldsEqual(int index, const AttributeGroup *rhs) const;
 
     // User-defined methods
+    float EvalCubicSpline(float t, const float *allX, const float *allY, int n) const;
+    void GetColorsCubicSpline(unsigned char *rgb, int ncolors, unsigned char *alpha=NULL) const;
     void GetColors(unsigned char *rgb, int ncolors, unsigned char *alpha=NULL) const;
     bool CompactCreateNode(DataNode *parentNode, bool completeSave, bool forceAdd);
 
     // IDs that can be used to identify fields in case statements
     enum {
         ID_controlPoints = 0,
-        ID_smoothingFlag,
+        ID_smoothing,
         ID_equalSpacingFlag,
         ID_discreteFlag,
-        ID_externalFlag
+        ID_externalFlag,
+        ID__LAST
     };
 
 protected:
     AttributeGroup *CreateSubAttributeGroup(int index);
 private:
     AttributeGroupVector controlPoints;
-    bool                 smoothingFlag;
+    int                  smoothing;
     bool                 equalSpacingFlag;
     bool                 discreteFlag;
     bool                 externalFlag;
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define COLORCONTROLPOINTLIST_TMFS "a*ibbb"
 
 #endif

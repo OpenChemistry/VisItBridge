@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -52,7 +52,6 @@
 #include <vtkUnstructuredGrid.h>
 
 #include <vector>
-using std::vector;
 
 
 //
@@ -98,11 +97,11 @@ class QuadMemoryManager
                      QuadMemoryManager();
     virtual         ~QuadMemoryManager();
 
-    inline Quad     *GetFreeQuad()
+    inline Quad     *GetFreeQuad(HashEntryList *hel)
                          {
                              if (freequadindex <= 0)
                              {
-                                 AllocateQuadPool();
+                                 AllocateQuadPool(hel);
                              }
                              freequadindex--;
                              return freequadlist[freequadindex];
@@ -125,7 +124,7 @@ class QuadMemoryManager
 
     std::vector<Quad *> quadpool;
 
-    void             AllocateQuadPool(void);
+    void             AllocateQuadPool(HashEntryList *hel);
 };
 
 
@@ -148,11 +147,11 @@ class TriMemoryManager
                      TriMemoryManager();
     virtual         ~TriMemoryManager();
 
-    inline Tri      *GetFreeTri()
+    inline Tri      *GetFreeTri(HashEntryList *hel)
                          {
                              if (freetriindex <= 0)
                              {
-                                 AllocateTriPool();
+                                 AllocateTriPool(hel);
                              }
                              freetriindex--;
                              return freetrilist[freetriindex];
@@ -175,168 +174,8 @@ class TriMemoryManager
 
     std::vector<Tri *> tripool;
 
-    void            AllocateTriPool(void);
+    void            AllocateTriPool(HashEntryList *hel);
 };
-
-
-// ****************************************************************************
-//  Class: Quad
-//
-//  Purpose:
-//      A representation of a quadrilateral.  For efficient caching, the
-//      indices are sorted in numerical order.  The lowest indexed node is
-//      dropped, since that serves as the key into the hash.
-//
-//  Programmer: Hank Childs
-//  Creation:   October 21, 2002
-//
-// ****************************************************************************
-
-class Quad
-{
-    friend class   Tri;
-
-  public:
-                   Quad() { ordering_case = 255; };
-
-    vtkIdType      AssignNodes(const vtkIdType *);
-    bool           Equals(Quad *);
-    bool           Equals(Tri *);
-    void           AddInRemainingTriangle(Tri *, int);
-    inline void    ReRegisterMemory(void)
-                         {
-                             MemoryManager->ReRegisterQuad(this);
-                         }
-
-    inline void    SetOriginalZone(const int &oz) { orig_zone = oz; };
-    inline int     GetOriginalZone(void) { return orig_zone; };
-
-    void           OutputCell(int,vtkPolyData *, vtkCellData *, vtkCellData *);
-
-    static void    RegisterHashEntryList(HashEntryList *);
-    static void    RegisterMemoryManager(QuadMemoryManager *);
-    static void    SetNumberOfPoints(int np) { npts = np; };
-
-  protected:
-    unsigned char ordering_case;
-    int           nodes[3];
-    int           orig_zone;
-
-    static HashEntryList     *list;
-    static QuadMemoryManager *MemoryManager;
-    static int                npts;
-
-    void          AddInRemainingTriangle(int, int);
-};
-
-//
-// We will be re-ordering the nodes into numerical order.  This enumerated
-// type will allow the ordering to be preserved.
-//
-typedef enum
-{
-    Q0123, Q0132, Q0213, Q0231, Q0312, Q0321,
-    Q1023, Q1032, Q1203, Q1230, Q1302, Q1320,
-    Q2013, Q2031, Q2103, Q2130, Q2301, Q2310,
-    Q3012, Q3021, Q3102, Q3120, Q3201, Q3210
-}  QUAD_ORDERING_CASES;
-
-static vtkIdType quad_reorder_list[24][4] =
-    { { -1, 0, 1, 2 }, { -1, 0, 2, 1 }, { -1, 1, 0, 2 }, { -1, 2, 0, 1 },
-      { -1, 1, 2, 0 }, { -1, 2, 1, 0 },
-      { 0, -1, 1, 2 }, { 0, -1, 2, 1 }, { 1, -1, 0, 2 }, { 2, -1, 0, 1 },
-      { 1, -1, 2, 0 }, { 2, -1, 1, 0 },
-      { 0, 1, -1, 2 }, { 0, 2, -1, 1 }, { 1, 0, -1, 2 }, { 2, 0, -1, 1 },
-      { 1, 2, -1, 0 }, { 2, 1, -1, 0 },
-      { 0, 1, 2, -1 }, { 0, 2, 1, -1 }, { 1, 0, 2, -1 }, { 2, 0, 1, -1 },
-      { 1, 2, 0, -1 }, { 2, 1, 0, -1 }
-    };
-
-static vtkIdType quad_map_back_list[24][3] =
-    {
-         { 1, 2, 3 }, { 1, 3, 2 }, { 2, 1, 3 },
-         { 2, 3, 1 }, { 3, 1, 2 }, { 3, 2, 1 },
-         { 0, 2, 3 }, { 0, 3, 2 }, { 2, 0, 3 },
-         { 2, 3, 0 }, { 3, 0, 2 }, { 3, 2, 0 },
-         { 0, 1, 3 }, { 0, 3, 1 }, { 1, 0, 3 },
-         { 1, 3, 0 }, { 3, 0, 1 }, { 3, 1, 0 },
-         { 0, 1, 2 }, { 0, 2, 1 }, { 1, 0, 2 },
-         { 1, 2, 0 }, { 2, 0, 1 }, { 2, 1, 0 }
-    };
-
-
-// ****************************************************************************
-//  Class: Tri
-//
-//  Purpose:
-//      A representation of a triangle.  For efficient caching, the
-//      indices are sorted in numerical order.  The lowest indexed node is
-//      dropped, since that serves as the key into the hash.
-//
-//  Programmer: Hank Childs
-//  Creation:   October 21, 2002
-//
-// ****************************************************************************
-
-class Tri
-{
-    friend class   Quad;
-
-  public:
-                   Tri() { ordering_case = 255; };
-
-    vtkIdType      AssignNodes(const vtkIdType *);
-    inline bool    Equals(Tri *&t)
-                   {
-                      if (t->nodes[0] == nodes[0] && t->nodes[1] == nodes[1])
-                      {
-                          return true;
-                      }
-                      return false;
-                   }
-
-    bool           Equals(Quad *);
-    void           AddInRemainingTriangle(Quad *, int);
-    inline void    ReRegisterMemory(void)
-                       {
-                           MemoryManager->ReRegisterTri(this);
-                       }
-
-    inline void    SetOriginalZone(const int &oz) { orig_zone = oz; };
-    inline int     GetOriginalZone(void) { return orig_zone; };
-
-    void           OutputCell(int,vtkPolyData *, vtkCellData *, vtkCellData *);
-
-    static void    RegisterMemoryManager(TriMemoryManager *);
-    static void    SetNumberOfPoints(int np) { npts = np; };
-
-
-  protected:
-    unsigned char ordering_case;
-    vtkIdType     nodes[2];
-    int           orig_zone;
-
-    static TriMemoryManager *MemoryManager;
-    static int               npts;
-};
-
-//
-// We will be re-ordering the nodes into numerical order.  This enumerated
-// type will allow the ordering to be preserved.
-//
-typedef enum
-{
-    T012, T021,
-    T102, T120,
-    T201, T210
-}  TRI_ORDERING_CASES;
-
-static int tri_reorder_list[6][3] =
-    {
-        { -1, 0, 1 }, { -1, 1, 0 },
-        { 0, -1, 1 }, { 0, 1, -1 },
-        { 1, -1, 0 }, { 1, 0, -1 }
-    };
 
 
 // ****************************************************************************
@@ -369,10 +208,8 @@ class HashEntry
     void           AddTri(Tri *);
 
     inline void    SetPointIndex(int pi) { point_index = pi; };
-    static void    RegisterMemoryManager(HashEntryMemoryManager *mm)
-                          { MemoryManager = mm; };
-    static void    RegisterHashEntryList(HashEntryList *hel)
-                          { list = hel; };
+    inline void    RegisterHashEntryList(HashEntryList *hel)
+                          { hashEntryList = hel; };
 
     void           CreateOutputCells(vtkPolyData*, vtkCellData*, vtkCellData*);
 
@@ -382,9 +219,8 @@ class HashEntry
     unsigned char  last_good_entry;
     unsigned char  face_type;
     HashEntry     *extension;
-
-    static HashEntryMemoryManager *MemoryManager;
-    static HashEntryList          *list;
+   
+    HashEntryList *hashEntryList;
 
     bool           LocateAndRemoveTri(Tri *);
     bool           LocateAndRemoveQuad(Quad *);
@@ -412,24 +248,24 @@ class HashEntryMemoryManager
                          HashEntryMemoryManager();
     virtual             ~HashEntryMemoryManager();
 
-    inline HashEntry    *GetHashEntry()
+    inline HashEntry    *GetHashEntry(HashEntryList *hel)
                          {
                              if (currentHash+1 >= POOL_SIZE)
                              {
-                                 AllocateHashEntryPool();
+                                 AllocateHashEntryPool(hel);
                              }
                              HashEntry *rv = currentHashPool + currentHash;
                              currentHash++;
                              return rv;
                          }
 
+    void                 AllocateHashEntryPool(HashEntryList *hel);
+
   protected:
-    HashEntry      *currentHashPool;
-    int             currentHash;
+    HashEntry           *currentHashPool;
+    int                  currentHash;
 
     std::vector<HashEntry *> hashpool;
-
-    void            AllocateHashEntryPool(void);
 };
 
 
@@ -438,7 +274,7 @@ class HashEntryMemoryManager
 //
 //  Purpose:
 //      This effectively works as the hash.  It hashes each faces by its lowest
-//      numbered index.
+//      numbered index. 
 //
 //  Programmer: Hank Childs
 //  Creation:   October 21, 2002
@@ -451,11 +287,11 @@ class HashEntryList
                 HashEntryList(int npts);
     virtual    ~HashEntryList();
 
-    void        AddTri(const vtkIdType *, int orig_zone);
-    void        AddQuad(const vtkIdType *, int orig_zone);
+    void        AddTri(const vtkIdType *, vtkIdType orig_zone);
+    void        AddQuad(const vtkIdType *, vtkIdType orig_zone);
 
     inline void RemoveFace(void) { nfaces--; };
-    int         GetNumberOfFaces(void) { return nfaces; };
+    inline int  GetNumberOfFaces(void) { return nfaces; };
 
     void        CreateOutputCells(vtkPolyData *, vtkCellData *, vtkCellData *);
 
@@ -467,19 +303,171 @@ class HashEntryList
     QuadMemoryManager      qmm;
     TriMemoryManager       tmm;
     HashEntryMemoryManager hemm;
+
+    // The friend is so each of these classes can access the memory managers.
+    friend class HashEntry;
+    friend class Quad;
+    friend class Tri;
 };
 
+// ****************************************************************************
+//  Class: Quad
+//
+//  Purpose:
+//      A representation of a quadrilateral.  For efficient caching, the
+//      indices are sorted in numerical order.  The lowest indexed node is
+//      dropped, since that serves as the key into the hash.
+//
+//  Programmer: Hank Childs
+//  Creation:   October 21, 2002
+//
+// ****************************************************************************
+
+class Quad
+{
+    friend class   Tri;
+
+  public:
+                   Quad() { ordering_case = 255; };
+
+    int            AssignNodes(const vtkIdType *);
+    bool           Equals(Quad *);
+    bool           Equals(Tri *);
+    void           AddInRemainingTriangle(Tri *, int);
+    inline void    ReRegisterMemory(void)
+                         {
+                             hashEntryList->qmm.ReRegisterQuad(this);
+                         }
+
+    inline void    SetOriginalZone(const int &oz) { orig_zone = oz; };
+    inline int     GetOriginalZone(void) { return orig_zone; };
+
+    void           OutputCell(int,vtkPolyData *, vtkCellData *, vtkCellData *);
+
+    inline void    RegisterHashEntryList(HashEntryList *hel)
+                          { hashEntryList = hel; };
+    inline void    SetNumberOfPoints(int np) { npts = np; };
+
+  protected:
+    unsigned char  ordering_case;
+    vtkIdType      nodes[3];
+    vtkIdType      orig_zone;
+
+    HashEntryList *hashEntryList;
+    int            npts;
+
+    void           AddInRemainingTriangle(int, int);
+};
 
 //
-// Declare these static members.
+// We will be re-ordering the nodes into numerical order.  This enumerated
+// type will allow the ordering to be preserved.
 //
-HashEntryList          *Quad::list = NULL;
-QuadMemoryManager      *Quad::MemoryManager = NULL;
-int                     Quad::npts = 0;
-int                     Tri::npts = 0;
-TriMemoryManager       *Tri::MemoryManager  = NULL;
-HashEntryList          *HashEntry::list = NULL;
-HashEntryMemoryManager *HashEntry::MemoryManager = NULL;
+typedef enum
+{
+    Q0123, Q0132, Q0213, Q0231, Q0312, Q0321,
+    Q1023, Q1032, Q1203, Q1230, Q1302, Q1320,
+    Q2013, Q2031, Q2103, Q2130, Q2301, Q2310,
+    Q3012, Q3021, Q3102, Q3120, Q3201, Q3210
+}  QUAD_ORDERING_CASES;
+
+static int quad_reorder_list[24][4] = 
+    { { -1, 0, 1, 2 }, { -1, 0, 2, 1 }, { -1, 1, 0, 2 }, { -1, 2, 0, 1 },
+      { -1, 1, 2, 0 }, { -1, 2, 1, 0 },
+      { 0, -1, 1, 2 }, { 0, -1, 2, 1 }, { 1, -1, 0, 2 }, { 2, -1, 0, 1 },
+      { 1, -1, 2, 0 }, { 2, -1, 1, 0 },
+      { 0, 1, -1, 2 }, { 0, 2, -1, 1 }, { 1, 0, -1, 2 }, { 2, 0, -1, 1 },
+      { 1, 2, -1, 0 }, { 2, 1, -1, 0 },
+      { 0, 1, 2, -1 }, { 0, 2, 1, -1 }, { 1, 0, 2, -1 }, { 2, 0, 1, -1 },
+      { 1, 2, 0, -1 }, { 2, 1, 0, -1 } 
+    };
+
+static int quad_map_back_list[24][3] =
+    {
+         { 1, 2, 3 }, { 1, 3, 2 }, { 2, 1, 3 },
+         { 2, 3, 1 }, { 3, 1, 2 }, { 3, 2, 1 },
+         { 0, 2, 3 }, { 0, 3, 2 }, { 2, 0, 3 },
+         { 2, 3, 0 }, { 3, 0, 2 }, { 3, 2, 0 },
+         { 0, 1, 3 }, { 0, 3, 1 }, { 1, 0, 3 },
+         { 1, 3, 0 }, { 3, 0, 1 }, { 3, 1, 0 },
+         { 0, 1, 2 }, { 0, 2, 1 }, { 1, 0, 2 },
+         { 1, 2, 0 }, { 2, 0, 1 }, { 2, 1, 0 }
+    };
+
+
+// ****************************************************************************
+//  Class: Tri
+//
+//  Purpose:
+//      A representation of a triangle.  For efficient caching, the
+//      indices are sorted in numerical order.  The lowest indexed node is
+//      dropped, since that serves as the key into the hash.
+//
+//  Programmer: Hank Childs
+//  Creation:   October 21, 2002
+//
+// ****************************************************************************
+
+class Tri
+{
+    friend class   Quad;
+
+  public:
+                   Tri() { ordering_case = 255; };
+
+    int            AssignNodes(const vtkIdType *);
+    inline bool    Equals(Tri *&t)
+                   {
+                      if (t->nodes[0] == nodes[0] && t->nodes[1] == nodes[1])
+                      {
+                          return true;
+                      }
+                      return false;
+                   }
+
+    bool           Equals(Quad *);
+    void           AddInRemainingTriangle(Quad *, int);
+    inline void    ReRegisterMemory(void)
+                       {
+                           hashEntryList->tmm.ReRegisterTri(this);
+                       }
+
+    inline void    SetOriginalZone(const int &oz) { orig_zone = oz; };
+    inline int     GetOriginalZone(void) { return orig_zone; };
+
+    void           OutputCell(int,vtkPolyData *, vtkCellData *, vtkCellData *);
+
+    inline void    RegisterHashEntryList(HashEntryList *hel)
+                          { hashEntryList = hel; };
+    inline void    SetNumberOfPoints(int np) { npts = np; };
+
+
+  protected:
+    unsigned char  ordering_case;
+    vtkIdType      nodes[2];
+    vtkIdType      orig_zone;
+
+    int            npts;
+    HashEntryList *hashEntryList;
+};
+
+//
+// We will be re-ordering the nodes into numerical order.  This enumerated
+// type will allow the ordering to be preserved.
+//
+typedef enum
+{
+    T012, T021,
+    T102, T120,
+    T201, T210
+}  TRI_ORDERING_CASES;
+
+static int tri_reorder_list[6][3] = 
+    { 
+        { -1, 0, 1 }, { -1, 1, 0 }, 
+        { 0, -1, 1 }, { 0, 1, -1 },
+        { 1, -1, 0 }, { 1, 0, -1 }
+    };
 
 
 //
@@ -498,52 +486,27 @@ static void AddQuadraticTetrahedron(vtkIdType *, int, HashEntryList &);
 static void AddQuadraticHexahedron(vtkIdType *, int, HashEntryList &);
 static void AddQuadraticPyramid(vtkIdType *, int, HashEntryList &);
 static void AddQuadraticWedge(vtkIdType *, int, HashEntryList &);
+
+static void AddQuadraticLinearQuad(vtkIdType *, int, HashEntryList &);
+static void AddQuadraticLinearWedge(vtkIdType *, int, HashEntryList &);
+static void AddBiQuadraticTriangle(vtkIdType *, int, HashEntryList &);
+static void AddBiQuadraticQuad(vtkIdType *, int, HashEntryList &);
+static void AddBiQuadraticQuadraticWedge(vtkIdType *, int, HashEntryList &);
+static void AddBiQuadraticQuadraticHexahedron(vtkIdType *, int, HashEntryList &);
+static void AddTriQuadraticHexahedron(vtkIdType *, int, HashEntryList &);
+
 static void AddUnknownCell(vtkCell *, int, HashEntryList &);
 
-static int  LoopOverAllCells(vtkUnstructuredGrid *, HashEntryList &);
-static void LoopOverPolygonalCells(vtkUnstructuredGrid *, vtkPolyData *,
-                                   vtkCellData *, vtkCellData *);
-
-
-// ****************************************************************************
-//  Method: Quad::RegisterHashEntryList
-//
-//  Purpose:
-//      Registers the hash entry list with the Quad class.  This is necessary
-//      because a triangle may collide with a quadrilateral and the result
-//      (another triangle) needs to be added back into the hash as its own
-//      entry.
-//
-//  Programmer: Hank Childs
-//  Creation:   October 21, 2002
-//
-// ****************************************************************************
-
-void
-Quad::RegisterHashEntryList(HashEntryList *l)
-{
-    list = l;
-}
-
-
-// ****************************************************************************
-//  Method: Quad::RegisterMemoryManager
-//
-//  Purpose:
-//      Registers the memory manager with the Quad class.  Whenever a quad is
-//      freed from the hash, the newly freed quad is put back on a queue with
-//      the memory manager via this reference.
-//
-//  Programmer: Hank Childs
-//  Creation:   October 21, 2002
-//
-// ****************************************************************************
-
-void
-Quad::RegisterMemoryManager(QuadMemoryManager *mm)
-{
-    MemoryManager = mm;
-}
+static void LoopOverAllCells(vtkUnstructuredGrid *, HashEntryList &,
+                             int &, int &, int &, int &);
+static void LoopOverVertexCells(vtkUnstructuredGrid *, vtkPolyData *,
+                                vtkCellData *, vtkCellData *);
+static void LoopOverLineCells(vtkUnstructuredGrid *, vtkPolyData *,
+                              vtkCellData *, vtkCellData *);
+static void LoopOverPolygonCells(vtkUnstructuredGrid *, vtkPolyData *,
+                                 vtkCellData *, vtkCellData *);
+static void LoopOverStripCells(vtkUnstructuredGrid *, vtkPolyData *,
+                               vtkCellData *, vtkCellData *);
 
 
 // ****************************************************************************
@@ -560,15 +523,15 @@ Quad::RegisterMemoryManager(QuadMemoryManager *mm)
 //
 //  Modifications:
 //    Jeremy Meredith, Tue Nov 16 14:54:09 PST 2004
-//    Make more robust for degenerate input data.  Specifically, quads with
+//    Make more robust for degenerate input data.  Specifically, quads with 
 //    all four corners at the same node.  See '5659.
 //
 // ****************************************************************************
 
-vtkIdType
+int
 Quad::AssignNodes(const vtkIdType *n)
 {
-    vtkIdType smallest = 0;
+    int smallest = 0;
     if (n[1] < n[smallest])
        smallest = 1;
     if (n[2] < n[smallest])
@@ -593,7 +556,7 @@ Quad::AssignNodes(const vtkIdType *n)
         nodes[2] = n[3];
     }
     else if (biggest == 3)
-    {
+    { 
         if (smallest == 0)
         {
             if (n[1] < n[2])
@@ -808,7 +771,7 @@ Quad::AssignNodes(const vtkIdType *n)
             }
         }
     }
-
+    
 /*** There was an effort to play with additional hashing functions.  It was
  *** determined that the functions to calculate the key was just too expensive.
  *** The only function that could be used for a single pass hash was one that
@@ -843,7 +806,7 @@ Quad::OutputCell(int node0, vtkPolyData *pd, vtkCellData *in_cd,
                  vtkCellData *out_cd)
 {
     vtkIdType n[4];
-    vtkIdType *list = quad_reorder_list[ordering_case];
+    int *list = quad_reorder_list[ordering_case];
     n[0] = (list[0] == -1 ? node0 : nodes[list[0]]);
     n[1] = (list[1] == -1 ? node0 : nodes[list[1]]);
     n[2] = (list[2] == -1 ? node0 : nodes[list[2]]);
@@ -967,10 +930,10 @@ Quad::AddInRemainingTriangle(Tri *t, int node_0)
 void
 Quad::AddInRemainingTriangle(int n, int node_0)
 {
-    vtkIdType orig_quad_index = quad_map_back_list[ordering_case][n];
-    vtkIdType *neighbors = quad_reorder_list[ordering_case];
+    int orig_quad_index = quad_map_back_list[ordering_case][n];
+    int *neighbors = quad_reorder_list[ordering_case];
 
-    vtkIdType n_list[3];
+    int n_list[3];
     n_list[0] = neighbors[(orig_quad_index+3)%4];
     n_list[1] = neighbors[orig_quad_index];
     n_list[2] = neighbors[(orig_quad_index+1)%4];
@@ -979,27 +942,7 @@ Quad::AddInRemainingTriangle(int n, int node_0)
     {
         tmp_nodes[i] = (n_list[i] == -1 ? node_0 : nodes[n_list[i]]);
     }
-    list->AddTri(tmp_nodes, orig_zone);
-}
-
-
-// ****************************************************************************
-//  Method: Tri::RegisterMemoryManager
-//
-//  Purpose:
-//      Registers the memory manager with the Tri class.  Whenever a tri is
-//      freed from the hash, the newly freed tri is put back on a queue with
-//      the memory manager via this reference.
-//
-//  Programmer: Hank Childs
-//  Creation:   October 21, 2002
-//
-// ****************************************************************************
-
-void
-Tri::RegisterMemoryManager(TriMemoryManager *mm)
-{
-    MemoryManager = mm;
+    hashEntryList->AddTri(tmp_nodes, orig_zone);
 }
 
 
@@ -1017,10 +960,10 @@ Tri::RegisterMemoryManager(TriMemoryManager *mm)
 //
 // ****************************************************************************
 
-vtkIdType
+int
 Tri::AssignNodes(const vtkIdType *n)
 {
-    vtkIdType smallest = 0;
+    int smallest = 0;
     if (n[0] < n[1])
     {
         if (n[1] < n[2])
@@ -1190,7 +1133,7 @@ HashEntry::AddTri(Tri *f)
         ActuallyAddTri(f);
     }
 }
-
+        
 
 // ****************************************************************************
 //  Method: HashEntry::AddQuad
@@ -1213,7 +1156,7 @@ HashEntry::AddQuad(Quad *f)
         ActuallyAddQuad(f);
     }
 }
-
+        
 
 // ****************************************************************************
 //  Method: HashEntry::RemoveEntry
@@ -1243,7 +1186,7 @@ HashEntry::RemoveEntry(int ind)
 
 // ****************************************************************************
 //  Method: HashEntry::LocateAndRemoveQuad
-//
+// 
 //  Purpose:
 //      Locates a quad in the hash entry and removes it if it exists.
 //
@@ -1262,8 +1205,8 @@ HashEntry::LocateAndRemoveQuad(Quad *f)
             Quad *q = faces[i].quad;
             if (q->Equals(f))
             {
-                list->RemoveFace();
-                list->RemoveFace();
+                hashEntryList->RemoveFace();
+                hashEntryList->RemoveFace();
                 RemoveEntry(i);
                 q->ReRegisterMemory();
                 f->ReRegisterMemory();
@@ -1275,8 +1218,8 @@ HashEntry::LocateAndRemoveQuad(Quad *f)
             Tri *t = faces[i].tri;
             if (t->Equals(f))
             {
-                list->RemoveFace();
-                list->RemoveFace();
+                hashEntryList->RemoveFace();
+                hashEntryList->RemoveFace();
                 RemoveEntry(i);
                 f->AddInRemainingTriangle(t, point_index);
                 t->ReRegisterMemory();
@@ -1296,7 +1239,7 @@ HashEntry::LocateAndRemoveQuad(Quad *f)
 
 // ****************************************************************************
 //  Method: HashEntry::LocateAndRemoveQuad
-//
+// 
 //  Purpose:
 //      Locates a triangle in the hash entry and removes it if it exists.
 //
@@ -1315,8 +1258,8 @@ HashEntry::LocateAndRemoveTri(Tri *f)
             Quad *q = faces[i].quad;
             if (q->Equals(f))
             {
-                list->RemoveFace();
-                list->RemoveFace();
+                hashEntryList->RemoveFace();
+                hashEntryList->RemoveFace();
                 RemoveEntry(i);
                 q->AddInRemainingTriangle(f, point_index);
                 q->ReRegisterMemory();
@@ -1329,8 +1272,8 @@ HashEntry::LocateAndRemoveTri(Tri *f)
             Tri *t = faces[i].tri;
             if (t->Equals(f))
             {
-                list->RemoveFace();
-                list->RemoveFace();
+                hashEntryList->RemoveFace();
+                hashEntryList->RemoveFace();
                 RemoveEntry(i);
                 t->ReRegisterMemory();
                 f->ReRegisterMemory();
@@ -1372,7 +1315,7 @@ HashEntry::ActuallyAddQuad(Quad *f)
 
     if (extension == NULL)
     {
-        extension = MemoryManager->GetHashEntry();
+        extension = hashEntryList->hemm.GetHashEntry(hashEntryList);
         extension->SetPointIndex(point_index);
     }
     extension->ActuallyAddQuad(f);
@@ -1383,7 +1326,7 @@ HashEntry::ActuallyAddQuad(Quad *f)
 //  Method: HashEntry::ActuallyAddTri
 //
 //  Purpose:
-//      After determining that this triangle is unique, this actually adds it
+//      After determining that this triangle is unique, this actually adds it 
 //      to the hash entry.
 //
 //  Programmer: Hank Childs
@@ -1404,7 +1347,7 @@ HashEntry::ActuallyAddTri(Tri *f)
 
     if (extension == NULL)
     {
-        extension = MemoryManager->GetHashEntry();
+        extension = hashEntryList->hemm.GetHashEntry(hashEntryList);
         extension->SetPointIndex(point_index);
     }
     extension->ActuallyAddTri(f);
@@ -1421,7 +1364,6 @@ HashEntry::ActuallyAddTri(Tri *f)
 
 HashEntryMemoryManager::HashEntryMemoryManager()
 {
-    AllocateHashEntryPool();
 }
 
 
@@ -1435,8 +1377,8 @@ HashEntryMemoryManager::HashEntryMemoryManager()
 
 HashEntryMemoryManager::~HashEntryMemoryManager()
 {
-    int size = hashpool.size();
-    for (int i = 0 ; i < size ; i++)
+    size_t size = hashpool.size();
+    for (size_t i = 0 ; i < size ; i++)
     {
         delete [] hashpool[i];
     }
@@ -1456,11 +1398,15 @@ HashEntryMemoryManager::~HashEntryMemoryManager()
 // ****************************************************************************
 
 void
-HashEntryMemoryManager::AllocateHashEntryPool(void)
+HashEntryMemoryManager::AllocateHashEntryPool(HashEntryList *hel)
 {
     currentHashPool = new HashEntry[POOL_SIZE];
     currentHash = 0;
     hashpool.push_back(currentHashPool);
+    for (int i = 0 ; i < POOL_SIZE ; i++)
+    {
+        currentHashPool[i].RegisterHashEntryList(hel);
+    }
 }
 
 
@@ -1488,8 +1434,8 @@ QuadMemoryManager::QuadMemoryManager()
 
 QuadMemoryManager::~QuadMemoryManager()
 {
-    int npools = quadpool.size();
-    for (int i = 0 ; i < npools ; i++)
+    size_t npools = quadpool.size();
+    for (size_t i = 0 ; i < npools ; i++)
     {
         Quad *pool = quadpool[i];
         delete [] pool;
@@ -1510,7 +1456,7 @@ QuadMemoryManager::~QuadMemoryManager()
 // ****************************************************************************
 
 void
-QuadMemoryManager::AllocateQuadPool(void)
+QuadMemoryManager::AllocateQuadPool(HashEntryList *hel)
 {
     if (freequadindex == 0)
     {
@@ -1518,6 +1464,7 @@ QuadMemoryManager::AllocateQuadPool(void)
         quadpool.push_back(newlist);
         for (int i = 0 ; i < POOL_SIZE ; i++)
         {
+            newlist[i].RegisterHashEntryList(hel);
             freequadlist[i] = &(newlist[i]);
         }
         freequadindex = POOL_SIZE;
@@ -1549,8 +1496,8 @@ TriMemoryManager::TriMemoryManager()
 
 TriMemoryManager::~TriMemoryManager()
 {
-    int npools = tripool.size();
-    for (int i = 0 ; i < npools ; i++)
+    size_t npools = tripool.size();
+    for (size_t i = 0 ; i < npools ; i++)
     {
         Tri *pool = tripool[i];
         delete [] pool;
@@ -1571,7 +1518,7 @@ TriMemoryManager::~TriMemoryManager()
 // ****************************************************************************
 
 void
-TriMemoryManager::AllocateTriPool(void)
+TriMemoryManager::AllocateTriPool(HashEntryList *hel)
 {
     if (freetriindex <= 0)
     {
@@ -1579,6 +1526,7 @@ TriMemoryManager::AllocateTriPool(void)
         tripool.push_back(newlist);
         for (int i = 0 ; i < POOL_SIZE ; i++)
         {
+            newlist[i].RegisterHashEntryList(hel);
             freetrilist[i] = &(newlist[i]);
         }
         freetriindex = POOL_SIZE;
@@ -1604,11 +1552,7 @@ HashEntryList::HashEntryList(int np)
     {
         list[i] = NULL;
     }
-    HashEntry::RegisterMemoryManager(&hemm);
-    HashEntry::RegisterHashEntryList(this);
-    Quad::RegisterMemoryManager(&qmm);
-    Tri::RegisterMemoryManager(&tmm);
-    Quad::RegisterHashEntryList(this);
+    hemm.AllocateHashEntryPool(this);
 }
 
 
@@ -1645,15 +1589,15 @@ HashEntryList::~HashEntryList()
 // ****************************************************************************
 
 void
-HashEntryList::AddTri(const vtkIdType *node_list, int orig_zone)
+HashEntryList::AddTri(const vtkIdType *node_list, vtkIdType orig_zone)
 {
     nfaces++;
-    Tri *tri = tmm.GetFreeTri();
-    vtkIdType hash_index = tri->AssignNodes(node_list);
+    Tri *tri = tmm.GetFreeTri(this);
+    int hash_index = tri->AssignNodes(node_list);
     tri->SetOriginalZone(orig_zone);
     if (list[hash_index] == NULL)
     {
-        list[hash_index] = hemm.GetHashEntry();
+        list[hash_index] = hemm.GetHashEntry(this);
         list[hash_index]->SetPointIndex(hash_index);
     }
     list[hash_index]->AddTri(tri);
@@ -1675,15 +1619,15 @@ HashEntryList::AddTri(const vtkIdType *node_list, int orig_zone)
 // ****************************************************************************
 
 void
-HashEntryList::AddQuad(const vtkIdType *node_list, int orig_zone)
+HashEntryList::AddQuad(const vtkIdType *node_list, vtkIdType orig_zone)
 {
     nfaces++;
-    Quad *quad = qmm.GetFreeQuad();
-    vtkIdType hash_index = quad->AssignNodes(node_list);
+    Quad *quad = qmm.GetFreeQuad(this);
+    int hash_index = quad->AssignNodes(node_list);
     quad->SetOriginalZone(orig_zone);
     if (list[hash_index] == NULL)
     {
-        list[hash_index] = hemm.GetHashEntry();
+        list[hash_index] = hemm.GetHashEntry(this);
         list[hash_index]->SetPointIndex(hash_index%npts);
     }
     list[hash_index]->AddQuad(quad);
@@ -1720,7 +1664,7 @@ HashEntryList::CreateOutputCells(vtkPolyData *output, vtkCellData *in_cd,
 //  Method: HashEntry::CreateOutputCells
 //
 //  Purpose:
-//      Goes through each of the faces and has them output themselves as VTK
+//      Goes through each of the faces and has them output themselves as VTK 
 //      objects.
 //
 //  Programmer: Hank Childs
@@ -1734,7 +1678,7 @@ HashEntry::CreateOutputCells(vtkPolyData *output, vtkCellData *in_cd,
 {
     for (int i = 0 ; i < last_good_entry ; i++)
     {
-        bool isQuad = face_type & face_mask[i];
+        bool isQuad = (face_type & face_mask[i]) > 0;
         if (isQuad)
         {
             Quad *q = faces[i].quad;
@@ -1753,16 +1697,11 @@ HashEntry::CreateOutputCells(vtkPolyData *output, vtkCellData *in_cd,
 }
 
 
-vtkStandardNewMacro(vtkUnstructuredGridFacelistFilter);
+vtkStandardNewMacro(vtkUnstructuredGridFacelistFilter); 
 
-void
-vtkUnstructuredGridFacelistFilter::PrintSelf(ostream& os, vtkIndent indent)
-{
-    this->Superclass::PrintSelf(os,indent);
-}
 
 // ****************************************************************************
-//  Method: vtkUnstructuredGridFacelistFilter::Execute
+//  Method: vtkUnstructuredGridFacelistFilter::RequestData
 //
 //  Purpose:
 //      Finds the faces that are external to the unstructured grid input.
@@ -1777,23 +1716,43 @@ vtkUnstructuredGridFacelistFilter::PrintSelf(ostream& os, vtkIndent indent)
 //    Brad Whitlock, Fri Oct 1 17:11:47 PST 2004
 //    Passed the field data through.
 //
+//    Eric Brugger, Fri Jan 27 14:31:40 PST 2012
+//    I changed the routine to add cells to the polydata so that cells were
+//    added in the order - vertex based, line based, polygon based, and strip
+//    based. This was so that the cell data would be ordered in that fashion,
+//    since that was necessary for the polydata to be rendered correctly.
+//
+//    Eric Brugger, Mon Jan 30 09:02:23 PST 2012
+//    I changed the order in which polygon cells and polygons from solid
+//    cells are output so that polygon cells are rendered on top of solid
+//    cells. While technically not more correct, this gives the result users
+//    would expect if a polygon cell was on the face of a solid cell.
+//
 // ****************************************************************************
 
 int
-vtkUnstructuredGridFacelistFilter::RequestData(vtkInformation *vtkNotUsed(request),
-                                               vtkInformationVector **inputVector,
-                                               vtkInformationVector *outputVector)
+vtkUnstructuredGridFacelistFilter::RequestData(
+    vtkInformation *vtkNotUsed(request),
+    vtkInformationVector **inputVector,
+    vtkInformationVector *outputVector)
 {
     vtkDebugMacro(<<"Executing geometry filter for unstructured grid input");
-    vtkInformation* inInfo = inputVector[0]->GetInformationObject(0);
-    vtkInformation* outInfo = outputVector->GetInformationObject(0);
-    vtkUnstructuredGrid *input = vtkUnstructuredGrid::SafeDownCast(
-      inInfo->Get(vtkDataObject::DATA_OBJECT()));
-    vtkCellData *cd = input->GetCellData();
-    vtkPolyData *output = vtkPolyData::SafeDownCast(
-      outInfo->Get(vtkDataObject::DATA_OBJECT()));
-    vtkCellData *outputCD = output->GetCellData();
 
+    // get the info objects
+    vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
+    vtkInformation *outInfo = outputVector->GetInformationObject(0);
+
+    //
+    // Initialize some frequently used values.
+    //
+    vtkUnstructuredGrid *input = vtkUnstructuredGrid::SafeDownCast(
+        inInfo->Get(vtkDataObject::DATA_OBJECT()));
+    vtkPolyData *output = vtkPolyData::SafeDownCast(
+        outInfo->Get(vtkDataObject::DATA_OBJECT()));
+
+    vtkCellData *cd = input->GetCellData();
+    vtkCellData *outputCD = output->GetCellData();
+ 
     //
     // We won't be doing anything to the points, so they can be passed right
     // through.
@@ -1804,7 +1763,7 @@ vtkUnstructuredGridFacelistFilter::RequestData(vtkInformation *vtkNotUsed(reques
     outputPD->PassData(pd);
 
     // Pass the field data through
-    output->GetFieldData()->ShallowCopy(input->GetFieldData());
+    output->GetFieldData()->ShallowCopy(GetInput()->GetFieldData());
 
     int ntotalpts = input->GetNumberOfPoints();
     HashEntryList list(ntotalpts);
@@ -1813,67 +1772,202 @@ vtkUnstructuredGridFacelistFilter::RequestData(vtkInformation *vtkNotUsed(reques
     // This does the work of looping over all the cells and storing them in
     // our hash table.
     //
-    int numPolygonalCells = LoopOverAllCells(input, list);
+    int numVertexCells, numLineCells, numPolygonCells, numStripCells;
+    LoopOverAllCells(input, list, numVertexCells, numLineCells,
+                     numPolygonCells, numStripCells);
 
     //
     // Count up how many output cells we will have.
     //
     int hashedFaces = list.GetNumberOfFaces();
-    int numOutCells = numPolygonalCells + hashedFaces;
+    int numOutCells = numVertexCells + numLineCells + numPolygonCells +
+                      numStripCells + hashedFaces;
 
     //
     // Now create our output cells.
     //
     output->Allocate(numOutCells, numOutCells*(4+1));
     outputCD->CopyAllocate(cd, numOutCells);
-    list.CreateOutputCells(output, cd, outputCD);
-    if (numPolygonalCells > 0)
+    if (numVertexCells > 0)
     {
-        LoopOverPolygonalCells(input, output, cd, outputCD);
+        LoopOverVertexCells(input, output, cd, outputCD);
     }
+    if (numLineCells > 0)
+    {
+        LoopOverLineCells(input, output, cd, outputCD);
+    }
+    list.CreateOutputCells(output, cd, outputCD);
+    if (numPolygonCells > 0)
+    {
+        LoopOverPolygonCells(input, output, cd, outputCD);
+    }
+    if (numStripCells > 0)
+    {
+        LoopOverStripCells(input, output, cd, outputCD);
+    }
+
     return 1;
 }
 
+
 // ****************************************************************************
-//  Function: FillInputPortInformation
+//  Method: vtkUnstructuredGridFacelistFilter::FillInputPortInformation
 //
-//  Purpose:
-//      Declares the type of the data object on the input port
 // ****************************************************************************
 
-int vtkUnstructuredGridFacelistFilter::FillInputPortInformation(int vtkNotUsed(port),
-                                                                vtkInformation *info)
+int
+vtkUnstructuredGridFacelistFilter::FillInputPortInformation(int,
+    vtkInformation *info)
 {
-  info->Remove(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE());
-  info->Append(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkUnstructuredGrid");
-  return 1;
+    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkUnstructuredGrid");
+    return 1;
 }
 
+
 // ****************************************************************************
-//  Function: LoopOverPolygonalCells
+//  Method: vtkUnstructuredGridFacelistFilter::PrintSelf
+//
+// ****************************************************************************
+
+void
+vtkUnstructuredGridFacelistFilter::PrintSelf(ostream& os, vtkIndent indent)
+{
+    this->Superclass::PrintSelf(os,indent);
+}
+
+
+// ****************************************************************************
+//  Function: LoopOverVertexCells
 //
 //  Purpose:
-//      If there were cells in the unstructured grid that were polygonal (ie
-//      beams, tris, etc, as opposed to tets, hexes, etc), then this called to
-//      output them.
+//      If there were cells in the unstructured grid that were vertex based,
+//      then this routine is called to output them.
 //
 //  Programmer: Hank Childs
 //  Creation:   November 4, 2002
 //
 //  Modifications:
-//
-//    Hank Childs, Wed Aug 25 16:11:24 PDT 2004
-//    Since we are translating a pixel into a quad, make sure to tell the
-//    output that it is of "quad" type.
-//
-//    Brad Whitlock, Mon May 8 14:29:48 PST 2006
-//    Added support for turning VTK_QUADRATIC_EDGE into VTK_POLY_LINE.
+//    Eric Brugger, Fri Jan 27 14:31:40 PST 2012
+//    I split the routine LoopOverPolygonalCells into LoopOverVertexCells,
+//    LoopOverLineCells, LoopOverPolygonCells and LoopOverStripCells.
 //
 // ****************************************************************************
 
 void
-LoopOverPolygonalCells(vtkUnstructuredGrid *input, vtkPolyData *output,
-                       vtkCellData *in_cd, vtkCellData *out_cd)
+LoopOverVertexCells(vtkUnstructuredGrid *input, vtkPolyData *output,
+                    vtkCellData *in_cd, vtkCellData *out_cd)
+{
+    vtkCellArray *Connectivity = input->GetCells();
+    if (Connectivity == NULL)
+    {
+        return;
+    }
+
+    vtkIdType   cellId;
+    vtkIdType   newCellId;
+    vtkIdType   npts;
+    vtkIdType   *pts;
+    for (cellId=0, Connectivity->InitTraversal();
+         Connectivity->GetNextCell(npts,pts);
+         cellId++)
+    {
+        int cellType = input->GetCellType(cellId);
+        switch (cellType)
+        {
+          case VTK_VERTEX:
+          case VTK_POLY_VERTEX:
+            newCellId = output->InsertNextCell(cellType, npts, pts);
+            out_cd->CopyData(in_cd, cellId, newCellId);
+            break;
+        }
+    }
+}
+
+
+// ****************************************************************************
+//  Function: LoopOverLineCells
+//
+//  Purpose:
+//      If there were cells in the unstructured grid that were line based,
+//      then this routine is called to output them.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 4, 2002
+//
+//  Modifications:
+//    Brad Whitlock, Mon May 8 14:29:48 PST 2006
+//    Added support for turning VTK_QUADRATIC_EDGE into VTK_POLY_LINE.
+//
+//    Eric Brugger, Fri Jan 27 14:31:40 PST 2012
+//    I split the routine LoopOverPolygonalCells into LoopOverVertexCells,
+//    LoopOverLineCells, LoopOverPolygonCells and LoopOverStripCells.
+//
+// ****************************************************************************
+
+void
+LoopOverLineCells(vtkUnstructuredGrid *input, vtkPolyData *output,
+                  vtkCellData *in_cd, vtkCellData *out_cd)
+{
+    vtkCellArray *Connectivity = input->GetCells();
+    if (Connectivity == NULL)
+    {
+        return;
+    }
+
+    vtkIdType   ids[3];
+    vtkIdType   cellId;
+    vtkIdType   newCellId;
+    vtkIdType   npts;
+    vtkIdType   *pts;
+    for (cellId=0, Connectivity->InitTraversal();
+         Connectivity->GetNextCell(npts,pts);
+         cellId++)
+    {
+        int cellType = input->GetCellType(cellId);
+        switch (cellType)
+        {
+          case VTK_LINE:
+          case VTK_POLY_LINE:
+            newCellId = output->InsertNextCell(cellType, npts, pts);
+            out_cd->CopyData(in_cd, cellId, newCellId);
+            break;
+
+          case VTK_QUADRATIC_EDGE:
+            ids[0] = pts[0];
+            ids[1] = pts[2];
+            ids[2] = pts[1];
+            newCellId = output->InsertNextCell(VTK_POLY_LINE, 3, ids);
+            out_cd->CopyData(in_cd, cellId, newCellId);
+            break;
+        }
+    }
+}
+
+
+// ****************************************************************************
+//  Function: LoopOverPolygonCells
+//
+//  Purpose:
+//      If there were cells in the unstructured grid that were polygon based,
+//      then this routine is called to output them.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 4, 2002
+//
+//  Modifications:
+//    Hank Childs, Wed Aug 25 16:11:24 PDT 2004
+//    Since we are translating a pixel into a quad, make sure to tell the
+//    output that it is of "quad" type.
+//
+//    Eric Brugger, Fri Jan 27 14:31:40 PST 2012
+//    I split the routine LoopOverPolygonalCells into LoopOverVertexCells,
+//    LoopOverLineCells, LoopOverPolygonCells and LoopOverStripCells.
+//
+// ****************************************************************************
+
+void
+LoopOverPolygonCells(vtkUnstructuredGrid *input, vtkPolyData *output,
+                     vtkCellData *in_cd, vtkCellData *out_cd)
 {
     vtkCellArray *Connectivity = input->GetCells();
     if (Connectivity == NULL)
@@ -1893,12 +1987,7 @@ LoopOverPolygonalCells(vtkUnstructuredGrid *input, vtkPolyData *output,
         int cellType = input->GetCellType(cellId);
         switch (cellType)
         {
-          case VTK_VERTEX:
-          case VTK_POLY_VERTEX:
-          case VTK_LINE:
-          case VTK_POLY_LINE:
           case VTK_TRIANGLE:
-          case VTK_TRIANGLE_STRIP:
           case VTK_QUAD:
           case VTK_POLYGON:
             newCellId = output->InsertNextCell(cellType, npts, pts);
@@ -1913,12 +2002,51 @@ LoopOverPolygonalCells(vtkUnstructuredGrid *input, vtkPolyData *output,
             newCellId = output->InsertNextCell(VTK_QUAD, npts, ids);
             out_cd->CopyData(in_cd, cellId, newCellId);
             break;
+        }
+    }
+}
 
-          case VTK_QUADRATIC_EDGE:
-            ids[0] = pts[0];
-            ids[1] = pts[2];
-            ids[2] = pts[1];
-            newCellId = output->InsertNextCell(VTK_POLY_LINE, 3, ids);
+
+// ****************************************************************************
+//  Function: LoopOverStripCells
+//
+//  Purpose:
+//      If there were cells in the unstructured grid that were poly strip
+//      based, then this routine is called to output them.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 4, 2002
+//
+//  Modifications:
+//    Eric Brugger, Fri Jan 27 14:31:40 PST 2012
+//    I split the routine LoopOverPolygonalCells into LoopOverVertexCells,
+//    LoopOverLineCells, LoopOverPolygonCells and LoopOverStripCells.
+//
+// ****************************************************************************
+
+void
+LoopOverStripCells(vtkUnstructuredGrid *input, vtkPolyData *output,
+                   vtkCellData *in_cd, vtkCellData *out_cd)
+{
+    vtkCellArray *Connectivity = input->GetCells();
+    if (Connectivity == NULL)
+    {
+        return;
+    }
+
+    vtkIdType   cellId;
+    vtkIdType   newCellId;
+    vtkIdType   npts;
+    vtkIdType   *pts;
+    for (cellId=0, Connectivity->InitTraversal();
+         Connectivity->GetNextCell(npts,pts);
+         cellId++)
+    {
+        int cellType = input->GetCellType(cellId);
+        switch (cellType)
+        {
+          case VTK_TRIANGLE_STRIP:
+            newCellId = output->InsertNextCell(cellType, npts, pts);
             out_cd->CopyData(in_cd, cellId, newCellId);
             break;
         }
@@ -1938,29 +2066,39 @@ LoopOverPolygonalCells(vtkUnstructuredGrid *input, vtkPolyData *output,
 //  Programmer: Hank Childs
 //  Creation:   November 4, 2002
 //
-// Modifications:
-//   Brad Whitlock, Mon May 8 14:54:58 PST 2006
-//   Added cases to add the faces of quadratic cells to the hash entry list
-//   as sets of linear triangles.
+//  Modifications:
+//    Brad Whitlock, Mon May 8 14:54:58 PST 2006
+//    Added cases to add the faces of quadratic cells to the hash entry list
+//    as sets of linear triangles.
 //
-//   Hank Childs, Fri Sep  8 14:38:54 PDT 2006
-//   Add support for unexpected cell types.
+//    Hank Childs, Fri Sep  8 14:38:54 PDT 2006
+//    Add support for unexpected cell types.
 //
-//   Brad Whitlock, Thu Apr 29 14:10:51 PST 2010
-//   I added quadratic pyramid and wedge.
+//    Brad Whitlock, Thu Apr 29 14:10:51 PST 2010
+//    I added quadratic pyramid and wedge.
+//
+//    Eric Brugger, Fri Jan 27 14:31:40 PST 2012
+//    I modified the routine to return the number of vertex based cells, line
+//    based cells, polygon based cells and strip based cells, instead of just
+//    the sum of those numbers. 
 //
 // ****************************************************************************
 
-int
-LoopOverAllCells(vtkUnstructuredGrid *input, HashEntryList &list)
+void
+LoopOverAllCells(vtkUnstructuredGrid *input, HashEntryList &list,
+                 int &numVertexCells, int &numLineCells,
+                 int &numPolygonCells, int &numStripCells)
 {
     vtkCellArray *Connectivity = input->GetCells();
     if (Connectivity == NULL)
     {
-        return 0;
+        return;
     }
 
-    int         numPolygonalCells = 0;
+    numVertexCells = 0;
+    numLineCells = 0;
+    numPolygonCells = 0;
+    numStripCells = 0;
     vtkIdType   cellId;
     vtkIdType   npts;
     vtkIdType   *pts;
@@ -1969,22 +2107,31 @@ LoopOverAllCells(vtkUnstructuredGrid *input, HashEntryList &list)
          cellId++)
     {
         int cellType = input->GetCellType(cellId);
-
+ 
         switch (cellType)
         {
           case VTK_VERTEX:
           case VTK_POLY_VERTEX:
+            numVertexCells++;
+            break;
+ 
           case VTK_LINE:
           case VTK_POLY_LINE:
+          case VTK_QUADRATIC_EDGE:
+            numLineCells++;
+            break;
+ 
           case VTK_TRIANGLE:
-          case VTK_TRIANGLE_STRIP:
           case VTK_QUAD:
           case VTK_POLYGON:
           case VTK_PIXEL:
-          case VTK_QUADRATIC_EDGE:
-            numPolygonalCells++;
+            numPolygonCells++;
             break;
-
+ 
+          case VTK_TRIANGLE_STRIP:
+            numStripCells++;
+            break;
+ 
           case VTK_TETRA:
             AddTetrahedron(pts, cellId, list);
             break;
@@ -2029,12 +2176,38 @@ LoopOverAllCells(vtkUnstructuredGrid *input, HashEntryList &list)
             AddQuadraticWedge(pts, cellId, list);
             break;
 
+          case VTK_QUADRATIC_LINEAR_QUAD:
+            AddQuadraticLinearQuad(pts, cellId, list);
+            break;
+
+          case VTK_QUADRATIC_LINEAR_WEDGE:
+            AddQuadraticLinearWedge(pts, cellId, list);
+            break;
+
+          case VTK_BIQUADRATIC_TRIANGLE:
+            AddBiQuadraticTriangle(pts, cellId, list);
+            break;         
+
+          case VTK_BIQUADRATIC_QUAD:
+            AddBiQuadraticQuad(pts, cellId, list);
+            break;
+
+          case VTK_BIQUADRATIC_QUADRATIC_WEDGE:
+            AddBiQuadraticQuadraticWedge(pts, cellId, list);
+            break;
+
+          case VTK_BIQUADRATIC_QUADRATIC_HEXAHEDRON:
+            AddBiQuadraticQuadraticHexahedron(pts, cellId, list);
+            break;
+
+          case VTK_TRIQUADRATIC_HEXAHEDRON:
+            AddTriQuadraticHexahedron(pts, cellId, list);
+            break;      
+
           default:
             AddUnknownCell(input->GetCell(cellId), cellId, list);
         }
     }
-
-    return numPolygonalCells;
 }
 
 // ****************************************************************************
@@ -2249,7 +2422,7 @@ AddPyramid(vtkIdType *pts, int cellId, HashEntryList &list)
 // ****************************************************************************
 // Function: AddQuadraticTriangle
 //
-// Purpose:
+// Purpose: 
 //   Breaks up the quadratic triangle into linear triangles and adds them
 //   to the hash entry list.
 //
@@ -2257,7 +2430,7 @@ AddPyramid(vtkIdType *pts, int cellId, HashEntryList &list)
 // Creation:   Mon May 8 14:52:30 PST 2006
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -2285,7 +2458,7 @@ AddQuadraticTriangle(vtkIdType *pts, int cellId, HashEntryList &list)
 // ****************************************************************************
 // Function: AddQuadraticQuad
 //
-// Purpose:
+// Purpose: 
 //   Breaks up the quadratic quad into linear triangles and adds them
 //   to the hash entry list.
 //
@@ -2293,7 +2466,7 @@ AddQuadraticTriangle(vtkIdType *pts, int cellId, HashEntryList &list)
 // Creation:   Mon May 8 14:52:30 PST 2006
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -2329,7 +2502,7 @@ AddQuadraticQuad(vtkIdType *pts, int cellId, HashEntryList &list)
 // ****************************************************************************
 // Function: AddQuadraticTetrahedron
 //
-// Purpose:
+// Purpose: 
 //   Breaks up the faces of the quadratic tet into linear triangles and adds
 //   them to the hash entry list.
 //
@@ -2337,7 +2510,7 @@ AddQuadraticQuad(vtkIdType *pts, int cellId, HashEntryList &list)
 // Creation:   Mon May 8 14:52:30 PST 2006
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -2363,7 +2536,7 @@ AddQuadraticTetrahedron(vtkIdType *pts, int cellId, HashEntryList &list)
 // ****************************************************************************
 // Function: AddQuadraticHexahedron
 //
-// Purpose:
+// Purpose: 
 //   Breaks up the faces of the quadratic hex into linear triangles and adds
 //   them to the hash entry list.
 //
@@ -2371,7 +2544,7 @@ AddQuadraticTetrahedron(vtkIdType *pts, int cellId, HashEntryList &list)
 // Creation:   Mon May 8 14:52:30 PST 2006
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -2400,7 +2573,7 @@ AddQuadraticHexahedron(vtkIdType *pts, int cellId, HashEntryList &list)
 // ****************************************************************************
 // Function: AddQuadraticPyramid
 //
-// Purpose:
+// Purpose: 
 //   Breaks up the faces of the quadratic pyramid into linear triangles and
 //   adds them to the list.
 //
@@ -2408,7 +2581,7 @@ AddQuadraticHexahedron(vtkIdType *pts, int cellId, HashEntryList &list)
 // Creation:   Thu Apr 29 14:32:38 PST 2010
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -2444,7 +2617,7 @@ AddQuadraticPyramid(vtkIdType *pts, int cellId, HashEntryList &list)
 // ****************************************************************************
 // Function: AddQuadraticWedge
 //
-// Purpose:
+// Purpose: 
 //   Breaks up the faces of the quadratic wedge into linear triangles and
 //   adds them to the list.
 //
@@ -2452,7 +2625,7 @@ AddQuadraticPyramid(vtkIdType *pts, int cellId, HashEntryList &list)
 // Creation:   Thu Apr 29 14:32:38 PST 2010
 //
 // Modifications:
-//
+//   
 // ****************************************************************************
 
 void
@@ -2489,16 +2662,311 @@ AddQuadraticWedge(vtkIdType *pts, int cellId, HashEntryList &list)
 }
 
 // ****************************************************************************
-// Function: AddUnknownCell
+// Function: AddQuadraticLinearQuad
 //
 // Purpose:
+//   Breaks up the faces of the quadratic linear quad into linear triangles and
+//   adds them to the list.
+//
+// Programmer: Kenneth Leiter
+// Creation:   Sun Feb 20 11:09:27 PST 2011
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+AddQuadraticLinearQuad(vtkIdType *pts, int cellId, HashEntryList &list)
+{
+    vtkIdType nodes[3];
+    nodes[0] = pts[0];
+    nodes[1] = pts[5];
+    nodes[2] = pts[3];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[0];
+    nodes[1] = pts[4];
+    nodes[2] = pts[5];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[4];
+    nodes[1] = pts[1];
+    nodes[2] = pts[5];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[1];
+    nodes[1] = pts[2];
+    nodes[2] = pts[5];
+    list.AddTri(nodes, cellId);
+}
+
+// ****************************************************************************
+// Function: AddQuadraticLinearWedge
+//
+// Purpose:
+//   Breaks up the faces of the quadratic linear wedge into linear triangles and
+//   adds them to the list.
+//
+// Programmer: Kenneth Leiter
+// Creation:   Sun Feb 20 12:56:55 PST 2011
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+AddQuadraticLinearWedge(vtkIdType *pts, int cellId, HashEntryList &list)
+{
+    const int triangles[][3] = {
+        {0,6,8},{6,7,8},{6,1,7},{8,7,2},
+        {4,9,10},{9,11,10},{9,3,11},{10,11,5},
+    };
+    const int quads[][4] = {
+        {0,2,5,3},
+        {0,3,4,1},
+        {1,4,5,2}
+    };
+    vtkIdType nodes[4];
+    for(int i = 0; i < 8; ++i)
+    {
+        nodes[0] = pts[triangles[i][0]];
+        nodes[1] = pts[triangles[i][1]];
+        nodes[2] = pts[triangles[i][2]];
+        list.AddTri(nodes, cellId);
+    }
+    for(int i = 0; i < 3; ++i)
+    {
+        nodes[0] = pts[quads[i][0]];
+        nodes[1] = pts[quads[i][1]];
+        nodes[2] = pts[quads[i][2]];
+        nodes[3] = pts[quads[i][3]];
+        list.AddQuad(nodes, cellId);
+    }
+}
+
+// ****************************************************************************
+// Function: AddBiQuadraticTriangle
+//
+// Purpose:
+//   Breaks up the bi quadratic triangle into linear triangles and adds them
+//   to the hash entry list.
+//
+// Programmer: Kenneth Leiter
+// Creation:   Mon Feb 21 09:11:40 PST 2006
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+AddBiQuadraticTriangle(vtkIdType *pts, int cellId, HashEntryList &list)
+{
+    vtkIdType nodes[3];
+    nodes[0] = pts[0];
+    nodes[1] = pts[3];
+    nodes[2] = pts[6];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[3];
+    nodes[1] = pts[1];
+    nodes[2] = pts[6];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[1];
+    nodes[1] = pts[4];
+    nodes[2] = pts[6];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[4];
+    nodes[1] = pts[2];
+    nodes[2] = pts[5];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[4];
+    nodes[1] = pts[5];
+    nodes[2] = pts[6];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[5];
+    nodes[1] = pts[0];
+    nodes[2] = pts[6];
+    list.AddTri(nodes, cellId);
+}
+
+// ****************************************************************************
+// Function: AddBiQuadraticQuad
+//
+// Purpose:
+//   Breaks up the bi quadratic quad into linear triangles and adds them
+//   to the hash entry list.
+//
+// Programmer: Kenneth Leiter
+// Creation:   Mon Feb 21 10:01:41 PST 2006
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+AddBiQuadraticQuad(vtkIdType *pts, int cellId, HashEntryList &list)
+{
+    vtkIdType nodes[3];
+    nodes[0] = pts[0];
+    nodes[1] = pts[4];
+    nodes[2] = pts[8];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[4];
+    nodes[1] = pts[1];
+    nodes[2] = pts[8];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[1];
+    nodes[1] = pts[5];
+    nodes[2] = pts[8];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[5];
+    nodes[1] = pts[2];
+    nodes[2] = pts[8];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[2];
+    nodes[1] = pts[6];
+    nodes[2] = pts[8];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[6];
+    nodes[1] = pts[3];
+    nodes[2] = pts[8];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[3];
+    nodes[1] = pts[7];
+    nodes[2] = pts[8];
+    list.AddTri(nodes, cellId);
+    nodes[0] = pts[7];
+    nodes[1] = pts[0];
+    nodes[2] = pts[8];
+    list.AddTri(nodes, cellId);
+}
+
+// ****************************************************************************
+// Function: AddBiQuadraticQuadraticWedge
+//
+// Purpose:
+//   Breaks up the faces of the bi quadratic wedge into linear triangles and
+//   adds them to the list.
+//
+// Programmer: Brad Whitlock
+// Creation:   Thu Apr 29 14:32:38 PST 2010
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+AddBiQuadraticQuadraticWedge(vtkIdType *pts, int cellId, HashEntryList &list)
+{
+    const int triangles[][3] = {
+        {0,6,8},{6,7,8},{6,1,7},{8,7,2},
+        {4,9,10},{9,10,11},{9,3,11},{10,11,5},
+        {3,12,11},{11,14,5},{12,0,8},{14,8,2},
+        {5,14,10},{10,13,4},{14,2,7},{13,7,1},
+        {4,13,9},{9,12,3},{13,1,6},{12,6,0},
+        {6,15,13},{13,15,9},{9,15,12},{12,15,6},
+        {14,17,8},{11,17,14},{12,17,11},{8,17,12},
+        {14,7,16},{10,14,16},{13,10,16},{7,13,16}
+    };
+    vtkIdType nodes[3];
+    for(int i = 0; i < 32; ++i)
+    {
+        nodes[0] = pts[triangles[i][0]];
+        nodes[1] = pts[triangles[i][1]];
+        nodes[2] = pts[triangles[i][2]];
+        list.AddTri(nodes, cellId);
+    }
+}
+
+// ****************************************************************************
+// Function: AddBiQuadraticQuadraticHexahedron
+//
+// Purpose:
+//   Breaks up the faces of the bi quadratic hexahedron into linear triangles 
+//   and adds them to the list.
+//
+// Programmer: Kenneth Leiter
+// Creation:   Mon Feb 21 14:55:30 PST 2010
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+AddBiQuadraticQuadraticHexahedron(vtkIdType *pts, int cellId, HashEntryList &list)
+{
+    const int triangles[][3] = {
+        {0,8,16},{8,1,17},{17,5,12},{12,4,16},
+        {16,8,22},{8,17,22},{17,12,22},{12,16,22},
+        {1,9,17},{9,2,18},{18,6,13},{13,5,17},
+        {17,9,21},{9,18,21},{18,13,21},{13,17,21},
+        {2,10,18},{10,3,19},{19,7,14},{14,6,18},
+        {18,10,23},{10,19,23},{19,14,23},{14,18,23},
+        {3,11,19},{11,0,16},{16,4,15},{15,7,19},
+        {19,11,20},{11,16,20},{16,15,20},{15,19,20},
+        {4,12,15},{12,5,13},{13,6,14},{14,7,15},
+        {12,13,14},{12,14,15},
+        {3,10,11},{10,2,9},{9,1,8},{8,0,11},
+        {10,9,8},{10,8,11}        
+    };
+    vtkIdType nodes[3];
+    for(int i = 0; i < 44; ++i)
+    {
+        nodes[0] = pts[triangles[i][0]];
+        nodes[1] = pts[triangles[i][1]];
+        nodes[2] = pts[triangles[i][2]];
+        list.AddTri(nodes, cellId);
+    }
+}
+
+// ****************************************************************************
+// Function: AddTriQuadraticHexahedron
+//
+// Purpose:
+//   Breaks up the faces of the tri quadratic hexahedron into linear triangles 
+//   and adds them to the list.
+//
+// Programmer: Kenneth Leiter
+// Creation:   Mon Feb 21 14:55:30 PST 2010
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+AddTriQuadraticHexahedron(vtkIdType *pts, int cellId, HashEntryList &list)
+{
+    const int triangles[][3] = {
+        {0,8,16},{8,1,17},{17,5,12},{12,4,16},
+        {16,8,22},{8,17,22},{17,12,22},{12,16,22},
+        {1,9,17},{9,2,18},{18,6,13},{13,5,17},
+        {17,9,21},{9,18,21},{18,13,21},{13,17,21},
+        {2,10,18},{10,3,19},{19,7,14},{14,6,18},
+        {18,10,23},{10,19,23},{19,14,23},{14,18,23},
+        {3,11,19},{11,0,16},{16,4,15},{15,7,19},
+        {19,11,20},{11,16,20},{16,15,20},{15,19,20},
+        {4,12,15},{12,5,13},{13,6,14},{14,7,15},
+        {15,12,25},{12,13,25},{13,14,25},{14,15,25},
+        {3,10,11},{10,2,9},{9,1,8},{8,0,11},
+        {9,8,24},{8,11,24},{11,10,24},{10,9,24}        
+    };
+    vtkIdType nodes[3];
+    for(int i = 0; i < 48; ++i)
+    {
+        nodes[0] = pts[triangles[i][0]];
+        nodes[1] = pts[triangles[i][1]];
+        nodes[2] = pts[triangles[i][2]];
+        list.AddTri(nodes, cellId);
+    }
+}
+
+// ****************************************************************************
+// Function: AddUnknownCell
+//
+// Purpose: 
 //     Adds a cell of unknown type by using VTK general interface methods.
 //
 // Programmer: Hank Childs
 // Creation:   September 7, 2006
 //
 // Modifications:
-//
+//   
 //   Hank Childs, Thu Jul  9 08:09:26 PDT 2009
 //   Add support for polygons.
 //
@@ -2507,7 +2975,6 @@ AddQuadraticWedge(vtkIdType *pts, int cellId, HashEntryList &list)
 void
 AddUnknownCell(vtkCell *cell, int cellId, HashEntryList &list)
 {
-    vtkIdList *pt_ids = cell->GetPointIds();
     int nFaces = cell->GetNumberOfFaces();
     vtkIdType nodes[4];
     for (int i = 0 ; i < nFaces ; i++)
@@ -2530,7 +2997,7 @@ AddUnknownCell(vtkCell *cell, int cellId, HashEntryList &list)
         }
         else if (face->GetCellType() == VTK_POLYGON)
         {
-            static vtkIdList *tris = vtkIdList::New();
+            vtkIdList *tris = vtkIdList::New();
             vtkPolygon *polygon = (vtkPolygon *) face;
             polygon->Triangulate(tris);
             int numTris = tris->GetNumberOfIds() / 3;
@@ -2541,8 +3008,8 @@ AddUnknownCell(vtkCell *cell, int cellId, HashEntryList &list)
                 nodes[2] = polygon->GetPointId(tris->GetId(3*i+2));
                 list.AddTri(nodes, cellId);
             }
+            tris->Delete();
         }
     }
 }
-
 

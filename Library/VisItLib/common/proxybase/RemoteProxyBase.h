@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -90,6 +90,14 @@ class RemoteProcess;
 //    Jeremy Meredith, Thu Feb 18 15:25:27 EST 2010
 //    Split HostProfile int MachineProfile and LaunchProfile.
 //
+//    Eric Brugger, Mon May  2 16:41:53 PDT 2011
+//    I added the ability to use a gateway machine when connecting to a
+//    remote host.
+//
+//    Brad Whitlock, Tue Jun  5 17:30:06 PDT 2012
+//    Change Create method so it takes a MachineProfile instead of a bunch
+//    of separate options.
+//
 // ****************************************************************************
 
 class PROXYBASE_API RemoteProxyBase
@@ -98,20 +106,15 @@ public:
     RemoteProxyBase(const std::string &componentName);
     virtual ~RemoteProxyBase();
 
-    void SetRemoteUserName(const std::string &rName);
     void SetProgressCallback(bool (*cb)(void *, int), void *data);
     void AddArgument(const std::string &arg);
     void AddProfileArguments(const MachineProfile &machine,
                              bool addParallelArgs);
 
-    void Create(const std::string &hostName,
-                MachineProfile::ClientHostDetermination chd,
-                const std::string &clientHostName,
-                bool manualSSHPort,
-                int sshPort,
-                bool useTunneling,
-                ConnectCallback *connectCallback = 0,
-                void *data = 0, bool createAsThoughLocal = false);
+    virtual void Create(const MachineProfile &profile, 
+                        ConnectCallback *connectCallback = 0, 
+                        void *connectCallbackData = 0,
+                        bool createAsThoughLocal = false);
     void Close();
     virtual void SendKeepAlive();
 
@@ -140,7 +143,6 @@ protected:
     QuitRPC              quitRPC;
     KeepAliveRPC         keepAliveRPC;
 
-    std::string          remoteUserName;
     int                  nWrite;
     int                  nRead;
 

@@ -1,5 +1,6 @@
 
 set(SOURCES
+  avtM3DC1Field.C
   avtM3DC1FileFormat.C
   avtM3DC1FileFormat.h
   avtM3DC1Options.C

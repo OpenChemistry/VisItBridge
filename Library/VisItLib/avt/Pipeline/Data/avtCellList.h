@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -136,14 +136,14 @@ class PIPELINE_API avtCellList
 
     bool                     jittering;
 
-    char                    *Serialize(const float (*)[3], 
-                                       const float (*)[AVT_VARIABLE_LIMIT],int);
-    char                    *SerializePoint(const float *, const float *);
+    char                    *Serialize(const double (*)[3], 
+                                       const double (*)[AVT_VARIABLE_LIMIT],int);
+    char                    *SerializePoint(const double *, const double *);
     void                     Store(char *, int, int, int, int, int);
-    void                     Unserialize(float (*)[3],
-                                         float (*)[AVT_VARIABLE_LIMIT], int, 
+    void                     Unserialize(double (*)[3],
+                                         double (*)[AVT_VARIABLE_LIMIT], int, 
                                          const char *&);
-    void                     UnserializePoint(float *, float *, const char *&);
+    void                     UnserializePoint(double *, double *, const char *&);
 
   private:
     // These methods are defined to prevent accidental use of bitwise copy

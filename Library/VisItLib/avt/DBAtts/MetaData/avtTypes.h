@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -113,11 +113,31 @@ enum avtGhostType
     AVT_MAYBE_GHOSTS    /* 3 */
 };
 
+//
+// Note:
+// These are used in a bit mask.
+// If you need to extend the available types
+// make sure to shift new enum values properly.
+//
+enum avtGhostsZonesPresent
+{
+    AVT_NO_GHOST_ZONES          = 0,
+    AVT_BOUNDARY_GHOST_ZONES,  /* 1 */
+    AVT_NESTING_GHOST_ZONES    /* 2 */
+};
+
 enum avtMeshCoordType
 {
     AVT_XY      = 0,
     AVT_RZ,    /* 1 */
     AVT_ZR     /* 2 */
+};
+
+enum avtPrecisionType
+{
+    AVT_PRECISION_FLOAT     = 0,
+    AVT_PRECISION_NATIVE,  /* 1 */
+    AVT_PRECISION_DOUBLE   /* 2 */
 };
 
 enum SetState
@@ -165,6 +185,7 @@ DBATTS_API std::string avtExtentType_ToString(int);
 DBATTS_API bool avtExtentType_FromString(const std::string &, avtExtentType &);
 
 DBATTS_API std::string avtVarTypeToString(avtVarType);
+DBATTS_API std::string avtPrecisionTypeToString(avtPrecisionType);
 
 DBATTS_API std::string LoadBalanceSchemeToString(LoadBalanceScheme);
 

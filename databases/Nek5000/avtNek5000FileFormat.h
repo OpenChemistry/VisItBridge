@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -48,6 +48,7 @@
 #include <map>
 #include <vector>
 
+class     DBOptionsAttributes;
 class     avtIntervalTree;
 class     avtIsolevelsSelection;
 class     avtPlaneSelection;
@@ -129,12 +130,21 @@ class KeyCompare {
 //    Eric Brugger, Thu Nov 12 17:18:29 PST 2009
 //    Removed the version data member since it is no longer used.
 //
+//    Hank Childs, Sun Oct 28 17:56:17 PDT 2012
+//    Add attributes for reading all times, cycles.
+//
+//    Hank Childs, Fri Jan  4 14:33:11 PST 2013
+//    Add support for time periodicity.
+//
+//    Hank Childs, Mon Mar  4 18:35:27 PST 2013
+//    Add support for duplicating data.
+//
 // ****************************************************************************
 
 class avtNek5000FileFormat : public avtMTMDFileFormat
 {
   public:
-                       avtNek5000FileFormat(const char *);
+                       avtNek5000FileFormat(const char *, DBOptionsAttributes *);
     virtual           ~avtNek5000FileFormat();
 
     virtual void       RegisterDataSelections(
@@ -174,6 +184,9 @@ class avtNek5000FileFormat : public avtMTMDFileFormat
     int                  iNumOutputDirs;  //used in parallel format
     bool                 bParFormat;
 
+    int                  numberOfTimePeriods;
+    double               gapBetweenTimePeriods;
+
     // This info is embedded in, or derived from, the file header
     bool                 bSwapEndian;
     int                  iNumBlocks;
@@ -196,6 +209,9 @@ class avtNek5000FileFormat : public avtMTMDFileFormat
     std::vector<bool>    iTimestepsWithMesh;
     int                  curTimestep;
     int                  timestepToUseForMesh;
+
+    bool                 readOptionToGetAllTimes;
+    bool                 duplicateData;
 
     // Cached data describing how to read data out of the file.
     FILE *fdMesh, *fdVar;

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -45,6 +45,7 @@
 #include <vectortypes.h>
 #include <VisItException.h>
 #include <MapNode.h>
+#include <JSONNode.h>
 
 // Forward declaration
 class AttributeGroup;
@@ -169,6 +170,18 @@ public:
     void Read(Connection &conn);
     int  CalculateMessageSize(Connection &conn);
 
+    void Write(MapNode& map);
+    void WriteAPI(MapNode& map);
+    void WriteMetaData(MapNode& map);
+    //void Read(MapNode& map);
+
+    void Write(JSONNode& map);
+    void WriteAPI(JSONNode& map);
+    void WriteMetaData(JSONNode& map);
+    //void Read(JSONNode& map);
+
+    void SetSendMetaInformation(bool send) { sendMetaInformation = send; }
+    bool GetSendMetaInformation() { return sendMetaInformation; }
     int  NumAttributes() const;
     int  NumAttributesSelected() const;
     bool IsSelected(int i) const;
@@ -186,7 +199,7 @@ public:
     virtual void SetFromNode(DataNode *node);
     virtual void ProcessOldVersions(DataNode *node, const char *configVersion);
 
-    friend ostream& operator<<(ostream& os, const AttributeGroup&);
+    STATE_API friend ostream& operator<<(ostream& os, const AttributeGroup&);
 
     virtual bool CopyAttributes(const AttributeGroup *atts);
     virtual void InterpolateConst(const AttributeGroup *atts1,
@@ -323,17 +336,28 @@ private:
     void CreateTypeMap(const char *formatString);
     void WriteType(Connection &conn, typeInfo &info);
     void ReadType(Connection &conn, int attrId, typeInfo &info);
+    void WriteType(MapNode &map, int attrId, typeInfo &info);
+    void WriteAPI(MapNode &map, int attrId,typeInfo &info);
+    //void ReadType(MapNode &map, int attrId, typeInfo &info);
+    void WriteMetaData(MapNode &map, int attrId,typeInfo &info);
+
+    void WriteType(JSONNode &map, int attrId, typeInfo &info);
+    void WriteAPI(JSONNode &map, int attrId,typeInfo &info);
+    //void ReadType(JSONNode &map, int attrId, typeInfo &info);
+    void WriteMetaData(JSONNode &map, int attrId,typeInfo &info);
 private:
     typeInfoVector typeMap;  // Holds typemap for the whole class
     int guido;
+    bool sendMetaInformation;   //tells connection whether to send meta information
+                                //as well.
 };
 
-ostream& operator<<(ostream& os, const AttributeGroup&);
+STATE_API ostream& operator<<(ostream& os, const AttributeGroup&);
 
 typedef std::vector<AttributeGroup *> AttributeGroupVector;
 
 // An exception class
-class BadDeclareFormatString : public VisItException { };
-class StateObjectException : public VisItException { };
+class STATE_API BadDeclareFormatString : public VisItException { };
+class STATE_API StateObjectException : public VisItException { };
 
 #endif

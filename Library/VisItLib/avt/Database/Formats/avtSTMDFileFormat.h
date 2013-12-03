@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -68,18 +68,18 @@ class     avtIOInformation;
 //  Modifications:
 //
 //    Eric Brugger, Fri Dec  7 13:44:05 PST 2001
-//    I modified the class to handle the open file cache overflowing by
+//    I modified the class to handle the open file cache overflowing by 
 //    removing the earliest opened file when the cache overflows.
 //
 //    Hank Childs, Mon Mar 11 08:48:41 PST 2002
 //    Removed SetDatabaseMetaData since it is defined in the base class.
 //
-//    Kathleen Bonnell, Mon Mar 18 17:22:30 PST 2002
-//    vtkScalars and vtkVectors have  been deprecated in VTK 4.0,
+//    Kathleen Bonnell, Mon Mar 18 17:22:30 PST 2002 
+//    vtkScalars and vtkVectors have  been deprecated in VTK 4.0, 
 //    use vtkDataArray instead.
 //
-//    Kathleen Bonnell, Mon Mar 18 17:22:30 PST 2002
-//    vtkScalars and vtkVectors have  been deprecated in VTK 4.0,
+//    Kathleen Bonnell, Mon Mar 18 17:22:30 PST 2002 
+//    vtkScalars and vtkVectors have  been deprecated in VTK 4.0, 
 //    use vtkDataArray instead.
 //
 //    Mark C. Miller, Mon Feb 23 20:38:47 PST 2004
@@ -89,8 +89,10 @@ class     avtIOInformation;
 //    Added method, PopulateIOInformation
 //
 //    Mark C. Miller, Tue May 17 18:48:38 PDT 2005
-//    Added SetDatabaseMetaData and PopulateDatabaseMetaData. Removed GetCycle
+//    Added SetDatabaseMetaData and PopulateDatabaseMetaData. Removed GetCycle 
 //
+//    Mark C. Miller, Fri Oct 29 09:58:43 PDT 2010
+//    Moved implementation of SetDatabaseMetaData to the .C file.
 // ****************************************************************************
 
 class DATABASE_API avtSTMDFileFormat : public avtFileFormat
@@ -111,10 +113,9 @@ class DATABASE_API avtSTMDFileFormat : public avtFileFormat
                                { avtFileFormat::ActivateTimestep(); };
     virtual void           PopulateIOInformation(avtIOInformation& ioInfo)
                                { avtFileFormat::PopulateIOInformation(ioInfo); };
-    virtual void           SetDatabaseMetaData(avtDatabaseMetaData *md)
-                               { metadata = md; PopulateDatabaseMetaData(metadata); };
+    virtual void           SetDatabaseMetaData(avtDatabaseMetaData *md);
 
-    void                   SetTimestep(int ts, int ns)
+    void                   SetTimestep(int ts, int ns) 
                                  { timestep = ts; nTimesteps = ns; };
 
     virtual const char    *GetFilename(void) { return filenames[0]; };

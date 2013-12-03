@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -40,9 +40,12 @@
 //                             vtkVisItUtility.C                             //
 // ************************************************************************* //
 
+#include <algorithm>
+#include <float.h>
+#include <list>
+
 #include <vtkVisItUtility.h>
 
-#include <float.h>
 #include <vtkCell.h>
 #include <vtkCellData.h>
 #include <vtkCharArray.h>
@@ -59,6 +62,76 @@
 #include <vtkVisItPointLocator.h>
 #include <vtkDataSetWriter.h>
 
+#include <DebugStream.h>
+
+static std::list<vtkObject*> vtkobjects;
+
+// ****************************************************************************
+// Method: vtkVisItUtility_GetPointsRectilinear
+//
+// Purpose: 
+//   Create a vtkPoints from a rectilinear grid's points.
+//
+// Arguments:
+//
+// Returns:    
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Mon Mar 19 11:59:09 PDT 2012
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+template <typename T>
+vtkPoints *
+vtkVisItUtility_GetPointsRectilinear(int dt, vtkDataArray *xc, vtkDataArray *yc, vtkDataArray *zc)
+{ 
+    vtkIdType i,j,k;
+    vtkIdType nx = xc->GetNumberOfTuples();
+    vtkIdType ny = yc->GetNumberOfTuples();
+    vtkIdType nz = zc->GetNumberOfTuples();
+    T *x = new T[nx];
+    for (i = 0 ; i < nx ; i++)
+    {
+        x[i] = xc->GetComponent(i, 0);
+    }
+    T *y = new T[ny];
+    for (i = 0 ; i < ny ; i++)
+    {
+        y[i] = yc->GetComponent(i, 0);
+    }
+    T *z = new T[nz];
+    for (i = 0 ; i < nz ; i++)
+    {
+        z[i] = zc->GetComponent(i, 0);
+    }
+ 
+    vtkPoints *pts = vtkPoints::New(dt);
+    pts->SetNumberOfPoints(nx*ny*nz);
+    T *p = (T *) pts->GetVoidPointer(0);
+    for (k = 0 ; k < nz ; k++)
+    {
+        for (j = 0 ; j < ny ; j++)
+        {
+            for (i = 0 ; i < nx ; i++)
+            {
+                p[0] = x[i];
+                p[1] = y[j];
+                p[2] = z[k];
+                p += 3;
+            }
+        }
+    }
+ 
+    delete [] x;
+    delete [] y;
+    delete [] z;
+
+    return pts;
+}
 
 // ****************************************************************************
 //  Function: GetPoints
@@ -80,12 +153,14 @@
 //    Hank Childs, Fri Jan  3 14:27:51 PST 2003
 //    Account for point sets that don't have valid points.
 //
+//    Brad Whitlock, Mon Mar 19 11:58:54 PDT 2012
+//    I moved code into vtkVisItUtility_GetPointsRectilinear.
+//
 // ****************************************************************************
  
 vtkPoints *
 vtkVisItUtility::GetPoints(vtkDataSet *inDS)
 {
-    int   i, j, k;
     vtkPoints *pts = NULL;
  
     int type = inDS->GetDataObjectType();
@@ -109,52 +184,75 @@ vtkVisItUtility::GetPoints(vtkDataSet *inDS)
         //
         vtkRectilinearGrid *rgrid = (vtkRectilinearGrid *) inDS;
         vtkDataArray *xc = rgrid->GetXCoordinates();
-        int nx = xc->GetNumberOfTuples();
         vtkDataArray *yc = rgrid->GetYCoordinates();
-        int ny = yc->GetNumberOfTuples();
         vtkDataArray *zc = rgrid->GetZCoordinates();
-        int nz = zc->GetNumberOfTuples();
-        float *x = new float[nx];
-        for (i = 0 ; i < nx ; i++)
-        {
-            x[i] = xc->GetComponent(i, 0);
-        }
-        float *y = new float[ny];
-        for (i = 0 ; i < ny ; i++)
-        {
-            y[i] = yc->GetComponent(i, 0);
-        }
-        float *z = new float[nz];
-        for (i = 0 ; i < nz ; i++)
-        {
-            z[i] = zc->GetComponent(i, 0);
-        }
- 
-        pts = vtkPoints::New();
-        pts->SetNumberOfPoints(nx*ny*nz);
-        float *p = (float *) pts->GetVoidPointer(0);
-        for (k = 0 ; k < nz ; k++)
-        {
-            for (j = 0 ; j < ny ; j++)
-            {
-                for (i = 0 ; i < nx ; i++)
-                {
-                    p[0] = x[i];
-                    p[1] = y[j];
-                    p[2] = z[k];
-                    p += 3;
-                }
-            }
-        }
- 
-        delete [] x;
-        delete [] y;
-        delete [] z;
+
+        if(xc->GetDataType() == VTK_DOUBLE ||
+           yc->GetDataType() == VTK_DOUBLE ||
+           zc->GetDataType() == VTK_DOUBLE)
+            pts = vtkVisItUtility_GetPointsRectilinear<double>(VTK_DOUBLE, xc, yc, zc);
+        else
+            pts = vtkVisItUtility_GetPointsRectilinear<float>(VTK_FLOAT, xc, yc, zc);
     }
- 
+
     return pts;
 }
 
+// ****************************************************************************
+// Method: vtkVisItUtility::NewPoints
+//
+// Purpose: 
+//   Create vtkPoints with the same precision as the input dataset's points.
+//
+// Arguments:
+//   inDS : The dataset.
+//
+// Returns:    A new vtkPoints that has just been allocated; not populated.
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Wed Mar 21 11:58:09 PDT 2012
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+vtkPoints *
+vtkVisItUtility::NewPoints(vtkDataSet *inDS)
+{
+    vtkPoints *pts = NULL;
+ 
+    int type = inDS->GetDataObjectType();
+    if (type == VTK_POLY_DATA || type == VTK_UNSTRUCTURED_GRID ||
+        type == VTK_STRUCTURED_GRID)
+    {
+        // Allocate points with the same precision.
+        vtkPointSet *pt_ds = (vtkPointSet *) inDS;
+        pts = vtkPoints::New(pt_ds->GetPoints()->GetDataType());
+    }
+    else if (type == VTK_RECTILINEAR_GRID)
+    {
+        //
+        // We will need to construct a vtkPoints object.
+        //
+        vtkRectilinearGrid *rgrid = (vtkRectilinearGrid *) inDS;
+        vtkDataArray *xc = rgrid->GetXCoordinates();
+        vtkDataArray *yc = rgrid->GetYCoordinates();
+        vtkDataArray *zc = rgrid->GetZCoordinates();
+
+        if(xc->GetDataType() == VTK_DOUBLE ||
+           yc->GetDataType() == VTK_DOUBLE ||
+           zc->GetDataType() == VTK_DOUBLE)
+            pts = vtkPoints::New(VTK_DOUBLE);
+        else
+            pts = vtkPoints::New();
+    }
+    else
+        pts = vtkPoints::New();
+
+    return pts;
+}
 
 // ****************************************************************************
 //  Function: GetLogicalIndices
@@ -198,13 +296,17 @@ vtkVisItUtility::GetPoints(vtkDataSet *inDS)
 //    Kathleen Bonnell, Fri May 28 17:27:05 PDT 2004
 //    Forgot return for bad dims, and test for invalid ijk (< 0). 
 //
+//    Gunther H. Weber, Thu Aug 22 10:16:34 PDT 2013
+//    Added option to allow negative indices (false by default).
+//
 // ****************************************************************************
 
 void
-vtkVisItUtility::GetLogicalIndices(vtkDataSet *ds, const bool forCell, const int ID, 
+vtkVisItUtility::GetLogicalIndices(vtkDataSet *ds, const bool forCell, const int ID,
                                    int ijk[3], const bool global,
-                                   const bool adjustForGhosts)
-{ 
+                                   const bool adjustForGhosts,
+                                   const bool allowNegativeIndices)
+{
     int dimX, dimY, dims[3], base[3] = {0, 0, 0};
 
     GetDimensions(ds, dims);
@@ -261,11 +363,13 @@ vtkVisItUtility::GetLogicalIndices(vtkDataSet *ds, const bool forCell, const int
         ijk[2] = (ID / (dimX * dimY)) + base[2];
     }
 
-    ijk[0] = ijk[0] < 0 ? 0 : ijk[0];
-    ijk[1] = ijk[1] < 0 ? 0 : ijk[1];
-    ijk[2] = ijk[2] < 0 ? 0 : ijk[2];
+    if (!allowNegativeIndices)
+    {
+        ijk[0] = ijk[0] < 0 ? 0 : ijk[0];
+        ijk[1] = ijk[1] < 0 ? 0 : ijk[1];
+        ijk[2] = ijk[2] < 0 ? 0 : ijk[2];
+    }
 }
-
 
 
 // ****************************************************************************
@@ -1006,7 +1110,7 @@ vtkVisItUtility::WriteDataSet(vtkDataSet *ds, const char *fname)
 //    type      The data type for the coordinate arrays. 
 //
 //  Returns:
-//    A 1-dimenional vtkRectilinearGrid
+//    A 1-dimensional vtkRectilinearGrid
 // 
 //  Programmer: Kathleen Bonnell 
 //  Creation:   July 12, 2006
@@ -1015,52 +1119,105 @@ vtkVisItUtility::WriteDataSet(vtkDataSet *ds, const char *fname)
 //    Kathleen Bonnell, Mon Jul 14 15:02:11 PDT 2008
 //    Expanded the data types supported.
 //
+//    Kathleen Bonnell, Thu Feb 17 08:55:52 PST 2011
+//    Call CreateEmptyRGrid.
+//
 // ****************************************************************************
 
 vtkRectilinearGrid * 
 vtkVisItUtility::Create1DRGrid(int nXCoords, int type)
 {
+    return CreateEmptyRGrid(nXCoords, 1, 1, type);
+}
+
+
+// ****************************************************************************
+//  Function: CreateEmptyRGrid
+//
+//  Purpose:
+//    Creates a vtkRectilinearGrid of the specified dimensions and type.
+//
+//  Arguments:
+//    nXCoords  The number of X coordinates in the grid.
+//    nYCoords  The number of Y coordinates in the grid.
+//    nZCoords  The number of Z coordinates in the grid.
+//    type      The data type for the coordinate arrays. 
+//
+//  Returns:
+//    A vtkRectilinearGrid
+// 
+//  Programmer: Kathleen Bonnell 
+//  Creation:   July 12, 2006
+//
+//  Modifications:
+//    Kathleen Bonnell, Mon Jul 14 15:02:11 PDT 2008
+//    Expanded the data types supported.
+//
+//    Kathleen Bonnell, Thu Feb 17 08:55:52 PST 2011
+//    Copied from original Create1DRgrid, and expanded to create any size.
+//
+// ****************************************************************************
+
+vtkRectilinearGrid * 
+vtkVisItUtility::CreateEmptyRGrid(int nXCoords, int nYCoords, 
+                                  int nZCoords, int type)
+{
     vtkRectilinearGrid *rgrid = vtkRectilinearGrid::New();
-    rgrid->SetDimensions(nXCoords, 1, 1);
-    vtkDataArray *yz = NULL;
+    rgrid->SetDimensions(nXCoords, nYCoords, nZCoords);
+    vtkDataArray *zc = NULL;
+    vtkDataArray *yc = NULL;
     vtkDataArray *xc = NULL;
     if (type == VTK_FLOAT)
     {
         xc = vtkFloatArray::New();
-        yz = vtkFloatArray::New();
+        yc = vtkFloatArray::New();
+        zc = vtkFloatArray::New();
     }
     else if (type == VTK_DOUBLE)
     {
         xc = vtkDoubleArray::New();
-        yz = vtkDoubleArray::New();
+        yc = vtkDoubleArray::New();
+        zc = vtkDoubleArray::New();
     }
     else if (type == VTK_INT)
     {
         xc = vtkIntArray::New();
-        yz = vtkIntArray::New();
+        yc = vtkIntArray::New();
+        zc = vtkIntArray::New();
     }
     else if (type == VTK_SHORT)
     {
         xc = vtkShortArray::New();
-        yz = vtkShortArray::New();
+        yc = vtkShortArray::New();
+        zc = vtkShortArray::New();
     }
     else if (type == VTK_CHAR)
     {
         xc = vtkCharArray::New();
-        yz = vtkCharArray::New();
+        yc = vtkCharArray::New();
+        zc = vtkCharArray::New();
     }
-    yz->SetNumberOfComponents(1);
-    yz->SetNumberOfTuples(1);
-    yz->SetTuple1(0, 0.);
     xc->SetNumberOfComponents(1);
     xc->SetNumberOfTuples(nXCoords);
+    if (nXCoords == 1)
+        xc->SetTuple1(0, 0.);
+    yc->SetNumberOfComponents(1);
+    yc->SetNumberOfTuples(nYCoords);
+    if (nYCoords == 1)
+        yc->SetTuple1(0, 0.);
+    zc->SetNumberOfComponents(1);
+    zc->SetNumberOfTuples(nZCoords);
+    if (nZCoords == 1)
+      zc->SetTuple1(0, 0.);
     rgrid->SetXCoordinates(xc); 
-    rgrid->SetYCoordinates(yz); 
-    rgrid->SetZCoordinates(yz); 
+    rgrid->SetYCoordinates(yc); 
+    rgrid->SetZCoordinates(zc); 
     xc->Delete(); 
-    yz->Delete(); 
+    yc->Delete(); 
+    zc->Delete(); 
     return rgrid;
 }
+
 
 // ****************************************************************************
 //  Function: PointsEqual
@@ -1097,4 +1254,54 @@ vtkVisItUtility::PointsEqual(double pt1[3], double pt2[3], const double *_eps)
     if ((pt1[2] > pt2[2] - eps) && (pt1[2] < pt2[2]+eps))
         e3 = true;
     return e1 && e2 && e3;
+}
+
+// ****************************************************************************
+//  Function: RegisterStaticVTKObject
+//
+//  Purpose:
+//    Register a VTK object which will exist for the life of the program.  All
+//    registered objects can be deleted with the corresponding Cleanup method.
+//
+//  Arguments:
+//
+//  Programmer: Tom Fogal
+//  Creation:   September 27, 2011
+//
+//  Modifications:
+// ****************************************************************************
+void vtkVisItUtility::RegisterStaticVTKObject(vtkObject* obj)
+{
+  vtkobjects.push_front(obj);
+}
+
+// ****************************************************************************
+//  Function: RegisterStaticVTKObject
+//
+//  Purpose:
+//    Decrements the reference count on any registered VTK object.
+//
+//  Arguments:
+//
+//  Programmer: Tom Fogal
+//  Creation:   September 27, 2011
+//
+//  Modifications:
+// ****************************************************************************
+namespace {
+  template <class T> static void DeleteVTK(T* t) { t->Delete(); }
+#ifndef NDEBUG
+  template <class T> static void PrintVTK(T* t) {
+    debug5 << "  obj: " << t->GetClassName() << "\n";
+  }
+#endif
+}
+void vtkVisItUtility::CleanupStaticVTKObjects()
+{
+  debug1 << "Cleaning up " << vtkobjects.size() << " VTK objects.\n";
+#ifndef NDEBUG
+  std::for_each(vtkobjects.begin(), vtkobjects.end(), PrintVTK<vtkObject>);
+#endif
+  std::for_each(vtkobjects.begin(), vtkobjects.end(), DeleteVTK<vtkObject>);
+  vtkobjects.clear();
 }

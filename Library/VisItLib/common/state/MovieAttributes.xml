@@ -38,6 +38,9 @@
     <Field name="sendEmailNotification" label="Send Email notification" type="bool">
       false
     </Field>
+    <Field name="useScreenCapture" label="Use Screen Capture" type="bool">
+      false
+    </Field>
     <Field name="emailAddress" label="Email address" type="string">
     </Field>
     <Field name="fps" label="fps" type="int">
@@ -48,6 +51,9 @@
     </Field>
     <Field name="endIndex" label="endIndex" type="int">
       1000000000
+    </Field>
+    <Field name="stride" label="stride" type="int">
+      1
     </Field>
     <Function name="ValidateFormats" user="true" member="true">
     </Function>

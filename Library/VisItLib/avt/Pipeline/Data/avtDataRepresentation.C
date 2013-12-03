@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -68,6 +68,7 @@
 #include <DebugStream.h>
 #include <visitstream.h>
 #include <snprintf.h>
+#include <vtkVisItUtility.h>
 
 using std::string;
 using std::ostringstream;
@@ -617,6 +618,9 @@ avtDataRepresentation::GetDataString(int &length, DataSetType &dst, bool compres
 //    Removed call to SetSource(NULL) as it now removes information necessary
 //    to the dataset.
 //
+//    Kathleen Biagas, Mon Jan 28 10:29:06 PST 2013
+//    Call Update on the reader, not the dataset.
+//
 // ****************************************************************************
 
 vtkDataSet *
@@ -721,7 +725,6 @@ avtDataRepresentation::GetDataVTK(void)
             }
 
             asVTK->Register(NULL);
-            //asVTK->SetSource(NULL);
             reader->Delete();
             charArray->Delete();
             originalString = NULL;
@@ -768,8 +771,33 @@ avtDataRepresentation::InitializeNullDataset(void)
 
     nullDataset = ugrid;
     initializedNullDataset = true;
+
+#if defined(DEBUG_MEMORY_LEAKS)
+    atexit(DeleteNullDataset);
+#endif
 }
 
+// ****************************************************************************
+//  Function: DeleteNullDataset
+//
+//  Purpose:
+//      Delete the initializedNullDataset object. This is to help with memory
+//    tools to remove the still reachable memory.
+//
+//  Programmer: David Camp
+//  Creation:   August 16, 2011
+//
+// ****************************************************************************
+void 
+avtDataRepresentation::DeleteNullDataset(void)
+{
+    if (nullDataset)
+    {
+        nullDataset->Delete();
+        nullDataset = NULL;
+        initializedNullDataset = false;
+    }
+}
 
 // ****************************************************************************
 //  Function: DatasetTypeForVTK
@@ -947,8 +975,18 @@ avtDataRepresentation::GetTimeToDecompress() const
 //    for dump output.
 //
 //    Jeremy Meredith, Thu Apr  1 16:42:41 EDT 2010
-//    Accound for removed point/cell arrays when determining how many
+//    Account for removed point/cell arrays when determining how many
 //    of each of those we need to actually write.
+//
+//    Hank Childs, Sun Jun  6 11:15:23 CDT 2010
+//    Account for NULL vtkPoints objects. 
+//
+//    Kathleen Bonnell, Tue Dec 14 12:31:40 PST 2010
+//    std::string doesn't like assignment to a NULL const char *, so don't
+//    assume array->GetName() doesn't return NULL.
+//
+//    Tom Fogal, Tue Sep 27 11:04:08 MDT 2011
+//    Fix warning.
 //
 // ****************************************************************************
 
@@ -1015,7 +1053,9 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
         for(int i = 0; i < nfield; i++)
         {
             vtkDataArray *arr = newDS->GetFieldData()->GetArray(i);
-            string cur_name = arr->GetName();
+            string cur_name("");
+            if (arr->GetName() != NULL)
+                cur_name = arr->GetName();
             string dmp_name = cur_name;
             orig_names.push_back(cur_name);
             if( cur_name.find("avt") == 0 )
@@ -1031,7 +1071,9 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
         for(int i = 0; i < npt; i++)
         {
             vtkDataArray *arr = newDS->GetPointData()->GetArray(i);
-            string cur_name = arr->GetName();
+            string cur_name(""); 
+            if (arr->GetName() != NULL)
+                cur_name = arr->GetName();
             string dmp_name = cur_name;
             orig_names.push_back(cur_name);
             if( cur_name.find("avt") == 0 )
@@ -1047,7 +1089,9 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
         for(int i = 0; i < ncell; i++)
         {
             vtkDataArray *arr = newDS->GetCellData()->GetArray(i);
-            string cur_name = arr->GetName();
+            string cur_name(""); 
+            if (arr->GetName() != NULL)
+                cur_name = arr->GetName();
             string dmp_name = cur_name;
             orig_names.push_back(cur_name);
             if( cur_name.find("avt") == 0 )
@@ -1123,6 +1167,7 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
     int dims[3] = { -1, -1, -1 };
     int vtktype = asVTK->GetDataObjectType();
     int ptcnt = -1;
+    vtkPoints *pts = NULL;
 
     switch (vtktype)
     {
@@ -1134,17 +1179,20 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
       case VTK_STRUCTURED_GRID:
         mesh_type = "curvilinear mesh";
         ((vtkStructuredGrid *) asVTK)->GetDimensions(dims);
-        ptcnt=((vtkStructuredGrid *) asVTK)->GetPoints()->GetReferenceCount();
+        pts = ((vtkStructuredGrid *) asVTK)->GetPoints();
+        ptcnt=(pts ? pts->GetReferenceCount() : -2);
         break;
 
       case VTK_UNSTRUCTURED_GRID:
         mesh_type = "unstructured mesh";
-        ptcnt=((vtkUnstructuredGrid *) asVTK)->GetPoints()->GetReferenceCount();
+        pts = ((vtkUnstructuredGrid *) asVTK)->GetPoints();
+        ptcnt=(pts ? pts->GetReferenceCount() : -2);
         break;
 
       case VTK_POLY_DATA:
         mesh_type = "poly data mesh";
-        ptcnt=((vtkPolyData *) asVTK)->GetPoints()->GetReferenceCount();
+        pts = ((vtkPolyData *) asVTK)->GetPoints();
+        ptcnt=(pts ? pts->GetReferenceCount() : -2);
         break;
     }
 
@@ -1171,9 +1219,14 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
         oss << "Refs to mesh = " << asVTK->GetReferenceCount() 
             << ", to points = "  << ptcnt << "<br>";
     }
-    else
+    else if (ptcnt == -1)
     {
         oss << "Refs to mesh = " << asVTK->GetReferenceCount() << "<br>";
+    }
+    else
+    {
+        oss << "Refs to mesh = " << asVTK->GetReferenceCount() 
+            << " (mesh has NULL vtkPoints object)" << "<br>";
     }
 
     // Do field data.
@@ -1195,7 +1248,7 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
             oss << "<ul>";
             for (int i=0; i<data[fd]->GetNumberOfArrays(); i++)
             {
-                char *arr_type = "<unknown>";
+                const char *arr_type = "<unknown>";
                 switch (data[fd]->GetArray(i)->GetDataType())
                 {
                   case VTK_CHAR:
@@ -1248,7 +1301,7 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
         }
     }
 
-    SNPRINTF(str,strsize,oss.str().c_str());
+    SNPRINTF(str,strsize,"%s",oss.str().c_str());
     return str;
 }
 

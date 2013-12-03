@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -48,6 +48,9 @@
 #include <DebugStream.h>
 
 #include <cstring>
+
+#include <string>
+#include <vector>
 
 // ****************************************************************************
 //  Method: avtDatasetToSamplePointsFilter constructor
@@ -148,8 +151,8 @@ avtDatasetToSamplePointsFilter::PreExecute(void)
 
     if (!leaveAsIs)
     {
-        vector<string> varnames;
-        vector<int>    varsize;
+        std::vector<std::string> varnames;
+        std::vector<int>    varsize;
         int realNVars = 0;
         for (int i = 0 ; i < vl.nvars ; i++)
         {

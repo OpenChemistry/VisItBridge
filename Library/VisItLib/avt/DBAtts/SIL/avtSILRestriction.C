@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -54,11 +54,13 @@
 #include <IncompatibleDomainListsException.h>
 #include <InvalidVariableException.h>
 #include <TimingsManager.h>
+#include <stack>
 
 #define STATE_INDEX(S) (((S)==SomeUsed)?1:(((S)==AllUsed)?2:((S)==SomeUsedOtherProc?3:((S)==AllUsedOtherProc?4:0))))
 
 using  std::string;
 using  std::vector;
+using  std::stack;
 
 // ****************************************************************************
 // Method: VariableNamesEqual
@@ -480,7 +482,7 @@ avtSILRestriction::SetTopSet(int ts)
         EXCEPTION2(BadIndexException, ts, ns);
     }
 
-    int i, found = 0;
+    size_t i, found = 0;
     for (i = 0 ; i < wholesList.size() && !found; i++)
     {
         if (wholesList[i] == ts)
@@ -502,7 +504,7 @@ avtSILRestriction::SetTopSet(int ts)
     //
     // Turn off the other whole sets that were not selected as "top".
     //
-    int listSize = wholesList.size();
+    size_t listSize = wholesList.size();
     for (i = 0 ; i < listSize ; i++)
     {
         if (wholesList[i] != topSet)
@@ -546,8 +548,8 @@ void
 avtSILRestriction::SetTopSet(const char *meshname)
 {
     int setIndex = -1;
-    int listSize = wholesList.size();
-    for (int i = 0 ; i < listSize ; i++)
+    size_t listSize = wholesList.size();
+    for (size_t i = 0 ; i < listSize ; i++)
     {
         avtSILSet_p set = GetSILSet(wholesList[i]);
         const string &str = set->GetName();
@@ -1106,8 +1108,8 @@ avtSILRestriction::FastIntersect(avtSILRestriction_p silr)
 {
     if (useSet.size() != silr->useSet.size())
     {
-        EXCEPTION2(IncompatibleDomainListsException, useSet.size(),
-                   silr->useSet.size());
+        EXCEPTION2(IncompatibleDomainListsException, static_cast<int>(useSet.size()),
+                   static_cast<int>(silr->useSet.size()));
     }
 
     //
@@ -1121,8 +1123,8 @@ avtSILRestriction::FastIntersect(avtSILRestriction_p silr)
                          NoneUsed, SomeUsedOtherProc, SomeUsedOtherProc, SomeUsedOtherProc,
                          NoneUsed, SomeUsedOtherProc, AllUsedOtherProc, SomeUsedOtherProc, AllUsedOtherProc };
 
-    const int nsets = useSet.size();
-    for (int i = 0 ; i < nsets ; i++)
+    size_t nsets = useSet.size();
+    for (size_t i = 0 ; i < nsets ; i++)
     {
         int index = (STATE_INDEX(useSet[i]) * 5) +
                      STATE_INDEX(silr->useSet[i]);
@@ -1169,8 +1171,8 @@ avtSILRestriction::Union(avtSILRestriction_p silr)
 {
     if (useSet.size() != silr->useSet.size())
     {
-        EXCEPTION2(IncompatibleDomainListsException, useSet.size(),
-                   silr->useSet.size());
+        EXCEPTION2(IncompatibleDomainListsException, static_cast<int>(useSet.size()),
+                   static_cast<int>(silr->useSet.size()));
     }
 
     //
@@ -1899,6 +1901,15 @@ avtSILRestriction::GetSubsets(int ind, vector<int> &outsets) const
 //    Hank Childs, Fri Dec 11 11:37:48 PST 2009
 //    Add a timer.
 //
+//    Cyrus Harrison, Tue Feb 22 14:39:19 PST 2011
+//    More robust matching for case were leaves & names may not exactly match.
+//
+//    Hank Childs, Fri Feb 24 14:38:15 PST 2012
+//    Make sure material selections get propagated.
+//
+//    Hank Childs, Thu Mar  1 13:48:17 PST 2012
+//    Propagate levels selections as well.
+//
 // ****************************************************************************
 
 bool
@@ -1956,43 +1967,80 @@ avtSILRestriction::SetFromCompatibleRestriction(avtSILRestriction_p silr)
         for (i = 0; i < leaves.size(); i++)
             useSet[leaves[i]] = 0xAA;
 
-        //
-        // Now, for every non-domain set, find its equivalent in the
-        // input SIL and set this set's selection similarly
-        //
-        for (i = 0; i < GetNumSets(); i++)
+        // stacks used for DFS
+        stack<int> stack_curr;
+        stack<int> stack_other;
+
+        // start from the topset and do a DFS traversal of both silrs
+        stack_curr.push(this->GetTopSet());
+        stack_other.push(silr->GetTopSet());
+
+        // Note: these stacks should always have the same # of elements,
+        // checking the size of both shoudn't be necessary, but
+        // we do it just in case.
+        while(stack_curr.size() > 0 && stack_other.size() > 0)
         {
+            // get the next pair of set id from the stacks.
+            int scurr_id  = stack_curr.top();
+            int sother_id = stack_other.top();
+            stack_curr.pop();
+            stack_other.pop();
+            // get the sets that correspond to the set ids.
+            avtSILSet_p scurr  = this->GetSILSet(scurr_id);
+            avtSILSet_p sother = silr->GetSILSet(sother_id);
 
-           avtSILSet_p set1 = GetSILSet(i);
-           if (set1->GetIdentifier() < 0)
-           {
-              int set2Index;
+            // don't consider domains (preserves old behaivor)
+            if (scurr->GetIdentifier() < 0 && sother->GetIdentifier() < 0 )
+            {
+                if (silr->useSet[sother_id] == AllUsed)
+                {
+                    this->TurnOnSet(scurr_id);
+                }
+                else if (silr->useSet[sother_id] == NoneUsed)
+                {
+                    this->TurnOffSet(scurr_id);
+                }
 
-              // try to find the equivalently named
-              // set in the input SIL
-              TRY
-              {
-                  set2Index = silr->GetSetIndex(set1->GetName());
-              }
-              CATCH(InvalidVariableException)
-              {
-                  set2Index = -1;
-              }
-              ENDTRY
+                // look for matching children in the current sets.
+                const vector<int>  &scurr_mout  = scurr->GetMapsOut();
+                const vector<int>  &sother_mout = sother->GetMapsOut();
 
-              // ok, we found it, now set the selection for this 
-              if (set2Index != -1)
-              {
-                  if (silr->useSet[set2Index] == AllUsed)
-                  {
-                      TurnOnSet(i);
-                  }
-                  else if (silr->useSet[set2Index] == NoneUsed)
-                  {
-                      TurnOffSet(i);
-                  }
-              }
-           }
+                // These are not guaranteed to be the same.
+                // We only care about subsets w/ matching names.
+                // Find these & add them to the stack.
+                // We are setting values in 'this' SILR, so we use the maps out
+                // of the current set object in the outer loop.
+
+                // Note: if this double loop creates a performance issue,
+                // sorting the two lists by name may improve things.
+                for(int i=0; i < scurr_mout.size(); i++)
+                {
+                    int scmo_id = scurr_mout[i];
+                    avtSILSet_p scmo = this->GetSILSet(scmo_id);
+                    // if we have already processed this id or if the subset is a domain
+                    // we can exit early.
+                    if(useSet[scmo_id] ==  0xAA && scmo->GetIdentifier() < 0)
+                    {
+                        bool found = false;
+                        string scmo_name = scmo->GetName();
+                        for(int j=0; i < sother_mout.size() && !found; j++)
+                        {
+                            int somo_id = sother_mout[j];
+                            avtSILSet_p somo =silr->GetSILSet(somo_id);
+                            // check if the names match, and make sure the other set is
+                            // not a domain.
+                            if(scmo_name == somo->GetName() && somo->GetIdentifier() < 0)
+                            {
+                                // we have a match, add both to the stack
+                                stack_curr.push(scmo_id);
+                                stack_curr.push(somo_id);
+                                // make sure we only have one matching 'j' per 'i'
+                                found = true;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         //
@@ -2010,6 +2058,101 @@ avtSILRestriction::SetFromCompatibleRestriction(avtSILRestriction_p silr)
 
         EnableCorrectnessChecking();
 
+        // special pass for materials
+        avtSILCollection_p otherMatColl = NULL;
+        for (i = 0 ; i < silr->GetNumCollections() ; i++)
+        {
+            if (silr->GetSILCollection(i)->GetRole() == SIL_MATERIAL)
+            {
+                if (silr->GetSILCollection(i)->GetSupersetIndex()==silr->GetTopSet())
+                {
+                    otherMatColl = silr->GetSILCollection(i);
+                    break; // Traversing the rest of the SIL could take a while
+                }
+            }
+        }
+        avtSILCollection_p matColl = NULL;
+        for (i = 0 ; i < GetNumCollections() ; i++)
+        {
+            if (GetSILCollection(i)->GetRole() == SIL_MATERIAL)
+            {
+                if (GetSILCollection(i)->GetSupersetIndex() == GetTopSet())
+                {
+                    matColl = GetSILCollection(i);
+                    break; // Traversing the rest of the SIL could take a while
+                }
+            }
+        }
+        if (*matColl != NULL && *otherMatColl != NULL)
+        {
+            if (matColl->GetNumberOfSubsets() == otherMatColl->GetNumberOfSubsets())
+            {
+                // If a material is turned off in the original SIL restriction,
+                // then turn it off here.
+                int numSubsets = otherMatColl->GetNumberOfSubsets();
+                for (i = 0 ; i < numSubsets ; i++)
+                {
+                    int idx = otherMatColl->GetSubset(i);
+                    if (silr->useSet[idx] == NoneUsed)
+                        TurnOffSet(matColl->GetSubset(i));   
+                }
+            }
+        }
+
+        // special pass for blocks (often refinement levels)
+        avtSILCollection_p otherBlockColl = NULL;
+        for (i = 0 ; i < silr->GetNumCollections() ; i++)
+        {
+            if (silr->GetSILCollection(i)->GetRole() == SIL_BLOCK)
+            {
+                if (silr->GetSILCollection(i)->GetSupersetIndex()==silr->GetTopSet())
+                {
+                    otherBlockColl = silr->GetSILCollection(i);
+                    break; // Traversing the rest of the SIL could take a while
+                }
+            }
+        }
+        avtSILCollection_p blockColl = NULL;
+        for (i = 0 ; i < GetNumCollections() ; i++)
+        {
+            if (GetSILCollection(i)->GetRole() == SIL_BLOCK)
+            {
+                if (GetSILCollection(i)->GetSupersetIndex() == GetTopSet())
+                {
+                    blockColl = GetSILCollection(i);
+                    break; // Traversing the rest of the SIL could take a while
+                }
+            }
+        }
+        if (*blockColl != NULL && *otherBlockColl != NULL)
+        {
+            // If a block is turned off in the original SIL restriction,
+            // then turn it off here.
+            // If new blocks get added, then only turn them off if
+            // the last block was off.  (I.e. if refinement level 7 is
+            // introduced, then turn it off is refinement level 6 was
+            // previously off.)
+            int numOrigSubsets = otherBlockColl->GetNumberOfSubsets();
+            int numNewSubsets = blockColl->GetNumberOfSubsets();
+            int numSubsets = (numNewSubsets < numOrigSubsets ? numNewSubsets
+                                                             : numOrigSubsets);
+            bool lastIsOff = false;
+            for (i = 0 ; i < numSubsets ; i++)
+            {
+                lastIsOff = false;
+                int idx = otherBlockColl->GetSubset(i);
+                if (silr->useSet[idx] == NoneUsed)
+                {
+                    TurnOffSet(blockColl->GetSubset(i));   
+                    lastIsOff = true;
+                }
+            }
+            if (lastIsOff && (numNewSubsets > numOrigSubsets))
+            {
+                for (i = numSubsets ; i < numNewSubsets ; i++)
+                    TurnOffSet(blockColl->GetSubset(i));   
+            }
+        }
     }
 
     visitTimer->StopTimer(t1, "SILR::SetFromCompatibleRestriction");
@@ -2018,4 +2161,39 @@ avtSILRestriction::SetFromCompatibleRestriction(avtSILRestriction_p silr)
     return compatible;
 }
 
+// ****************************************************************************
+// Method: avtSILRestriction::RestrictToSetsOfRole
+//
+// Purpose: Set restriction so that only specific sets of a given role are on.
+//
+// Created: Mark C. Miller, Sun Aug 29 23:29:51 PDT 2010
+//
+// ****************************************************************************
 
+void
+avtSILRestriction::RestrictToSetsOfRole(int role, const intVector& collIndices)
+{
+    SuspendCorrectnessChecking();
+    const vector<int> &mapsOut = GetSILSet(topSet)->GetMapsOut();
+    for (int i = 0 ; i < mapsOut.size(); i++)
+    {
+        avtSILCollection_p coll = GetSILCollection(mapsOut[i]);
+        if ((int) coll->GetRole() == role)
+        {
+            int numInRole = coll->GetNumberOfSubsets();
+            // turn off ALL sets with this role 
+            for (int j = 0; j < numInRole; j++)
+            {
+                int setId = coll->GetSubset(j);
+                TurnOffSet(setId);
+            }
+            // turn ON specified sets with this role 
+            for (int j = 0; j < collIndices.size(); j++)
+            {
+                int setId = coll->GetSubset(collIndices[j]);
+                TurnOnSet(setId);
+            }
+        }
+    }
+    EnableCorrectnessChecking();
+}

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -45,6 +45,8 @@
 
 #include <avtIVPSolver.h>
 #include <ivp_exports.h>
+
+#define ADAMS_BASHFORTH_NSTEPS 5
 
 // ****************************************************************************
 //  Class: avtIVPAdamsBashforth
@@ -89,13 +91,13 @@ class IVP_API avtIVPAdamsBashforth: public avtIVPSolver
     ~avtIVPAdamsBashforth();
 
     // begin a new IVP solution
-    virtual void     Reset( const double& t_start, const avtVector &y_start );
+    virtual void     Reset( const double& t_start,
+                            const avtVector &y_start,
+                            const avtVector& v_start = avtVector(0,0,0) );
 
     // perform a single integration step
     // adaptive stepsize control retries until success or underflow
-    virtual Result   Step(const avtIVPField* field,
-                          const TerminateType &termType,
-                          const double &end,
+    virtual Result   Step(avtIVPField* field, double t_max,
                           avtIVPStep* ivpstep = NULL);
     virtual void    OnExitDomain();
 
@@ -121,11 +123,11 @@ class IVP_API avtIVPAdamsBashforth: public avtIVPSolver
     
     void             UpdateHistory( const avtVector &yNew );
 
-    avtIVPSolver::Result RK4Step(const avtIVPField* field,
-                                 avtVector &yNew);
-
-    avtIVPSolver::Result ABStep(const avtIVPField* field,
-                                avtVector &yNew);
+    Result           RK4Step(const avtIVPField* field,
+                             avtVector &yNew);
+    
+    Result           ABStep(const avtIVPField* field,
+                            avtVector &yNew);
 
   private:
     int numStep;
@@ -134,10 +136,9 @@ class IVP_API avtIVPAdamsBashforth: public avtIVPSolver
     double t, d;
     int degenerate_iterations;
     double stiffness_eps;
-    avtVector history[5];
+    avtVector history[ADAMS_BASHFORTH_NSTEPS];
+    avtVector dhistory[ADAMS_BASHFORTH_NSTEPS];
     avtVector yCur;
-    avtVector ys[2];
-    int initialized;
 };
 
 #endif

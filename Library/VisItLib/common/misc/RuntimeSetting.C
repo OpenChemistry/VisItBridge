@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -100,7 +100,11 @@ const struct Setting s::settings[] = {
     {"system-gl", lib_gl, true, "--system-gl-lib", "VISIT_GL_LIB",
      "Library which implements OpenGL."},
     {"tuvok-shader-dir", "./share/Shaders", true, "--tuvok-shaders",
-     "VISIT_TUVOK_SHADER_DIR", "Directory which holds Tuvok's GLSL shaders."}
+     "VISIT_TUVOK_SHADER_DIR", "Directory which holds Tuvok's GLSL shaders."},
+    {"x-args", "", false, "-x-args", "VISIT_X_ARGS",
+     "Arguments to pass to X servers that VisIt starts up."},
+    {"x-display", "", false, "-display", "VISIT_DISPLAY",
+     "Sets the display variable that VisIt will use when launching X servers."}
 };
 
 // Runtime modification map.  This is where we'll put settings we figure out
@@ -186,7 +190,7 @@ find_setting(const char *key, std::string &retval)
     {
         if(strncmp(s::settings[i].key, key, len) == 0)
         {
-            retval = compile_time_default(i);
+            retval = compile_time_default((int)i);
             break;
         }
     }
@@ -295,17 +299,16 @@ lookupf(const char *key)
     return retval;
 }
 
+// Modifications:
+//
+//   Tom Fogal, Wed May 26 11:00:44 MDT 2010
+//   Fix parsing -- we should get the whole string!
 std::string
 lookups(const char *key)
 {
-    std::string retval;
     std::string value;
-    if(find_setting(key, value))
-    {
-        std::istringstream read_value(value);
-        read_value >> retval;
-    }
-    return retval;
+    find_setting(key, value);
+    return value;
 }
 
 bool

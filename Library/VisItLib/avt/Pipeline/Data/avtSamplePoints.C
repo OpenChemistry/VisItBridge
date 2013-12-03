@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -169,8 +169,8 @@ avtSamplePoints::GetNumberOfVariables(void)
 const std::string &
 avtSamplePoints::GetVariableName(int idx)
 {
-    if (idx < 0 || idx >= varnames.size())
-        EXCEPTION2(BadIndexException, idx, varnames.size());
+    if (idx < 0 || idx >= (int)varnames.size())
+        EXCEPTION2(BadIndexException, idx, (int)varnames.size());
 
     return varnames[idx];
 }
@@ -192,8 +192,8 @@ avtSamplePoints::GetVariableName(int idx)
 int
 avtSamplePoints::GetVariableSize(int idx)
 {
-    if (idx < 0 || idx >= varsize.size())
-        EXCEPTION2(BadIndexException, idx, varsize.size());
+    if (idx < 0 || idx >= (int)varsize.size())
+        EXCEPTION2(BadIndexException, idx, (int)varsize.size());
 
     return varsize[idx];
 }

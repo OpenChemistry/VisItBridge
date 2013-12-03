@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -41,6 +41,7 @@
 #include <state_exports.h>
 #include <string>
 #include <AttributeSubject.h>
+
 class PickVarInfo;
 #include <visitstream.h>
 
@@ -77,14 +78,29 @@ public:
         RZ,
         ZR
     };
+    enum TimeCurveType
+    {
+        Single_Y_Axis,
+        Multiple_Y_Axes
+    };
 
+    // These constructors are for objects of this class
     PickAttributes();
     PickAttributes(const PickAttributes &obj);
+protected:
+    // These constructors are for objects derived from this class
+    PickAttributes(private_tmfs_t tmfs);
+    PickAttributes(const PickAttributes &obj, private_tmfs_t tmfs);
+public:
     virtual ~PickAttributes();
 
     virtual PickAttributes& operator = (const PickAttributes &obj);
     virtual bool operator == (const PickAttributes &obj) const;
     virtual bool operator != (const PickAttributes &obj) const;
+private:
+    void Init();
+    void Copy(const PickAttributes &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -120,10 +136,12 @@ public:
     void SelectGlobalIncidentElements();
     void SelectSubsetName();
     void SelectFloatFormat();
+    void SelectTimeOptions();
+    void SelectPlotRequested();
 
     // Property setting methods
     void SetVariables(const stringVector &variables_);
-    void SetDisplayIncidentElements(bool displayIncidentElements_);
+    void SetShowIncidentElements(bool showIncidentElements_);
     void SetShowNodeId(bool showNodeId_);
     void SetShowNodeDomainLogicalCoords(bool showNodeDomainLogicalCoords_);
     void SetShowNodeBlockLogicalCoords(bool showNodeBlockLogicalCoords_);
@@ -145,7 +163,7 @@ public:
     void SetPickPoint(const double *pickPoint_);
     void SetCellPoint(const double *cellPoint_);
     void SetNodePoint(const double *nodePoint_);
-    void SetPlotBounds(const double *plotBounds_);
+    void SetPlotBounds(const doubleVector &plotBounds_);
     void SetRayPoint1(const double *rayPoint1_);
     void SetRayPoint2(const double *rayPoint2_);
     void SetMeshInfo(const std::string &meshInfo_);
@@ -173,11 +191,11 @@ public:
     void SetElementIsGhost(bool elementIsGhost_);
     void SetRequiresGlyphPick(bool requiresGlyphPick_);
     void SetLocationSuccessful(bool locationSuccessful_);
-    void SetDisplayGlobalIds(bool displayGlobalIds_);
+    void SetShowGlobalIds(bool showGlobalIds_);
     void SetGlobalElement(int globalElement_);
     void SetGlobalIncidentElements(const intVector &globalIncidentElements_);
     void SetElementIsGlobal(bool elementIsGlobal_);
-    void SetDisplayPickLetter(bool displayPickLetter_);
+    void SetShowPickLetter(bool showPickLetter_);
     void SetReusePickLetter(bool reusePickLetter_);
     void SetGhostType(int ghostType_);
     void SetHasMixedGhostTypes(int hasMixedGhostTypes_);
@@ -188,11 +206,14 @@ public:
     void SetSubsetName(const std::string &subsetName_);
     void SetFloatFormat(const std::string &floatFormat_);
     void SetTimePreserveCoord(bool timePreserveCoord_);
+    void SetTimeCurveType(TimeCurveType timeCurveType_);
+    void SetTimeOptions(const MapNode &timeOptions_);
+    void SetPlotRequested(const MapNode &plotRequested_);
 
     // Property getting methods
     const stringVector &GetVariables() const;
           stringVector &GetVariables();
-    bool               GetDisplayIncidentElements() const;
+    bool               GetShowIncidentElements() const;
     bool               GetShowNodeId() const;
     bool               GetShowNodeDomainLogicalCoords() const;
     bool               GetShowNodeBlockLogicalCoords() const;
@@ -221,8 +242,8 @@ public:
           double       *GetCellPoint();
     const double       *GetNodePoint() const;
           double       *GetNodePoint();
-    const double       *GetPlotBounds() const;
-          double       *GetPlotBounds();
+    const doubleVector &GetPlotBounds() const;
+          doubleVector &GetPlotBounds();
     const double       *GetRayPoint1() const;
           double       *GetRayPoint1();
     const double       *GetRayPoint2() const;
@@ -266,12 +287,12 @@ public:
     bool               GetElementIsGhost() const;
     bool               GetRequiresGlyphPick() const;
     bool               GetLocationSuccessful() const;
-    bool               GetDisplayGlobalIds() const;
+    bool               GetShowGlobalIds() const;
     int                GetGlobalElement() const;
     const intVector    &GetGlobalIncidentElements() const;
           intVector    &GetGlobalIncidentElements();
     bool               GetElementIsGlobal() const;
-    bool               GetDisplayPickLetter() const;
+    bool               GetShowPickLetter() const;
     bool               GetReusePickLetter() const;
     int                GetGhostType() const;
     int                GetHasMixedGhostTypes() const;
@@ -284,6 +305,11 @@ public:
     const std::string  &GetFloatFormat() const;
           std::string  &GetFloatFormat();
     bool               GetTimePreserveCoord() const;
+    TimeCurveType      GetTimeCurveType() const;
+    const MapNode      &GetTimeOptions() const;
+          MapNode      &GetTimeOptions();
+    const MapNode      &GetPlotRequested() const;
+          MapNode      &GetPlotRequested();
 
     // Persistence methods
     virtual bool CreateNode(DataNode *node, bool completeSave, bool forceAdd);
@@ -312,6 +338,11 @@ public:
 protected:
     static std::string CoordinateType_ToString(int);
 public:
+    static std::string TimeCurveType_ToString(TimeCurveType);
+    static bool TimeCurveType_FromString(const std::string &, TimeCurveType &);
+protected:
+    static std::string TimeCurveType_ToString(int);
+public:
 
     // Keyframing methods
     virtual std::string               GetFieldName(int index) const;
@@ -326,11 +357,13 @@ public:
     void CreateConciseOutputString(std::string &os, bool withLetter = true);
     void SetRayPoint1(const doubleVector &);
     void SetRayPoint2(const doubleVector &);
+    void CreateOutputMapNode(MapNode &m, bool withLetter);
+    void CreateXMLString(std::string &os, bool withLetter = true);
 
     // IDs that can be used to identify fields in case statements
     enum {
         ID_variables = 0,
-        ID_displayIncidentElements,
+        ID_showIncidentElements,
         ID_showNodeId,
         ID_showNodeDomainLogicalCoords,
         ID_showNodeBlockLogicalCoords,
@@ -381,11 +414,11 @@ public:
         ID_elementIsGhost,
         ID_requiresGlyphPick,
         ID_locationSuccessful,
-        ID_displayGlobalIds,
+        ID_showGlobalIds,
         ID_globalElement,
         ID_globalIncidentElements,
         ID_elementIsGlobal,
-        ID_displayPickLetter,
+        ID_showPickLetter,
         ID_reusePickLetter,
         ID_ghostType,
         ID_hasMixedGhostTypes,
@@ -395,14 +428,18 @@ public:
         ID_createSpreadsheet,
         ID_subsetName,
         ID_floatFormat,
-        ID_timePreserveCoord
+        ID_timePreserveCoord,
+        ID_timeCurveType,
+        ID_timeOptions,
+        ID_plotRequested,
+        ID__LAST
     };
 
 protected:
     AttributeGroup *CreateSubAttributeGroup(int index);
 private:
     stringVector         variables;
-    bool                 displayIncidentElements;
+    bool                 showIncidentElements;
     bool                 showNodeId;
     bool                 showNodeDomainLogicalCoords;
     bool                 showNodeBlockLogicalCoords;
@@ -424,7 +461,7 @@ private:
     double               pickPoint[3];
     double               cellPoint[3];
     double               nodePoint[3];
-    double               plotBounds[6];
+    doubleVector         plotBounds;
     double               rayPoint1[3];
     double               rayPoint2[3];
     std::string          meshInfo;
@@ -453,11 +490,11 @@ private:
     bool                 elementIsGhost;
     bool                 requiresGlyphPick;
     bool                 locationSuccessful;
-    bool                 displayGlobalIds;
+    bool                 showGlobalIds;
     int                  globalElement;
     intVector            globalIncidentElements;
     bool                 elementIsGlobal;
-    bool                 displayPickLetter;
+    bool                 showPickLetter;
     bool                 reusePickLetter;
     int                  ghostType;
     int                  hasMixedGhostTypes;
@@ -468,9 +505,14 @@ private:
     std::string          subsetName;
     std::string          floatFormat;
     bool                 timePreserveCoord;
+    int                  timeCurveType;
+    MapNode              timeOptions;
+    MapNode              plotRequested;
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define PICKATTRIBUTES_TMFS "s*bbbbbbbbbsbiiii*iissDDDd*DDsii*s*s*s*s*s*ba*s*bsbbbbbbssi*bbbbbii*bbbiibiibssbimm"
 
 #endif

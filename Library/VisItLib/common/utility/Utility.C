@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,7 +42,6 @@
 
 #include <Utility.h>
 
-#include <visitstream.h>
 #include <visit-config.h>
 #include <stdio.h>
 #include <string.h>
@@ -61,6 +60,13 @@ using std::vector;
 #include <dirent.h>
 #include <sys/stat.h>
 #include <pwd.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#endif
+
+#if !defined(_WIN32) && !defined(__APPLE__) && !defined(_AIX)
+#include <execinfo.h>
+#include <cxxabi.h>
 #endif
 
 // ****************************************************************************
@@ -161,7 +167,7 @@ LongestCommonSuffixLength(const char * const *list, int listN)
     int   min_length = 1000;
     for (i = 0 ; i < listN ; i++)
     {
-        lengths[i] = strlen(list[i]);
+        lengths[i] = (int)strlen(list[i]);
         if (lengths[i] < min_length)
         {
             min_length = lengths[i];
@@ -217,18 +223,21 @@ LongestCommonSuffixLength(const char * const *list, int listN)
 //    Brad Whitlock, Tue Jun 23 17:07:57 PDT 2009
 //    I added a Mac implementation.
 //
+//    David Camp, Mon Mar  5 14:04:42 PST 2012
+//    Modified to use unsigned long so we can go above 4 gigabytes
+//
 // ****************************************************************************
 
 void
-GetMemorySize(unsigned int &size, unsigned int &rss)
+GetMemorySize(unsigned long &size, unsigned long &rss)
 {
     size = 0;
     rss  = 0;
 #if defined(__APPLE__)
     struct mstats m = mstats();
-    size = (unsigned int)m.bytes_used; // The bytes used out of the bytes_total.
-    rss = (unsigned int)m.bytes_total; // not quite accurate but this should be the total
-                                       // amount allocated by malloc.
+    size = (unsigned long)m.bytes_used; // The bytes used out of the bytes_total.
+    rss = (unsigned long)m.bytes_total; // not quite accurate but this should be the total
+                                        // amount allocated by malloc.
 #elif !defined(_WIN32)
     FILE *file = fopen("/proc/self/statm", "r");
     if (file == NULL)
@@ -236,14 +245,72 @@ GetMemorySize(unsigned int &size, unsigned int &rss)
         return;
     }
 
-    int count = fscanf(file, "%u%u", &size, &rss);
+    int count = fscanf(file, "%lu%lu", &size, &rss);
     if (count != 2)
     {
+        fclose(file);
         return;
     }
-    size *= getpagesize();
-    rss  *= getpagesize();
+    size *= (unsigned long)getpagesize();
+    rss  *= (unsigned long)getpagesize();
     fclose(file);
+#endif
+}
+
+// ****************************************************************************
+//  Function: PrintCallStack
+//
+//  Purpose:
+//      Prints the call stack.
+//
+//  Programmer: Dave Pugmire
+//  Creation:   Tue Jun 29 15:58:52 EDT 2010
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+void
+PrintCallStack(ostream &out, const char *file, int line)
+{
+#if !defined(_WIN32) && !defined(__APPLE__) && !defined(_AIX)
+    const int N = 100;
+    void *stackAddrs[N];
+ 
+    size_t stackDepth = backtrace(stackAddrs, N);
+    int nfuncs = backtrace(stackAddrs, N);
+    char **stackStrings = backtrace_symbols(stackAddrs, nfuncs);
+    
+    out<<"Call stack from "<<file<<" "<<line<<endl;
+    for (int i = 1; i < nfuncs; i++)
+    {
+        std::string symbol = stackStrings[i];
+        size_t i0 = symbol.find("(");
+        size_t i1 = symbol.rfind("+");
+
+        std::string outStr;
+        if (i0 == std::string::npos || i1 == std::string::npos)
+            outStr = symbol;
+        else
+        {
+            i0 = i0+1;
+            std::string funcSymbol = symbol.substr(i0, i1-i0);
+
+            int stat = 0;
+            char *demangle = abi::__cxa_demangle(funcSymbol.c_str(), 0,0, &stat);
+            if (demangle)
+            {
+                outStr = demangle;
+                free(demangle);
+            }
+            else
+                outStr = funcSymbol;
+        }
+        
+        out<<i<<":  "<<outStr<<endl;
+    }
+    
+    free(stackStrings);
 #endif
 }
 
@@ -603,9 +670,7 @@ SplitValues(const std::string &buff, char delim)
 //    Backing out SSH tunneling on Panther (MacOS X 10.3)
 //
 // ****************************************************************************
-#if defined(PANTHERHACK)
-// Broken on Panther
-#else
+
 bool
 ConvertArgsToTunneledValues(const std::map<int,int> &portTunnelMap,
                             std::vector<std::string> &args)
@@ -653,4 +718,76 @@ ConvertArgsToTunneledValues(const std::map<int,int> &portTunnelMap,
     args.push_back("-sshtunneling");
     return true;
 }
-#endif
+
+// ****************************************************************************
+// Method: GetSSHClient
+//
+// Purpose: 
+//   Gets the SSH_CLIENT variable if it exists.
+//
+// Arguments:
+//   sshClient : The return variable.
+//
+// Returns:    True on success; false on failure.
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Fri Apr 24 15:21:18 PDT 2009
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+bool
+GetSSHClient(std::string &sshClient)
+{
+    bool retval = false;
+    const char *s = NULL;
+    if((s = getenv("SSH_CLIENT")) != NULL)
+    {
+        stringVector sv = SplitValues(s, ' ');
+        if(sv.size() > 0)
+        {
+            retval = true;
+            sshClient = sv[0];
+        }
+    }
+    else if((s = getenv("SSH2_CLIENT")) != NULL)
+    {
+        stringVector sv = SplitValues(s, ' ');
+        if(sv.size() > 0)
+        {
+            retval = true;
+            sshClient = sv[0];
+        }
+    }
+    else if((s = getenv("SSH_CONNECTION")) != NULL)
+    {
+        stringVector sv = SplitValues(s, ' ');
+        if(sv.size() > 0)
+        {
+            retval = true;
+            sshClient = sv[0];
+        }
+    }
+
+    return retval;
+}
+
+bool
+CheckHostValidity(const std::string &remoteHost)
+{
+    bool retval = true;
+
+    if(remoteHost != std::string("localhost") && 
+       remoteHost != std::string("127.0.0.1"))
+    {
+        if(gethostbyname(remoteHost.c_str()) == NULL)
+        {
+            retval = false;
+        }
+    }
+
+    return retval;
+}

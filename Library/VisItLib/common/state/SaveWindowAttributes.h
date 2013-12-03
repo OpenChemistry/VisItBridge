@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,6 +42,8 @@
 #include <string>
 #include <AttributeSubject.h>
 
+#include <SaveSubWindowsAttributes.h>
+
 // ****************************************************************************
 // Class: SaveWindowAttributes
 //
@@ -74,7 +76,8 @@ public:
         STL,
         TIFF,
         ULTRA,
-        VTK
+        VTK,
+        PLY
     };
     enum CompressionType
     {
@@ -90,13 +93,23 @@ public:
         ScreenProportions
     };
 
+    // These constructors are for objects of this class
     SaveWindowAttributes();
     SaveWindowAttributes(const SaveWindowAttributes &obj);
+protected:
+    // These constructors are for objects derived from this class
+    SaveWindowAttributes(private_tmfs_t tmfs);
+    SaveWindowAttributes(const SaveWindowAttributes &obj, private_tmfs_t tmfs);
+public:
     virtual ~SaveWindowAttributes();
 
     virtual SaveWindowAttributes& operator = (const SaveWindowAttributes &obj);
     virtual bool operator == (const SaveWindowAttributes &obj) const;
     virtual bool operator != (const SaveWindowAttributes &obj) const;
+private:
+    void Init();
+    void Copy(const SaveWindowAttributes &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -108,6 +121,7 @@ public:
     void SelectOutputDirectory();
     void SelectFileName();
     void SelectLastRealFilename();
+    void SelectSubWindowAtts();
 
     // Property setting methods
     void SetOutputToCurrentDirectory(bool outputToCurrentDirectory_);
@@ -127,28 +141,33 @@ public:
     void SetCompression(CompressionType compression_);
     void SetForceMerge(bool forceMerge_);
     void SetResConstraint(ResConstraint resConstraint_);
+    void SetAdvancedMultiWindowSave(bool advancedMultiWindowSave_);
+    void SetSubWindowAtts(const SaveSubWindowsAttributes &subWindowAtts_);
 
     // Property getting methods
-    bool              GetOutputToCurrentDirectory() const;
-    const std::string &GetOutputDirectory() const;
-          std::string &GetOutputDirectory();
-    const std::string &GetFileName() const;
-          std::string &GetFileName();
-    bool              GetFamily() const;
-    FileFormat        GetFormat() const;
-    int               GetWidth() const;
-    int               GetHeight() const;
-    bool              GetScreenCapture() const;
-    bool              GetSaveTiled() const;
-    int               GetQuality() const;
-    bool              GetProgressive() const;
-    bool              GetBinary() const;
-    const std::string &GetLastRealFilename() const;
-          std::string &GetLastRealFilename();
-    bool              GetStereo() const;
-    CompressionType   GetCompression() const;
-    bool              GetForceMerge() const;
-    ResConstraint     GetResConstraint() const;
+    bool                           GetOutputToCurrentDirectory() const;
+    const std::string              &GetOutputDirectory() const;
+          std::string              &GetOutputDirectory();
+    const std::string              &GetFileName() const;
+          std::string              &GetFileName();
+    bool                           GetFamily() const;
+    FileFormat                     GetFormat() const;
+    int                            GetWidth() const;
+    int                            GetHeight() const;
+    bool                           GetScreenCapture() const;
+    bool                           GetSaveTiled() const;
+    int                            GetQuality() const;
+    bool                           GetProgressive() const;
+    bool                           GetBinary() const;
+    const std::string              &GetLastRealFilename() const;
+          std::string              &GetLastRealFilename();
+    bool                           GetStereo() const;
+    CompressionType                GetCompression() const;
+    bool                           GetForceMerge() const;
+    ResConstraint                  GetResConstraint() const;
+    bool                           GetAdvancedMultiWindowSave() const;
+    const SaveSubWindowsAttributes &GetSubWindowAtts() const;
+          SaveSubWindowsAttributes &GetSubWindowAtts();
 
     // Persistence methods
     virtual bool CreateNode(DataNode *node, bool completeSave, bool forceAdd);
@@ -198,30 +217,37 @@ public:
         ID_stereo,
         ID_compression,
         ID_forceMerge,
-        ID_resConstraint
+        ID_resConstraint,
+        ID_advancedMultiWindowSave,
+        ID_subWindowAtts,
+        ID__LAST
     };
 
 private:
-    bool        outputToCurrentDirectory;
-    std::string outputDirectory;
-    std::string fileName;
-    bool        family;
-    int         format;
-    int         width;
-    int         height;
-    bool        screenCapture;
-    bool        saveTiled;
-    int         quality;
-    bool        progressive;
-    bool        binary;
-    std::string lastRealFilename;
-    bool        stereo;
-    int         compression;
-    bool        forceMerge;
-    int         resConstraint;
+    bool                     outputToCurrentDirectory;
+    std::string              outputDirectory;
+    std::string              fileName;
+    bool                     family;
+    int                      format;
+    int                      width;
+    int                      height;
+    bool                     screenCapture;
+    bool                     saveTiled;
+    int                      quality;
+    bool                     progressive;
+    bool                     binary;
+    std::string              lastRealFilename;
+    bool                     stereo;
+    int                      compression;
+    bool                     forceMerge;
+    int                      resConstraint;
+    bool                     advancedMultiWindowSave;
+    SaveSubWindowsAttributes subWindowAtts;
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define SAVEWINDOWATTRIBUTES_TMFS "bssbiiibbibbsbibiba"
 
 #endif

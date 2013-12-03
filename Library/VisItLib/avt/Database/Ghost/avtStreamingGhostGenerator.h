@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -44,11 +44,10 @@
 #define AVT_STREAMING_GHOST_GENERATOR_H
 
 #include <database_exports.h>
+#include <cstddef>
+#include <vector>
 
 #include <avtGhostData.h>
-
-#include <vector>
-using std::vector;
 
 class vtkDataSet;
 class vtkDataArray;

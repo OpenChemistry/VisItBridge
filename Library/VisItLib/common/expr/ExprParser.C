@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -49,8 +49,10 @@
 #include <VisItInit.h>
 #include <InvalidExpressionException.h>
 #include <ParseException.h>
+#include <string>
 #include <vector>
 using std::vector;
+using std::string;
 
 ExprParser::ErrorMessageTarget ExprParser::errorMessageTarget = EMT_EXCEPTION;
 
@@ -74,10 +76,23 @@ ExprParser::ExprParser(ExprNodeFactory *f) : Parser(), factory(f)
     if (!G->Initialize())
     {
         cerr << "Error in initializion of Expression Grammar!\n";
-        exit(-1);
+        exit(-1); // HOOKS_IGNORE
     }
 
     SetGrammar(G);
+}
+
+// ****************************************************************************
+//  Destructor:  ExprParser::~ExprParser
+//
+//  Programmer:  David Camp
+//  Creation:    Tue Jan 11 11:09:24 PST 2011
+//
+// ****************************************************************************
+ExprParser::~ExprParser()
+{
+    if (factory)
+        delete factory;
 }
 
 // ****************************************************************************
@@ -588,6 +603,9 @@ ExprParser::ApplyRule(const Symbol           &sym,
 //    Delete the tokens that have not taken part in a rule reduction -- in 
 //    this case that means Space tokens and the final EOF token.
 //
+//    Mark C. Miller, Wed Mar 17 10:03:09 PDT 2010
+//    Pass buffer length estimate to GetErrorText to handle truncation of
+//    error messages too long to fit into buffer.
 // ****************************************************************************
 ParseTreeNode*
 ExprParser::Parse(const std::string &s)
@@ -625,8 +643,9 @@ ExprParser::Parse(const std::string &s)
     CATCH2(ParseException, e)
     {
         char error[1024];
-        SNPRINTF(error, 1024, "%s\n%s",
-                 e.Message(), e.GetPos().GetErrorText(text).c_str());
+        size_t n = sizeof(error) - strlen(e.Message()) - 2;
+        SNPRINTF(error, sizeof(error), "%s\n%s",
+                 e.Message(), e.GetPos().GetErrorText(text,n).c_str());
 
         if (errorMessageTarget == EMT_COMPONENT)
         {
@@ -647,4 +666,3 @@ ExprParser::Parse(const std::string &s)
 
     return GetParseTree();
 }
-

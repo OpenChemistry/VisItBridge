@@ -52,10 +52,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //  many total elements you want (SetNumberOfElements) or by specifying how
 //  many to process for every one saved (SetStride).
 //
-//  Modifications:
-//    Jeremy Meredith, Tue Jul  8 11:07:57 EDT 2008
-//    Added ability to limit to only one output vector per original
-//    cell/point.  Also, fixed cell-based vector algorithm bugs.
 
 
 #ifndef __vtkVectorReduceFilter_h
@@ -63,6 +59,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <visit_vtk_exports.h>
 
 #include "vtkPolyDataAlgorithm.h"
+
+// ***************************************************************************
+//  Class: vtkVectorReduceFilter
+//
+//  Modifications:
+//    Jeremy Meredith, Tue Jul  8 11:07:57 EDT 2008
+//    Added ability to limit to only one output vector per original
+//    cell/point.  Also, fixed cell-based vector algorithm bugs.
+//
+//    Eric Brugger, Thu Jan 10 10:07:20 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ***************************************************************************
 
 class VISIT_VTK_API vtkVectorReduceFilter : public vtkPolyDataAlgorithm
 {
@@ -82,7 +91,10 @@ protected:
   vtkVectorReduceFilter();
   ~vtkVectorReduceFilter() {};
 
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
+  virtual int RequestData(vtkInformation *,
+                          vtkInformationVector **,
+                          vtkInformationVector *);
+  virtual int FillInputPortInformation(int port, vtkInformation *info);
 
   int stride;
   int numEls;
@@ -94,5 +106,3 @@ private:
 };
 
 #endif
-
-

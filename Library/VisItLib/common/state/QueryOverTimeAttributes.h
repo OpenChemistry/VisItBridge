@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -41,6 +41,7 @@
 #include <state_exports.h>
 #include <string>
 #include <AttributeSubject.h>
+
 #include <QueryAttributes.h>
 #include <PickAttributes.h>
 
@@ -69,13 +70,23 @@ public:
         Timestep
     };
 
+    // These constructors are for objects of this class
     QueryOverTimeAttributes();
     QueryOverTimeAttributes(const QueryOverTimeAttributes &obj);
+protected:
+    // These constructors are for objects derived from this class
+    QueryOverTimeAttributes(private_tmfs_t tmfs);
+    QueryOverTimeAttributes(const QueryOverTimeAttributes &obj, private_tmfs_t tmfs);
+public:
     virtual ~QueryOverTimeAttributes();
 
     virtual QueryOverTimeAttributes& operator = (const QueryOverTimeAttributes &obj);
     virtual bool operator == (const QueryOverTimeAttributes &obj) const;
     virtual bool operator != (const QueryOverTimeAttributes &obj) const;
+private:
+    void Init();
+    void Copy(const QueryOverTimeAttributes &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -93,6 +104,7 @@ public:
     void SetStartTime(int startTime_);
     void SetEndTimeFlag(bool endTimeFlag_);
     void SetEndTime(int endTime_);
+    void SetStrideFlag(bool strideFlag_);
     void SetStride(int stride_);
     void SetCreateWindow(bool createWindow_);
     void SetWindowId(int windowId_);
@@ -105,6 +117,7 @@ public:
     int                   GetStartTime() const;
     bool                  GetEndTimeFlag() const;
     int                   GetEndTime() const;
+    bool                  GetStrideFlag() const;
     int                   GetStride() const;
     bool                  GetCreateWindow() const;
     int                   GetWindowId() const;
@@ -138,11 +151,13 @@ public:
         ID_startTime,
         ID_endTimeFlag,
         ID_endTime,
+        ID_strideFlag,
         ID_stride,
         ID_createWindow,
         ID_windowId,
         ID_queryAtts,
-        ID_pickAtts
+        ID_pickAtts,
+        ID__LAST
     };
 
 private:
@@ -151,6 +166,7 @@ private:
     int             startTime;
     bool            endTimeFlag;
     int             endTime;
+    bool            strideFlag;
     int             stride;
     bool            createWindow;
     int             windowId;
@@ -159,6 +175,8 @@ private:
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define QUERYOVERTIMEATTRIBUTES_TMFS "ibibibibiaa"
 
 #endif

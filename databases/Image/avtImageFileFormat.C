@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -369,7 +369,7 @@ avtImageFileFormat::ReadImageVolumeHeader(void)
                 "has %d slices, it can be decomposed for parallel across at most %d processors.\n"
                 "You are using %d processors and so %d of these are not adding any additional\n"
                 "parallel speedup to operations involving it.",
-                fname.c_str(), subImages.size(), subImages.size(), size, size-subImages.size()); 
+                fname.c_str(), (int)subImages.size(), (int)subImages.size(), size, (int)(size-subImages.size())); 
             if (!avtCallback::IssueWarning(msg))
                 cerr << msg << endl;
             haveIssuedProcWarning = true;
@@ -403,28 +403,41 @@ avtImageFileFormat::ReadImageVolumeHeader(void)
 
 
 // ***************************************************************************
-//  Method: CanCacheVariable 
+//  Method: avtImageFileFormat::CreateCacheNameIncludingSelections 
 //
-//  Programmer: Mark C. Miller 
-//  Creation:   November 9, 2004 
+//  Purpose:
+//      The image reader will return different data sets based on data
+//      selections.  This method gives a description of what is returned
+//      so that the resulting data can be reliably cached.
 //
-//  Modifications:
-//
-//    Hank Childs, Fri Mar 18 11:41:04 PST 2005
-//    Disallow caching of image volumes.
-//
-//    Hank Childs, Tue Jun  7 09:04:29 PDT 2005
-//    Re-allow caching of image volumes, because we aren't doing any smart
-//    data selections.
+//  Programmer: Hank Childs
+//  Creation:   December 20, 2011
 //
 // **************************************************************************
 
-bool
-avtImageFileFormat::CanCacheVariable(const char*)
+std::string
+avtImageFileFormat::CreateCacheNameIncludingSelections(std::string s)
 {
-    // if we've read the whole image, we can cache its variables
-    return haveReadWholeImage;
+    int xmin, xmax, ymin, ymax;
+    bool haveSelections = ProcessDataSelections(&xmin, &xmax, &ymin, &ymax);
+    if (!haveSelections)
+        return s;
+
+    char str[1024];
+    strcpy(str, s.c_str());
+    size_t amt = strlen(str);
+    for (size_t i = 0 ; i < selList.size() ; i++)
+    {
+        if ((*selsApplied)[i])
+        {
+            std::string s = selList[i]->DescriptionString();
+            SNPRINTF(str+amt, 1024-amt, "_%s", s.c_str());
+            amt += strlen(str);
+        }
+    }
+    return std::string(str);
 }
+
 
 // ***************************************************************************
 //  Method: RegisterDataSelections 
@@ -444,7 +457,7 @@ avtImageFileFormat::RegisterDataSelections(
 }
 
 // ***************************************************************************
-//  Method: ProcessSelections 
+//  Method: ProcessDataSelections 
 //
 //  Purpose: Walk through all the data selections, decide which we can
 //  service here and compose all that we can service into a single, logical
@@ -460,6 +473,9 @@ avtImageFileFormat::RegisterDataSelections(
 //
 //    Hank Childs, Thu Mar 17 15:33:44 PST 2005
 //    Don't process data selections for Stimulate images.
+//
+//    Hank Childs, Tue Dec 20 16:52:07 PST 2011
+//    Fix bug with logical selection check of 2D images.
 //
 // **************************************************************************
 
@@ -493,7 +509,9 @@ avtImageFileFormat::ProcessDataSelections(int *xmin, int *xmax,
 
             // currently handles only stride 1 
             bool stridesOk = true;
-            for (int j = 0; j < 3; j++)
+            int numDims = 0;
+            sel->GetNDims(numDims);
+            for (int j = 0; j < numDims; j++)
             {
                 if (strides[j] != 1)
                 {
@@ -673,9 +691,9 @@ void avtImageFileFormat::ReadInImage(void)
         if (haveSelections)
             reader->SetDataVOI(xmin,xmax,ymin,ymax,0,0);
         reader->SetFileName(subImages[idx].c_str());
+        reader->Update();
         image = reader->GetOutput();
         image->Register(NULL);
-        reader->Update();
         //image->SetSource(NULL);
         reader->Delete();
     }
@@ -683,9 +701,9 @@ void avtImageFileFormat::ReadInImage(void)
     {
         vtkPNGReader *reader = vtkPNGReader::New();
         reader->SetFileName(subImages[idx].c_str());
+        reader->Update();
         image = reader->GetOutput();
         image->Register(NULL);
-        reader->Update();
         //image->SetSource(NULL);
         reader->Delete();
     }
@@ -694,9 +712,10 @@ void avtImageFileFormat::ReadInImage(void)
     {
         vtkJPEGReader *reader = vtkJPEGReader::New();
         reader->SetFileName(subImages[idx].c_str());
+        reader->Update();
         image = reader->GetOutput();
         image->Register(NULL);
-        reader->Update();
+        //image->SetSource(NULL);
         reader->Delete();
     }
     else if ((image_fext == "tif") || (image_fext == "tiff") || 
@@ -704,9 +723,9 @@ void avtImageFileFormat::ReadInImage(void)
     {
         vtkTIFFReader *reader = vtkTIFFReader::New();
         reader->SetFileName(subImages[idx].c_str());
+        reader->Update();
         image = reader->GetOutput();
         image->Register(NULL);
-        reader->Update();
         //image->SetSource(NULL);
         reader->Delete();
     }
@@ -716,9 +735,9 @@ void avtImageFileFormat::ReadInImage(void)
         if (haveSelections)
             reader->SetDataVOI(xmin,xmax,ymin,ymax,0,0);
         reader->SetFileName(subImages[idx].c_str());
+        reader->Update();
         image = reader->GetOutput();
         image->Register(NULL);
-        reader->Update();
         //image->SetSource(NULL);
         reader->Delete();
     }
@@ -727,9 +746,9 @@ void avtImageFileFormat::ReadInImage(void)
     {
         vtkStimulateReader *reader = vtkStimulateReader::New();
         reader->SetFileName(subImages[idx].c_str());
+        reader->Update();
         image = reader->GetOutput();
         image->Register(NULL);
-        reader->Update();
         //image->SetSource(NULL);
         reader->GetOrigin(xStart, yStart);
         reader->GetStep(xStep, yStep);
@@ -906,6 +925,10 @@ avtImageFileFormat::GetMesh(const char *meshname)
 //
 //    Mark C. Miller, Fri Apr 23 17:27:41 PDT 2010
 //    Replaced ghost nodes with ghost zones.
+//
+//    Cyrus Harrison, Thu Oct  6 10:31:59 PDT 2011
+//    Removed zonal shift of -.5, added ZStart offset.
+//
 // ****************************************************************************
 
 vtkDataSet *
@@ -967,7 +990,7 @@ avtImageFileFormat::GetImageVolumeMesh(const char *meshname)
     vtkFloatArray *z = vtkFloatArray::New();
     z->SetNumberOfTuples(dims[2]);
     for (i = 0 ; i < dims[2]; i++)
-        z->SetTuple1(i, (start + i - (isNodal?0.:.5)) * ZStep);
+        z->SetTuple1(i, globalZStart + (start + i) * ZStep);
     rgrid->SetDimensions(dims);
     rgrid->SetZCoordinates(z);
     z->Delete();
@@ -1031,6 +1054,10 @@ avtImageFileFormat::GetImageVolumeMesh(const char *meshname)
 //
 //    Mark C. Miller, Fri Apr 23 23:30:59 PDT 2010
 //    Changed logic to use 'isNodal' so its consistent with GetImageVolumeMesh
+//
+//    Cyrus Harrison, Thu Oct  6 10:31:59 PDT 2011
+//    Removed zonal shift of -.5.
+//
 // ****************************************************************************
 
 vtkDataSet *
@@ -1051,13 +1078,13 @@ avtImageFileFormat::GetOneMesh(const char *meshname)
     int i;
     vtkFloatArray *xCoords = vtkFloatArray::New();
     for(i=0; i<xdim + !isNodal; i++)
-        xCoords->InsertNextValue((float) xStart + i*xStep - (isNodal?0.:.5));
+        xCoords->InsertNextValue((float) xStart + i*xStep);
     vtkFloatArray *yCoords = vtkFloatArray::New();
     for(i=0; i<ydim + !isNodal; i++)
-        yCoords->InsertNextValue((float) yStart + i*yStep - (isNodal?0.:.5));
+        yCoords->InsertNextValue((float) yStart + i*yStep);
     vtkFloatArray *zCoords = vtkFloatArray::New();
     zCoords->InsertNextValue(0.0);
-    
+
     vtkRectilinearGrid *dataset = vtkRectilinearGrid::New();
     dataset->SetDimensions(xdim+!isNodal,ydim+!isNodal,1);
     dataset->SetXCoordinates(xCoords);
@@ -1111,9 +1138,12 @@ avtImageFileFormat::GetVar(const char *varname)
 //  Creation:   March 23, 2005
 //
 //  Modifications:
-//
 //    Mark C. Miller, Fri Apr 23 17:28:15 PDT 2010
 //    Added support for ghost zones.
+//
+//    Brad Whitlock, Thu Sep 29 15:39:56 PDT 2011
+//    I added support for a 4-component color vector.
+//
 // ****************************************************************************
 
 vtkDataArray *
@@ -1121,6 +1151,9 @@ avtImageFileFormat::GetImageVolumeVar(const char *varname)
 {
     int rank = PAR_Rank();
     int nprocs = PAR_Size();
+
+    // Number of components.
+    int nc = (strncmp(varname, "color", 5) == 0) ? 4 : 1;
 
     // examine name to see if its node-/zone-centered
     const char *vtmp = varname;
@@ -1157,6 +1190,7 @@ avtImageFileFormat::GetImageVolumeVar(const char *varname)
     if (localZoneStart + localZoneCount < globalZoneCount-1) count++;
 
     vtkFloatArray *arr = vtkFloatArray::New();
+    arr->SetNumberOfComponents(nc);
     bool haveInitialized = false;
     int  valsPerSlice = 0;
     for (int i = start; i < start+count; i++)
@@ -1179,18 +1213,11 @@ avtImageFileFormat::GetImageVolumeVar(const char *varname)
                    << "not floating point, returning early" << endl;
             return NULL;
         }
-        if (one_slice->GetNumberOfComponents() != 1)
-        {
-            debug1 << "Return value from avtImageFileFormat::GetOneVar had "
-                   << "more than 1 component.  Not supported." << endl;
-            return NULL;
-        }
 
         if (!haveInitialized)
         {
-            valsPerSlice = one_slice->GetNumberOfTuples();
-            int ntups = valsPerSlice*count;
-            arr->SetNumberOfTuples(ntups);
+            valsPerSlice = one_slice->GetNumberOfTuples() * nc;
+            arr->SetNumberOfTuples(one_slice->GetNumberOfTuples() * count);
             haveInitialized = true;
         }
        
@@ -1237,6 +1264,9 @@ avtImageFileFormat::GetImageVolumeVar(const char *varname)
 //    Fixed flipping of green and blue channels.  Also added fast track for
 //    float and unsigned char data.
 //
+//    Brad Whitlock, Thu Sep 29 15:39:14 PDT 2011
+//    I added support for returning a 4-component color vector.
+//
 // ****************************************************************************
 
 vtkDataArray *
@@ -1256,40 +1286,50 @@ avtImageFileFormat::GetOneVar(const char *varname)
     int ymin = extents[2];
     int ymax = extents[3];
 
-    int channel = -2;
-    if (strncmp(varname, "red", 3) == 0)
-        channel = 0;
-    else if (strncmp(varname, "green", 5) == 0)
-        channel = 1;
-    else if (strncmp(varname, "blue", 4) == 0)
-        channel = 2;
-    else if (strncmp(varname, "alpha", 5) == 0)
-        channel = 3;
-    else if (strncmp(varname, "intensity", 9) == 0)
-        channel = -1;
+    int nChannels = image->GetNumberOfScalarComponents();
 
-    if (channel == -2)
+    int nc = 1;
+    int channel = 0;
+    if (strncmp(varname, "color", 5) == 0)
     {
-        EXCEPTION1(InvalidVariableException, varname);
+        nc = 4;
+        channel = -2;
     }
-
-    if (channel > image->GetNumberOfScalarComponents())
+    else 
     {
-        EXCEPTION1(InvalidVariableException, varname);
+        if (strncmp(varname, "red", 3) == 0)
+            channel = 0;
+        else if (strncmp(varname, "green", 5) == 0)
+            channel = 1;
+        else if (strncmp(varname, "blue", 4) == 0)
+            channel = 2;
+        else if (strncmp(varname, "alpha", 5) == 0)
+            channel = 3;
+        else if (strncmp(varname, "intensity", 9) == 0)
+        {
+            // Use red as intensity if there are not 3 channels in the image.
+            channel = (nChannels < 3) ? 0 : -1;
+        }
+        else
+        {
+            EXCEPTION1(InvalidVariableException, varname);
+        }
+
+        // If the image is just 1 channel then use red.
+        if (nChannels == 1)
+            channel = 0;
     }
 
     vtkFloatArray *scalars = vtkFloatArray::New();
+    scalars->SetNumberOfComponents(nc);
     scalars->SetNumberOfTuples((xdim)*(ydim));
     float *ptr = (float *)scalars->GetVoidPointer(0);
 
     int i, j;
-    int nChannels = image->GetNumberOfScalarComponents();
-    if (channel < 0 && nChannels < 3)
-        channel = 0;  // Treat the 0th channel as intensity in this case.
-    if (nChannels == 1)
-        channel = 0;
+
     if (channel >= 0)
     {
+        // Extract a component.
         if (image->GetScalarType() == VTK_FLOAT)
         {
             float *data = (float *) image->GetScalarPointer();
@@ -1324,8 +1364,9 @@ avtImageFileFormat::GetOneVar(const char *varname)
             }
         }
     }
-    else
+    else if(channel == -1)
     {
+        // Intensity.
         if (image->GetScalarType() == VTK_FLOAT)
         {
             float *data = (float *) image->GetScalarPointer();
@@ -1371,6 +1412,39 @@ avtImageFileFormat::GetOneVar(const char *varname)
             }
         }
     }
+    else if(channel == -2)
+    {
+        // We want a 4-component vector.
+#define CONVERT_TO_COMP4(NC, BODY) \
+        if(nChannels == NC) {\
+            for (j = 0; j < ydim; j++) {\
+                for (i = 0; i < xdim; i++) { \
+                    BODY }}}
+        CONVERT_TO_COMP4(1,
+           *ptr++ = image->GetScalarComponentAsFloat(i+xmin,j+ymin,0, 0);
+           *ptr++ = 0.f;
+           *ptr++ = 0.f;
+           *ptr++ = 255.f;
+        );
+        CONVERT_TO_COMP4(2,
+           *ptr++ = image->GetScalarComponentAsFloat(i+xmin,j+ymin,0, 0);
+           *ptr++ = image->GetScalarComponentAsFloat(i+xmin,j+ymin,0, 1);
+           *ptr++ = 0.f;
+           *ptr++ = 255.f;
+        );
+        CONVERT_TO_COMP4(3,
+           *ptr++ = image->GetScalarComponentAsFloat(i+xmin,j+ymin,0, 0);
+           *ptr++ = image->GetScalarComponentAsFloat(i+xmin,j+ymin,0, 1);
+           *ptr++ = image->GetScalarComponentAsFloat(i+xmin,j+ymin,0, 2);
+           *ptr++ = 255.f;
+        );
+        CONVERT_TO_COMP4(4,
+           *ptr++ = image->GetScalarComponentAsFloat(i+xmin,j+ymin,0, 0);
+           *ptr++ = image->GetScalarComponentAsFloat(i+xmin,j+ymin,0, 1);
+           *ptr++ = image->GetScalarComponentAsFloat(i+xmin,j+ymin,0, 2);
+           *ptr++ = image->GetScalarComponentAsFloat(i+xmin,j+ymin,0, 3);
+        );
+    } 
 
     return scalars;
 
@@ -1401,55 +1475,15 @@ avtImageFileFormat::GetOneVar(const char *varname)
 //      Mark C. Miller, Tue Nov  9 13:41:33 PST 2004
 //      Added code to return float data directly from vtkImageData object
 //      instead of through intermediary float vectors
+//
+//      Brad Whitlock, Thu Sep 29 16:04:46 PDT 2011
+//      I made it call GetVar and I beefed up that method to deal with vectors.
+//
 // ****************************************************************************
 
 
 vtkDataArray *
 avtImageFileFormat::GetVectorVar(const char *varname)
 {
-    ReadInImage();
-
-    int imgcomps = image->GetNumberOfScalarComponents();
-    if (imgcomps < 3)
-    {
-        EXCEPTION1(InvalidVariableException, varname);
-    }
-
-    int dims[3];
-    image->GetDimensions(dims);
-    int xdim = dims[0];
-    int ydim = dims[1];
-
-    int extents[6];
-    image->GetExtent(extents);
-    int xmin = extents[0];
-    int xmax = extents[1];
-    int ymin = extents[2];
-    int ymax = extents[3];
-
-    int ncomps = 4;
-    int ntuples = xdim*ydim;   // this is the number of entries in the variable.
-    vtkFloatArray *rv = vtkFloatArray::New();
-
-    int ucomps = 4;
-
-    rv->SetNumberOfComponents(ucomps);
-    rv->SetNumberOfTuples(ntuples);
-    float *one_entry = new float[ucomps];
-    for (int i = 0 ; i < ntuples ; i++)
-    {
-        int j;
-        for (j = 0 ; j < imgcomps; j++)
-        {
-            int ii = i % xdim;
-            int jj = i / xdim;
-            one_entry[j] = image->GetScalarComponentAsDouble(ii+xmin,jj+ymin,0,j);
-        }
-        for (j = imgcomps ; j < ucomps; j++)
-            one_entry[j] = (j == 3 ? 255.0 : 0.0);
-        rv->SetTuple(i, one_entry); 
-    }
-    
-    delete [] one_entry;
-    return rv;
+    return GetVar(varname);
 }

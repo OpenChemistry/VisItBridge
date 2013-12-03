@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -41,6 +41,7 @@
 #include <state_exports.h>
 #include <string>
 #include <AttributeSubject.h>
+
 #include <float.h>
 
 // ****************************************************************************
@@ -69,13 +70,23 @@ public:
     };
     static const double DEFAULT_FULL_FRAME_AUTO_THRESHOLD;
 
+    // These constructors are for objects of this class
     View2DAttributes();
     View2DAttributes(const View2DAttributes &obj);
+protected:
+    // These constructors are for objects derived from this class
+    View2DAttributes(private_tmfs_t tmfs);
+    View2DAttributes(const View2DAttributes &obj, private_tmfs_t tmfs);
+public:
     virtual ~View2DAttributes();
 
     virtual View2DAttributes& operator = (const View2DAttributes &obj);
     virtual bool operator == (const View2DAttributes &obj) const;
     virtual bool operator != (const View2DAttributes &obj) const;
+private:
+    void Init();
+    void Copy(const View2DAttributes &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -94,6 +105,7 @@ public:
     void SetFullFrameAutoThreshold(double fullFrameAutoThreshold_);
     void SetXScale(int xScale_);
     void SetYScale(int yScale_);
+    void SetWindowValid(bool windowValid_);
 
     // Property getting methods
     const double *GetWindowCoords() const;
@@ -104,6 +116,7 @@ public:
     double       GetFullFrameAutoThreshold() const;
     int          GetXScale() const;
     int          GetYScale() const;
+    bool         GetWindowValid() const;
 
     // Persistence methods
     virtual bool CreateNode(DataNode *node, bool completeSave, bool forceAdd);
@@ -134,7 +147,9 @@ public:
         ID_fullFrameActivationMode,
         ID_fullFrameAutoThreshold,
         ID_xScale,
-        ID_yScale
+        ID_yScale,
+        ID_windowValid,
+        ID__LAST
     };
 
 private:
@@ -144,9 +159,12 @@ private:
     double fullFrameAutoThreshold;
     int    xScale;
     int    yScale;
+    bool   windowValid;
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define VIEW2DATTRIBUTES_TMFS "DDidiib"
 
 #endif

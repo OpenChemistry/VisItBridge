@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -297,7 +297,7 @@ ListExpr::ExtractNumericElements(vector<double> &output)
 
     std::vector<ListElemExpr*> *elems = GetElems();
 
-    for (int i = 0 ; i < elems->size() ; i++)
+    for (size_t i = 0 ; i < elems->size() ; i++)
     {
         ExprNode *item = (*elems)[i]->GetItem();
         if (item->GetTypeName() == "FloatConst")
@@ -329,7 +329,7 @@ ListExpr::ExtractStringElements(vector<std::string> &output)
 
     std::vector<ListElemExpr*> *elems = GetElems();
 
-    for (int i = 0 ; i < elems->size() ; i++)
+    for (size_t i = 0 ; i < elems->size() ; i++)
     {
         ExprNode *item = (*elems)[i]->GetItem();
         if (item->GetTypeName() == "StringConst")

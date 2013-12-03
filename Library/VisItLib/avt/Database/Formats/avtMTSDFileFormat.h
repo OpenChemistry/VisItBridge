@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -73,12 +73,12 @@ class     avtIOInformation;
 //    Hank Childs, Mon Mar 11 08:48:41 PST 2002
 //    Removed SetDatabaseMetaData since it is defined in the base class.
 //
-//    Kathleen Bonnell, Mon Mar 18 17:15:28 PST 2002
-//    vtkScalars and vtkVectors have been deprecated in VTK 4.0,
+//    Kathleen Bonnell, Mon Mar 18 17:15:28 PST 2002  
+//    vtkScalars and vtkVectors have been deprecated in VTK 4.0, 
 //    use vtkDataArray instead.
 //
-//    Kathleen Bonnell, Mon Mar 18 17:15:28 PST 2002
-//    vtkScalars and vtkVectors have been deprecated in VTK 4.0,
+//    Kathleen Bonnell, Mon Mar 18 17:15:28 PST 2002  
+//    vtkScalars and vtkVectors have been deprecated in VTK 4.0, 
 //    use vtkDataArray instead.
 //
 //    Brad Whitlock, Mon Oct 13 14:14:21 PST 2003
@@ -98,6 +98,16 @@ class     avtIOInformation;
 //    time-qualified and non-time-qualified PopulateDatabaseMetaData methods
 //    See note below.
 //
+//    Hank Childs, Sun May  9 18:47:06 CDT 2010
+//    Add support for time slice offsets (used when group MT files with .visit
+//    files).
+//
+//    Mark C. Miller, Fri Oct 29 09:58:43 PDT 2010
+//    Moved implementation of SetDatabaseMetaData to the .C file.
+//
+//    Hank Childs, Tue Apr 10 15:12:58 PDT 2012
+//    Add method SetReadAllCyclesAndTimes.
+//
 // ****************************************************************************
 
 class DATABASE_API avtMTSDFileFormat : public avtFileFormat
@@ -116,6 +126,7 @@ class DATABASE_API avtMTSDFileFormat : public avtFileFormat
                                             DestructorFunction &);
 
     void                   SetDomain(int d) { myDomain = d; };
+    void                   SetTimeSliceOffset(int ts) { timeSliceOffset = ts; };
 
     virtual int            GetNTimesteps(void);
 
@@ -136,16 +147,23 @@ class DATABASE_API avtMTSDFileFormat : public avtFileFormat
                                { avtFileFormat::ActivateTimestep(); };
     virtual void           PopulateIOInformation(int ts, avtIOInformation& ioInfo)
                                { avtFileFormat::PopulateIOInformation(ioInfo); };
-    virtual void           SetDatabaseMetaData(avtDatabaseMetaData *md, int ts = 0)
-                               { metadata = md; PopulateDatabaseMetaData(metadata, ts); };
+    virtual void           SetDatabaseMetaData(avtDatabaseMetaData *md, int ts = 0);
+
+    void                   SetReadAllCyclesAndTimes(bool b) 
+                                             { readAllCyclesAndTimes = b; };
+    bool                   GetReadAllCyclesAndTimes(void)
+                                             { return readAllCyclesAndTimes; };
+
   protected:
     char                 **filenames;
     int                    nFiles;
     int                    myDomain;
+    int                    timeSliceOffset;
+    bool                   readAllCyclesAndTimes;
 
     // The second of these should really be pure virtual and the first
-    // non-existant. However, both are just virtual to maintain
-    // backward compatibility with older MTXX plugins and to allow
+    // non-existant. However, both are just virtual to maintain 
+    // backward compatibility with older MTXX plugins and to allow 
     // MTXX plugins to implement a time-qualified request to populate
     // database metadata.
     virtual void           PopulateDatabaseMetaData(avtDatabaseMetaData *md);

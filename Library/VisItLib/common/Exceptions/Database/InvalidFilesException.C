@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -79,17 +79,22 @@ InvalidFilesException::InvalidFilesException(int numfiles)
 //    Remove reference to database, since that is just confusing the issue
 //    for users.
 //
+//    Brad Whitlock, Tue Oct  9 10:38:53 PDT 2012
+//    Use std::string.
+//
 // ****************************************************************************
 
 InvalidFilesException::InvalidFilesException(const char *filename)
 {
-    char str[1024];
-    sprintf(str, "There was an error opening %s. It may be an invalid file.", 
-                 filename);
-
-    msg = str;
+    msg = std::string("There was an error opening ") + std::string(filename) + 
+          std::string(". It may be an invalid file.");
 }
 
+InvalidFilesException::InvalidFilesException(const std::string &filename)
+{
+    msg = std::string("There was an error opening ") + filename + 
+          std::string(". It may be an invalid file.");
+}
 
 // ****************************************************************************
 //  Method: InvalidFilesException constructor
@@ -101,27 +106,42 @@ InvalidFilesException::InvalidFilesException(const char *filename)
 //  Programmer: Hank Childs
 //  Creation:   January 11, 2007
 //
+//  Modifications:
+//    Mark C. Miller, Wed Nov  3 08:22:34 PDT 2010
+//    Increased size of string to 2048, correct a typo and adjust text
+//    regardng trying a specific format reader.
+//
 // ****************************************************************************
 
 InvalidFilesException::InvalidFilesException(const char *filename,
                                              std::vector<std::string> &plugins)
 {
-    char str[1024];
+    char str[2048];
     sprintf(str, "There was an error opening %s. It may be an "
-            "invalid file.  VisIt tried using the following file format "
+            "invalid file.\nVisIt tried using the following file format "
             "readers to open the file: ", filename);
-    for (size_t i = 0 ; i < plugins.size() ; i++)
-    {
-        if (i != plugins.size()-1)
-            sprintf(strlen(str)+str, "%s, ", plugins[i].c_str());
-        else
-            sprintf(strlen(str)+str, "%s", plugins[i].c_str());
-    }
-    if (plugins.size() == 0)
+
+    if (plugins.empty() )
     {
         sprintf(strlen(str)+str, "<No suitable plugins were identified>");
     }
-
+    else
+    {
+        for (size_t i = 0 ; i < plugins.size() ; i++)
+        {
+            if (i != plugins.size()-1)
+                sprintf(strlen(str)+str, "%s, ", plugins[i].c_str());
+            else
+                sprintf(strlen(str)+str, "%s", plugins[i].c_str());
+        }
+        sprintf(strlen(str)+str,
+            "\n\nIf you know the specific format reader VisIt should use to\n"
+            "read this data, you can use Open As... (GUI) or\n"
+            "'-o <file>,<plugin> (CL arg.) and identify that specific reader\n"
+            "for VisIt to try. This will possibly give more information on\n"
+            "the exact error.");
+    }
+    
     msg = str;
 }
 
@@ -147,27 +167,30 @@ InvalidFilesException::InvalidFilesException(const char *filename,
     sprintf(str, "There was an error opening %s. It may be an "
             "invalid file.  VisIt tried using the following file format "
             "readers to open the file: ", filename);
-    for (size_t i = 0 ; i < plugins.size() ; i++)
-    {
-        if (i != plugins.size()-1)
-            sprintf(strlen(str)+str, "%s, ", plugins[i].c_str());
-        else
-            sprintf(strlen(str)+str, "%s", plugins[i].c_str());
-    }
-    if (plugins.size() == 0)
+
+    if (plugins.empty() )
     {
         sprintf(strlen(str)+str, "<No suitable plugins were identified>");
     }
-
+    else
+    {
+        for (size_t i = 0 ; i < plugins.size() ; i++)
+        {
+            if (i != plugins.size()-1)
+                sprintf(strlen(str)+str, "%s, ", plugins[i].c_str());
+            else
+                sprintf(strlen(str)+str, "%s", plugins[i].c_str());
+        }
+    }
+    
     //
     // Only append the plugin thrown by the file format if it gave a useful
     // message.  Otherwise, it is just redundant.
     //
     if (strstr(msg2, "It may be an invalid file") == NULL)
     {
-        sprintf(strlen(str)+str, "\n\nThe file format reader issued the "
-                    "following error message, which may (or may not) be "
-                    "indicative of the problem:\n%s", msg2);
+        sprintf(strlen(str)+str, "\n\nThe following error(s) may be helpful "
+                "in identifying the problem:\n%s", msg2);
     }
 
     msg = str;

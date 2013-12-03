@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,6 +46,7 @@
 #include <avtDatabaseMetaData.h>
 #include <avtMTSDFileFormat.h>
 
+#include <DBYieldedNoDataException.h>
 #include <ImproperUseException.h>
 #include <InvalidFilesException.h>
 
@@ -72,10 +73,17 @@ const int avtMTSDFileFormat::MAX_FILES = 1000;
 //    Hank Childs, Mon Aug 16 16:22:56 PDT 2004
 //    Initialize myDomain.
 //
+//    Hank Childs, Sun May  9 18:47:06 CDT 2010
+//    Initialize time slice offset.
+//
+//    Hank Childs, Tue Apr 10 15:12:58 PDT 2012
+//    Initialize read all cycles and times.
+//
 // ****************************************************************************
 
 avtMTSDFileFormat::avtMTSDFileFormat(const char * const *names, int nNames)
 {
+    readAllCyclesAndTimes = false;
     nFiles = nNames;
     filenames = new char*[MAX_FILES];
     int  i;
@@ -89,6 +97,7 @@ avtMTSDFileFormat::avtMTSDFileFormat(const char * const *names, int nNames)
         filenames[i] = NULL;
     }
     myDomain = -1;
+    timeSliceOffset = 0;
 }
 
 
@@ -300,5 +309,30 @@ avtMTSDFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int ts)
             "Please contact the plugin developer. This error cannot be corrected "
             "without changes to code", GetType());
         EXCEPTION1(ImproperUseException, msg);
+    }
+}
+
+// ****************************************************************************
+//  Method: avtSTMDFileFormat::SetDatabaseMetaData
+//
+//  Programmer:  Mark C. Miller
+//  Creation:    28Oct10
+//
+//  Modifications:
+//    Mark C. Miller, Mon Nov  1 12:19:02 PDT 2010
+//    Remove strict mode test.
+//
+//    Mark C. Miller, Mon Nov  8 06:53:26 PST 2010
+//    Predicate on whether this is a simulation or not.
+// ****************************************************************************
+
+void
+avtMTSDFileFormat::SetDatabaseMetaData(avtDatabaseMetaData *md, int ts)
+{
+    metadata = md;
+    PopulateDatabaseMetaData(metadata, ts);
+    if ((!metadata->GetIsSimulation()) && metadata->Empty())
+    {
+        EXCEPTION1(DBYieldedNoDataException, filenames[0]);
     }
 }

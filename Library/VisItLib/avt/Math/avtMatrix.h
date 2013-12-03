@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -61,8 +61,8 @@ class avtVector;
 //    Brad Whitlock, Tue Oct 16 16:12:32 PST 2001
 //    Got rid of vtkMatrix4x4.
 //
-//    Kathleen Bonnell, Tue Mar  4 09:54:46 PST 2003
-//    Added methods to convert between frames.
+//    Kathleen Bonnell, Tue Mar  4 09:54:46 PST 2003 
+//    Added methods to convert between frames. 
 //
 //    Eric Brugger, Tue Feb 10 08:28:05 PST 2004
 //    Added the optional argument lhs (left handed coordinate system) to
@@ -114,7 +114,7 @@ class MATH_API avtMatrix
     void   MakeView(const avtVector&, const avtVector&, const avtVector&) STUB_VOID;
 
     void   MakeFrameToFrameConversion(
-               const avtVector &, const avtVector&, const avtVector&, const avtVector &,
+               const avtVector &, const avtVector&, const avtVector&, const avtVector &, 
                const avtVector &, const avtVector&, const avtVector&, const avtVector &) STUB_VOID;
     void   MakeCartesianToFrameConversion(
                const avtVector &, const avtVector&, const avtVector&, const avtVector &) STUB_VOID;
@@ -134,7 +134,7 @@ class MATH_API avtMatrix
     static avtMatrix CreateOrthographicProjection(double, double,double, double) STUB_MAT;
     static avtMatrix CreateView(const avtVector&, const avtVector&, const avtVector&) STUB_MAT;
     static avtMatrix CreateFrameToFrameConversion(
-               const avtVector &, const avtVector&, const avtVector&, const avtVector &,
+               const avtVector &, const avtVector&, const avtVector&, const avtVector &, 
                const avtVector &, const avtVector&, const avtVector&, const avtVector &) STUB_MAT;
     static avtMatrix CreateCartesianToFrameConversion(
                const avtVector &, const avtVector&, const avtVector&, const avtVector &) STUB_MAT;

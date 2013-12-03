@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -48,6 +48,8 @@
 #include <vtkDataSet.h>
 
 #include <avtCommonDataFunctions.h>
+#include <avtDomainBoundaries.h>
+#include <avtDomainNesting.h>
 #include <avtFacelist.h>
 #include <avtHistogramSpecification.h>
 #include <avtIdentifierSelection.h>
@@ -57,7 +59,6 @@
 #include <avtTypes.h>
 
 #include <ImproperUseException.h>
-
 
 // ****************************************************************************
 //  Method: avtMetaData constructor
@@ -90,7 +91,6 @@ avtMetaData::avtMetaData(avtOriginatingSource *s)
 
 avtMetaData::~avtMetaData()
 {
-    ;
 }
 
 
@@ -102,7 +102,7 @@ avtMetaData::~avtMetaData()
 //      returned, even if it has to be calculated.
 //
 //  Returns:    An interval tree of the data extents.
-//     
+//
 //  Programmer: Hank Childs
 //  Creation:   August 7, 2000
 //
@@ -163,8 +163,14 @@ avtMetaData::GetDataExtents(const char *var)
 avtIntervalTree *
 avtMetaData::GetSpatialExtents(const char *var)
 {
+    return GetSpatialExtents(-1, var);
+}
+
+avtIntervalTree *
+avtMetaData::GetSpatialExtents(int timeSlice, const char *var)
+{
     VoidRefList list;
-    avtContract_p contract = GetContract();
+    avtContract_p contract = GetContract(-1, timeSlice);
     source->GetMeshAuxiliaryData(AUXILIARY_DATA_SPATIAL_EXTENTS, (void*) var,
                                  contract, list);
     if (list.nList == 0)
@@ -430,7 +436,7 @@ avtMetaData::GetContract(void)
 // ****************************************************************************
 
 avtContract_p
-avtMetaData::GetContract(int domain)
+avtMetaData::GetContract(int domain, int timeSlice)
 {
     //
     // Get the data from the source that represents all data.  Then override it
@@ -445,6 +451,8 @@ avtMetaData::GetContract(int domain)
     // should be aware of this.
     //
     avtContract_p ps = new avtContract(alldata, -1);
+    if( timeSlice != -1 )
+        ps->GetDataRequest()->SetTimestep(timeSlice);
     ps->UseLoadBalancing(false);
 
     return ps;
@@ -522,3 +530,74 @@ avtMetaData::GetMixedVar(const char *varname,
     return (avtMixedVariable *) *(list.list[0]);
 }
 
+// ****************************************************************************
+//  Method: avtMetaData::GetDomainNesting
+//
+//  Purpose:
+//      Gets the domain nesting information.  This is used for AMR patches.
+//
+//  Returns:    The domain nesting object
+//
+//  Programmer: Hank Childs
+//  Creation:   August 5, 2010
+//
+// ****************************************************************************
+
+avtDomainNesting *
+avtMetaData::GetDomainNesting(void)
+{
+    VoidRefList list;
+    avtContract_p spec = GetContract();
+    source->GetMeshAuxiliaryData(AUXILIARY_DATA_DOMAIN_NESTING_INFORMATION,
+                                 (void*) "any_mesh", spec, list);
+
+    if (list.nList == 0)
+    {
+        return NULL;
+    }
+    if (list.nList != 1)
+    {
+        EXCEPTION0(ImproperUseException);
+    }
+
+    avtDomainNesting *dni = (avtDomainNesting *) (*(list.list[0]));
+
+    return dni;
+}
+
+
+// ****************************************************************************
+//  Method: avtMetaData::GetDomainBoundaries
+//
+//  Purpose:
+//      Gets the domain boundary information.
+//
+//  Returns:    The domain boundary object
+//
+//  Programmer: Hank Childs
+//  Creation:   August 5, 2010
+//
+// ****************************************************************************
+
+avtDomainBoundaries *
+avtMetaData::GetDomainBoundaries(void)
+{
+    VoidRefList list;
+    avtContract_p spec = GetContract();
+
+    source->GetMeshAuxiliaryData(AUXILIARY_DATA_DOMAIN_BOUNDARY_INFORMATION,
+                                 (void*) "any_mesh", spec, list);
+
+    if (list.nList == 0)
+    {
+        return NULL;
+    }
+    if (list.nList != 1)
+    {
+        EXCEPTION0(ImproperUseException);
+    }
+
+    avtDomainBoundaries *dbi = (avtDomainBoundaries *) *(list.list[0]);
+
+    return dbi;
+}

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -47,27 +47,27 @@
 
 namespace Environment
 {
-    // ****************************************************************************
+    // ***********************************************************************
     //  Function: Environment::get
     //
     //  Purpose:  Obtains a value from the environment.
     //
     //  Programmer: Tom Fogal
     //
-    // ****************************************************************************
+    // ***********************************************************************
     std::string MISC_API get(const char *);
 
-    // ****************************************************************************
+    // ***********************************************************************
     //  Function: Environment::get
     //
     //  Purpose: Predicate to determine whether a variable is defined.
     //
     //  Programmer: Tom Fogal
     //
-    // ****************************************************************************
+    // ***********************************************************************
     bool MISC_API exists(const char *);
 
-    // ****************************************************************************
+    // ***********************************************************************
     //  Function: Environment::set
     //
     //  Purpose: Sets a value in the enviroment.  Avoid using putenv, since it
@@ -75,17 +75,17 @@ namespace Environment
     //
     //  Programmer: Tom Fogal
     //
-    // ****************************************************************************
+    // ***********************************************************************
     void MISC_API set(const char *k, const char *v);
 
-    // ****************************************************************************
+    // ***********************************************************************
     //  Function: Environment::unset
     //
     //  Purpose: Removes a variable definition from the environment.
     //
     //  Programmer: Tom Fogal
     //
-    // ****************************************************************************
+    // ***********************************************************************
     void MISC_API unset(const char *);
 };
 #endif

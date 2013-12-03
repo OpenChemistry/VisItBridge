@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -45,8 +45,7 @@
 #include <BadIndexException.h>
 #include <ImproperUseException.h>
 
-
-using     std::vector;
+#include <avtExecutionManager.h>
 
 
 avtFileDescriptorManager   *avtFileDescriptorManager::instance = NULL;
@@ -83,8 +82,10 @@ avtFileDescriptorManager::avtFileDescriptorManager()
 
 avtFileDescriptorManager::~avtFileDescriptorManager()
 {
-    // Can't really think of a good reason to make all of the files be closed.
-    // This should never be called anyway.
+    closeFileCallbacks.clear();
+    closeFileArgs.clear();
+    fileIsOpen.clear();
+    fileTimestamp.clear();
 }
 
 
@@ -113,6 +114,27 @@ avtFileDescriptorManager::Instance(void)
     return instance;
 }
 
+// ****************************************************************************
+//  Method: avtFileDescriptorManager::DeleteInstance
+//
+//  Purpose:
+//      Delete the single instance of the avtFileDescriptorManager.
+//
+//  Returns:    nothing.
+//
+//  Programmer: David Camp
+//  Creation:   April 14, 2011
+//
+// ****************************************************************************
+
+void
+avtFileDescriptorManager::DeleteInstance(void)
+{
+    if (instance)
+    {
+        delete instance;
+    }
+}
 
 // ****************************************************************************
 //  Method: avtFileDescriptorManager::SetMaximumNumberOfOpenFiles
@@ -204,9 +226,9 @@ avtFileDescriptorManager::RegisterFile(CloseFileCallback cback, void *args)
 void
 avtFileDescriptorManager::UnregisterFile(int index)
 {
-    if (index >= fileIsOpen.size() || index < 0)
+    if (index >= (int)fileIsOpen.size() || index < 0)
     {
-        EXCEPTION2(BadIndexException, index, fileIsOpen.size());
+        EXCEPTION2(BadIndexException, index, (int)fileIsOpen.size());
     }
 
     if (!fileIsOpen[index])
@@ -238,13 +260,17 @@ avtFileDescriptorManager::UnregisterFile(int index)
 void
 avtFileDescriptorManager::UsedFile(int index)
 {
-    if (index >= fileIsOpen.size() || index < 0)
+    if (index >= (int)fileIsOpen.size() || index < 0)
     {
-        EXCEPTION2(BadIndexException, index, fileIsOpen.size());
+        EXCEPTION2(BadIndexException, index, (int)fileIsOpen.size());
     }
+
+    VisitMutexLock("avtFileDescriptorManagerFileTimestamp");
 
     fileTimestamp[index] = timestamp;
     timestamp++;
+
+    VisitMutexUnlock("avtFileDescriptorManagerFileTimestamp");
 }
 
 

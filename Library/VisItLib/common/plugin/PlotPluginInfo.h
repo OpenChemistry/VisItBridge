@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -196,12 +196,12 @@ class PLUGIN_API ViewerPlotPluginInfo : public virtual CommonPlotPluginInfo
     virtual bool PermitsCurveViewScaling() const { return false; }
     virtual bool Permits2DViewScaling() const { return true; }
 
-    virtual void InitializePlotAtts(AttributeSubject *atts, ViewerPlot *) = 0;
+    virtual void InitializePlotAtts(AttributeSubject *atts, const ViewerPlot *) = 0;
     virtual void ReInitializePlotAtts(AttributeSubject *atts, 
-        ViewerPlot *) { ; }
+        const ViewerPlot *) { ; }
 
     virtual void ResetPlotAtts(AttributeSubject *atts,
-        ViewerPlot *) { ; }
+        const ViewerPlot *) { ; }
 
     virtual QString *GetMenuName() const = 0;
     virtual const char **XPMIconData() const { return 0; }

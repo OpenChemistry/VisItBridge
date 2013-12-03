@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -49,6 +49,7 @@
 #include <vtkCellData.h>
 #include <vtkImageData.h>
 #include <vtkImageWriter.h>
+#include <vtkInformation.h>
 #include <vtkJPEGWriter.h>
 #include <vtkPNGWriter.h>
 #include <vtkPNMWriter.h>
@@ -254,11 +255,14 @@ CreateImageData(int *dims, const double *spacing, vtkDataArray *da,
     bool is3D = dims[2] > 1;
 
     vtkImageData *image = vtkImageData::New();
+    vtkInformation *imageInfo = image->GetInformation();
     image->SetDimensions(dims);
     if (spacing[0] == -1 || spacing[1] == -1 || (is3D && spacing[2] == -1))
         image->SetSpacing(1.0,1.0,is3D?1.0:0.0);
     else
         image->SetSpacing(spacing[0],spacing[1],is3D?spacing[2]:0.0);
+    vtkDataObject::SetPointDataActiveScalarInfo(
+       imageInfo, VTK_UNSIGNED_CHAR, da->GetNumberOfComponents());
     int n = isCellData ? 2 : 1;
     image->SetExtent(0,dims[0]-n,0,dims[1]-n,0,is3D?dims[2]-n:0);
 
@@ -273,9 +277,6 @@ CreateImageData(int *dims, const double *spacing, vtkDataArray *da,
     {
         image->GetPointData()->SetScalars(da);
     }
-
-    // Not needed (VTK Team)
-    // image->Update();	
 
     return image;
 

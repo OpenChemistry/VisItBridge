@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -90,6 +90,10 @@ class avtIOInformation;
 //
 //    Mark C. Miller, Tue May 31 20:12:42 PDT 2005
 //    Added method SetCycleTimeInDatabaseMetaData
+//
+//    Hank Childs, Tue Dec 20 14:15:33 CST 2011
+//    Add method CreateCacheNameIncludingSelections.
+//
 // ****************************************************************************
 
 class DATABASE_API avtSTSDFileFormatInterface : public avtFileFormatInterface
@@ -104,6 +108,8 @@ class DATABASE_API avtSTSDFileFormatInterface : public avtFileFormatInterface
     virtual void           *GetAuxiliaryData(const char *var, int, int,
                                              const char *type, void *args, 
                                              DestructorFunction &);
+    virtual std::string     CreateCacheNameIncludingSelections(std::string,
+                                                               int, int);
 
     virtual const char     *GetFilename(int);
     virtual void            SetDatabaseMetaData(avtDatabaseMetaData *md,

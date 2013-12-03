@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,16 +42,14 @@
 #include <vtkCellData.h>
 #include <vtkEdgeTable.h>
 #include <vtkExtractEdges.h>
+#include <vtkInformation.h>
+#include <vtkInformationVector.h>
 #include <vtkMergePoints.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkVisItUtility.h>
 #include <vtkPolyData.h>
 #include <vtkUnsignedIntArray.h>
-#include <vtkInformation.h>
-#include <vtkInformationVector.h>
-
-
 
 //------------------------------------------------------------------------------
 // Modifications:
@@ -79,7 +77,6 @@ vtkLinesFromOriginalCells::~vtkLinesFromOriginalCells()
 // Generate feature edges for mesh
 //
 //  Modifications:
-//
 //    Kathleen Bonnell, Mon Oct 29 13:22:36 PST 2001
 //    Make pts of type vtkIdType to match VTK 4.0 API.
 //
@@ -107,8 +104,13 @@ vtkLinesFromOriginalCells::~vtkLinesFromOriginalCells()
 //    Hank Childs, Thu Mar 10 09:48:47 PST 2005
 //    Fix memory leak.
 //
+//    Eric Brugger, Wed Jan  9 11:44:42 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+//    Kathleen Biagas, Fri Jan 25 16:04:46 PST 2013
+//    Call Update on the filter, not the data object.
+//
 // ****************************************************************************
-
 int vtkLinesFromOriginalCells::RequestData(
   vtkInformation *vtkNotUsed(request),
   vtkInformationVector **inputVector,
@@ -118,8 +120,10 @@ int vtkLinesFromOriginalCells::RequestData(
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
 
-  // get the input and output
-  vtkPolyData *input = vtkPolyData::SafeDownCast(
+  //
+  // Initialize some frequently used values.
+  //
+  vtkPolyData  *input = vtkPolyData::SafeDownCast(
     inInfo->Get(vtkDataObject::DATA_OBJECT()));
   vtkPolyData *output = vtkPolyData::SafeDownCast(
     outInfo->Get(vtkDataObject::DATA_OBJECT()));
@@ -150,10 +154,10 @@ int vtkLinesFromOriginalCells::RequestData(
                     "field data. Using vtkExtractEdges.");
       vtkExtractEdges *extractor = vtkExtractEdges::New();
       extractor->SetInputData(input);
-      this->Update();
+      extractor->Update();
       output->ShallowCopy(extractor->GetOutput());
       extractor->Delete();
-      return 0;
+      return 1;
   }
   unsigned int* origCellNums =
       ((vtkUnsignedIntArray*)origCellsArr)->GetPointer(0);
@@ -173,7 +177,7 @@ int vtkLinesFromOriginalCells::RequestData(
   if ( numCells < 1 || numPts < 1 )
     {
     vtkErrorMacro(<<"No input data!");
-    return 0;
+    return 1;
     }
 
   // Set up processing
@@ -265,4 +269,3 @@ int vtkLinesFromOriginalCells::RequestData(
 
   return 1;
 }
-

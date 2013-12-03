@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2006, The Regents of the University of California
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,7 +46,9 @@
 
 #include <vtkCellData.h>
 #include <vtkFloatArray.h>
+#include <vtkInformation.h>
 #include <vtkRectilinearGrid.h>
+#include <vtkStreamingDemandDrivenPipeline.h>
 #include <vtkUnsignedCharArray.h>
 #include <vtkUnstructuredGrid.h>
 
@@ -121,8 +123,11 @@ avtFVCOM_MTMDFileFormat::Identify(NETCDFFileObject *fileObject)
 // Creation:   Thu May 4 16:18:57 PST 2006
 //
 // Modifications:
-//   Jeremy Meredith, Thu Jan 28 15:49:05 EST 2010
-//   MTMD files can now be grouped into longer sequences.
+//    Jeremy Meredith, Thu Jan 28 15:49:05 EST 2010
+//    MTMD files can now be grouped into longer sequences.
+//
+//    Brad Whitlock, Mon Oct  4 11:20:51 PDT 2010
+//    I changed the code back to using 2 constructors so it works again.
 //
 // ****************************************************************************
 
@@ -136,7 +141,13 @@ avtFVCOM_MTMDFileFormat::CreateInterface(NETCDFFileObject *f,
     avtMTMDFileFormat **ffl = new avtMTMDFileFormat*[nTimestepGroups];
     for (int i = 0 ; i < nTimestepGroups ; i++)
     {
-        ffl[i] = new avtFVCOM_MTMDFileFormat(list[i*nBlock], (i==0)?f:NULL);
+        if(f != 0)
+        {
+            ffl[i] = new avtFVCOM_MTMDFileFormat(list[i*nBlock], f);
+            f = 0;
+        }
+        else
+            ffl[i] = new avtFVCOM_MTMDFileFormat(list[i*nBlock]);
     }
     return new avtMTMDFileFormatInterface(ffl, nTimestepGroups);
 }
@@ -532,7 +543,7 @@ avtFVCOM_MTMDFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int t
     for(int i = 0; i < md->GetNumMeshes(); ++i)
     {
         avtMeshMetaData *mmd = const_cast<avtMeshMetaData*>(md->GetMesh(i));
-        mmd->numBlocks = domainFiles.size();
+        mmd->numBlocks = (int)domainFiles.size();
     }
 
 
@@ -1464,6 +1475,8 @@ avtFVCOM_MTMDFileFormat::GetMesh(int timestate, int domain, const char *meshname
         }
     
         retval->GetCellData()->AddArray(ghostCells);
+        retval->GetInformation()->Set(
+            vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0);
         ghostCells->Delete();
         debug4 << mName << "Found Ghost Zones" << endl;
 

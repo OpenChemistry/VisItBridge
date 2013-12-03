@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -40,8 +40,6 @@
 #define __vtkVisItStreamLine_h
 #include <visit_vtk_exports.h>
 #include "vtkStreamer.h"
-#include <vtkInformation.h>
-#include <vtkInformationVector.h>
 
 class VISIT_VTK_API vtkVisItStreamLine : public vtkStreamer
 {
@@ -65,18 +63,18 @@ protected:
   ~vtkVisItStreamLine() {};
 
   // Convert streamer array into vtkPolyData
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
+  void Execute();
 
   // the length of line primitives
   double StepLength;
 
-  void Integrate(vtkDataSet *input);
+  void Integrate();
 //  int GetNumberOfStreamers() { return vtkStreamer::GetNumberOfStreamers(); };
 private:
   vtkVisItStreamLine(const vtkVisItStreamLine&);  // Not implemented.
   void operator=(const vtkVisItStreamLine&);  // Not implemented.
 
-  static VTK_THREAD_RETURN_TYPE ThreadedIntegrate(void *arg, vtkDataSet *input);
+  static VTK_THREAD_RETURN_TYPE ThreadedIntegrate(void *arg);
 };
 
 #endif

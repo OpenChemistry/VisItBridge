@@ -116,14 +116,18 @@ Pipeline/avtDataRequest.C
 Pipeline/avtDataSetReader.C
 Pipeline/avtDataSetWriter.C
 Pipeline/avtDebugDumpOptions.C
+Pipeline/avtExecutionManager.C
 Pipeline/avtImageReader.C
 Pipeline/avtImageTiler.C
 Pipeline/avtImageWriter.C
+Pipeline/avtMultiWindowSaver.C
 Pipeline/avtNamedSelection.C
+Pipeline/avtNamedSelectionExtension.C
 Pipeline/avtNamedSelectionManager.C
 Pipeline/avtNullDataReader.C
 Pipeline/avtNullDataWriter.C
 Pipeline/avtParallel.C
+Pipeline/ThreadPool.C
 Pipeline/avtWebpage.C
 )
 
@@ -133,7 +137,6 @@ AbstractFilters/avtDataObjectToDatasetFilter.C
 AbstractFilters/avtDataObjectToImageFilter.C
 AbstractFilters/avtDataObjectToSamplePointsFilter.C
 AbstractFilters/avtDataTreeIterator.C
-AbstractFilters/avtDatasetOnDemandFilter.C
 AbstractFilters/avtDatasetToDataObjectFilter.C
 AbstractFilters/avtDatasetToDatasetFilter.C
 AbstractFilters/avtDatasetToImageFilter.C
@@ -146,6 +149,7 @@ AbstractFilters/avtMultiResolutionPartitionStrategy.C
 AbstractFilters/avtMultipleInputToDataObjectFilter.C
 AbstractFilters/avtMultipleInputToDatasetFilter.C
 AbstractFilters/avtPluginDataTreeIterator.C
+AbstractFilters/avtPluginDatasetToDatasetFilter.C
 AbstractFilters/avtPluginStructuredChunkDataTreeIterator.C
 AbstractFilters/avtSIMODataTreeIterator.C
 AbstractFilters/avtSamplePointsToDataObjectFilter.C
@@ -157,8 +161,6 @@ AbstractFilters/avtStructuredChunkDataTreeIterator.C
 AbstractFilters/avtStructuredMeshChunker.C
 AbstractFilters/avtStructuredMeshPartitionStrategy.C
 AbstractFilters/avtSweepPlanePartitionStrategy.C
-AbstractFilters/avtTimeLoopCollectorFilter.C
-AbstractFilters/avtTimeLoopFilter.C
 )
 
 SET(SINKS_SOURCES
@@ -207,6 +209,7 @@ ${VISIT_COMMON_INCLUDES}
 ${AVT_DBATTS_SOURCE_DIR}/MetaData
 ${AVT_DBATTS_SOURCE_DIR}/SIL
 ${VISIT_SOURCE_DIR}/avt/Database/Database
+${VISIT_SOURCE_DIR}/avt/Database/Ghost
 ${VISIT_SOURCE_DIR}/avt/Math
 ${VISIT_SOURCE_DIR}/avt/VisWindow/VisWindow
 ${AVT_PIPELINE_SOURCE_DIR}/Data
@@ -237,6 +240,7 @@ target_link_libraries(avtpipeline_ser
     vtkIOLegacy
     vtkIOXML
     vtkRenderingOpenGL
+    vtkFiltersGeometry
     ${ZLIB_LIB}
   )
 
@@ -257,6 +261,7 @@ IF(VISIT_PARALLEL)
         vtkIOLegacy
         vtkIOXML
         vtkRenderingOpenGL
+        vtkFiltersGeometry
         ${ZLIB_LIB}
       )
     VISIT_INSTALL_TARGETS(avtpipeline_par)

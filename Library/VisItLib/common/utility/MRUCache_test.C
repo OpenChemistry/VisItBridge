@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -47,6 +47,7 @@
 #define CACHE_SIZE 20
 
 using std::string;
+using std::vector;
 
 // define some types via a typedef
 typedef MRUCache<string, char*, MRUCache_Free, CACHE_SIZE> FreeCache;
@@ -76,11 +77,12 @@ int main()
     DelCache delCache;
     MRUCache<string, float*, MRUCache_ArrayDelete, CACHE_SIZE> adelCache;
 
+    cout << "Cache size is set to " << CACHE_SIZE << " items." << endl;
 
     // load caches and see how things behave
     for (i = 0; i < 2*CACHE_SIZE; i++)
     {
-        cerr << "Iteration " << i << endl;
+        cout << "Iteration " << i << endl;
         char tmp[256];
         sprintf(tmp, "item %02d", i);
         string tmpStr = string(tmp);
@@ -112,7 +114,7 @@ int main()
     const int n = fullName.size();
     vector<string> keysToRemove;
 
-    cerr << "Iterating to find and remove all keys beginning with \"" << fullName.c_str() << "\"" << endl; 
+    cout << "Iterating to find and remove all keys beginning with \"" << fullName.c_str() << "\"" << endl; 
     for (it = delCache.begin(); it != delCache.end(); it++)
     {
         if (fullName.compare(0, n, it->first, 0, n) == 0)
@@ -125,9 +127,35 @@ int main()
         callbackCache.remove(keysToRemove[j]);
         delCache.remove(keysToRemove[j]);
         adelCache.remove(keysToRemove[j]);
-        cerr << "Removed item with key \"" << keysToRemove[j].c_str() << "\"" << endl;
+        cout << "Removed item with key \"" << keysToRemove[j].c_str() << "\"" << endl;
     }
-    cerr << "Iterating to see what remains in cache" << endl;
+    cout << "Iterating to see what remains in cache" << endl;
     for (it = delCache.begin(); it != delCache.end(); it++)
-        cerr << "Item with key \"" << it->first.c_str() << "\" still in cache" << endl;
+        cout << "Item with key \"" << it->first.c_str() << "\" still in cache" << endl;
+
+    //
+    // Test clear and adjustments in cache size
+    //
+    cout << "Clearing some caches" << endl;
+    dontCache.clear();
+    delCache.clear();
+    if (dontCache.size() != 0 || delCache.size() != 0)
+        cerr << "Problem with clearing caches" << endl;
+
+    //
+    // Set cache size downwards
+    //
+    cout << "Resizing some caches to most recently used 5 items." << endl;
+    freeCache.numslots(5);
+    adelCache.numslots(5);
+    callbackCache.numslots(5);
+    FreeCache::iterator fit;
+    for (fit = freeCache.begin(); fit != freeCache.end(); fit++)
+        cout << "Item with key \"" << fit->first.c_str() << "\" still in Free cache" << endl;
+    MRUCache<string, float*, MRUCache_ArrayDelete, CACHE_SIZE>::iterator adit;
+    for (adit = adelCache.begin(); adit != adelCache.end(); adit++)
+        cout << "Item with key \"" << adit->first.c_str() << "\" still in delete [] cache" << endl;
+    MRUCache<string, foo_t*, MRUCache_CallbackDelete, CACHE_SIZE>::iterator cbit;
+    for (cbit = callbackCache.begin(); cbit != callbackCache.end(); cbit++)
+        cout << "Item with key \"" << cbit->first.c_str() << "\" still in callbackCache cache" << endl;
 }

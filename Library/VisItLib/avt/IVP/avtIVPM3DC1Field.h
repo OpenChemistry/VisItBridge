@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -45,11 +45,13 @@
 
 #include "avtIVPVTKField.h"
 
-#include <vtkVisItInterpolatedVelocityField.h>
 #include <vtkDataSet.h>
 #include <vtkPointData.h>
 
 #include <ivp_exports.h>
+
+#include <map>
+#include <vector> 
 
 
 // ****************************************************************************
@@ -68,83 +70,116 @@
 class IVP_API avtIVPM3DC1Field: public avtIVPVTKField
 {
  protected:
+
 /* Local typedefs */
   typedef struct {
     double x,y;
-  } v_entry;
+  } vertex;
   
   typedef struct {
-    int el0, v, side;
-  } d_edge;
-  
-  typedef struct{
-    d_edge o[8];
-    int    n;
+    int element, vertex, side;
   } edge;
   
-  public:
-    avtIVPM3DC1Field( vtkVisItInterpolatedVelocityField* velocity ); 
-    avtIVPM3DC1Field( float *elementsPtr, int nelements );
+ public:
+  avtIVPM3DC1Field( vtkDataSet* ds, avtCellLocator* loc, double fact ); 
+  avtIVPM3DC1Field( float *elementsPtr, int nelements, int dim, int planes );
 
-    ~avtIVPM3DC1Field();
+  ~avtIVPM3DC1Field();
 
-    vtkVisItInterpolatedVelocityField* GetBaseField() { return iv; }    
+  virtual Result IsInside(const double& t, const avtVector &x) const;
 
-    void findElementNeighbors();
-    void register_vert(v_entry *vlist, int *len,
-                       double x, double y, int *index);
-    void add_edge(edge *list, int *tri, int side, int el, int *nlist);
+  void findElementNeighbors();
+  int register_vert(std::vector< vertex > &vlist,
+                    double x, double y);
+  
+  void add_edge(std::multimap< int, edge > &edgeMaplist,
+                int *vertexIndexs, int side, int element, int *neighborList);
+  
+  int get_tri_coords2D(double *x, double *xout) const;
 
-    int get_tri_coords2D(double *x, double *xout);
-    int get_tri_coords2D(double *x, int el, double *xout);
+  Result    operator()( const double &t, const avtVector &v, avtVector &retV ) const;
 
-    float interp    (float *var, int el, double *lcoords);
-    float interpdR  (float *var, int el, double *lcoords);
-    float interpdz  (float *var, int el, double *lcoords);
-    float interpdR2 (float *var, int el, double *lcoords);
-    float interpdz2 (float *var, int el, double *lcoords);
-    float interpdRdz(float *var, int el, double *lcoords);
+  avtVector ConvertToCartesian(const avtVector& pt) const;
+  avtVector ConvertToCylindrical(const avtVector& pt) const;
 
-    void interpBcomps(float *B, double *x, int element, double *xieta);
+  void interpBcomps(float *B, double *x, int element, double *xieta) const;
+
+  void reparameterizeBcomps( const avtVector &p, avtVector &v ) const;
+
+  float interp(float *var, int el, double *lcoords) const;
+
+  void interpdX(float *var, int el, double *lcoords,
+               double &xicoef, double &etacoef) const;
+  void interpdX2(float *var, int el, double *lcoords,
+                 double &xixicoef, double &etaetacoef,
+                 double &xietacoef ) const;
+  void interpdXdPhi(float *var, int el, double *lcoords,
+                    double &xicoef, double &etacoef) const;
+
+  float interpdR  (float *var, int el, double *lcoords) const;
+  float interpdz  (float *var, int el, double *lcoords) const;
+  float interpdPhi(float *var, int el, double *lcoords) const;
+
+  float interpdR2 (float *var, int el, double *lcoords) const;
+  float interpdz2 (float *var, int el, double *lcoords) const;
+
+  float interpdRdz  (float *var, int el, double *lcoords) const;
+  float interpdRdPhi(float *var, int el, double *lcoords) const;
+  float interpdzdPhi(float *var, int el, double *lcoords) const;
 
  protected:
-    template< class type >
-      type* SetDataPointer( vtkDataSet *ds,
-                            const type var,
-                            const char* varname,
-                            const int ntuples,
-                            const int ncomponents );
+  template< class type >
+    type* SetDataPointer( vtkDataSet *ds,
+                          const type var,
+                          const char* varname,
+                          const int component_size,
+                          double factor = 1.0 );
+  
+  // Variables calculated in findElementNeighbors (trigtable,
+  // neighbors) or read as part of the mesh (elements).
+  float *elements;
+  double *trigtable;   /* Geometry of each triangle */
+  int    *neighbors;   /* Element neighbor table for efficient searches */
+  
+  int tElements;       /* Number elements in a plane */
 
-    // Variables calculated in findElementNeighbors (trigtable,
-    // neighbors) or read as part of the mesh (elements).
-    float *elements;
-    double *trigtable;   /* Geometry of each triangle */
-    int    *neighbors;   /* Element neighbor table for efficient searches */
+  int element_dimension;
+  int nplanes;
+  int element_size;
+  int scalar_size;
 
  public:
-    //  variables on the mesh
-    float *psi0, *f0;                  /* Equilibrium field */
-    float *psinr, *psini, *fnr, *fni;  /* Complex perturbed field */
 
-    // variable based on attributes (bzero and rzero)
-    double F0;                      /* Strength of vacuum toroidal field */
-    
-    // Variables calculated in findElementNeighbors
-    double Rmin, Rmax, zmin, zmax;  /* Mesh bounds */
+  bool reparameterize;
+  float factor;
 
-    // unused variables read from header attributes
-    // (xlim, zlim) or explicitly set (psilim).
-//  double xlim, zlim, psilim;      /* Information about limiting surface */
+  // 2D Variables variables on the mesh
+  float *psi0, *f0;                  /* Equilibrium B field conponents */
+  float *psinr, *psini, *fnr, *fni;  /* Complex perturbed field */
+  
+  // 3D Variables variables on the mesh
+  float *I0;                         /* Equilibrium B field conponents */
+  float *f, *psi, *I;                /* Perturbed field */
 
-    // unused variables read from header attributes (ntime == nframes)
-//  int    nframes;
+  // Variables calculated in findElementNeighbors
+//double Rmin, Rmax, zmin, zmax;  /* Mesh bounds */
 
-    // variables read from header attributes (linear == linflag,
-    // ntor == tmode) or part of the mesh (nelms).
-    int linflag, nelms, tmode;
+  // unused variables read from header attributes
+  // (xlim, zlim) or explicitly set (psilim).
+//double xlim, zlim, psilim;      /* Information about limiting surface */
 
-    // variables read from header attributes.
-    double bzero, rzero;
+  // unused variables read from header attributes (ntime == nframes)
+//int    nframes;
+
+  // variables read from header attributes (linear == linflag,
+  // ntor == tmode) or part of the mesh (nelms).
+  int eqsubtract, linflag, nelms, tmode;
+  
+  // variables read from header attributes.
+  double bzero, rzero;
+
+  // variable based on attributes (bzero and rzero)
+  double F0;                      /* Strength of vacuum toroidal field */  
 };
 
 #endif

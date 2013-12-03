@@ -17,6 +17,7 @@
 =========================================================================*/
 #include "vtkVisItCellDataToPointData.h"
 
+#include "vtkAccessors.h"
 #include "vtkCellData.h"
 #include "vtkDataSet.h"
 #include "vtkIdList.h"
@@ -39,7 +40,6 @@ vtkVisItCellDataToPointData::vtkVisItCellDataToPointData()
 
 // **************************************************************************** 
 //  Modifications:
-//
 //    Hank Childs, Wed Mar  9 16:23:01 PST 2005
 //    Fix minor UMR.
 //
@@ -47,20 +47,49 @@ vtkVisItCellDataToPointData::vtkVisItCellDataToPointData()
 //    Avoid using fastTrack code for non-scalar data. The fastTrack code does
 //    not handle it right.
 //
+//    Kathleen Biagas, Thu Sep 6 11:05:01 MST 2012
+//    Added templatized helper method to handle double-precision.
+//
 // **************************************************************************** 
 
-int vtkVisItCellDataToPointData::RequestData(vtkInformation *vtkNotUsed(request),
-                                             vtkInformationVector **inputVector,
-                                             vtkInformationVector *outputVector)
+template <class Accessor> inline void
+vtkVisItCellDataToPointData_Copy(int ptId, double weight, int *ids, int nids,
+    Accessor var_out, Accessor var_in)
 {
-  vtkIdType cellId, ptId, i, j, k, l, m;
-  vtkIdType numCells, numPts;
-  vtkInformation* inInfo = inputVector[0]->GetInformationObject(0);
-  vtkInformation* outInfo = outputVector->GetInformationObject(0);
-  vtkDataSet *input = vtkDataSet::SafeDownCast(
-      inInfo->Get(vtkDataObject::DATA_OBJECT()));
+    double val = 0.;
+    for (int m = 0 ; m < nids ; ++m)
+    {
+        val += weight * var_in.GetComponent(ids[m]);
+    }
+    var_out.SetComponent(ptId, val);
+}
+
+// **************************************************************************** 
+//  Modifications:
+//    Eric Brugger, Wed Jan  9 14:48:17 PST 2013
+//    Modified to inherit from vtkDataSetAlgorithm.
+//
+// **************************************************************************** 
+
+int vtkVisItCellDataToPointData::RequestData(
+  vtkInformation *vtkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *outputVector)
+{
+  // get the info objects
+  vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
+  vtkInformation *outInfo = outputVector->GetInformationObject(0);
+
+  //
+  // Initialize some frequently used values.
+  //
+  vtkDataSet  *input = vtkDataSet::SafeDownCast(
+    inInfo->Get(vtkDataObject::DATA_OBJECT()));
   vtkDataSet *output = vtkDataSet::SafeDownCast(
     outInfo->Get(vtkDataObject::DATA_OBJECT()));
+
+  vtkIdType cellId, ptId, i, j, k, l;
+  vtkIdType numCells, numPts;
   vtkCellData *inPD=input->GetCellData();
   vtkPointData *outPD=output->GetPointData();
   vtkIdList *cellIds;
@@ -79,7 +108,7 @@ int vtkVisItCellDataToPointData::RequestData(vtkInformation *vtkNotUsed(request)
     {
     vtkErrorMacro(<<"No input point data!");
     cellIds->Delete();
-    return 0;
+    return 1;
     }
   weights = new double[VTK_MAX_CELLS_PER_POINT];
   
@@ -111,7 +140,7 @@ int vtkVisItCellDataToPointData::RequestData(vtkInformation *vtkNotUsed(request)
     canFastTrackStructured = false;
   }
 
-  // Only handle floating point and make sure that are assumptions about
+  // Only handle floating point/double and make sure our assumptions about
   // the variable's names are valid.
   int nvals = inPD->GetNumberOfArrays();
   for (i = 0 ; i < nvals ; i++)
@@ -123,7 +152,8 @@ int vtkVisItCellDataToPointData::RequestData(vtkInformation *vtkNotUsed(request)
 
     if (outPD->GetArray(inPD->GetArray(i)->GetName()) == NULL)
       canFastTrackStructured = false;
-    if (inPD->GetArray(i)->GetDataType() != VTK_FLOAT)
+    if (!(inPD->GetArray(i)->GetDataType() == VTK_FLOAT ||
+          inPD->GetArray(i)->GetDataType() == VTK_DOUBLE))
       canFastTrackStructured = false;
 
     // fastTrack code doesn't support non-scalar data, so for now, avoid it.
@@ -143,17 +173,21 @@ int vtkVisItCellDataToPointData::RequestData(vtkInformation *vtkNotUsed(request)
     int ids[8];
 
     const int maxArrays = 128;
-    float *vars_in[maxArrays];
-    float *vars_out[maxArrays];
+    vtkDataArray *vars_in[maxArrays];
+    vtkDataArray *vars_out[maxArrays];
     for (i = 0 ; i < nvals ; i++)
     {
        // This should be automatic, but some arrays do not seem to correctly
        // know how many tuples they have.
        outPD->GetArray(inPD->GetArray(i)->GetName())
                               ->SetNumberOfTuples(output->GetNumberOfPoints());
-       vars_in[i] = (float *) inPD->GetArray(i)->GetVoidPointer(0);
-       vars_out[i] = (float *) outPD->GetArray(inPD->GetArray(i)->GetName())
-                                                           ->GetVoidPointer(0);
+       vars_in[i] = inPD->GetArray(i);
+       vars_out[i] = outPD->GetArray(inPD->GetArray(i)->GetName());
+    }
+    for (i = nvals ; i < maxArrays ; i++)
+    {
+        vars_in[i] = NULL;
+        vars_out[i] = NULL;
     }
 
     for (k = 0 ; k < dims[2] ; k++)
@@ -194,11 +228,19 @@ int vtkVisItCellDataToPointData::RequestData(vtkInformation *vtkNotUsed(request)
           int ptId = k*dims[0]*dims[1] + j*dims[0] + i;
           for (l = 0 ; l < nvals ; l++)
           {
-             vars_out[l][ptId] = 0.;
-             for (m = 0 ; m < nids ; m++)
-             {
-               vars_out[l][ptId] += weight*vars_in[l][ids[m]];
-             }
+              // only floats/doubles take the fast-path.
+              if (vars_in[l]->GetDataType() == VTK_FLOAT)
+              {
+                  vtkVisItCellDataToPointData_Copy(ptId, weight, ids, nids,
+                      vtkDirectAccessor<float>(vars_out[l]), 
+                      vtkDirectAccessor<float>(vars_in[l]));
+              }
+              else if (vars_in[l]->GetDataType() == VTK_DOUBLE)
+              {
+                  vtkVisItCellDataToPointData_Copy(ptId, weight, ids, nids,
+                      vtkDirectAccessor<double>(vars_out[l]), 
+                      vtkDirectAccessor<double>(vars_in[l]));
+              }
           }
         }
       }
@@ -240,6 +282,7 @@ int vtkVisItCellDataToPointData::RequestData(vtkInformation *vtkNotUsed(request)
 
   cellIds->Delete();
   delete [] weights;
+
   return 1;
 }
 

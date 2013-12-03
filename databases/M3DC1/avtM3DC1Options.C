@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -70,17 +70,30 @@ GetM3DC1ReadOptions(void)
 {
     DBOptionsAttributes *rv = new DBOptionsAttributes;
 
-    rv->SetInt("Number of poloidal planes", 1);
+//    rv->SetInt("Number of poloidal planes", 1);
 
-    rv->SetInt("Levels of mesh refinement 0-5", 0);
+    rv->SetEnum("Mesh refinement", 1);
+    vector<string> refinement;
+    refinement.push_back("1");
+    refinement.push_back("2");
+    refinement.push_back("3");
+    refinement.push_back("4");
+    refinement.push_back("5");
+    refinement.push_back("6");
+    refinement.push_back("7");
+    refinement.push_back("8");
+    refinement.push_back("9");
+    refinement.push_back("10");
+//    refinement.push_back("Variable");
+    rv->SetEnumStrings("Mesh refinement", refinement);
 
-    rv->SetEnum("Linear Mesh Data Location", 0);
+    rv->SetEnum("Linear mesh data location", 0);
     vector<string> centering;
     centering.push_back("Node");
     centering.push_back("Element");
-    rv->SetEnumStrings("Linear Mesh Data Location", centering);
+    rv->SetEnumStrings("Linear mesh data location", centering);
  
-    rv->SetDouble("Perturbation scaling", 1.0);
+    rv->SetBool("Process Data Selections in the Reader", false);
 
     return rv;
 }

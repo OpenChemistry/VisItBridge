@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,6 +42,8 @@
 #include <string>
 #include <AttributeSubject.h>
 
+class EngineProperties;
+
 // ****************************************************************************
 // Class: EngineList
 //
@@ -60,13 +62,23 @@
 class STATE_API EngineList : public AttributeSubject
 {
 public:
+    // These constructors are for objects of this class
     EngineList();
     EngineList(const EngineList &obj);
+protected:
+    // These constructors are for objects derived from this class
+    EngineList(private_tmfs_t tmfs);
+    EngineList(const EngineList &obj, private_tmfs_t tmfs);
+public:
     virtual ~EngineList();
 
     virtual EngineList& operator = (const EngineList &obj);
     virtual bool operator == (const EngineList &obj) const;
     virtual bool operator != (const EngineList &obj) const;
+private:
+    void Init();
+    void Copy(const EngineList &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -75,34 +87,37 @@ public:
 
     // Property selection methods
     virtual void SelectAll();
-    void SelectEngines();
-    void SelectNumProcessors();
-    void SelectNumNodes();
-    void SelectLoadBalancing();
+    void SelectEngineName();
     void SelectSimulationName();
+    void SelectProperties();
 
     // Property setting methods
-    void SetEngines(const stringVector &engines_);
-    void SetNumProcessors(const intVector &numProcessors_);
-    void SetNumNodes(const intVector &numNodes_);
-    void SetLoadBalancing(const intVector &loadBalancing_);
+    void SetEngineName(const stringVector &engineName_);
     void SetSimulationName(const stringVector &simulationName_);
 
     // Property getting methods
-    const stringVector &GetEngines() const;
-          stringVector &GetEngines();
-    const intVector    &GetNumProcessors() const;
-          intVector    &GetNumProcessors();
-    const intVector    &GetNumNodes() const;
-          intVector    &GetNumNodes();
-    const intVector    &GetLoadBalancing() const;
-          intVector    &GetLoadBalancing();
+    const stringVector &GetEngineName() const;
+          stringVector &GetEngineName();
     const stringVector &GetSimulationName() const;
           stringVector &GetSimulationName();
+    const AttributeGroupVector &GetProperties() const;
+          AttributeGroupVector &GetProperties();
 
     // Persistence methods
     virtual bool CreateNode(DataNode *node, bool completeSave, bool forceAdd);
     virtual void SetFromNode(DataNode *node);
+
+
+    // Attributegroup convenience methods
+    void AddProperties(const EngineProperties &);
+    void ClearProperties();
+    void RemoveProperties(int i);
+    int  GetNumProperties() const;
+    EngineProperties &GetProperties(int i);
+    const EngineProperties &GetProperties(int i) const;
+
+    EngineProperties &operator [] (int i);
+    const EngineProperties &operator [] (int i) const;
 
 
     // Keyframing methods
@@ -114,22 +129,23 @@ public:
 
     // IDs that can be used to identify fields in case statements
     enum {
-        ID_engines = 0,
-        ID_numProcessors,
-        ID_numNodes,
-        ID_loadBalancing,
-        ID_simulationName
+        ID_engineName = 0,
+        ID_simulationName,
+        ID_properties,
+        ID__LAST
     };
 
+protected:
+    AttributeGroup *CreateSubAttributeGroup(int index);
 private:
-    stringVector engines;
-    intVector    numProcessors;
-    intVector    numNodes;
-    intVector    loadBalancing;
-    stringVector simulationName;
+    stringVector         engineName;
+    stringVector         simulationName;
+    AttributeGroupVector properties;
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define ENGINELIST_TMFS "s*s*a*"
 
 #endif

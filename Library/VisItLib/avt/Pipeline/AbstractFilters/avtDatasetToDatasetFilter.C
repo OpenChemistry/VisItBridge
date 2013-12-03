@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,6 +46,8 @@
 #include <avtDatasetToDatasetFilter.h>
 #include <avtCommonDataFunctions.h>
 #include <DebugStream.h>
+
+#include <vector>
 
 // ****************************************************************************
 //  Method: avtDatasetToDatasetFilter constructor
@@ -124,6 +126,10 @@ avtDatasetToDatasetFilter::~avtDatasetToDatasetFilter()
 //    Jeremy Meredith, Thu Feb 15 11:55:03 EST 2007
 //    Call inherited PreExecute before everything else.
 //
+//    Hank Childs, Wed Dec 22 01:25:47 PST 2010
+//    Allow for filters that don't want to automatically make the pipeline
+//    variable be active.
+//
 // ****************************************************************************
 
 void
@@ -140,7 +146,8 @@ avtDatasetToDatasetFilter::PreExecute(void)
     else if (atts.ValidActiveVariable() &&
              atts.GetVariableName() != pipelineVariable)
     {
-        InputSetActiveVariable(pipelineVariable);
+        if (AutomaticallyMakePipelineVariableActive())
+            InputSetActiveVariable(pipelineVariable);
     }
 }
 
@@ -267,7 +274,7 @@ avtDatasetToDatasetFilter::ExamineContract(avtContract_p s)
         {
             haveVariable = true;
         }
-        const vector<CharStrRef> &var2nd = ds->GetSecondaryVariables();
+        const std::vector<CharStrRef> &var2nd = ds->GetSecondaryVariables();
         for (int i = 0; i < var2nd.size(); i++)
         {
             const char *v2 = *(var2nd[i]);
@@ -308,7 +315,7 @@ avtDatasetToDatasetFilter::ExamineContract(avtContract_p s)
             haveVariable = true;
         }
 
-        const vector<CharStrRef> &var2nd = ds->GetSecondaryVariables();
+        const std::vector<CharStrRef> &var2nd = ds->GetSecondaryVariables();
         for (int j = 0; j < var2nd.size(); j++)
         {
             const char *v2 = *(var2nd[j]);
@@ -375,13 +382,18 @@ avtDatasetToDatasetFilter::SetActiveVariable(const char *varname)
 //  Programmer: Hank Childs          <Added Header>
 //  Creation:   September 22, 2003   <Header Creation Date>
 //
+//  Modifications:
+//
+//    Hank Childs, Sun Aug  4 11:31:50 PDT 2013
+//    Add check to make sure activeVariable is not NULL.
+//
 // ****************************************************************************
 
 void
 avtDatasetToDatasetFilter::AddSecondaryVariable(const char *var)
 {
     // Are we already asking for this in the activeVariable?
-    if (strcmp(activeVariable, var) == 0)
+    if (activeVariable != NULL && strcmp(activeVariable, var) == 0)
         return;
 
     // Search through the existing secondary variables and see if it's

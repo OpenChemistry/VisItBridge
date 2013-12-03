@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -51,6 +51,11 @@
 #include <avtCommonDataFunctions.h>
 #include <avtDataAttributes.h>
 #include <avtExtents.h>
+
+#include <DebugStream.h>
+#include <TimingsManager.h>
+
+#include <vector>
 
 
 // ****************************************************************************
@@ -146,7 +151,7 @@ avtOriginatingDatasetSource::FetchData(avtDataRequest_p spec)
     {
         int nleaves = 0;
         vtkDataSet **ds = tree->GetAllLeaves(nleaves);
-        vector<int> domains;
+        std::vector<int> domains;
         tree->GetAllDomainIds(domains);
         verifier.VerifyDatasets(nleaves, ds, domains);
         delete [] ds;
@@ -207,19 +212,39 @@ avtOriginatingDatasetSource::FetchData(avtDataRequest_p spec)
 //    Added support for initializing individual component data ranges for
 //    array variables.
 //
+//    Hank Childs, Thu Aug 26 13:02:28 PDT 2010
+//    Change named of extents object.
+//
+//    Hank Childs, Thu Aug 26 16:57:24 PDT 2010
+//    Don't calculate extents we don't want.
+//
+//    Hank Childs, Sun Nov 28 16:51:28 PST 2010
+//    Cache extents when possible.
+//
 // ****************************************************************************
 
 void
-avtOriginatingDatasetSource::MergeExtents(vtkDataSet *ds)
+avtOriginatingDatasetSource::MergeExtents(vtkDataSet *ds, int dom, int ts, 
+                                          const char *meshname)
 {
     if (ds == NULL)
     {
         return;
     }
 
+    if (*lastContract == NULL)
+    {
+        debug1 << "MergeExtents should not be called without an update before "
+               << "it.  Internal error." << endl;
+        return;
+    }
+
+    int t1 = visitTimer->StartTimer();
+
     avtDataAttributes &atts = GetOutput()->GetInfo().GetAttributes();
 
-    if (atts.GetTrueSpatialExtents()->HasExtents() == false)
+    if (atts.GetOriginalSpatialExtents()->HasExtents() == false &&
+        lastContract->ShouldCalculateMeshExtents())
     {
         double bounds[6];
         if (ds->GetFieldData()->GetArray("avtOriginalBounds") != NULL)
@@ -230,7 +255,20 @@ avtOriginatingDatasetSource::MergeExtents(vtkDataSet *ds)
         }
         else
         {
-            ds->GetBounds(bounds);
+            void_ref_ptr ptr = FetchArbitraryRefPtr(meshname,dom,ts,"EXTENTS");
+            if (*ptr != NULL)
+            {
+                avtExtents *e = (avtExtents *) *ptr;
+                e->CopyTo(bounds);
+            }
+            else
+            {
+                ds->GetBounds(bounds);
+                avtExtents *e = new avtExtents(3);
+                e->Set(bounds);
+                void_ref_ptr vrp(e, avtExtents::Destruct);
+                StoreArbitraryRefPtr(meshname, dom, ts, "EXTENTS", vrp);
+            }
         }
 
         double dbounds[6];
@@ -240,7 +278,7 @@ avtOriginatingDatasetSource::MergeExtents(vtkDataSet *ds)
         dbounds[3] = bounds[3];
         dbounds[4] = bounds[4];
         dbounds[5] = bounds[5];
-        atts.GetCumulativeTrueSpatialExtents()->Merge(dbounds);
+        atts.GetThisProcsOriginalSpatialExtents()->Merge(dbounds);
     }
 
     int nvars = atts.GetNumberOfVariables();
@@ -252,18 +290,35 @@ avtOriginatingDatasetSource::MergeExtents(vtkDataSet *ds)
     for (int i = 0 ; i < nvars ; i++)
     {
         const char *vname = atts.GetVariableName(i).c_str();
-        if (atts.GetTrueDataExtents(vname)->HasExtents())
+        if (atts.GetOriginalDataExtents(vname)->HasExtents())
         {
             //
             // There is no point in walking through the data and determining
-            // what the cumulative extents are -- we know them already.
+            // what the extents for this data set is -- we already know the
+            // global extents.
             //
             continue;
         }
+        if (! lastContract->ShouldCalculateVariableExtents(vname))
+            continue;
 
-        bool ignoreGhost = true;
-        GetDataRange(ds, dextents, vname, true);
-        atts.GetCumulativeTrueDataExtents(vname)->Merge(dextents);
+        void_ref_ptr ptr = FetchArbitraryRefPtr(vname,dom,ts,"EXTENTS");
+        if (*ptr != NULL)
+        {
+            avtExtents *e = (avtExtents *) *ptr;
+            e->CopyTo(dextents);
+        }
+        else
+        {
+            bool ignoreGhost = true;
+            GetDataRange(ds, dextents, vname, ignoreGhost);
+            avtExtents *e = new avtExtents(1);
+            e->Set(dextents);
+            void_ref_ptr vrp(e, avtExtents::Destruct);
+            StoreArbitraryRefPtr(vname, dom, ts, "EXTENTS", vrp);
+        }
+
+        atts.GetThisProcsOriginalDataExtents(vname)->Merge(dextents);
 
         if (atts.GetVariableType(vname) == AVT_ARRAY_VAR)
         {
@@ -273,6 +328,8 @@ avtOriginatingDatasetSource::MergeExtents(vtkDataSet *ds)
             delete[] compExt;
         }   
     }
+
+    visitTimer->StopTimer(t1, "avtOriginatingDatasetSource::MergeExtents for a single domain");
 }
 
 

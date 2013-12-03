@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -117,7 +117,7 @@ avtMaximumIntensityProjectionRF::~avtMaximumIntensityProjectionRF()
 
 void
 avtMaximumIntensityProjectionRF::GetRayValue(const avtRay *ray, 
-                                             unsigned char rgb[3], float depth)
+                                             unsigned char rgb[3], double depth)
 {
     double curMax = -1. * DBL_MAX;
     int    maxInd = -1;
@@ -131,7 +131,7 @@ avtMaximumIntensityProjectionRF::GetRayValue(const avtRay *ray,
     const bool   *validSample = ray->validSample;
 
     // Only handle one variable, even if there is more.
-    const float  *sample      = ray->sample[0];
+    const double  *sample      = ray->sample[0];
 
     int depthIndex = IndexOfDepth(depth, numSamples);
 

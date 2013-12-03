@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -48,7 +48,6 @@
 #include <avtGhostData.h>
 
 #include <vector>
-using std::vector;
 
 class vtkDataSet;
 class vtkDataArray;
@@ -92,6 +91,9 @@ class avtMaterial;
 //    Hank Childs, Thu Feb 14 17:12:38 PST 2008
 //    Add virtual method "CanOnlyCreateGhostNodes".
 //
+//    Brad Whitlock, Sun Apr 22 10:32:28 PDT 2012
+//    Added ExchangeDoubleVector.
+//
 // ****************************************************************************
 
 class DATABASE_API avtDomainBoundaries
@@ -100,37 +102,41 @@ class DATABASE_API avtDomainBoundaries
                  avtDomainBoundaries();
     virtual      ~avtDomainBoundaries();
 
-    virtual vector<vtkDataSet*>       ExchangeMesh(vector<int>       domainNum,
-                                               vector<vtkDataSet*>   meshes)  =0;
+    virtual std::vector<vtkDataSet*>       ExchangeMesh(std::vector<int>       domainNum,
+                                               std::vector<vtkDataSet*>   meshes)  =0;
 
-    virtual vector<vtkDataArray*>     ExchangeScalar(vector<int>     domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeScalar(std::vector<int>     domainNum,
                                                bool                  isPointData,
-                                               vector<vtkDataArray*> scalars) =0;
+                                               std::vector<vtkDataArray*> scalars) =0;
 
-    virtual vector<vtkDataArray*>     ExchangeFloatVector(vector<int> domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeFloatVector(std::vector<int> domainNum,
                                                bool                   isPointData,
-                                               vector<vtkDataArray*>  vectors) =0;
+                                               std::vector<vtkDataArray*>  vectors) =0;
 
-    virtual vector<vtkDataArray*>     ExchangeIntVector(vector<int>  domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeDoubleVector(std::vector<int> domainNum,
+                                               bool                   isPointData,
+                                               std::vector<vtkDataArray*>  vectors) =0;
+
+    virtual std::vector<vtkDataArray*>     ExchangeIntVector(std::vector<int>  domainNum,
                                                bool                  isPointData,
-                                               vector<vtkDataArray*> vectors) =0;
+                                               std::vector<vtkDataArray*> vectors) =0;
 
-    virtual vector<avtMaterial*>      ExchangeMaterial(vector<int>   domainNum,
-                                              vector<avtMaterial*>   mats)    =0;
+    virtual std::vector<avtMaterial*>      ExchangeMaterial(std::vector<int>   domainNum,
+                                              std::vector<avtMaterial*>   mats)    =0;
 
-    virtual vector<avtMixedVariable*> ExchangeMixVar(vector<int>     domainNum,
-                                        const vector<avtMaterial*>   mats,
-                                        vector<avtMixedVariable*>    mixvars) =0;
-    virtual void                      CreateGhostNodes(vector<int>   domainNum,
-                                               vector<vtkDataSet*>   meshes,
-                                               vector<int> &)  =0;
+    virtual std::vector<avtMixedVariable*> ExchangeMixVar(std::vector<int>     domainNum,
+                                        const std::vector<avtMaterial*>   mats,
+                                        std::vector<avtMixedVariable*>    mixvars) =0;
+    virtual void                      CreateGhostNodes(std::vector<int>   domainNum,
+                                               std::vector<vtkDataSet*>   meshes,
+                                               std::vector<int> &)  =0;
     virtual bool                      CreatesRobustGhostNodes(void) 
                                                               { return true; };
     virtual bool                      CanOnlyCreateGhostNodes(void) 
                                                               { return false; };
     virtual bool                      RequiresCommunication(avtGhostDataType) = 0;
-    virtual bool                      ConfirmMesh(vector<int>      domainNum,
-                                               vector<vtkDataSet*> meshes)  =0;
+    virtual bool                      ConfirmMesh(std::vector<int>      domainNum,
+                                               std::vector<vtkDataSet*> meshes)  =0;
     virtual void                      ResetCachedMembers(void) {;};
 };
 

@@ -47,6 +47,8 @@ Database/avtDatasetDatabase.C
 Database/avtFileDescriptorManager.C
 Database/avtGenericDatabase.C
 Database/avtIOInformation.C
+#Database/avtPolygonToTrianglesTesselator.C
+Database/avtPolyhedralSplit.C
 Database/avtSILGenerator.C
 Database/avtSourceFromDatabase.C
 Database/avtVariableCache.C

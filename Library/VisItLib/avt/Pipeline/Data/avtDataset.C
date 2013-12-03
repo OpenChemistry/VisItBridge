@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -55,6 +55,14 @@
 #include <avtParallel.h>
 #include <avtSourceFromAVTDataset.h>
 #include <avtWebpage.h>
+
+#include <DebugStream.h>
+
+#include <string>
+#include <vector>
+
+using std::string;
+using std::vector;
 
 
 // ****************************************************************************
@@ -560,10 +568,13 @@ avtDataset::DebugDump(avtWebpage *webpage, const char *prefix)
 //    Hank Childs, Wed Aug 13 09:05:12 PDT 2008
 //    Add support for processors that have no data.
 //
+//    Hank Childs, Fri Sep 10 19:20:28 PDT 2010
+//    Add an option for calculating a tree only on this processor.
+//
 // ****************************************************************************
 
 avtIntervalTree *
-avtDataset::CalculateSpatialIntervalTree(void)
+avtDataset::CalculateSpatialIntervalTree(bool acrossAllProcs)
 {
     vector<avtDataTree_p> trees;
     avtDataTree_p root = GetDataTree();
@@ -572,7 +583,9 @@ avtDataset::CalculateSpatialIntervalTree(void)
     int max = -1;
     for (int i = 0 ; i < ids.size() ; i++)
         max = (ids[i] > max ? ids[i] : max);
-    max = UnifyMaximumValue(max);
+    if (acrossAllProcs)
+        max = UnifyMaximumValue(max);
+
     if (max < 0)
     {
         EXCEPTION0(ImproperUseException);
@@ -580,10 +593,10 @@ avtDataset::CalculateSpatialIntervalTree(void)
     max += 1;
 
     int dim = GetInfo().GetAttributes().GetSpatialDimension();
-    avtIntervalTree *itree = new avtIntervalTree(max, dim, true);
+    avtIntervalTree *itree = new avtIntervalTree(max, dim, acrossAllProcs);
     trees.push_back(root);
     int idx = 1;
-    while (( idx > 0 )) 
+    while (idx > 0)
     {
         idx -= 1;
 
@@ -619,3 +632,93 @@ avtDataset::CalculateSpatialIntervalTree(void)
 }
 
 
+// ****************************************************************************
+//  Method: avtDataset::RenumberDomainIDs
+//
+//  Purpose:
+//      Renumbers the domain IDs.  If a domain has ID 10 and then the reflect
+//      operator comes along, then each of the reflected data sets will also
+//      have ID 10.  This is a nightmare for streamline calculations.
+//      This routine will through away the original IDs and create a new
+//      numbering space.
+//
+//  Programmer: Hank Childs
+//  Creation:   September 2, 2010
+//
+//  Modifications:
+//
+//    Hank Childs, Fri Sep 10 19:20:28 PDT 2010
+//    Add an option for limiting the calculation to each processor.
+//
+//    Hank Childs, Tue Sep 21 11:34:17 CDT 2010
+//    Fix array size problem.
+//
+// ****************************************************************************
+
+void
+avtDataset::RenumberDomainIDs(bool acrossAllProcs)
+{
+    int  i;
+
+    int numLeaves = 0;
+    vector<string> labels;
+    vtkDataSet **leaves = NULL;
+    if (*dataTree == NULL)
+    {
+        if (! acrossAllProcs)
+            return;
+    }
+    else
+    {
+        leaves = dataTree->GetAllLeaves(numLeaves);
+        dataTree->GetAllLabels(labels);
+    }
+
+    // This should never execute, but better safe than sorry
+    while (labels.size() < numLeaves)
+    {
+        //debug1 << "Unexpected: less labels than leaves" << endl;
+        labels.push_back("");
+    }
+
+    int myOffset = 0;
+    if (acrossAllProcs)
+    {
+        int  numProcs = PAR_Size();
+        int *numPer = new int[numProcs];
+        for (i = 0 ; i < numProcs ; i++)
+            numPer[i] = 0;
+        numPer[PAR_Rank()] = numLeaves;
+        int *numPer2 = new int[numProcs];
+        SumIntArrayAcrossAllProcessors(numPer, numPer2, numProcs);
+        delete [] numPer;
+        numPer = numPer2;
+        for (i = 0 ; i < PAR_Rank() ; i++)
+            myOffset += numPer[i];
+        delete [] numPer;
+    }
+    
+    if (numLeaves == 0) // had to wait this long to do parallel communication.
+    {
+        // Free the memory from the GetAllLeaves function call.
+        delete [] leaves;
+        return;
+    }
+
+    avtDataTree_p *newTrees = new avtDataTree_p[numLeaves];
+    for (i = 0 ; i < numLeaves ; i++)
+         newTrees[i] = new avtDataTree(leaves[i], myOffset++, labels[i]);
+
+    dataTree = new avtDataTree(numLeaves, newTrees);
+
+    delete [] newTrees; // new array allocated by avtDataTree constructor
+
+    // Free the memory from the GetAllLeaves function call.
+    delete [] leaves;
+}
+
+std::string
+avtDataset::GetDatasetAsString()
+{
+    return dataTree->GetDatasetAsString();
+}

@@ -50,9 +50,9 @@ vtkCSGCell.C
 vtkCSGGrid.C
 vtkConnectedTubeFilter.C
 vtkDataSetRemoveGhostCells.C
-vtkDisjointCubesFacelistFilter.C
 vtkLineoutFilter.C
 vtkLinesFromOriginalCells.C
+vtkMultiSplitter.C
 vtkOBJWriter.C
 vtkOnionPeelFilter.C
 vtkPPMWriter.C
@@ -90,7 +90,9 @@ vtkVisItStructuredGrid.C
 vtkVisItStructuredGridNormals.C
 vtkVisItTIFFWriter.C
 vtkVisItTensorGlyph.C
+vtkVisItTubeFilter.C
 vtkVolumeFromVolume.C
+vtkVolumeFromCSGVolume.C
 )
 
 INCLUDE_DIRECTORIES(

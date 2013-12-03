@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -69,6 +69,13 @@ struct {
 } typedef intvect3d;
 
 struct {
+  int i;
+  int j;
+  int k;
+  int l;
+} typedef intvect4d;
+
+struct {
   intvect2d lo;
   intvect2d hi;
 } typedef box2d;
@@ -78,10 +85,16 @@ struct{
   intvect3d hi;
 } typedef box3d;
 
+struct{
+  intvect4d lo;
+  intvect4d hi;
+} typedef box4d;
+
 union
 {
   box2d b2;
   box3d b3;
+  box4d b4;
 } typedef box;
 
 struct {
@@ -150,6 +163,13 @@ class DBOptionsAttributes;
 //    Added ability to connect particle mesh based on polymer_id and
 //    particle_nid
 //
+//    Tom Fogal, Fri Aug  6 16:39:18 MDT 2010
+//    Implement method to handle data selections.
+//
+//    Gunther H. Weber, Thu Aug 15 11:37:51 PDT 2013
+//    Initial bare-bones support for 4D Chombo files (fairly limited and 
+//    "hackish")
+//
 // ****************************************************************************
 
 class avtChomboFileFormat : public avtSTMDFileFormat
@@ -174,65 +194,78 @@ class avtChomboFileFormat : public avtSTMDFileFormat
     void                  *GetMaterial(const char *var, int patch, 
                                        const char *type,
                                        DestructorFunction &df);
+
+    void                   RegisterDataSelections(
+                             const std::vector<avtDataSelection_p>&,
+                             std::vector<bool>* applied
+                           );
   
   protected:
-    bool                   initializedReader;
-    int                    dimension;
-    hid_t                  file_handle;
-    std::vector<std::string>  varnames;
-    int                    nMaterials;
-    bool                   hasParticles;
-    bool                   connectParticles;
-    std::vector<std::string>  particleVarnames;
-    double                 dtime;
-    int                    cycle;
-    //int                    max_level;
-    int                    num_levels;
-    bool                   nodeCentered;
-    std::vector<int>       numGhosts;
-    std::vector<int>       patchesPerLevel;
-    std::vector<int>       refinement_ratio;
-    std::vector<double>    dx;
-    std::list<Expression*> expressions;
-    bool                   allowedToUseGhosts;
-    bool                   fileContainsGhosts;
-    bool                   enableOnlyRootLevel;
-    bool                   enableOnlyExplicitMaterials;
-    bool                   checkForMappingFile;
-    bool                   mappingFileExists;
-    bool                   mappingIs3D;
+    bool                               initializedReader;
+    int                                dimension;
+    hid_t                              file_handle;
+    std::vector<std::string>           varnames;
+    int                                nMaterials;
+    bool                               hasParticles;
+    bool                               connectParticles;
+    bool                               alwaysComputeDomainBoundaries;
+    std::vector<std::string>           particleVarnames;
+    double                             dtime;
+    int                                cycle;
+    int                                num_levels;
+    bool                               nodeCentered;
+    std::vector<int>                   numGhosts;
+    std::vector<int>                   patchesPerLevel;
+    std::vector< std::vector<int> >    refinement_ratio;
+    std::vector< std::vector<double> > dx;
+    std::list<Expression*>             expressions;
+    bool                               allowedToUseGhosts;
+    bool                               fileContainsGhosts;
+    bool                               enableOnlyRootLevel;
+    bool                               enableOnlyExplicitMaterials;
+    bool                               checkForMappingFile;
+    bool                               mappingFileExists;
+    bool                               mappingIs3D;
 
-    std::vector<int>       lowProbI;
-    std::vector<int>       hiProbI;
-    std::vector<int>       lowProbJ;
-    std::vector<int>       hiProbJ;
-    std::vector<int>       lowProbK;
-    std::vector<int>       hiProbK;
+    // Information to group boxes for 4D data sets to create array variable
+    // from 4th dimension
+    std::vector<int>                   listOfRepresentativeBoxes;
+    std::vector<int>                   representativeBox;
+    std::vector< std::vector<int> >    representedBoxes;
 
-    std::vector<int>       lowI;
-    std::vector<int>       hiI;
-    std::vector<int>       lowJ;
-    std::vector<int>       hiJ;
-    std::vector<int>       lowK;
-    std::vector<int>       hiK;
+    std::vector<int>                   lowProbI;
+    std::vector<int>                   hiProbI;
+    std::vector<int>                   lowProbJ;
+    std::vector<int>                   hiProbJ;
+    std::vector<int>                   lowProbK;
+    std::vector<int>                   hiProbK;
+    std::vector<int>                   lowProbL;
+    std::vector<int>                   hiProbL;
 
-    double                 probLo[3];
-    double                 aspectRatio[3];
+    std::vector<int>                   lowI;
+    std::vector<int>                   hiI;
+    std::vector<int>                   lowJ;
+    std::vector<int>                   hiJ;
+    std::vector<int>                   lowK;
+    std::vector<int>                   hiK;
+    std::vector<int>                   lowL;
+    std::vector<int>                   hiL;
 
-    void                   InitializeReader(void);
-    void                   GetLevelAndLocalPatchNumber(int global_patch,
-                                           int &level, int &local_patch) const;
-    void                   CalculateDomainNesting(void);
+    double                             probLo[3];
+    double                             aspectRatio[3];
 
-    virtual int            GetCycle(void);
-    virtual double         GetTime(void);
-    virtual int            GetCycleFromFilename(const char *f) const;
+    size_t                             resolution; // for user selection of resolution
 
-    virtual bool           HasInvariantMetaData(void) const { return false; };
-    virtual bool           HasInvariantSIL(void) const { return false; };
+    void                               InitializeReader(void);
+    void                               GetLevelAndLocalPatchNumber(int global_patch,
+                                          int &level, int &local_patch) const;
+    void                               CalculateDomainNesting(void);
+
+    virtual int                        GetCycle(void);
+    virtual double                     GetTime(void);
+    virtual int                        GetCycleFromFilename(const char *f) const;
+
+    virtual bool                       HasInvariantMetaData(void) const { return false; };
+    virtual bool                       HasInvariantSIL(void) const      { return false; };
 };
-
-
 #endif
-
-

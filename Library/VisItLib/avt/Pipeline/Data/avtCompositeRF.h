@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -92,7 +92,7 @@ class PIPELINE_API avtCompositeRF : public avtRayFunction
     virtual           ~avtCompositeRF();
 
     virtual void       GetRayValue(const avtRay *,
-                                   unsigned char rgb[3], float);
+                                   unsigned char rgb[3], double);
 
     void               SetColorVariableIndex(int cvi)
                                                { colorVariableIndex = cvi; };
@@ -101,7 +101,10 @@ class PIPELINE_API avtCompositeRF : public avtRayFunction
     void               SetWeightVariableIndex(int wvi)
                                                { weightVariableIndex = wvi; };
     virtual bool       CanContributeToPicture(int,
-                                          const float (*)[AVT_VARIABLE_LIMIT]);
+                                          const double (*)[AVT_VARIABLE_LIMIT]);
+
+    void               SetTrilinearSampling(bool r) { trilinearSampling = r; };
+    void               SetMaterial(double mat[4]){for (int i=0; i<4; i++) matProperties[i]=mat[i];}
 
   protected:
     avtOpacityMap     *map;
@@ -113,6 +116,8 @@ class PIPELINE_API avtCompositeRF : public avtRayFunction
     int                weightVariableIndex;
 
     avtRangeMaxTable   rangeMaxTable;
+    bool               trilinearSampling;
+    double             matProperties[4];  //ambient, diffuse, specular, shininess
 };
 
 

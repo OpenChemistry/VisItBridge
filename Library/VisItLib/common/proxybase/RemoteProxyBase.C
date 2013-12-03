@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -64,7 +64,7 @@
 
 RemoteProxyBase::RemoteProxyBase(const std::string &compName) :
     componentName(compName), xfer(), quitRPC(), keepAliveRPC(),
-    remoteUserName(), argv()
+    argv()
 {
     component = 0;
     nWrite = nRead = 1;
@@ -98,7 +98,8 @@ RemoteProxyBase::~RemoteProxyBase()
 //   Creates the remote process and hooks up RPCs so that it can be used.
 //
 // Arguments:
-//   hostName        : The host where the proxy should be created.
+//   profile         : The machine profile of the host where the proxy should 
+//                     be created.
 //   connectCallback : A callback that can be used to launch the component.
 //   data            : Data to be used with the connect callback.
 //
@@ -125,16 +126,19 @@ RemoteProxyBase::~RemoteProxyBase()
 //    Jeremy Meredith, Thu Feb 18 15:25:27 EST 2010
 //    Split HostProfile int MachineProfile and LaunchProfile.
 //
+//    Eric Brugger, Mon May  2 16:42:59 PDT 2011
+//    I added the ability to use a gateway machine when connecting to a
+//    remote host.
+//
+//    Brad Whitlock, Tue Jun  5 15:57:00 PDT 2012
+//    Pass in the MachineProfile.
+//
 // ****************************************************************************
 
 void
-RemoteProxyBase::Create(const std::string &hostName,
-                        MachineProfile::ClientHostDetermination chd,
-                        const std::string &clientHostName,
-                        bool manualSSHPort,
-                        int sshPort,
-                        bool useTunneling,
-                        ConnectCallback *connectCallback, void *data,
+RemoteProxyBase::Create(const MachineProfile &profile,
+                        ConnectCallback *connectCallback,
+                        void *connectCallbackData,
                         bool createAsThoughLocal)
 {
     // Create a remote process object for the remote component.
@@ -147,7 +151,7 @@ RemoteProxyBase::Create(const std::string &hostName,
         ExistingRemoteProcess *p = 
             new ExistingRemoteProcess(GetVisItString());
         p->SetConnectCallback(connectCallback);
-        p->SetConnectCallbackData(data);
+        p->SetConnectCallbackData(connectCallbackData);
         component = p;
     }
 
@@ -163,9 +167,7 @@ RemoteProxyBase::Create(const std::string &hostName,
     //
     // Open the remote component.
     //
-    component->Open(hostName, chd, clientHostName,
-                    manualSSHPort, sshPort, useTunneling,
-                    nRead, nWrite, createAsThoughLocal);
+    component->Open(profile, nRead, nWrite, createAsThoughLocal);
 
     //
     // Hook up the sockets to the xfer object.
@@ -281,28 +283,6 @@ RemoteProxyBase::SendKeepAlive()
 }
 
 // ****************************************************************************
-// Method: RemoteProxyBase::SetRemoteUserName
-//
-// Purpose: 
-//   Sets the username to use on the remote machine.
-//
-// Arguments:
-//   rName : The remote user name.
-//
-// Programmer: Brad Whitlock
-// Creation:   Fri May 2 14:59:26 PST 2003
-//
-// Modifications:
-//   
-// ****************************************************************************
-
-void
-RemoteProxyBase::SetRemoteUserName(const std::string &rName)
-{
-    remoteUserName = rName;
-}
-
-// ****************************************************************************
 // Method: RemoteProxyBase::SetProgressCallback
 //
 // Purpose: 
@@ -398,20 +378,22 @@ RemoteProxyBase::AddArgument(const std::string &arg)
 //    Jeremy Meredith, Fri Feb 19 09:55:03 EST 2010
 //    Remove assumption that the machine profile has an active launch profile.
 //
+//    Mark C. Miller, Tue Oct 19 21:42:22 PDT 2010
+//    Name of '-timeout' argument was changed to '-idle-timeout'.
+//
+//    Tom Fogal, Fri May  6 18:34:52 MDT 2011
+//    Adjust for new X launch options.
+//
+//    Hank Childs, Fri Nov 18 07:23:04 PST 2011
+//    Make sure -display gets added whenever we do HW acceleration (not just
+//    when we launch x-servers).
+//
 // ****************************************************************************
 
 void
 RemoteProxyBase::AddProfileArguments(const MachineProfile &machine,
                                      bool addParallelArgs)
 {
-    //
-    // Set the user's login name.
-    //
-#if defined(_WIN32) && defined(GetUserName)
-#undef GetUserName
-#endif
-    SetRemoteUserName(machine.GetUserName());
-
     // Add the directory arugment
     if (machine.GetDirectory() != "")
     {
@@ -492,7 +474,7 @@ RemoteProxyBase::AddProfileArguments(const MachineProfile &machine,
                 AddArgument("-la");
                 AddArgument(launch->GetLaunchArgs());
             }
-
+        }
             if (launch->GetSublaunchArgsSet() &&
                 launch->GetSublaunchArgs().length() > 0)
             {
@@ -525,7 +507,7 @@ RemoteProxyBase::AddProfileArguments(const MachineProfile &machine,
             {
                 AddArgument("-setupenv");
             }
-        }
+        //}
 #if 0 // disabling dynamic load balancing for now
         if (launch->GetForceStatic())
         {
@@ -557,22 +539,32 @@ RemoteProxyBase::AddProfileArguments(const MachineProfile &machine,
     if (launch->GetCanDoHWAccel())
     {
         AddArgument("-hw-accel");
-        if (launch->GetHavePreCommand())
+        if(launch->GetLaunchXServers())
         {
-            AddArgument("-hw-pre");
-            AddArgument(launch->GetHwAccelPreCommand());
+            AddArgument("-launch-x");
+            if(!launch->GetXArguments().empty())
+            {
+                AddArgument("-x-args");
+                AddArgument(launch->GetXArguments());
+            }
         }
-        if (launch->GetHavePostCommand())
+        if(!launch->GetXDisplay().empty())
         {
-            AddArgument("-hw-post");
-            AddArgument(launch->GetHwAccelPostCommand());
+            AddArgument("-display");
+            AddArgument(launch->GetXDisplay());
+        }
+        AddArgument("-n-gpus-per-node");
+        {
+            std::ostringstream gn;
+            gn << launch->GetGPUsPerNode();
+            AddArgument(gn.str());
         }
     }
 
     // Add the timeout argument
     char temp[10];
     SNPRINTF(temp, 10, "%d", launch->GetTimeout());
-    AddArgument("-timeout");
+    AddArgument("-idle-timeout");
     AddArgument(temp);
 
     //
@@ -615,7 +607,16 @@ RemoteProxyBase::Parallel() const
 // Creation:   Fri May 2 15:01:39 PST 2003
 //
 // Modifications:
+//   Kathleen Bonnell, Fri Oct 8 08:50:11 PDT 2010
+//   On Windows, append "visit" instead of "bin/visit".
 //   
+//   Kathleen Bonnell, Fri Nov 19 17:34:04 MST 2010
+//   Revert windows-specific change.
+//
+//   Brad Whitlock, Thu Dec 8 12:16:34 PST 2011
+//   If we find :/ or :\ in the -dir argument then assume the remote computer
+//   is a Windows computer and we should handle it a little differently.
+//
 // ****************************************************************************
 
 std::string
@@ -630,9 +631,19 @@ RemoteProxyBase::GetVisItString() const
         {
             const std::string &dirArg = argv[i + 1];
             visitString = dirArg;
-            if (dirArg[dirArg.size() - 1] != '/')
-                visitString += "/";
-            visitString += "bin/visit";
+            // If the dirArg contains these characters then assume the remote path is Windows
+            if(visitString.find(":\\") != std::string::npos || visitString.find(":/") != std::string::npos)
+            {
+                if (dirArg[dirArg.size() - 1] != '/' && dirArg[dirArg.size()-1] != '\\')
+                    visitString += "\\";
+                visitString += "visit.exe";
+            }
+            else
+            {
+                if (dirArg[dirArg.size() - 1] != '/')
+                    visitString += "/";
+                visitString += "bin/visit";
+            }
             ++i;
         }
     }
@@ -658,12 +669,6 @@ RemoteProxyBase::GetVisItString() const
 void
 RemoteProxyBase::AddExtraArguments()
 {
-    //
-    // Set the remote user name.
-    //
-    if(remoteUserName.size() > 0)
-        component->SetRemoteUserName(remoteUserName);
-
     //
     // Add any extra arguments to the component before opening it.
     //

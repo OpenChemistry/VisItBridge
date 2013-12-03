@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -71,6 +71,13 @@
 //   Jeremy Meredith, Thu Feb 18 15:25:27 EST 2010
 //   Split HostProfile int MachineProfile and LaunchProfile.
 //
+//   Eric Brugger, Mon May  2 16:44:20 PDT 2011
+//   I added the ability to use a gateway machine when connecting to a
+//   remote host.
+//
+//   Brad Whitlock, Tue Jun  5 17:24:03 PDT 2012
+//   Pass in MachineProfile to Open.
+//
 // ****************************************************************************
 
 class COMM_API ExistingRemoteProcess : public RemoteProcess
@@ -78,11 +85,7 @@ class COMM_API ExistingRemoteProcess : public RemoteProcess
 public:
     ExistingRemoteProcess(const std::string &rProgram);
     virtual ~ExistingRemoteProcess();
-    virtual bool Open(const std::string &rHost,
-                      MachineProfile::ClientHostDetermination chd,
-                      const std::string &clientHostName,
-                      bool manualSSHPort,
-                      int sshPort, bool useTunneling,
+    virtual bool Open(const MachineProfile &profile,
                       int numRead, int numWrite,
                       bool createAsThoughLocal = false);
     void SetConnectCallback(ConnectCallback *cb);

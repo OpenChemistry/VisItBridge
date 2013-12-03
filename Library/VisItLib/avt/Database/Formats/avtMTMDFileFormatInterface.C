@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -241,6 +241,34 @@ avtMTMDFileFormatInterface::GetAuxiliaryData(const char *var, int ts, int dom,
 
 
 // ****************************************************************************
+//  Method: avtMTMDFileFormatInterface::CreateCacheNameIncludingSelections
+//
+//  Purpose:
+//      Creates a name that can be used for caching, including any of the
+//      selections that may be applied.
+//
+//  Arguments:
+//      var     The variable.
+//      ts      The time step.
+//      dom     The domain.
+//
+//  Returns:    A mangled version of the name.
+//
+//  Programmer: Hank Childs
+//  Creation:   December 20, 2011
+//
+// ****************************************************************************
+
+std::string
+avtMTMDFileFormatInterface::CreateCacheNameIncludingSelections(std::string var, 
+                                                               int ts, int dom)
+{
+    int tsGroup = GetTimestepGroupForTimestep(ts);
+    return chunks[tsGroup]->CreateCacheNameIncludingSelections(var);
+}
+
+
+// ****************************************************************************
 //  Method: avtMTMDFileFormatInterface::GetFilename
 //
 //  Purpose:
@@ -294,13 +322,34 @@ avtMTMDFileFormatInterface::GetFilename(int ts)
 //    Jeremy Meredith, Thu Jan 28 15:49:05 EST 2010
 //    MTMD files can now be grouped into longer sequences.
 //
+//    Hank Childs, Sun May  9 17:53:17 CDT 2010
+//    Register metadata object with all of the chunks.
+//
+//    Hank Childs, Fri Jul 23 22:38:54 PDT 2010
+//    Add check for degenerate case where file format reader gets times array
+//    really wrong, which was then causing crash.
+//
+//    Hank Childs, Fri Aug 27 13:46:28 PDT 2010
+//    Don't overwrite values if they are not monotonic.
+//
+//    Hank Childs, Tue Aug 31 16:31:07 PDT 2010
+//    Don't uniformly declare all times as inaccurate if they are out of 
+//    sequence.
+//
+//    Hank Childs, Tue Apr 10 15:12:01 PDT 2012
+//    Make use of argument for whether we should force reading of all
+//    cycles and times.
+//
+//   Dave Pugmire, Fri Feb  8 17:22:01 EST 2013
+//   Added support for ensemble databases. (multiple time values)
+//
 // ****************************************************************************
 
 void
 avtMTMDFileFormatInterface::SetDatabaseMetaData(avtDatabaseMetaData *md,
-    int timeState, bool)
+    int timeState, bool forceReadAllCyclesTimes)
 {
-    int i, j;
+    int i;
 
     GenerateTimestepCounts();
 
@@ -323,7 +372,20 @@ avtMTMDFileFormatInterface::SetDatabaseMetaData(avtDatabaseMetaData *md,
     //
     int tsGroup = GetTimestepGroupForTimestep(timeState);
     int localTS = GetTimestepWithinGroup(timeState);
+    int offset = 0;
+    for (i = 0 ; i < nTimestepGroups ; i++)
+    {
+        chunks[i]->SetTimeSliceOffset(offset);
+        offset += tsPerGroup[i];
+    }
+    if (forceReadAllCyclesTimes)
+        chunks[tsGroup]->SetReadAllCyclesAndTimes(true);
+    else
+        chunks[tsGroup]->SetReadAllCyclesAndTimes(false);
     chunks[tsGroup]->SetDatabaseMetaData(md, localTS);
+    for (i = 0 ; i < nTimestepGroups ; i++)
+        if (i != tsGroup)
+            chunks[i]->RegisterDatabaseMetaData(md);
 
     //
     // Note: In an MTXX format, a single file has multiple time steps in it
@@ -340,32 +402,40 @@ avtMTMDFileFormatInterface::SetDatabaseMetaData(avtDatabaseMetaData *md,
             cycles.insert(cycles.end(),tmp.begin(),tmp.end());
         }
         bool cyclesLookGood = true;
-        for (i = 0; i < cycles.size(); i++)
+        if (!isEnsemble)
         {
-            if ((i != 0) && (cycles[i] <= cycles[i-1]))
+            for (i = 0; i < cycles.size(); i++)
             {
-                cyclesLookGood = false;
-                break;
+                if ((i != 0) && (cycles[i] <= cycles[i-1]))
+                {
+                    cyclesLookGood = false;
+                    break;
+                }
             }
         }
         if (cycles.size() != nTotalTimesteps)
             cyclesLookGood = false;
         if (cyclesLookGood == false)
         {
+            std::vector<int> cyclesFromMassCall = cycles;
             cycles.clear();
             for (i = 0; i < nTotalTimesteps; i++)
             {
                 int tsg = GetTimestepGroupForTimestep(i);
                 int lts = GetTimestepWithinGroup(i);
                 int c = chunks[tsg]->FormatGetCycle(lts);
+                if (c == avtFileFormat::INVALID_CYCLE && cyclesFromMassCall.size() > i)
+                    c = cyclesFromMassCall[i];
 
-                cycles.push_back(c);
-
-                if ((c == avtFileFormat::INVALID_CYCLE) ||
-                   ((i != 0) && (cycles[i] <= cycles[i-1])))
+                if (c != avtFileFormat::INVALID_CYCLE) 
+                    cycles.push_back(c);
+                else
                 {
-                    cyclesLookGood = false;
-                    break;
+                    if (i == 0)
+                        cycles.push_back(0);
+                    else
+                        cycles.push_back(cycles[i-1]+1);
+                    md->SetCycleIsAccurate(i, false);
                 }
             }
         }
@@ -373,21 +443,9 @@ avtMTMDFileFormatInterface::SetDatabaseMetaData(avtDatabaseMetaData *md,
         //
         // Ok, now put cycles into the metadata
         //
+        md->SetCycles(cycles);
         if (cyclesLookGood)
-        {
-            md->SetCycles(cycles);
-            md->SetCyclesAreAccurate(true);
-        }
-        else
-        {
-            cycles.clear();
-            for (j = 0 ; j < nTotalTimesteps ; j++)
-            {
-                cycles.push_back(j);
-            }
-            md->SetCycles(cycles);
-            md->SetCyclesAreAccurate(false);
-        }
+            md->SetCyclesAreAccurate(cyclesLookGood);
     }
 
     if (md->AreAllTimesAccurateAndValid(nTotalTimesteps) != true)
@@ -401,32 +459,40 @@ avtMTMDFileFormatInterface::SetDatabaseMetaData(avtDatabaseMetaData *md,
             times.insert(times.end(),tmp.begin(),tmp.end());
         }
         bool timesLookGood = true;
-        for (i = 0; i < times.size(); i++)
+        if (!isEnsemble)
         {
-            if ((i != 0) && (times[i] <= times[i-1]))
+            for (i = 0; i < times.size(); i++)
             {
-                timesLookGood = false;
-                break;
+                if ((i != 0) && (times[i] <= times[i-1]))
+                {
+                    timesLookGood = false;
+                    break;
+                }
             }
         }
         if (times.size() != nTotalTimesteps)
             timesLookGood = false;
         if (timesLookGood == false)
         {
+            vector<double> timesFromMassCall = times;
             times.clear();
             for (i = 0; i < nTotalTimesteps; i++)
             {
                 int tsg = GetTimestepGroupForTimestep(i);
                 int lts = GetTimestepWithinGroup(i);
                 double t = chunks[tsg]->FormatGetTime(lts);
+                if (t == avtFileFormat::INVALID_TIME && timesFromMassCall.size() > i)
+                    t = timesFromMassCall[i];
 
-                times.push_back(t);
-
-                if ((t == avtFileFormat::INVALID_TIME) ||
-                   ((i != 0) && (times[i] <= times[i-1])))
+                if (t != avtFileFormat::INVALID_TIME) 
+                    times.push_back(t);
+                else
                 {
-                    timesLookGood = false;
-                    break;
+                    if (i == 0)
+                        times.push_back(0.);
+                    else
+                        times.push_back(times[i-1]+0.0);  // same time
+                    md->SetTimeIsAccurate(i, false);
                 }
             }
         }
@@ -434,24 +500,13 @@ avtMTMDFileFormatInterface::SetDatabaseMetaData(avtDatabaseMetaData *md,
         //
         // Ok, now put times into the metadata
         //
-        if (timesLookGood)
+        md->SetTimes(times);
+        if (timesLookGood && times.size() > 0)
         {
-            md->SetTimes(times);
             md->SetTimesAreAccurate(true);
             md->SetTemporalExtents(times[0], times[times.size() - 1]);
         }
-        else
-        {
-            times.clear();
-            for (j = 0 ; j < nTotalTimesteps ; j++)
-            {
-                times.push_back((double)j);
-            }
-            md->SetTimes(times);
-            md->SetTimesAreAccurate(false);
-        }
     }
-
 }
 
 // ****************************************************************************
@@ -491,12 +546,15 @@ avtMTMDFileFormatInterface::SetCycleTimeInDatabaseMetaData(
         cycles.insert(cycles.end(),tmp.begin(),tmp.end());
     }
     bool cyclesLookGood = true;
-    for (int i = 0; i < cycles.size(); i++)
+    if (!isEnsemble)
     {
-        if ((i != 0) && (cycles[i] <= cycles[i-1]))
+        for (int i = 0; i < cycles.size(); i++)
         {
-            cyclesLookGood = false;
-            break;
+            if ((i != 0) && (cycles[i] <= cycles[i-1]))
+            {
+                cyclesLookGood = false;
+                break;
+            }
         }
     }
     if (cycles.size() != nTotalTimesteps)
@@ -646,15 +704,15 @@ int
 avtMTMDFileFormatInterface::GetTimestepGroupForTimestep(int ts)
 {
     int group = 0;
-    while (group < tsPerGroup.size() &&
+    while (group < (int)tsPerGroup.size() &&
            tsPerGroup[group] <= ts)
     {
         ts -= tsPerGroup[group];
         ++group;
     }
-    if (group >= tsPerGroup.size())
+    if (group >= (int)tsPerGroup.size())
     {
-        EXCEPTION2(BadIndexException, group, tsPerGroup.size());
+        EXCEPTION2(BadIndexException, group, (int)tsPerGroup.size());
     }
     return group;
 }

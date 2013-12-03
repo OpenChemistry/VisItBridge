@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -45,14 +45,16 @@
 #include <DebugStream.h>
 #include <snprintf.h>
 
+#include <vtkCellData.h>
+#include <vtkCellType.h>
 #include <vtkDoubleArray.h>
+#include <vtkIdList.h>
+#include <vtkInformation.h>
+#include <vtkIntArray.h>
 #include <vtkRectilinearGrid.h>
+#include <vtkStreamingDemandDrivenPipeline.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkUnsignedCharArray.h>
-#include <vtkIdList.h>
-#include <vtkCellData.h>
-#include <vtkIntArray.h>
-#include <vtkCellType.h>
 
 #include <avtDatabaseMetaData.h>
 #include <avtDatabase.h>
@@ -366,7 +368,7 @@ avtPFLOTRANFileFormat::LoadFile(void)
             debug4 << "avtPFLOTRANFileFormat::LoadFile: " << "Expected 3-component Vertices in Domain group in file " << filename << endl;
             EXCEPTION1(InvalidDBTypeException, "Cannot be a PFLOTRAN file since Vertices array is not 3-component.");
         }
-
+        
         H5Gclose(domainGID);
         unstructured = true;
     }
@@ -542,7 +544,7 @@ avtPFLOTRANFileFormat::AddGhostCellInfo(vtkDataSet *ds)
     // Initialize as all ghost levels
     //
     for (int ii = 0; ii < nnodes; ii++)
-        ghostPoints[ii] = true;
+        ghostPoints[ii] = true; 
 
     //
     // Set real values
@@ -555,7 +557,7 @@ avtPFLOTRANFileFormat::AddGhostCellInfo(vtkDataSet *ds)
                 int jj = localRealStart[1] + j;
                 int kk = localRealStart[2] + k;
                 int index = kk*ny*nx + jj*nx + ii;
-                ghostPoints[index] = false;
+                ghostPoints[index] = false; 
             }
 
     //
@@ -565,7 +567,7 @@ avtPFLOTRANFileFormat::AddGhostCellInfo(vtkDataSet *ds)
     //
     unsigned char realVal = 0;
     unsigned char ghostVal = 0;
-    avtGhostData::AddGhostZoneType(ghostVal,
+    avtGhostData::AddGhostZoneType(ghostVal, 
                                    DUPLICATED_ZONE_INTERNAL_TO_PROBLEM);
 
     int ncells = ds->GetNumberOfCells();
@@ -573,7 +575,7 @@ avtPFLOTRANFileFormat::AddGhostCellInfo(vtkDataSet *ds)
     vtkUnsignedCharArray *ghostCells = vtkUnsignedCharArray::New();
     ghostCells->SetName("avtGhostZones");
     ghostCells->Allocate(ncells);
-
+ 
     for (int i = 0; i < ncells; i++)
     {
         ds->GetCellPoints(i, ptIds);
@@ -585,8 +587,8 @@ avtPFLOTRANFileFormat::AddGhostCellInfo(vtkDataSet *ds)
             ghostCells->InsertNextValue(ghostVal);
         else
             ghostCells->InsertNextValue(realVal);
-
-    }
+ 
+    } 
     ds->GetCellData()->AddArray(ghostCells);
     delete [] ghostPoints;
     ghostCells->Delete();
@@ -621,9 +623,10 @@ avtPFLOTRANFileFormat::AddGhostCellInfo(vtkDataSet *ds)
     baseIndex->SetValue(1, domainGlobalStart[1]+localRealStart[1]);
     baseIndex->SetValue(2, domainGlobalStart[2]+localRealStart[2]);
     ds->GetFieldData()->AddArray(baseIndex);
-    ds->GetFieldData()->CopyFieldOn("base_index");
+    ds->GetFieldData()->CopyFieldOn("base_index");    
 
-    //ds->SetUpdateGhostLevel(0);
+    ds->GetInformation()->Set(
+        vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0); 
 }
 
 
@@ -700,7 +703,7 @@ avtPFLOTRANFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData * md,
         char* vecMatch;
         for (int comp=0;comp<3;comp++)
             if (vecMatch = strstr(name,vecNames[comp].c_str())) break;
-
+        
         // if so, add component to vector list
         if (vecMatch)
         {
@@ -785,7 +788,7 @@ avtPFLOTRANFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData * md,
                             matlist[k*nx*ny + j*nx + i] = in[k + j*nz + i*nz*ny];
                 delete [] in;
             }
-
+            
             H5Sclose(dsSpace);
             H5Dclose(ds);
 
@@ -813,7 +816,7 @@ avtPFLOTRANFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData * md,
                 material->materialNames.push_back(names[i]);
             md->Add(material);
 
-
+     
             delete [] matlist;
             for(int i=0;i<nmats;++i)
                 delete [] names[i];
@@ -831,7 +834,7 @@ avtPFLOTRANFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData * md,
             hsize_t varDimsForOldFileTest[3];
             H5Sget_simple_extent_dims(dsSpace, varDimsForOldFileTest, NULL);
             oldFileNeedingCoordFixup = (globalDims[0]==varDimsForOldFileTest[0]);
-        }
+        }        
 
         H5Dclose(ds);
 
@@ -1112,7 +1115,7 @@ avtPFLOTRANFileFormat::GetVar(int timestate, int, const char *varname)
         if (H5Tequal(intype, H5T_NATIVE_FLOAT) ||
             H5Tequal(intype, H5T_NATIVE_DOUBLE) ||
             H5Tequal(intype, H5T_NATIVE_LDOUBLE))
-        {
+        {        
             vtkDoubleArray *array = vtkDoubleArray::New();
             array->SetNumberOfTuples(nvals);
             double *ptr = (double*)array->GetVoidPointer(0);
@@ -1186,7 +1189,7 @@ avtPFLOTRANFileFormat::GetVar(int timestate, int, const char *varname)
         if (H5Tequal(intype, H5T_NATIVE_FLOAT) ||
             H5Tequal(intype, H5T_NATIVE_DOUBLE) ||
             H5Tequal(intype, H5T_NATIVE_LDOUBLE))
-        {
+        {        
             double *in = new double[nvals];
             herr_t err = H5Dread(ds, H5T_NATIVE_DOUBLE, memSpace, slabSpace,
                                  H5P_DEFAULT, in);
@@ -1301,7 +1304,7 @@ avtPFLOTRANFileFormat::GetVectorVar(int timestate, int domain,
             if (H5Tequal(intype, H5T_NATIVE_FLOAT) ||
                 H5Tequal(intype, H5T_NATIVE_DOUBLE) ||
                 H5Tequal(intype, H5T_NATIVE_LDOUBLE))
-            {
+            {        
                 double *in = new double[nvals];
                 herr_t err = H5Dread(ds, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL,
                                      H5P_DEFAULT, in);
@@ -1322,7 +1325,7 @@ avtPFLOTRANFileFormat::GetVectorVar(int timestate, int domain,
 
                 delete [] in;
             }
-
+            
             H5Sclose(dsSpace);
             H5Dclose(ds);
         }
@@ -1385,7 +1388,7 @@ avtPFLOTRANFileFormat::GetVectorVar(int timestate, int domain,
             if (H5Tequal(intype, H5T_NATIVE_FLOAT) ||
                 H5Tequal(intype, H5T_NATIVE_DOUBLE) ||
                 H5Tequal(intype, H5T_NATIVE_LDOUBLE))
-            {
+            {        
                 double *in = new double[nvals];
                 herr_t err = H5Dread(ds, H5T_NATIVE_DOUBLE, memSpace, slabSpace,
                                      H5P_DEFAULT, in);
@@ -1457,8 +1460,8 @@ avtPFLOTRANFileFormat::GetVectorVar(int timestate, int domain,
 //
 // ****************************************************************************
 
-void      *avtPFLOTRANFileFormat::GetAuxiliaryData(const char *var, int timestep,
-                                    int domain, const char *type, void *args,
+void      *avtPFLOTRANFileFormat::GetAuxiliaryData(const char *var, int timestep, 
+                                    int domain, const char *type, void *args, 
                                     DestructorFunction &df)
 {
     void *retval = 0;

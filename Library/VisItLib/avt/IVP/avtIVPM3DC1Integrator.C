@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2008, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400142
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -90,7 +90,6 @@ avtIVPM3DC1Integrator::avtIVPM3DC1Integrator()
 
 avtIVPM3DC1Integrator::~avtIVPM3DC1Integrator()
 {
-  cerr << "out of avtIVPM3DC1Integrator" << endl;
 }
 
 
@@ -294,7 +293,9 @@ avtIVPM3DC1Integrator::SetTolerances(const double& relt, const double& abst)
 // ****************************************************************************
 
 void 
-avtIVPM3DC1Integrator::Reset(const double& t_start, const avtVector& y_start)
+avtIVPM3DC1Integrator::Reset(const double& t_start,
+                             const avtVector& y_start,
+                             const avtVector& v_start)
 {
     t = t_start;
     d = 0.0;
@@ -340,37 +341,20 @@ avtIVPM3DC1Integrator::OnExitDomain()
 // ****************************************************************************
 
 avtIVPSolver::Result 
-avtIVPM3DC1Integrator::Step(const avtIVPField* field,
-                            const TerminateType &termType,
-                            const double &end,
+avtIVPM3DC1Integrator::Step(avtIVPField* field, double t_max,
                             avtIVPStep* ivpstep)
 {
-    double t_max;
-
-    if (termType == TIME)
-        t_max = end;
-    else if (termType == DISTANCE || termType == STEPS || termType == INTERSECTIONS)
-    {
-        t_max = std::numeric_limits<double>::max();
-        if (end < 0)
-            t_max = -t_max;
-    }
-
     const double direction = sign( 1.0, t_max - t );
-    
+
     h = sign( h, direction );
     
     // do not run past integration end
     if( (t + 1.01*h - t_max) * direction > 0.0 ) 
-    {
         h = t_max - t;
-    }
 
     // stepsize underflow?
     if( 0.1*std::abs(h) <= std::abs(t)*epsilon )
-    {
         return avtIVPSolver::STEPSIZE_UNDERFLOW;
-    }
 
     avtIVPSolver::Result res;
     avtVector yNew = yCur;
@@ -378,71 +362,28 @@ avtIVPM3DC1Integrator::Step(const avtIVPField* field,
     // This call begins the M3D code.
     res = vpstep(field, yCur, h, yNew);
 
-    if ( res == avtIVPSolver::OK )
+    if( res == avtIVPSolver::OK )
     {
         ivpstep->resize( 2 );
 
+        // The integration is done in cylindrical coordinates so
+        // convert to cartesian coordinates. M3D C1 uses right hand coordinats.
         avtVector yCurCart,  yNewCart;
 
-        yCurCart[0] = yCur[0] * sin(yCur[1]);
-        yCurCart[1] = yCur[0] * cos(yCur[1]);
+        yCurCart[0] = yCur[0] * cos(yCur[1]);
+        yCurCart[1] = yCur[0] * sin(yCur[1]);
         yCurCart[2] = yCur[2];
 
-        yNewCart[0] = yNew[0] * sin(yNew[1]);
-        yNewCart[1] = yNew[0] * cos(yNew[1]);
+        yNewCart[0] = yNew[0] * cos(yNew[1]);
+        yNewCart[1] = yNew[0] * sin(yNew[1]);
         yNewCart[2] = yNew[2];
         
         (*ivpstep)[0] = yCurCart;
         (*ivpstep)[1] = yNewCart;
-        ivpstep->tStart = t;
-        ivpstep->tEnd = t + h;
+
+        ivpstep->t0 = t;
+        ivpstep->t1 = t + h;
         numStep++;
-
-        // Handle distanced based termination.
-        if (termType == TIME)
-        {
-            if ((end > 0 && t >= end) ||
-                (end < 0 && t <= end))
-                return TERMINATE;
-        }
-        else if (termType == DISTANCE)
-        {
-            double len = ivpstep->length();
-            
-            //debug1<<"ABStep: "<<t<<" d: "<<d<<" => "<<(d+len)<<" h= "<<h<<" len= "<<len<<" sEps= "<<stiffness_eps<<endl;
-            if (len < stiffness_eps)
-            {
-                degenerate_iterations++;
-                if (degenerate_iterations > 15)
-                {
-                    //debug1<<"********** STIFFNESS ***************************\n";
-                    return STIFFNESS_DETECTED;
-                }
-            }
-            else
-                degenerate_iterations = 0;
-
-            if (d+len > fabs(end))
-                throw avtIVPField::Undefined();
-            else if (d+len >= fabs(end))
-                return TERMINATE;
-
-            d = d+len;
-        }
-        else if (termType == STEPS &&
-                 numStep >= (int)fabs(end))
-            return TERMINATE;
-
-        if (end > 0.0)
-        {
-            ivpstep->velStart = getBfield(field, yCur);
-            ivpstep->velEnd   = getBfield(field, yNew);
-        }
-        else
-        {
-            ivpstep->velStart = -getBfield(field, yCur);
-            ivpstep->velEnd   = -getBfield(field, yNew);
-        }
 
         yCur = yNew;
         t = t+h;
@@ -514,7 +455,7 @@ avtIVPM3DC1Integrator::partial_step(const avtIVPField* field,
 
   /* Q_i */
   if (advance(field, xout, iflow, 0, 0.5*h, NEWTACC))
-    return avtIVPSolver::UNSPECIFIED_ERROR;
+      return avtIVPSolver::UNSPECIFIED_ERROR;
 
   /* P_e */
   if (getBfield(field, xout, iflow, 1, &Bval, 0, &dummy))
@@ -607,7 +548,7 @@ avtIVPM3DC1Integrator::getBfield(const avtIVPField* field, avtVector y)
   int    element;
 
   /* Find the element containing the point; get local coords xi,eta */
-  if ((element = m3dField->get_tri_coords2D(pt, element, xieta)) < 0) 
+  if ((element = m3dField->get_tri_coords2D(pt, xieta)) < 0) 
   {
     return avtVector(0,0,0);
   }
@@ -668,7 +609,7 @@ avtIVPM3DC1Integrator::getBfield1(const avtIVPField* field,
   int    element;
 
   // FIX THIS CODE - It would be preferable to use a dynamic cast but
-  // because the field is passd down a const it can not be used.
+  // because the field is passed down a const it can not be used.
   avtIVPM3DC1Field *m3dField = (avtIVPM3DC1Field *)(field);
 
   /* Find the element containing the point x; get local coords xi,eta */
@@ -705,7 +646,8 @@ avtIVPM3DC1Integrator::getBfield1(const avtIVPField* field,
   case 2: /* B3 = curl A_z */
     if (icomp) { /* phi: d^2f/dR^2 + (1/R)df/dR + F0/R^2 */
       *Bout = m3dField->interpdR2(m3dField->f0, element, xieta) +
-        (m3dField->interpdR(m3dField->f0, element, xieta) + m3dField->F0/x[0])/ x[0];
+        (m3dField->interpdR(m3dField->f0, element, xieta) +
+         m3dField->F0/x[0])/ x[0];
       if (dflag) { /* dB3/dphi = d^2f'/dR^2 + (1/R)df'/dR */
         *Bpout = 0.0;
       }
@@ -745,7 +687,7 @@ avtIVPM3DC1Integrator::getBfield2(const avtIVPField* field,
   int    element;
 
   // FIX THIS CODE - It would be preferable to use a dynamic cast but
-  // because the field is passd down a const it can not be used.
+  // because the field is passed down as a const it can not be used.
   avtIVPM3DC1Field *m3dField = (avtIVPM3DC1Field *)(field);
 
   /* Find the element containing the point x; get local coords xi,eta */

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -67,6 +67,9 @@
 //    Define private copy constructor and assignment operator to prevent
 //    accidental use of default, bitwise copy implementations.
 //
+//    Hank Childs, Tue Dec 20 14:43:08 PST 2011
+//    Add method DescriptionString.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtDataRangeSelection : public avtDataSelection 
@@ -80,6 +83,7 @@ class PIPELINE_API avtDataRangeSelection : public avtDataSelection
 
     virtual const char *    GetType() const
                                 { return "Data Range Selection"; }; 
+    virtual std::string     DescriptionString(void);
 
     void                    SetVariable(const std::string _var)
                                 { var = _var; };

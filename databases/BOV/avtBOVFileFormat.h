@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -76,6 +76,20 @@
 //    Brad Whitlock, Wed Apr  8 09:40:02 PDT 2009
 //    I added short int support.
 //
+//    Hank Childs, Sat Apr 24 18:21:42 PDT 2010
+//    Add proper support for time.
+//
+//    Hank Childs, Tue Nov 30 11:41:44 PST 2010
+//    Only overset the time if we know if it is accurate.
+//
+//    Hank Childs, Tue Nov 30 13:43:49 PST 2010
+//    Return INVALID_CYCLE and INVALID_TIME if we don't know them.  This 
+//    prevents oversetting elsewhere.
+//
+//    David Camp, Mon Aug 22 12:59:31 PDT 2011
+//    Added the ReadTOC function to the GetCycle and GetTime methods.
+//    Need this for pathlines.
+//
 // ****************************************************************************
 
 class avtBOVFileFormat : public avtSTMDFileFormat
@@ -95,7 +109,8 @@ class avtBOVFileFormat : public avtSTMDFileFormat
 
     virtual void               PopulateDatabaseMetaData(avtDatabaseMetaData *);
 
-    virtual int                GetCycle(void) { return cycle; };
+    virtual int                GetCycle(void) { ReadTOC(); return (cycleIsAccurate ? cycle : INVALID_CYCLE); };
+    virtual double             GetTime(void) { ReadTOC(); return (timeIsAccurate ? dtime : INVALID_TIME); };
     virtual bool               ReturnsValidCycle(void) { return haveReadTOC; };
     void                       ActivateTimestep(void);
 
@@ -119,6 +134,9 @@ class avtBOVFileFormat : public avtSTMDFileFormat
     char                      *path;
     std::string                file_pattern;
     int                        cycle;
+    bool                       cycleIsAccurate;
+    double                     dtime;
+    bool                       timeIsAccurate;
     long long                  full_size[3];
     long long                  bricklet_size[3];
     long long                  byteOffset;

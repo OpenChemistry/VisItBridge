@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -478,15 +478,47 @@ avtGenericDatabase::SetCycleTimeInDatabaseMetaData(avtDatabaseMetaData *md, int 
 //    domains could be read in double precision before any one domain is
 //    converted to float) to inside ReadDataset. Doh! Why didn't I think
 //    of that before.
+//
+//    Hank Childs, Mon Nov 22 10:47:22 PST 2010
+//    Call PopulateDataObjectInfo at the beginning of the method as well ...
+//    this makes sure the variable list is up-to-date when we calculate
+//    extents ... and this extents calculation happens before the PopDBObjInfo
+//    at the end.
+//
+//    Hank Childs, Sun Nov 28 16:51:28 PST 2010
+//    Pass meshname and time step to MergeExtents ... this gives it enough
+//    information to cache.
+//
+//    Hank Childs, Wed Dec 22 15:14:33 PST 2010
+//    Tell the file formats whether or not we are streaming.
+//
+//    Eric Brugger, Wed Jul 25 08:35:11 PDT 2012
+//    I modified the multi-pass discretizion of CSG meshes to only process
+//    a portion of the mesh on each processor instead of the entire mesh.
+//
 // ****************************************************************************
 
 avtDataTree_p
 avtGenericDatabase::GetOutput(avtDataRequest_p spec,
                               avtSourceFromDatabase *src)
 {
+    avtDataValidity &validity = src->GetOutput()->GetInfo().GetValidity();
+    bool canDoCollectiveCommunication = !validity.AreWeStreaming();
+    Interface->DoingStreaming(validity.AreWeStreaming());
+
     int timerHandle = visitTimer->StartTimer();
     int timeStep = spec->GetTimestep();
+    avtDataObject_p dob = src->GetOutput();
     avtDatabaseMetaData *md = GetMetaData(timeStep);
+
+    //
+    // We call PopDataObjInfo twice in this method.  This time we do it so 
+    // that the variable list can be updated.  We need that so that MergeExtents
+    // will be right.
+    //
+    vector<bool> dummy;
+    PopulateDataObjectInformation(dob, spec->GetVariable(), timeStep, 
+                                  dummy, spec);
 
     UpdateInternalState(timeStep);
 
@@ -496,7 +528,16 @@ avtGenericDatabase::GetOutput(avtDataRequest_p spec,
     avtSILRestriction_p silr = spec->GetRestriction();
     avtSILRestrictionTraverser trav(silr);
     intVector domains, allDomains;
-    trav.GetDomainList(domains);
+    std::string meshname = md->MeshForVar(spec->GetVariable());
+    if (md->GetMesh(meshname) != NULL &&
+        md->GetMesh(meshname)->meshType == AVT_CSG_MESH)
+    {
+        trav.GetDomainListAllProcs(domains);
+    }
+    else
+    {
+        trav.GetDomainList(domains);
+    }
     trav.GetDomainListAllProcs(allDomains);
 
     //
@@ -603,8 +644,6 @@ avtGenericDatabase::GetOutput(avtDataRequest_p spec,
     }
     ENDTRY
 
-    avtDataValidity &validity = src->GetOutput()->GetInfo().GetValidity();
-    bool canDoCollectiveCommunication = !validity.AreWeStreaming();
 #ifdef PARALLEL
     int t1 = visitTimer->StartTimer();
     if (canDoCollectiveCommunication)
@@ -637,6 +676,10 @@ avtGenericDatabase::GetOutput(avtDataRequest_p spec,
         spec->TurnZoneNumbersOn();
         spec->TurnNodeNumbersOn();
     }
+
+    // clear the present ghost zone types state in the db metadata
+    // (this is the current path to get things set in the data atts...)
+    md->ClearGhostTypesPresent(meshname);
 
     bool alreadyDidNesting    = false;
     bool alreadyDidGhosts     = false;
@@ -808,7 +851,6 @@ avtGenericDatabase::GetOutput(avtDataRequest_p spec,
     // like may have changed slightly (we may have decided it had ghost zones
     // for example), so call this again.
     //
-    avtDataObject_p dob = src->GetOutput();
     if (nDomains == 0)
         dob->GetInfo().GetValidity().SetHasEverOwnedAnyDomain(false);
     if (didSimplifiedNesting)
@@ -1091,7 +1133,8 @@ avtGenericDatabase::GetDataset(const char *varname, int ts, int domain,
     // Make sure that every domain we read has its extents merged into the
     // extents for all the dataset.
     //
-    src->MergeExtents(rv);
+    string meshname  = GetMetaData(ts)->MeshForVar(varname);
+    src->MergeExtents(rv, domain, ts, meshname.c_str());
 
     return rv;
 }
@@ -2164,6 +2207,10 @@ avtGenericDatabase::GetSpeciesVariable(const char *specname, int ts,
 //
 //    Mark C. Miller, Sun Dec  3 12:20:11 PST 2006
 //    Moved code dealing with precision transformation to transform manager
+//
+//    Hank Childs, Tue Dec 20 11:51:30 PST 2011
+//    Add support for caching with selections.
+//
 // ****************************************************************************
 
 vtkDataArray *
@@ -2180,7 +2227,9 @@ avtGenericDatabase::GetScalarVariable(const char *varname, int ts, int domain,
     vtkDataArray *var = NULL;
     if (!Interface->HasVarsDefinedOnSubMeshes())
     {
-        var = (vtkDataArray *) cache.GetVTKObject(varname,
+        std::string cache_varname =
+               Interface->CreateCacheNameIncludingSelections(varname, ts, domain);
+        var = (vtkDataArray *) cache.GetVTKObject(cache_varname.c_str(),
                              avtVariableCache::SCALARS_NAME,
                              ts, domain, material);
     }
@@ -2212,8 +2261,12 @@ avtGenericDatabase::GetScalarVariable(const char *varname, int ts, int domain,
             //
             if (Interface->CanCacheVariable(real_varname))
             {
-                cache.CacheVTKObject(varname, avtVariableCache::SCALARS_NAME, ts, domain,
-                                     material, var);
+                std::string cache_varname =
+                        Interface->CreateCacheNameIncludingSelections(varname, 
+                                                                   ts, domain);
+                cache.CacheVTKObject(cache_varname.c_str(), 
+                                     avtVariableCache::SCALARS_NAME, 
+                                     ts, domain, material, var);
             }
             else
             {
@@ -2278,6 +2331,10 @@ avtGenericDatabase::GetScalarVariable(const char *varname, int ts, int domain,
 //
 //    Mark C. Miller, Sun Dec  3 12:20:11 PST 2006
 //    Moved code dealing with precision transformation to transform manager
+//
+//    Hank Childs, Tue Dec 20 11:51:30 PST 2011
+//    Add support for caching with selections.
+//
 // ****************************************************************************
 
 vtkDataArray *
@@ -2294,7 +2351,9 @@ avtGenericDatabase::GetVectorVariable(const char *varname, int ts, int domain,
     vtkDataArray *var = NULL;
     if (!Interface->HasVarsDefinedOnSubMeshes())
     {
-        var = (vtkDataArray *) cache.GetVTKObject(varname,
+        std::string cache_varname =
+               Interface->CreateCacheNameIncludingSelections(varname, ts, domain);
+        var = (vtkDataArray *) cache.GetVTKObject(cache_varname.c_str(),
                                  avtVariableCache::VECTORS_NAME,
                                  ts, domain, material);
     }
@@ -2323,7 +2382,11 @@ avtGenericDatabase::GetVectorVariable(const char *varname, int ts, int domain,
         {
             if (Interface->CanCacheVariable(real_varname))
             {
-                cache.CacheVTKObject(varname, avtVariableCache::VECTORS_NAME, 
+                std::string cache_varname =
+                       Interface->CreateCacheNameIncludingSelections(varname, 
+                                                                    ts,domain);
+                cache.CacheVTKObject(cache_varname.c_str(), 
+                                     avtVariableCache::VECTORS_NAME, 
                                      ts, domain, material, var);
             }
             else
@@ -2379,6 +2442,10 @@ avtGenericDatabase::GetVectorVariable(const char *varname, int ts, int domain,
 //
 //    Mark C. Miller, Sun Dec  3 12:20:11 PST 2006
 //    Moved code dealing with precision transformation to transform manager
+//
+//    Hank Childs, Tue Dec 20 11:51:30 PST 2011
+//    Add support for caching with selections.
+//
 // ****************************************************************************
 
 vtkDataArray *
@@ -2395,7 +2462,9 @@ avtGenericDatabase::GetTensorVariable(const char *varname, int ts, int domain,
     vtkDataArray *var = NULL;
     if (!Interface->HasVarsDefinedOnSubMeshes())
     {
-        var = (vtkDataArray *) cache.GetVTKObject(varname,
+        std::string cache_varname =
+               Interface->CreateCacheNameIncludingSelections(varname, ts, domain);
+        var = (vtkDataArray *) cache.GetVTKObject(cache_varname.c_str(),
                              avtVariableCache::TENSORS_NAME,
                              ts, domain, material);
     }
@@ -2425,7 +2494,10 @@ avtGenericDatabase::GetTensorVariable(const char *varname, int ts, int domain,
         {
             if (Interface->CanCacheVariable(real_varname))
             {
-                cache.CacheVTKObject(varname, avtVariableCache::TENSORS_NAME,
+                std::string cache_varname =
+                       Interface->CreateCacheNameIncludingSelections(varname, ts, domain);
+                cache.CacheVTKObject(cache_varname.c_str(), 
+                                     avtVariableCache::TENSORS_NAME,
                                      ts, domain, material, var);
             }
             else
@@ -2481,6 +2553,10 @@ avtGenericDatabase::GetTensorVariable(const char *varname, int ts, int domain,
 //
 //    Mark C. Miller, Sun Dec  3 12:20:11 PST 2006
 //    Moved code dealing with precision transformation to transform manager
+//
+//    Hank Childs, Tue Dec 20 11:51:30 PST 2011
+//    Add support for caching with selections.
+//
 // ****************************************************************************
 
 vtkDataArray *
@@ -2497,7 +2573,9 @@ avtGenericDatabase::GetSymmetricTensorVariable(const char *varname, int ts,
     vtkDataArray *var = NULL;
     if (!Interface->HasVarsDefinedOnSubMeshes())
     {
-        var = (vtkDataArray *) cache.GetVTKObject(varname,
+        std::string cache_varname =
+               Interface->CreateCacheNameIncludingSelections(varname, ts, domain);
+        var = (vtkDataArray *) cache.GetVTKObject(cache_varname.c_str(),
                              avtVariableCache::SYMMETRIC_TENSORS_NAME,
                              ts, domain, material);
     }
@@ -2531,7 +2609,10 @@ avtGenericDatabase::GetSymmetricTensorVariable(const char *varname, int ts,
             //
             if (Interface->CanCacheVariable(real_varname))
             {
-                cache.CacheVTKObject(varname, avtVariableCache::SYMMETRIC_TENSORS_NAME,
+                std::string cache_varname =
+                       Interface->CreateCacheNameIncludingSelections(varname, ts, domain);
+                cache.CacheVTKObject(cache_varname.c_str(), 
+                                     avtVariableCache::SYMMETRIC_TENSORS_NAME,
                                      ts, domain, material, var);
             }
             else
@@ -2577,6 +2658,10 @@ avtGenericDatabase::GetSymmetricTensorVariable(const char *varname, int ts,
 //
 //    Mark C. Miller, Sun Dec  3 12:20:11 PST 2006
 //    Moved code dealing with precision transformation to transform manager
+//
+//    Hank Childs, Tue Dec 20 11:51:30 PST 2011
+//    Add support for caching with selections.
+//
 // ****************************************************************************
 
 vtkDataArray *
@@ -2593,7 +2678,9 @@ avtGenericDatabase::GetArrayVariable(const char *varname, int ts, int domain,
     vtkDataArray *var = NULL;
     if (!Interface->HasVarsDefinedOnSubMeshes())
     {
-        var = (vtkDataArray *) cache.GetVTKObject(varname,
+        std::string cache_varname =
+               Interface->CreateCacheNameIncludingSelections(varname, ts, domain);
+        var = (vtkDataArray *) cache.GetVTKObject(cache_varname.c_str(),
                              avtVariableCache::ARRAYS_NAME,
                              ts, domain, material);
     }
@@ -2623,7 +2710,10 @@ avtGenericDatabase::GetArrayVariable(const char *varname, int ts, int domain,
         {
             if (Interface->CanCacheVariable(real_varname))
             {
-                cache.CacheVTKObject(varname, avtVariableCache::ARRAYS_NAME,
+                std::string cache_varname =
+                       Interface->CreateCacheNameIncludingSelections(varname, ts, domain);
+                cache.CacheVTKObject(cache_varname.c_str(), 
+                                     avtVariableCache::ARRAYS_NAME,
                                      ts, domain, material, var);
             }
             else
@@ -2666,6 +2756,9 @@ avtGenericDatabase::GetArrayVariable(const char *varname, int ts, int domain,
 //
 // Modifications:
 //   
+//    Hank Childs, Tue Dec 20 11:51:30 PST 2011
+//    Add support for caching with selections.
+//
 // ****************************************************************************
 
 vtkDataArray *
@@ -2682,7 +2775,9 @@ avtGenericDatabase::GetLabelVariable(const char *varname, int ts, int domain,
     vtkDataArray *var = NULL;
     if (!Interface->HasVarsDefinedOnSubMeshes())
     {
-        var = (vtkDataArray *) cache.GetVTKObject(varname,
+        std::string cache_varname =
+               Interface->CreateCacheNameIncludingSelections(varname, ts, domain);
+        var = (vtkDataArray *) cache.GetVTKObject(cache_varname.c_str(),
                          avtVariableCache::LABELS_NAME, ts, domain, material);
     }
 
@@ -2710,7 +2805,10 @@ avtGenericDatabase::GetLabelVariable(const char *varname, int ts, int domain,
         {
             if (Interface->CanCacheVariable(real_varname))
             {
-                cache.CacheVTKObject(varname, avtVariableCache::LABELS_NAME,
+                std::string cache_varname =
+                       Interface->CreateCacheNameIncludingSelections(varname, ts, domain);
+                cache.CacheVTKObject(cache_varname.c_str(), 
+                                     avtVariableCache::LABELS_NAME,
                                      ts, domain, material, var);
             }
             else
@@ -2833,6 +2931,13 @@ avtGenericDatabase::GetLabelVariable(const char *varname, int ts, int domain,
 //    Handle curve objects that are the result of re-interpreting some 1D
 //    scalar variables by requesting them from the plugin as we would any
 //    other scalar variable (e.g. GetScalarVarDataset()) 
+//
+//    Tom Fogal, Tue Sep 27 14:53:50 MDT 2011
+//    Ensure static VTK memory gets cleaned up.
+//
+//    Hank Childs, Tue Dec 20 11:51:30 PST 2011
+//    Add support for caching with selections.
+//
 // ****************************************************************************
 
 vtkDataSet *
@@ -2849,7 +2954,9 @@ avtGenericDatabase::GetMesh(const char *meshname, int ts, int domain,
     vtkDataSet *mesh = NULL;
     if (!Interface->HasVarsDefinedOnSubMeshes())
     {
-        mesh = (vtkDataSet *) cache.GetVTKObject(meshname,
+        std::string cache_meshname =
+               Interface->CreateCacheNameIncludingSelections(meshname, ts, domain);
+        mesh = (vtkDataSet *) cache.GetVTKObject(cache_meshname.c_str(),
                          avtVariableCache::DATASET_NAME,
                          ts, domain, material);
     }
@@ -2897,11 +3004,38 @@ avtGenericDatabase::GetMesh(const char *meshname, int ts, int domain,
             return NULL;
         }
 
+        //
+        // Force an Update.  This needs to be done and if we do it when we
+        // read it in, then it guarantees it only happens once.
+        //
+        // FIX_ME_VTK6.0, ESB, I assume this needs to be done for VTK based
+        // readers. Can we eliminate this or do we need to move it somewhere
+        // else. All the tests pass with this commented out.
+        // mesh->Update();
+
+        //
+        // VTK creates a trivial producer for each data set.  It later does
+        // garbage collection and that takes a long time if we have a lot
+        // of trivial producers.  Make one trivial producer for all
+        // data sets here.
+        //
+        static vtkTrivialProducer* tp = NULL;
+        if(tp == NULL)
+        {
+            tp = vtkTrivialProducer::New();
+            vtkVisItUtility::RegisterStaticVTKObject(tp);
+        }
+        tp->SetOutput(mesh);
+        tp->SetOutput(NULL);
+
         AssociateBounds(mesh);
 
         if (Interface->CanCacheVariable(real_meshname))
         {
-            cache.CacheVTKObject(meshname, avtVariableCache::DATASET_NAME, ts,
+            std::string cache_meshname =
+                   Interface->CreateCacheNameIncludingSelections(meshname, ts, domain);
+            cache.CacheVTKObject(cache_meshname.c_str(), 
+                                 avtVariableCache::DATASET_NAME, ts,
                                  domain, material, mesh);
         }
         else
@@ -3011,6 +3145,9 @@ avtGenericDatabase::GetMesh(const char *meshname, int ts, int domain,
 //    Hank Childs, Tue Jan 27 11:03:49 PST 2009
 //    Don't use cached meta data when it comes to identifiers.
 //
+//    Eduard Deines, Wed Apr 21 2010
+//    Add support for "any_mesh" (Hank Childs).
+//
 // ****************************************************************************
 
 void
@@ -3080,6 +3217,19 @@ avtGenericDatabase::GetAuxiliaryData(avtDataRequest_p spec,
             vr = cache.GetVoidRef(var, type, -1, domains[i]);
         }
 
+        if (*vr == NULL)
+        {
+            if ((strcmp(type, AUXILIARY_DATA_DOMAIN_NESTING_INFORMATION) == 0) ||
+                (strcmp(type, AUXILIARY_DATA_DOMAIN_BOUNDARY_INFORMATION) == 0))
+                vr = cache.GetVoidRef("any_mesh", type, ts, domains[i]);
+        }
+        if (*vr == NULL)
+        {
+            if ((strcmp(type, AUXILIARY_DATA_DOMAIN_NESTING_INFORMATION) == 0) ||
+                (strcmp(type, AUXILIARY_DATA_DOMAIN_BOUNDARY_INFORMATION) == 0))
+                vr = cache.GetVoidRef("any_mesh", type, -1, domains[i]);
+        }
+
         if (*vr != NULL)
         {
             //
@@ -3108,7 +3258,6 @@ avtGenericDatabase::GetAuxiliaryData(avtDataRequest_p spec,
         }
     }
 }
-
 
 // ****************************************************************************
 //  Method: avtGenericDatabase::PopulateSIL
@@ -3473,6 +3622,16 @@ avtGenericDatabase::AddOriginalNodesArray(vtkDataSet *ds, const int domain)
 //    Mark C. Miller, Wed Mar  4 18:00:22 PST 2009
 //    Adjusted for dbio-only build
 //
+//    Mark C. Miller, Sun Aug 29 23:31:55 PDT 2010
+//    Removed extraneous cerr statements left over from debugging.
+//
+//    Eric Brugger, Tue May 17 10:56:46 PDT 2011
+//    I had the routine return NULL if the dataset didn't have any cells.
+//
+//    Hank Childs, Mon Mar 26 11:31:46 PDT 2012
+//    Fix problem with subset plot with a material removed (labels weren't
+//    being passed back correctly).
+//
 // ****************************************************************************
 
 avtDataTree_p
@@ -3525,8 +3684,16 @@ avtGenericDatabase::MaterialSelect(vtkDataSet *ds, avtMaterial *mat,
         char msg[128];
         SNPRINTF(msg,sizeof(msg),"In domain number %d, the material object "
               "with nzones=%d and dataset object with ncells=%d do not agree.",
-               dom, mat->GetNZones(), ds->GetNumberOfCells());
+               dom, mat->GetNZones(), (int) ds->GetNumberOfCells());
         EXCEPTION1(InvalidDBTypeException, msg); 
+    }
+
+    //
+    // If there aren't any cells, then we are finished.
+    //
+    if (ds->GetNumberOfCells() == 0)
+    {
+        return NULL;
     }
 
     //
@@ -3657,7 +3824,7 @@ avtGenericDatabase::MaterialSelect(vtkDataSet *ds, avtMaterial *mat,
 
                 vtkDataSet *in_ds = out_ds[d];
 
-                bf->SetInput((vtkUnstructuredGrid*)in_ds);
+                bf->SetInputData((vtkUnstructuredGrid*)in_ds);
                 in_ds->Delete();
                 out_ds[d] = bf->GetOutput();
                 bf->Update();
@@ -3732,28 +3899,42 @@ avtGenericDatabase::MaterialSelect(vtkDataSet *ds, avtMaterial *mat,
         avtSubsetType sT = GetMetaData(ts)->DetermineSubsetType(var);
         if (sT == AVT_DOMAIN_SUBSET || sT == AVT_UNKNOWN_SUBSET)
         {
-            //
-            // Create a new label which is the domain number.
-            // We are doing a material-selected domain-subset plot,
-            // or a material-selected non-subset plot. 
-            //
-            int domOrigin  =  GetMetaData(ts)->GetMesh(meshname)->blockOrigin;
-            sprintf(label, "%d", dom + domOrigin);
             for (int d = 0; d < numOutput; d++)
             {
-                labelStrings.push_back(label);
+                // If labels were sent in, they are all identical ... use the first one
+                // Otherwise, make one up with our best guess.
+                if (labels.size() > 0)
+                    labelStrings.push_back(labels[0]);
+                else
+                {
+                    //
+                    // Create a new label which is the domain number.
+                    // We are doing a material-selected domain-subset plot,
+                    // or a material-selected non-subset plot. 
+                    //
+                    int domOrigin  =  GetMetaData(ts)->GetMesh(meshname)->blockOrigin;
+                    sprintf(label, "%d", dom + domOrigin);
+                    labelStrings.push_back(label);
+                }
             }
         }
         else if (sT == AVT_GROUP_SUBSET)
         {
-            //
-            // Create a new label which is the group number.
-            //
-            int gID  =  GetMetaData(ts)->GetMesh(meshname)->groupIds[dom];
-            sprintf(label, "%d", gID);
             for (int d = 0; d < numOutput; d++)
             {
-                labelStrings.push_back(label);
+                // If labels were sent in, they are all identical ... use the first one
+                // Otherwise, make one up with our best guess.
+                if (labels.size() > 0)
+                    labelStrings.push_back(labels[0]);
+                else
+                {
+                    //
+                    // Create a new label which is the group number.
+                    //
+                    int gID  =  GetMetaData(ts)->GetMesh(meshname)->groupIds[dom];
+                    sprintf(label, "%d", gID);
+                    labelStrings.push_back(label);
+                }
             }
         }
     }
@@ -4164,7 +4345,6 @@ avtGenericDatabase::EnumScalarSelect(avtDatasetCollection &dsc,
     }
 }
 
-
 // ****************************************************************************
 //  Method: avtGenericDatabase::SpeciesSelect
 //
@@ -4229,8 +4409,8 @@ avtGenericDatabase::SpeciesSelect(avtDatasetCollection &dsc,
             continue;
 
         int n_cell_vars = ds->GetCellData()->GetNumberOfArrays();
-        // If we don't make a copy of the cell data and then go mucking with
-        // the order of the arrays, we may process some twice and not others.
+        // We make a copy of the cell data so that we can manipulate
+        // the order of the arrays without processing some twice
         vtkCellData *inCD = vtkCellData::New();
         inCD->ShallowCopy(ds->GetCellData());
         for (int j = 0 ; j < n_cell_vars ; j++)
@@ -4823,6 +5003,13 @@ avtGenericDatabase::ActivateTimestep(int stateIndex)
 //    Hank Childs, Tue Dec 15 14:55:50 PST 2009
 //    Add support for group IDs based on ranges.
 //
+//    Kathleen Biagas, Tue Aug 27 16:58:30 PDT 2013
+//    Add support for groupNames.
+//
+//    Kathleen Biagas, Wed Aug 28 08:51:16 PDT 2013
+//    Fixed error where domains[i] wasn't being used to get the correct 
+//    groupName, resulting in incorrect labels for the SIL selection.
+//
 // ****************************************************************************
 
 void
@@ -4859,6 +5046,7 @@ avtGenericDatabase::ReadDataset(avtDatasetCollection &ds, intVector &domains,
     sprintf(progressString, "Reading from %s", Interface->GetType());
 
     stringVector blockNames;
+    stringVector groupNames;
     intVector gIds;
     intVector groupIdsBasedOnRange;
     int domOrigin = 0;
@@ -4871,6 +5059,7 @@ avtGenericDatabase::ReadDataset(avtDatasetCollection &ds, intVector &domains,
         blockNames =  GetMetaData(ts)->GetMesh(meshName)->blockNames;
         domOrigin  =  GetMetaData(ts)->GetMesh(meshName)->blockOrigin;
         grpOrigin  =  GetMetaData(ts)->GetMesh(meshName)->groupOrigin;
+        groupNames =  GetMetaData(ts)->GetMesh(meshName)->groupNames;
         gIds       =  GetMetaData(ts)->GetMesh(meshName)->groupIds;
         groupIdsBasedOnRange =  GetMetaData(ts)->GetMesh(meshName)->groupIdsBasedOnRange;
     }
@@ -5008,7 +5197,9 @@ avtGenericDatabase::ReadDataset(avtDatasetCollection &ds, intVector &domains,
         else if (subT == AVT_GROUP_SUBSET)
         {
             char temp[512];
-            if (gIds.size() != 0)
+            if (!groupNames.empty() && !gIds.empty())
+                sprintf(temp, "%s", groupNames[gIds[domains[i]]].c_str());
+            else if (gIds.size() != 0)
                 sprintf(temp, "%d", gIds[domains[i]]);
             else
             {
@@ -5316,7 +5507,11 @@ avtGenericDatabase::ReadDataset(avtDatasetCollection &ds, intVector &domains,
 //
 //    Cyrus Harrison, Fri Feb 15 09:35:20 PST 2008
 //    Changed MustMaintainOriginalConnectivity warning to only mention
-//    specmf, since the matvf + ghost zones restriction was resolved. 
+//    specmf, since the matvf + ghost zones restriction was resolved.
+//
+//    Cyrus Harrison,Thu Feb  9 10:26:48 PST 2012
+//    Added logic to support presentGhostZoneTypes, which allows us to
+//    differentiate between ghost zones for boundaries & nesting.
 //
 // ****************************************************************************
 
@@ -5495,6 +5690,9 @@ avtGenericDatabase::CommunicateGhosts(avtGhostDataType ghostType,
     }
 
     bool madeNewZones = madeGhosts && (ghostType == GHOST_ZONE_DATA);
+    // if we have created ghost zones, add to present ghost types 
+    if(madeNewZones)
+        md->AddGhostZoneTypePresent(meshname, AVT_BOUNDARY_GHOST_ZONES);
     return madeNewZones;
 }
 
@@ -6405,6 +6603,9 @@ avtGenericDatabase::CommunicateGhostNodesFromDomainBoundariesFromFile(
 //
 //    Mark C. Miller, Mon Jan 22 22:09:01 PST 2007
 //    Changed MPI_COMM_WORLD to VISIT_MPI_COMM
+//
+//    Mark C. Miller, Wed Aug 22 08:43:26 PDT 2012
+//    Added logic to cleanup VTK objects before EXCEPTION
 // ****************************************************************************
 
 bool
@@ -6475,7 +6676,12 @@ avtGenericDatabase::CommunicateGhostZonesFromGlobalNodeIds(
         vtkIntArray *g = (vtkIntArray *)
             rpf->GetOutput()->GetPointData()->GetArray("avtGlobalNodeNumbers");
         if (g == NULL)  // Name of array changed out from underneath us?
+        {
+            copy->Delete();
+            rpf->Delete();
+            ff->Delete();
             EXCEPTION0(ImproperUseException);
+        }
         vtkIntArray *l = (vtkIntArray *)
                rpf->GetOutput()->GetPointData()->GetArray("avtOriginalNodeId");
 
@@ -7259,6 +7465,15 @@ avtGenericDatabase::CommunicateGhostNodesFromGlobalNodeIds(
 //
 //    Mark C. Miller, Mon Jan 22 22:09:01 PST 2007
 //    Changed MPI_COMM_WORLD to VISIT_MPI_COMM
+//
+//    Cyrus Harrison,
+//    Fixed bug preventing domain nesting from being applied if we have
+//    more MPI tasks than domains.
+//
+//    Cyrus Harrison,Thu Feb  9 10:26:48 PST 2012
+//    Added logic to support presentGhostZoneTypes, which allows us to
+//    differentiate between ghost zones for boundaries & nesting.
+//
 // ****************************************************************************
 
 bool
@@ -7271,7 +7486,7 @@ avtGenericDatabase::ApplyGhostForDomainNesting(avtDatasetCollection &ds,
     int ts = spec->GetTimestep();
     avtDatabaseMetaData *md = GetMetaData(ts);
     string meshname = md->MeshForVar(spec->GetVariable());
-    
+
     void_ref_ptr vr = cache.GetVoidRef(meshname.c_str(),
                                    AUXILIARY_DATA_DOMAIN_NESTING_INFORMATION,
                                    ts, -1);
@@ -7302,8 +7517,12 @@ avtGenericDatabase::ApplyGhostForDomainNesting(avtDatasetCollection &ds,
             shouldStop = 1;
         }
     }
-    else
+    else if(doms.size() != 0)
+    {
+        // we only want to signal 'shouldStop' if the current processor
+        // actually has datasets, but no avtDomainNesting object.
         shouldStop = 1;
+    }
 
 #ifdef PARALLEL
     if (canDoCollectiveCommunication)
@@ -7315,7 +7534,9 @@ avtGenericDatabase::ApplyGhostForDomainNesting(avtDatasetCollection &ds,
     }
 #endif
 
-    if (!shouldStop)  
+    // if dn is null (case were we have no datasets on this proc)
+    // make sure to skip 'dn->ApplyGhost'.
+    if (!shouldStop && dn != NULL)
     {
         int t0 = visitTimer->StartTimer();
         rv = dn->ApplyGhost(doms, allDoms, list);
@@ -7328,6 +7549,7 @@ avtGenericDatabase::ApplyGhostForDomainNesting(avtDatasetCollection &ds,
         {
             GetMetaData(ts)->SetContainsGhostZones(meshname, 
                                                    AVT_CREATED_GHOSTS);
+            GetMetaData(ts)->AddGhostZoneTypePresent(meshname, AVT_NESTING_GHOST_ZONES);
         }
     }
 
@@ -7591,6 +7813,11 @@ avtGenericDatabase::CreateGlobalNodes(avtDatasetCollection &ds,
 //  Programmer:   Hank Childs
 //  Creation:     July 26, 2007
 //
+//  Modifications:
+//    Cyrus Harrison,Thu Feb  9 10:26:48 PST 2012
+//    Added logic to support presentGhostZoneTypes, which allows us to
+//    differentiate between ghost zones for boundaries & nesting.
+//
 // ****************************************************************************
 
 bool
@@ -7656,7 +7883,10 @@ avtGenericDatabase::CreateSimplifiedNestingRepresentation(
     }
 
     if (spec->GetDesiredGhostDataType() != NO_GHOST_DATA)
+    {
         md->SetContainsGhostZones(meshname, AVT_CREATED_GHOSTS);
+        md->AddGhostZoneTypePresent(meshname, AVT_NESTING_GHOST_ZONES);
+    }
 
     src->DatabaseProgress(1, 0, progressString);
 
@@ -7700,6 +7930,9 @@ avtGenericDatabase::CreateSimplifiedNestingRepresentation(
 //
 //    Hank Childs, Sun Oct 28 15:02:31 PST 2007
 //    If there is ghost data in the input, then ignore that ghost data.
+//
+//    Kathleen Biagas, Tue Aug 21 14:18:32 MST 2012
+//    Preserve coordinate type.
 //
 // ****************************************************************************
 
@@ -8092,7 +8325,7 @@ avtGenericDatabase::CreateSimplifiedNestingRepresentation(
     // won't be very many (so memory cost won't be high) and it makes
     // our indexing so easy this way.
     //
-    vtkPoints *pts = vtkPoints::New();
+    vtkPoints *pts = vtkVisItUtility::NewPoints(rgrid);
     int nPts = numIlist*numJlist*numKlist;
     pts->SetNumberOfPoints(nPts);
     int iOff = 0;
@@ -10190,6 +10423,9 @@ avtGenericDatabase::AssociateBounds(vtkDataSet *ds)
 //    Make sure that all of the dimensions are too big or too small, not just
 //    one of them.
 //
+//    Kathleen Biagas, Tue Aug 21 14:17:12 MST 2012
+//    Preserve coordinate type.
+//
 // ****************************************************************************
 
 void
@@ -10322,18 +10558,46 @@ avtGenericDatabase::ScaleMesh(vtkDataSet *ds)
         {
             vtkPointSet *ps = (vtkPointSet *) ds;
             vtkPoints *pts = ps->GetPoints();
-            vtkPoints *newPts = vtkPoints::New();
-            int npts = pts->GetNumberOfPoints();
+            vtkPoints *newPts = vtkPoints::New(pts->GetDataType());
+            vtkIdType npts = pts->GetNumberOfPoints();
             newPts->SetNumberOfPoints(npts);
-            float *np = (float *) newPts->GetVoidPointer(0);
-            float *p  = (float *) pts->GetVoidPointer(0);
-            int nvals = 3*npts;
-            for (int i = 0 ; i < nvals ; i++)
+            if (pts->GetDataType() == VTK_FLOAT)
             {
-                np[i] = p[i] / scaleFactor;
+                float *np = (float *) newPts->GetVoidPointer(0);
+                float *p  = (float *) pts->GetVoidPointer(0);
+                int nvals = 3*npts;
+                for (int i = 0 ; i < nvals ; i++)
+                {
+                    np[i] = p[i] / scaleFactor;
+                }
+                ps->SetPoints(newPts);
+                newPts->Delete();
             }
-            ps->SetPoints(newPts);
-            newPts->Delete();
+            else if (pts->GetDataType() == VTK_DOUBLE)
+            {
+                double *np = (double *) newPts->GetVoidPointer(0);
+                double *p  = (double *) pts->GetVoidPointer(0);
+                int nvals = 3*npts;
+                for (int i = 0 ; i < nvals ; i++)
+                {
+                    np[i] = p[i] / scaleFactor;
+                }
+                ps->SetPoints(newPts);
+                newPts->Delete();
+            }
+            else 
+            {
+                for (int i = 0 ; i < npts ; i++)
+                {
+                    double *np = pts->GetPoint(i);
+                    np[0] = np[0] / scaleFactor;
+                    np[1] = np[1] / scaleFactor;
+                    np[2] = np[2] / scaleFactor;
+                    newPts->SetPoint(i, np);
+                }
+                ps->SetPoints(newPts);
+                newPts->Delete();
+            }
         }
         break;
       case VTK_RECTILINEAR_GRID:
@@ -10343,10 +10607,10 @@ avtGenericDatabase::ScaleMesh(vtkDataSet *ds)
             in[0] = rg->GetXCoordinates();
             in[1] = rg->GetYCoordinates();
             in[2] = rg->GetZCoordinates();
-            vtkFloatArray *out[3];
+            vtkDataArray *out[3];
             for (int i = 0 ; i < 3 ; i++)
             {
-                out[i] = vtkFloatArray::New();
+                out[i] = in[i]->NewInstance();
                 int ntuples = in[i]->GetNumberOfTuples();
                 out[i]->SetNumberOfTuples(ntuples);
                 for (int j = 0 ; j < ntuples ; j++)
@@ -11156,4 +11420,21 @@ avtGenericDatabase::SetStrictMode(bool strictMode)
 {
     if (Interface)
         Interface->SetStrictMode(strictMode);
+}
+
+//****************************************************************************
+// Method:  avtGenericDatabase::SetIsEnsemble
+//
+// Programmer:  Dave Pugmire
+// Creation:    February 11, 2013
+//
+// Modifications:
+//
+//****************************************************************************
+
+void
+avtGenericDatabase::SetIsEnsemble(bool v)
+{
+    if (Interface)
+        Interface->SetIsEnsemble(v);
 }

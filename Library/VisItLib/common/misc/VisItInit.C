@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -134,7 +134,7 @@ static void
 NewHandler(void)
 {
     debug1 << "This component has run out of memory." << endl;
-    abort();
+    abort(); // HOOKS_IGNORE
 }
 
 // ****************************************************************************
@@ -227,6 +227,13 @@ NewHandler(void)
 //
 //    Brad Whitlock, Thu Jun 18 15:21:06 PDT 2009
 //    I added -debug-processor-stride
+//
+//    Kathleen Bonnell, Thu Sep  7 12:02:15 PDT 2010
+//    Use InstallationFunction GetUserVisItDirectory instead of retreiving
+//    VISITUSERHOME directly from environment (in case it is not set).
+//
+//    Tom Fogal, Wed Sep 28 13:40:21 MDT 2011
+//    Fix a UMR that valgrind complained about.
 //
 // ****************************************************************************
 
@@ -348,7 +355,7 @@ VisItInit::Initialize(int &argc, char *argv[], int r, int n, bool strip, bool si
                 cerr << "SVN revision is unknown!" << endl;
             else
                 cerr << "Built from revision " << visitcommon::SVNVersion() << endl;
-            exit(0);
+            exit(0); // HOOKS_IGNORE
         }
     }
 
@@ -359,18 +366,16 @@ VisItInit::Initialize(int &argc, char *argv[], int r, int n, bool strip, bool si
 #ifdef WIN32
     // On windows, we want timings and log files to go in user's directory,
     // not install directory, because users may not have write permissions.
-    const char *home = getenv("VISITUSERHOME");
-    std::string homedir;
-    if(home != 0)
+    std::string homedir = GetUserVisItDirectory();
+    if(!homedir.empty())
     {
-        homedir = std::string(home);
         if(homedir[homedir.size() - 1] != visitcommon::SlashChar())
             homedir += VISIT_SLASH_STRING;
         homedir += executableName;
         strcpy(progname_wo_dir, homedir.c_str());
     }
 #endif
-    char progname[256];
+    char progname[256] = {0};
     if (n > 1)
     {
         sprintf(progname, "%s.%03d", progname_wo_dir, r);
@@ -648,9 +653,9 @@ RemovePrependedDirs(const char *path, char *name)
     //
     // Find the last slash by going to the end and working backwards.
     //
-    int  len = strlen(path);
+    int  len = (int)strlen(path);
     int lastSlash;
-    for (lastSlash=len ; path[lastSlash]!=visitcommon::SlashChar() && lastSlash>=0 ; lastSlash--)
+    for (lastSlash=len ; lastSlash>=0 && path[lastSlash]!=visitcommon::SlashChar() ; lastSlash--)
     {
         continue;
     }

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -237,15 +237,20 @@ avtOriginatingSource::GetSpeciesAuxiliaryData(const char *type, void *args,
 //    Hank Childs, Fri Nov 30 16:47:33 PST 2007
 //    Add timing information.
 //
+//    Hank Childs, Thu Aug 26 16:57:24 PDT 2010
+//    Cache the last contract.
+//
 // ****************************************************************************
 
 bool
-avtOriginatingSource::Update(avtContract_p spec)
+avtOriginatingSource::Update(avtContract_p contract)
 {
+    lastContract = contract;
+
     if (!ArtificialPipeline())
         GetOutput()->GetInfo().GetValidity().Reset();
     int t0 = visitTimer->StartTimer();
-    avtDataRequest_p data = BalanceLoad(spec);
+    avtDataRequest_p data = BalanceLoad(contract);
     visitTimer->StopTimer(t0, "Calling BalanceLoad in avtTermSrc::Update");
     int t1 = visitTimer->StartTimer();
     bool rv = FetchData(data);
@@ -482,6 +487,9 @@ avtOriginatingSource::FetchSpeciesAuxiliaryData(const char *,void *,
 //    If we are doing on demand streaming, then indicate that we are streaming
 //    in the output.
 //
+//    Hank Childs, Sun Sep 19 10:47:12 PDT 2010
+//    Determine if data replication occurred.
+//
 // ****************************************************************************
 
 avtDataRequest_p
@@ -507,6 +515,7 @@ avtOriginatingSource::BalanceLoad(avtContract_p contract)
     //
     // Allow the load balancer to split the load across processors.
     //
+    bool dataReplicationOccurred = false;
     avtDataRequest_p rv = NULL;
     if (!UseLoadBalancer())
     {
@@ -523,6 +532,8 @@ avtOriginatingSource::BalanceLoad(avtContract_p contract)
     {
         debug5 << "Using load balancer to reduce data." << endl;
         rv = loadBalanceFunction(loadBalanceFunctionArgs, contract);
+        dataReplicationOccurred =
+                              contract->ReplicateSingleDomainOnAllProcessors();
     }
     else
     {
@@ -534,6 +545,13 @@ avtOriginatingSource::BalanceLoad(avtContract_p contract)
     // Return the portion for this processor.
     //
     rv->SetUsesAllDomains(usesAllDomains);
+
+    //
+    // Tell the output if we are doing data replication.
+    //
+    if (dataReplicationOccurred)
+        GetOutput()->GetInfo().GetAttributes().SetDataIsReplicatedOnAllProcessors(true);
+
     return rv;
 }
 
@@ -670,10 +688,15 @@ avtOriginatingSource::GetFullDataRequest(void)
 //  Method: avtOriginatingSource::GetGeneralContract
 //
 //  Purpose:
-//       Gets a pipeline that the load balancer knows not to muck with.
+//       Gets a pipeline that the load balancer knows not to mess with.
 //
 //  Programmer: Hank Childs
 //  Creation:   June 6, 2001
+//
+//  Modifications:
+//
+//    Hank Childs, Wed Dec 22 12:56:36 PST 2010
+//    Make a "general" contract use the same values for streaming.
 //
 // ****************************************************************************
 
@@ -681,7 +704,38 @@ avtContract_p
 avtOriginatingSource::GetGeneralContract(void)
 {
     avtDataRequest_p data = GetFullDataRequest();
-    return new avtContract(data, 0);
+    avtContract_p rv = new avtContract(data, 0);
+    if (*lastContract != NULL)
+    {
+        rv->SetOnDemandStreaming(lastContract->DoingOnDemandStreaming());
+        rv->UseLoadBalancing(lastContract->ShouldUseLoadBalancing());
+    }
+
+    return rv;
+}
+
+
+// ****************************************************************************
+//  Method: avtOriginatingSource::GetSelectionsForLastExecution
+//
+//  Purpose:
+//     Gets the selections used in the previous execution.
+//
+//  Programmer: Hank Childs
+//  Creation:   December 11, 2012
+//
+// ****************************************************************************
+
+std::vector<avtDataSelection_p> 
+avtOriginatingSource::GetSelectionsForLastExecution(void)
+{
+    if (*lastContract == NULL)
+    {
+        std::vector<avtDataSelection_p> emptySelectionList;
+        return emptySelectionList;
+    }
+
+    return lastContract->GetDataRequest()->GetAllDataSelections();
 }
 
 
@@ -732,6 +786,95 @@ int
 avtOriginatingSource::NumStagesForFetch(avtDataRequest_p)
 {
     return 1;
+}
+
+
+// ****************************************************************************
+//  Method: avtOriginatingSource::StoreArbitraryVTKObject
+//
+//  Purpose:
+//      Stores an arbitrary VTK object in the cache.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 26, 2010
+//
+// ****************************************************************************
+
+void
+avtOriginatingSource::StoreArbitraryVTKObject(const char *name, int domain,
+                                              int ts, const char *type,
+                                              vtkObject *obj)
+{
+    debug1 << "Asked to store object, but don't know how to do that." << endl;
+    debug1 << "This means caching will not work; this case is not expected"
+           << endl;
+}
+
+
+// ****************************************************************************
+//  Method: avtOriginatingSource::FetchArbitraryVTKObject
+//
+//  Purpose:
+//      Fetches an arbitrary VTK object from the cache.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 26, 2010
+//
+// ****************************************************************************
+
+vtkObject *
+avtOriginatingSource::FetchArbitraryVTKObject(const char *name, int domain,
+                                              int ts, const char *type)
+{
+    debug1 << "Asked to fetch object, but don't know how to do that." << endl;
+    debug1 << "This means caching will not work; this case is not expected"
+           << endl;
+    return NULL;
+}
+
+
+// ****************************************************************************
+//  Method: avtOriginatingSource::StoreArbitraryRefPtr
+//
+//  Purpose:
+//      Stores an arbitrary ref_ptr object in the cache.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 26, 2010
+//
+// ****************************************************************************
+
+void
+avtOriginatingSource::StoreArbitraryRefPtr(const char *name, int domain,
+                                              int ts, const char *type,
+                                              void_ref_ptr obj)
+{
+    debug1 << "Asked to store object, but don't know how to do that." << endl;
+    debug1 << "This means caching will not work; this case is not expected"
+           << endl;
+}
+
+
+// ****************************************************************************
+//  Method: avtOriginatingSource::FetchArbitraryRefPtr
+//
+//  Purpose:
+//      Fetches an arbitrary ref_ptr object from the cache.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 26, 2010
+//
+// ****************************************************************************
+
+void_ref_ptr
+avtOriginatingSource::FetchArbitraryRefPtr(const char *name, int domain,
+                                              int ts, const char *type)
+{
+    debug1 << "Asked to fetch object, but don't know how to do that." << endl;
+    debug1 << "This means caching will not work; this case is not expected"
+           << endl;
+    void_ref_ptr vrp;
+    return vrp;
 }
 
 

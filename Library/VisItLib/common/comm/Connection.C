@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -39,10 +39,30 @@
 #include <visit-config.h>
 #include <convert.h>
 #include <Connection.h>
-
+#include <AttributeSubject.h>
 const bool Connection::SRC = false;
 const bool Connection::DEST = true;
 
+long Connection::ReadHeader(unsigned char *buf, long len)
+{
+    return DirectRead(buf,len);
+}
+
+long Connection::WriteHeader(const unsigned char *buf, long len)
+{
+    return DirectWrite(buf,len);
+}
+
+void Connection::Flush(AttributeSubject *subject)
+{
+    // Write out the subject's guido and message size.
+    WriteInt(subject->GetGuido());
+    int sz = subject->CalculateMessageSize(*this);
+    WriteInt(sz);
+
+    subject->Write(*this);
+    Flush();
+}
 // *******************************************************************
 // Method: Connection::Connection
 //
@@ -214,7 +234,7 @@ Connection::WriteDouble(double val)
 void
 Connection::WriteString(const std::string &s)
 {
-    Append((unsigned char *)s.c_str(), s.size() + 1);
+    Append((unsigned char *)s.c_str(), (int)s.size() + 1);
 }
 
 // *******************************************************************

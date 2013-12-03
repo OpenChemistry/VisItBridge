@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,6 +46,8 @@
 #include <pipeline_exports.h>
 
 #include <vector>
+
+#include <void_ref_ptr.h>
 
 #include <avtDataObjectSource.h>
 #include <avtDataObjectSink.h>
@@ -116,6 +118,12 @@ class     avtWebpage;
 //    Tom Fogal, Tue Jun 23 20:21:15 MDT 2009
 //    Made spatial extent methods const.
 //
+//    Hank Childs, Sun Nov 28 06:19:25 PST 2010
+//    Add support for caching arbitrary data structures in the database.
+//
+//    Hank Childs, Tue Nov 30 20:38:36 PST 2010
+//    Add method SearchDataForSpatialExtents.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtFilter
@@ -172,8 +180,7 @@ class PIPELINE_API avtFilter
 
     virtual void                        PreExecute(void);
     virtual void                        PostExecute(void);
-    virtual void                        ExamineContract(
-                                                   avtContract_p);
+    virtual void                        ExamineContract(avtContract_p);
 
     avtMetaData                        *GetMetaData(void);
 
@@ -184,13 +191,14 @@ class PIPELINE_API avtFilter
     void                                GetDataExtents(double *,
                                                        const char * = NULL);
     bool                                TrySpatialExtents(double *) const;
-    void                                GetSpatialExtents(double *) const;
-    bool                                TryCurrentDataExtents(double *);
-    void                                GetCurrentDataExtents(double *);
-    bool                                TryCurrentSpatialExtents(double *);
-    void                                GetCurrentSpatialExtents(double *);
+    void                                GetSpatialExtents(double *);
+    bool                                TryActualDataExtents(double *);
+    void                                GetActualDataExtents(double *);
+    bool                                TryActualSpatialExtents(double *);
+    void                                GetActualSpatialExtents(double *);
     virtual void                        SearchDataForDataExtents(double *,
                                                                  const char *);
+    virtual void                        SearchDataForSpatialExtents(double *);
 
     void                                RegisterDynamicAttribute(
                                                         avtDynamicAttribute *);
@@ -202,6 +210,31 @@ class PIPELINE_API avtFilter
                                                      const char *);
     void                                InitializeWebpage(void);
     void                                FinalizeWebpage(void);
+
+    enum CacheItemDependence
+    {
+        DATA_DEPENDENCE = 1,          // Example: scalar tree for contouring
+        SPATIAL_DEPENDENCE = 2,       // Example: lookup structure for streamlines
+        CONNECTIVITY_DEPENDENCE = 4   // Example: facelist (point positions not important)
+    };
+
+    bool                                CheckDependencies(int);
+    bool                                CanCacheDataItem(void);
+    bool                                CanCacheSpatialItem(void);
+    bool                                CanCacheConnectivityItem(void);
+    void_ref_ptr                        FetchArbitraryRefPtr(
+                                                      int dependencies,
+                                                      const char *name,
+                                                      int dom, int ts,
+                                                      const char *type);
+    void                                StoreArbitraryRefPtr(
+                                                      int dependencies,
+                                                      const char *name,
+                                                      int dom, int ts,
+                                                      const char *type,
+                                                      void_ref_ptr);
 };
 
 #endif
+
+

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -86,6 +86,9 @@ class     NameschemeAttributes;
 //    Hank Childs, Mon Dec  7 14:05:00 PST 2009
 //    Added various optimizations that enable the SIL object to get smaller.
 //
+//    Kathleen Biagas, Thu Aug 22 09:58:50 PDT 2013
+//    Add groupNames argment to AddGroups.
+//
 // ****************************************************************************
 
 class DATABASE_API avtSILGenerator
@@ -101,8 +104,9 @@ class DATABASE_API avtSILGenerator
                                    bool useSILArrays,
                                    SILCategoryRole cat = SIL_DOMAIN,
                                    bool onlyCreateSets = false);
-    vector<int>         AddGroups(avtSIL *, int, int, int, const std::string &,
-                                  const std::string &);
+    std::vector<int>    AddGroups(avtSIL *, int, int, int, const std::string &,
+                                  const std::string &,
+                                  const std::vector< std::string > &);
     void                AddGroupCollections(avtSIL *, int, int,
                                   const std::vector<int> &,
                                   const std::vector<int>&, 

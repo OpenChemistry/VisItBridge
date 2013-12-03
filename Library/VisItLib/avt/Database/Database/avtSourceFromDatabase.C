@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -52,14 +52,18 @@
 #include <avtDataset.h>
 #include <avtSILRestriction.h>
 #include <avtSILRestrictionTraverser.h>
+#include <avtVariableCache.h>
 
 #include <BadIndexException.h>
 #include <DebugStream.h>
+#include <ParsingExprList.h>
 #include <TimingsManager.h>
 
 
 using     std::string;
 using     std::vector;
+
+ExpressionList   *avtSourceFromDatabase::lastExprList = NULL;
 
 
 // ****************************************************************************
@@ -188,6 +192,9 @@ avtSourceFromDatabase::~avtSourceFromDatabase()
 //    Hank Childs, Mon Dec  1 15:41:49 PST 2008
 //    Removed code thought to be no longer necessary to prune trees.
 //
+//    Hank Childs, Tue Jan 11 10:35:35 PST 2011
+//    Set the output data set's time index. 
+//
 // ****************************************************************************
 
 bool
@@ -275,6 +282,7 @@ avtSourceFromDatabase::FetchDataset(avtDataRequest_p spec,
         double dtime = md->GetTimes()[timestep];
         atts.SetTime(dtime);
     }
+    atts.SetTimeIndex(timestep);
 
     const char *filename = database->GetFilename(timestep);
     if (filename != NULL)
@@ -760,6 +768,160 @@ bool
 avtSourceFromDatabase::CanDoStreaming(avtContract_p contract)
 {
     return database->CanDoStreaming(contract->GetDataRequest());
+}
+
+
+// ****************************************************************************
+//  Method: avtSourceFromDatabase::StoreArbitraryVTKObject
+//
+//  Purpose:
+//      Stores an arbitrary VTK object in the cache.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 26, 2010
+//
+//  Modifications:
+//
+//    Hank Childs, Mon Jan 10 20:42:58 PST 2011
+//    Add support for expressions.
+//
+// ****************************************************************************
+
+void
+avtSourceFromDatabase::StoreArbitraryVTKObject(const char *name, int domain,
+                                              int ts, const char *type,
+                                              vtkObject *obj)
+{
+    std::string name2 = ManageExpressions(name);
+    avtVariableCache *cache = database->GetCache();
+    cache->CacheVTKObject(name2.c_str(), type, ts, domain, "", obj);
+}
+
+
+// ****************************************************************************
+//  Method: avtSourceFromDatabase::FetchArbitraryVTKObject
+//
+//  Purpose:
+//      Fetches an arbitrary VTK object from the cache.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 26, 2010
+//
+//  Modifications:
+//
+//    Hank Childs, Mon Jan 10 20:42:58 PST 2011
+//    Add support for expressions.
+//
+// ****************************************************************************
+
+vtkObject *
+avtSourceFromDatabase::FetchArbitraryVTKObject(const char *name, int domain,
+                                              int ts, const char *type)
+{
+    std::string name2 = ManageExpressions(name);
+    avtVariableCache *cache = database->GetCache();
+    return cache->GetVTKObject(name2.c_str(), type, ts, domain, "");
+}
+
+
+// ****************************************************************************
+//  Method: avtSourceFromDatabase::StoreArbitraryRefPtr
+//
+//  Purpose:
+//      Stores an arbitrary ref_ptr object in the cache.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 26, 2010
+//
+//  Modifications:
+//
+//    Hank Childs, Mon Jan 10 20:42:58 PST 2011
+//    Add support for expressions.
+//
+// ****************************************************************************
+
+void
+avtSourceFromDatabase::StoreArbitraryRefPtr(const char *name, int domain,
+                                              int ts, const char *type,
+                                              void_ref_ptr obj)
+{
+    std::string name2 = ManageExpressions(name);
+    avtVariableCache *cache = database->GetCache();
+    cache->CacheVoidRef(name2.c_str(), type, ts, domain, obj);
+}
+
+
+// ****************************************************************************
+//  Method: avtSourceFromDatabase::FetchArbitraryRefPtr
+//
+//  Purpose:
+//      Fetches an arbitrary ref_ptr object from the cache.
+//
+//  Programmer: Hank Childs
+//  Creation:   November 26, 2010
+//
+//  Modifications:
+//
+//    Hank Childs, Mon Jan 10 20:42:58 PST 2011
+//    Add support for expressions.
+//
+// ****************************************************************************
+
+void_ref_ptr
+avtSourceFromDatabase::FetchArbitraryRefPtr(const char *name, int domain,
+                                              int ts, const char *type)
+{
+    std::string name2 = ManageExpressions(name);
+    avtVariableCache *cache = database->GetCache();
+    return cache->GetVoidRef(name2.c_str(), type, ts, domain);
+}
+
+
+// ****************************************************************************
+//  Method: avtSourceFromDatabase::ManageExpressions
+//
+//  Purpose:
+//      Expressions require special care to cache in the database, since the
+//      expression list may change.  This method checks to see (1) if the
+//      variable passed in as an argument is an expression (and, if so,
+//      mangles it) and (2) if the expression list has changed (and, if so,
+//      clears expressions in the variable cache).
+//
+//  Programmer: Hank Childs
+//  Creation:   January 10, 2011
+//
+// ****************************************************************************
+
+std::string
+avtSourceFromDatabase::ManageExpressions(const char *name)
+{
+    ExpressionList *curList = ParsingExprList::Instance()->GetList();
+    if (curList == NULL)
+        return std::string(name);
+
+    // check to see if this variable is an expression.
+    if (curList->operator[](name) == NULL)
+        return std::string(name);
+ 
+    // TODO. If we thread safe the cache we can add back. DC
+#ifndef VISIT_THREADS
+    if (lastExprList == NULL)
+        lastExprList = new ExpressionList(*curList);
+
+    if (*lastExprList != *curList)
+    {
+        // The expression list changed ... clear all expressions out of the 
+        // database cache.
+        avtVariableCache *cache = database->GetCache();
+        cache->ClearVariablesWithString("__AVT_EXPR__");
+        *lastExprList = *curList;
+    }
+#endif // VISIT_THREADS
+
+    // mangle in a prefix to say this is an expression.
+    char str[1024];
+    sprintf(str, "__AVT_EXPR__%s", name);
+    return std::string(str);
 }
 
 

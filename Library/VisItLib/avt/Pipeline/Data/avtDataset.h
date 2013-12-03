@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -51,8 +51,8 @@
 
 class   avtDataRepresentation;
 class   avtIntervalTree;
+class   avtNamedSelectionExtension;
 class   avtWebpage;
-
 
 // ****************************************************************************
 //  Class: avtDataset
@@ -129,6 +129,24 @@ class   avtWebpage;
 //    Hank Childs, Sun Feb 15 10:12:22 PST 2009
 //    Add friend status for avtTimeIteratorExpression.
 //
+//    Eric Brugger, Wed Jun 30 13:43:30 PDT 2010
+//    Add friend status for avtXRayImageQuery.
+//
+//    Dave Pugmire, Fri Jul  2 14:22:34 EDT 2010
+//    Add friend status for avtResampleExpression.
+//
+//    Hank Childs, Thu Sep  2 07:54:12 PDT 2010
+//    Add method RenumberDomainIDs.
+//
+//    Hank Childs, Fri Sep 10 19:23:26 PDT 2010
+//    Add options to RenumberDomainIDs and CalculateSpatialIntervalTree
+//    to limit the calculations to the current processor only.
+//
+//    Dave Pugmire, Mon Mar 26 13:50:09 EDT 2012
+//    Add avtExtremeValueAnalysisFilter
+//
+
+//
 // ****************************************************************************
 
 class PIPELINE_API avtDataset : public avtDataObject
@@ -143,8 +161,15 @@ class PIPELINE_API avtDataset : public avtDataObject
     friend                   class avtLineScanQuery;
     friend                   class avtLineSurfaceFilter;
     friend                   class avtExecuteThenTimeLoopFilter;
-    friend                   class avtNamedSelectionManager;
+    friend                   class avtNamedSelectionExtension;
     friend                   class avtTimeIteratorExpression;
+    friend                   class avtXRayImageQuery;
+    friend                   class avtResampleExpression;
+#ifdef HAVE_LIB_R
+    friend                   class  avtExtremeValueAnalysisFilter;
+    friend                   class  avtPeaksOverThresholdFilter;
+    friend                   class  avtModelBasedClusteringFilter;
+#endif
 
   public:
                              avtDataset(avtDataObjectSource *);
@@ -169,9 +194,11 @@ class PIPELINE_API avtDataset : public avtDataObject
     void                     WriteTreeStructure(ostream &os, int indent = 0);
     void                     Compact(void);
 
-    avtIntervalTree         *CalculateSpatialIntervalTree(void);
+    avtIntervalTree         *CalculateSpatialIntervalTree(bool acrossAllProcs = true);
+    void                     RenumberDomainIDs(bool acrossAllProcs = true);
     virtual void             DebugDump(avtWebpage *, const char *);
 
+    std::string              GetDatasetAsString();
   protected:
     avtDataTree_p            dataTree;
 

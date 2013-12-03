@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -127,7 +127,7 @@ struct ConnectRecord
 //    Added support for PDB title information.
 //
 //    Jeremy Meredith, Mon Aug 28 17:42:26 EDT 2006
-//    Changed to a STSD file format; models are now exposed through
+//    Changed to a STSD file format; models are now exposed through 
 //    directories, and times require multiple grouped files.
 //    Changed molecular data model so that bonds are line elements, not
 //    a 4-component array.
@@ -144,7 +144,7 @@ class avtProteinDataBankFileFormat : public avtSTSDFileFormat
     virtual           ~avtProteinDataBankFileFormat() {;};
 
     virtual const char    *GetType(void)   { return "ProteinDataBank"; };
-    virtual void           FreeUpResources(void);
+    virtual void           FreeUpResources(void); 
 
     virtual vtkDataSet    *GetMesh(const char *);
     virtual vtkDataArray  *GetVar(const char *);

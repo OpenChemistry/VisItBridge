@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -81,8 +81,8 @@ class STATE_API XMLNode
     bool     DeleteAttribute(const std::string &);
     void     GetAttributeNames(stringVector &) const;
     
-    bool     HasChildren()    const { return children.size() > 0; }
-    int      GetNumChildren() const { return children.size(); } 
+    bool     HasChildren()    const { return !children.empty(); }
+    int      GetNumChildren() const { return (int)children.size(); } 
     
     XMLNode *AddChild(const std::string  &);
     XMLNode *AddChild(const XMLNode &);

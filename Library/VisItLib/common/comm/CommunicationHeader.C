@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -48,6 +48,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <sys/types.h>    // 20110314 VRS for /dev/urandom
+#include <sys/stat.h>
+#include <fcntl.h>
+#ifndef _WIN32
+#include <sys/ipc.h>      // 20110316 VRS for passing random seed in shared mem
+#include <sys/shm.h>
+#include <unistd.h>
+#endif
+#include <errno.h>
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif /* PATH_MAX */
 
 // This is the size of the buffer that gets communicated.
 #define BUFFER_SIZE 100
@@ -140,10 +152,11 @@ CommunicationHeader::WriteHeader(Connection *conn, const std::string &version,
 
     // The first 4 bytes of the header are for the type representation.
     TypeRepresentation localRep;
-    buffer[0] = localRep.IntFormat;
-    buffer[1] = localRep.LongFormat;
-    buffer[2] = localRep.FloatFormat;
-    buffer[3] = localRep.DoubleFormat;
+    buffer[0] = localRep.Format;
+    buffer[1] = localRep.IntFormat;
+    buffer[2] = localRep.LongFormat;
+    buffer[3] = localRep.FloatFormat;
+    buffer[4] = localRep.DoubleFormat;
 
     // Set the failure code
     //   0 : no failure
@@ -152,16 +165,16 @@ CommunicationHeader::WriteHeader(Connection *conn, const std::string &version,
     //   3 : CouldNotConnectException
     //   4 : CancelledConnectException
     //
-    buffer[4] = (failCode >= 0 && failCode < 5) ? ((unsigned char)failCode) : 3;
+    buffer[5] = (failCode >= 0 && failCode < 5) ? ((unsigned char)failCode) : 3;
 
     // The next 10 bytes are for a NULL terminated version string.
-    strncpy((char *)(buffer+5), version.c_str(), 10);
+    strncpy((char *)(buffer+6), version.c_str(), 10);
 
     // The next 21 bytes are for securityKey.
-    strncpy((char *)(buffer+5+10), securityKey.c_str(), 21);
+    strncpy((char *)(buffer+6+10), securityKey.c_str(), 21);
 
     // The next 21 bytes are for socketKey.
-    strncpy((char *)(buffer+5+10+21), socketKey.c_str(), 21);
+    strncpy((char *)(buffer+6+10+21), socketKey.c_str(), 21);
 
 #ifdef DEBUG_COMMUNICATION_HEADER
     debug1 << "CommunicationHeader::WriteHeader: HEADER={";
@@ -180,7 +193,7 @@ CommunicationHeader::WriteHeader(Connection *conn, const std::string &version,
     // The rest of the bytes are reserved for future use.
 
     // Write the message header to the file descriptor.
-    conn->DirectWrite(buffer, BUFFER_SIZE);
+    conn->WriteHeader(buffer, BUFFER_SIZE);
 }
 
 // ****************************************************************************
@@ -226,13 +239,14 @@ CommunicationHeader::ReadHeader(Connection *conn, const std::string &version,
     memset(buffer, 0, BUFFER_SIZE);
 
     // Write the message header using the file descriptor.
-    conn->DirectRead(buffer, BUFFER_SIZE);
+    conn->ReadHeader(buffer, BUFFER_SIZE);
 
     // Fill the local type representation "rep".
-    rep.IntFormat = buffer[0];
-    rep.LongFormat = buffer[1];
-    rep.FloatFormat = buffer[2];
-    rep.DoubleFormat = buffer[3];
+    rep.Format = buffer[0];
+    rep.IntFormat = buffer[1];
+    rep.LongFormat = buffer[2];
+    rep.FloatFormat = buffer[3];
+    rep.DoubleFormat = buffer[4];
 
 #ifdef DEBUG_COMMUNICATION_HEADER
     debug1 << "CommunicationHeader::ReadHeader: HEADER={";
@@ -249,27 +263,27 @@ CommunicationHeader::ReadHeader(Connection *conn, const std::string &version,
 #endif
 
     // Check to see if the version numbers are compatible.
-    if(!VisItVersionsCompatible((const char *)(buffer+5), version.c_str()))
+    if(!VisItVersionsCompatible((const char *)(buffer+6), version.c_str()))
     {
-        debug1 << "Versions are " << buffer << "(" << buffer+5 << ")," 
+        debug1 << "Versions are " << buffer << "(" << buffer+6 << "),"
                << version << endl;
         EXCEPTION0(IncompatibleVersionException);
     }
 
     // Check to see if any failure codes are set.
-    if(buffer[4] == 1)
+    if(buffer[5] == 1)
     {
         EXCEPTION0(IncompatibleVersionException);
     }
-    else if(buffer[4] == 2)
+    else if(buffer[5] == 2)
     {
         EXCEPTION0(IncompatibleSecurityTokenException);
     }
-    else if(buffer[4] == 3)
+    else if(buffer[5] == 3)
     {
         EXCEPTION0(CouldNotConnectException);
     }
-    else if(buffer[4] == 4)
+    else if(buffer[5] == 4)
     {
         EXCEPTION0(CancelledConnectException);
     }
@@ -278,14 +292,14 @@ CommunicationHeader::ReadHeader(Connection *conn, const std::string &version,
     // the same as the keys that were sent to the client.
     if(checkKeys)
     {
-        if((strcmp((const char *)(buffer+5+10), securityKey.c_str()) != 0) ||
-           (strcmp((const char *)(buffer+5+10+21), socketKey.c_str()) != 0))
+        if((strcmp((const char *)(buffer+6+10), securityKey.c_str()) != 0) ||
+           (strcmp((const char *)(buffer+6+10+21), socketKey.c_str()) != 0))
         {
             EXCEPTION0(IncompatibleSecurityTokenException);
         }
     }
-    securityKey = std::string((const char *)(buffer+5+10));
-    socketKey = std::string((const char *)(buffer+5+10+21));
+    securityKey = std::string((const char *)(buffer+6+10));
+    socketKey = std::string((const char *)(buffer+6+10+21));
 
 #ifdef DEBUG_COMMUNICATION_HEADER
     debug1 << "CommunicationHeader::ReadHeader: securityKey=" << securityKey.c_str() << endl;
@@ -315,6 +329,106 @@ CommunicationHeader::GetTypeRepresentation() const
     return rep;
 }
 
+#ifndef _WIN32
+// ****************************************************************************
+// Method: more_random_srand
+//
+// Purpose: 
+//   Calls srand48 with more random seed value.
+//
+// Arguments:
+//
+// Returns:    True on success; false on failure.
+//
+// Note:       
+//
+// Programmer: Vern Staats
+// Creation:   Thu May 12 12:58:56 PDT 2011
+//
+// Modifications:
+//   Brad Whitlock, Wed Jun 22 09:20:14 PDT 2011
+//   I moved this code into this new function and replaced all the damn abort
+//   calls with code that returns false.
+//
+// ****************************************************************************
+
+static bool
+more_random_srand()
+{
+    // 20110314 VRS was:  srand48(long(time(0)));
+    // 20110316 VRS use /dev/urandom as the random number seed,
+    //   but we need to communicate it to the child processes.
+    //   Re-use cached seed if time(0) is within delta of cached time.
+    //   Set delta = 2 seconds to avoid probably rare intermittent failure
+    //   in original code when viewer and mdserver fall on opposite sides
+    //   of a second.
+    struct seed_ {
+        long    value;
+        time_t  updated;
+        };
+    void    *seedp = (void *) -1;
+    char    *seed_path = NULL;
+    key_t    seed_shm_key = -1;
+    int     seed_shd_id;
+    //    Create a directory or file path for ftok()
+    if ((seed_path = getcwd((char *) NULL, (size_t) PATH_MAX)) == NULL)  {
+        debug1 << "Error reading current dir for ftok()" << endl;
+        return false;
+    }
+    seed_shm_key = ftok(seed_path, (int) getuid());
+    if (seed_shm_key == -1)  {
+        debug1 << "Error creating seed_shm_key with ftok()" << endl;
+        return false;
+    }
+    if (seed_path != NULL)  {
+        free(seed_path);
+        seed_path = NULL;
+    }
+    seed_shd_id = shmget(seed_shm_key, sizeof(struct seed_), IPC_CREAT | 0600);
+    if (seed_shd_id == -1)  {
+        debug1 << "Error getting shared memory with shmget()" << endl;
+        return false;
+    }
+    seedp = shmat(seed_shd_id, (const void *) NULL, 0);
+    if (seedp == (void *) -1)  {
+        debug1 << "Error attaching shared memory with shmat()" << endl;
+        return false;
+    }
+
+    time_t seed_max_delta = 2;
+    time_t seed_now = time(0);
+    if (seed_now == (time_t) -1)  {
+        debug1 << "Error getting current time" << endl;
+        return false;
+    }
+    if (((struct seed_ *)seedp)->value == 0  || 
+        ((struct seed_ *)seedp)->value == -1  ||
+        ((struct seed_ *)seedp)->updated == 0  ||
+        seed_now - ((struct seed_ *)seedp)->updated > seed_max_delta)  {
+        int r = open("/dev/urandom", O_RDONLY);
+        if (r == -1)  {
+            debug1 << "Error opening /dev/urandom" << endl;
+            close(r);
+            return false;
+        }
+        if (read(r, (void *) &((struct seed_ *)seedp)->value,
+                       sizeof(((struct seed_ *)seedp)->value))
+                    != sizeof(((struct seed_ *)seedp)->value))  {
+            debug1 << "Error reading /dev/urandom" << endl;
+            close(r);
+            return false;
+        }
+        else  {
+            ((struct seed_ *)seedp)->updated = seed_now;
+        }
+        close(r);
+    }
+    srand48((long) ((struct seed_ *)seedp)->value);
+    if (seedp != (void *) -1)  (void) shmdt((const void *) seedp);
+    return true;
+}
+#endif
+
 // ****************************************************************************
 // Method: CommunicationHeader::CreateRandomKey
 //
@@ -342,6 +456,14 @@ CommunicationHeader::GetTypeRepresentation() const
 //   Brad Whitlock, Mon May 19 17:25:31 PST 2003
 //   Made it use lrand48 because it's slightly faster.
 //
+//   Vern Staats, Thu May 12 12:58:56 PDT 2011
+//   I added code that uses /dev/urandom to get a random seed instead of
+//   srand. This creates a more random key.
+//
+//   Brad Whitlock, Wed Jun 22 09:23:29 PDT 2011
+//   I moved the new srand code into its own routine so I can test if it fails
+//   instead of having it abort. If it fails, we initialize using time.
+//
 // ****************************************************************************
 
 std::string
@@ -351,7 +473,11 @@ CommunicationHeader::CreateRandomKey(int len)
 #if defined(_WIN32)
     srand((unsigned)time(0));
 #else
-    srand48(long(time(0)));
+    if(!more_random_srand())
+    {
+        // The really random way didn't work. Seed based on time.
+        srand48((long)time(0));
+    }
 #endif
 
     std::string key;

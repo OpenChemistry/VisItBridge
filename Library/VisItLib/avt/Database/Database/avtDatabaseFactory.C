@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -61,13 +61,17 @@
 #include <DatabasePluginInfo.h>
 #include <FileFunctions.h>
 #include <DBOptionsAttributes.h>
+#include <StringHelpers.h>
 
 #include <BadPermissionException.h>
+#include <DBYieldedNoDataException.h>
 #include <FileDoesNotExistException.h>
 #include <DebugStream.h>
 #include <ImproperUseException.h>
 #include <InvalidFilesException.h>
 #include <InvalidDBTypeException.h>
+#include <NonCompliantException.h>
+#include <NonCompliantFileException.h>
 #include <TimingsManager.h>
 
 #if !defined(_WIN32)
@@ -77,6 +81,9 @@
 
 using std::string;
 using std::vector;
+using StringHelpers::Plural;
+using StringHelpers::HumanReadableList;
+
 
 //
 // Static data members
@@ -85,6 +92,7 @@ bool    avtDatabaseFactory::createMeshQualityExpressions = true;
 bool    avtDatabaseFactory::createTimeDerivativeExpressions = true;
 bool    avtDatabaseFactory::createVectorMagnitudeExpressions = true;
 FileOpenOptions avtDatabaseFactory::defaultFileOpenOptions;
+avtPrecisionType avtDatabaseFactory::precisionType = AVT_PRECISION_NATIVE;
 
 //
 // Function Prototypes
@@ -111,6 +119,28 @@ void
 avtDatabaseFactory::SetDefaultFileOpenOptions(const FileOpenOptions &opts)
 {
     defaultFileOpenOptions = opts;
+}
+
+// ****************************************************************************
+//  Method:  avtDatabaseFactory::SetPrecisionType
+//
+//  Purpose:
+//    Store off the precisionType.  We use this when XForm Manager decides
+//    whether or not to tranform data.
+//
+//  Arguments:
+//    pType      the new precision type.
+//
+//  Programmer:  Kathleen Biagas
+//  Creation:    August 1, 2013
+//
+// ****************************************************************************
+
+void
+avtDatabaseFactory::SetPrecisionType(const int pType)
+{
+    if (pType >= 0 && pType < 3)
+        precisionType = avtPrecisionType(pType);
 }
 
 // ****************************************************************************
@@ -259,6 +289,53 @@ avtDatabaseFactory::SetDefaultFileOpenOptions(const FileOpenOptions &opts)
 //    Brad Whitlock, Wed Mar 10 10:50:00 PST 2010
 //    Rethrow a caught ImproperUseException so its message won't be changed.
 //
+//    Hank Childs, Thu May 20 14:32:06 PDT 2010
+//    Add support for NonCompliantFileExceptions, a new type which should 
+//    immediately issue their warnings to the user.  You use these when
+//    you know that you have a file of a certain type, but that type is 
+//    a non-compliant file.
+//
+//    Jeremy Meredith, Wed Aug 18 14:32:11 EDT 2010
+//    Added another pass, where we try preferred plugins which match
+//    the target filename before any others which match the filename.
+//    We still try preferred plugins before giving up, even if they
+//    don't match the filename.
+//
+//    Hank Childs, Sun Sep 19 09:02:05 PDT 2010
+//    Add parsing for explicit setting of times by user.
+//
+//    Jeremy Meredith, Thu Sep 30 12:16:00 EDT 2010
+//    Allow specified file type to look for a name match, now allowing
+//    "VTK" (as well as "VTK_1.0" which previously worked), for example.
+//
+//    Jeremy Meredith, Thu Oct 28 12:50:53 EDT 2010
+//    When using "Open As", report the error given from the reader even if 
+//    it throws a standard InvalidFilesException, since the details of the
+//    failure will at least be relevant (unlike the general case when we
+//    get that failure when guessing which plugin to use).
+//
+//    Mark C. Miller, Fri Oct 29 09:57:32 PDT 2010
+//    Added catch/rethrow of DBYieldedNoDataException
+//
+//    Mark C. Miller, Mon Nov  1 11:28:33 PDT 2010
+//    Fixed handling of DBYieldedNoDataException. Re-throws only when format
+//    is specified. Otherwise, handled like any other exception. This ensures
+//    desired behavior, where empty db moves on to next candidate, occurs.
+//    Also, removed whole TRY/CATCH construct from the format!=NULL case as
+//    per Jeremy's advice that none of the exceptions in that case require
+//    special handling here.
+//
+//    Jeremy Meredith, Tue Mar 29 14:30:23 EDT 2011
+//    NonCompliant exceptions are now no longer "fatal" -- i.e. the no longer
+//    abort the file opening process.  However, we still take these types
+//    of exceptions as special indications that their error message is
+//    meaningful and should be reported to the user, so we now collect any
+//    occurrences of them and report them prominently, even if a different
+//    file format was able to successfully open the file.
+//
+//    Dave Pugmire, Thu Feb 14 13:56:46 EST 2013
+//    Support for ensemble .visit files (files with identical time states)
+//
 // ****************************************************************************
 
 avtDatabase *
@@ -269,6 +346,9 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
                              bool forceReadAllCyclesAndTimes,
                              bool treatAllDBsAsTimeVarying)
 {
+    vector<string> noncompliantPlugins;
+    vector<string> noncompliantErrors;
+
     if (filelistN <= 0)
     {
         EXCEPTION1(InvalidFilesException, filelistN);
@@ -278,17 +358,38 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
     int fileIndex = 0;
 
     int nBlocks = 1;
-    if (strstr(filelist[fileIndex], "!NBLOCKS") != NULL)
+    bool filesAreEnsemble = false;
+    vector<double> times;
+    for (int f = 0 ; f < filelistN ; f++)
     {
-        nBlocks = atoi(filelist[fileIndex] + strlen("!NBLOCKS "));
-        debug1 << "Found a multi-block file with " << nBlocks << " blocks."
-               << endl;
-        fileIndex++;
-    }
-    if (nBlocks <= 0)
-    {
-        debug1 << "BAD SYNTAX FOR N BLOCKS, RESETTING TO 1"  << endl;
-        nBlocks = 1;
+         if (strstr(filelist[fileIndex], "!NBLOCKS ") != NULL)
+         {
+             nBlocks = atoi(filelist[fileIndex] + strlen("!NBLOCKS "));
+             if (nBlocks <= 0)
+             {
+                 debug1 << "BAD SYNTAX FOR N BLOCKS, RESETTING TO 1"  << endl;
+                 nBlocks = 1;
+             }
+             else
+                 debug1 << "Found a multi-block file with " << nBlocks << " blocks."
+                        << endl;
+             fileIndex++;
+         }
+         else if (strstr(filelist[fileIndex], "!TIME ") != NULL)
+         {
+             times.push_back(atof(filelist[fileIndex] + strlen("!TIME ")));
+             fileIndex++;
+         }
+         else if (strstr(filelist[fileIndex], "!ENSEMBLE") != NULL)
+         {
+             filesAreEnsemble = true;
+             fileIndex++;
+         }
+         else
+         {
+             // The whole file index thing mandates that the '!'s go first in the file.
+             break;
+         }
     }
 
     //
@@ -304,6 +405,13 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
         debug3 << "avtDatabaseFactory: specifically told to use "
                << format << endl;
         int formatindex = dbmgr->GetAllIndex(format);
+        if (formatindex < 0)
+        {
+            formatindex = dbmgr->GetAllIndexFromName(format);
+            debug3 << "avtDatabaseFactory: couldn't find "
+                   << format << " by ID, attempt at a name match "
+                   << ((formatindex>=0) ? "succeeded" : "failed") << endl;
+        }
         if (formatindex < 0)
         {
             char msg[1000];
@@ -345,24 +453,11 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
                 info->SetReadOptions(new DBOptionsAttributes(*opts));
             }
         }
-        TRY
-        {
-            plugins.push_back(info ? info->GetName(): "");
-            rv = SetupDatabase(info, filelist, filelistN, timestep, fileIndex,
-                               nBlocks, forceReadAllCyclesAndTimes,
-                               treatAllDBsAsTimeVarying, false);
-        }
-        CATCH(ImproperUseException)
-        {
-            rv = NULL;
-            RETHROW;
-        }
-        CATCHALL
-        {
-            rv = NULL;
-        }
-        ENDTRY
-
+        plugins.push_back(info ? info->GetName(): "");
+        rv = SetupDatabase(info, filelist, filelistN, timestep, fileIndex,
+                           nBlocks, forceReadAllCyclesAndTimes,
+                           treatAllDBsAsTimeVarying, false, times, filesAreEnsemble);
+        
         if (rv == NULL)
         {
             char msg[1000];
@@ -375,17 +470,133 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
     }
  
     //
-    // Check to see if there is an extension that matches.  For all that
-    // match, try them to see if they work.  If more than one works, use the
-    // first, but warn that it was ambiguous.
+    // Check to see if there is an extension that matches.
     //
     vector<string> fileMatchedIds =
         dbmgr->GetMatchingPluginIds(filelist[fileIndex]);
+
+    //
+    // First try any preferred plugins which match, in the order given,
+    // to see if they work.  If you encounter one that does, stop and
+    // succeed immediately.
+    //
+    vector<string> &preferred = defaultFileOpenOptions.GetPreferredIDs();
+    for (int i = 0 ; i < preferred.size() && rv == NULL ; i++)
+    {
+        string formatid = preferred[i];
+        if (!dbmgr->PluginAvailable(formatid))
+        {
+            debug3 << "avtDatabaseFactory: 'assumed' pass, skipping "
+                   << "unavailable preferred format " << formatid << endl;
+            continue;
+        }
+
+        // For some reason, disabling of db plugins at load time is
+        // apparently not working at the moment.  That's okay, we can
+        // double check here that the current ID is enabled with no harm.
+        if (!defaultFileOpenOptions.IsIDEnabled(formatid))
+        {
+            debug1 << "Warning: plugin "<<formatid<<" claims to be "
+                   << "disabled but wasn't.\n";
+            continue;
+        }
+
+        // don't try any which don't match the file pattern here
+        if (std::find(fileMatchedIds.begin(),fileMatchedIds.end(), formatid) ==
+                                                          fileMatchedIds.end())
+            continue;
+
+        debug3 << "avtDatabaseFactory: 'assumed' pass, trying "
+               << "filename-matched preferred format " << formatid << endl;
+        CommonDatabasePluginInfo *info = 
+            dbmgr->GetCommonPluginInfo(formatid);
+        if (info)
+        {
+            // if this is strict about filename matching, don't try it either
+            if (info->AreDefaultFilePatternsStrict())
+            {
+                debug3 << "avtDatabaseFactory: no, skip it, since it's "
+                       << "strict about file patterns.\n";
+                continue;
+            }
+
+            // Set the opening options
+            const DBOptionsAttributes *opts = 
+                defaultFileOpenOptions.GetOpenOptionsForID(formatid);
+            if (opts == 0 || (opts != 0 && opts->GetNames().size() == 0))
+            {
+                // The options aren't in the default options.  Maybe
+                // defaults have been added to the plugin since they saved 
+                // their settings. Try to get it from the plugin.
+                DBOptionsAttributes *opts = info->GetReadOptions();
+                if (opts)
+                    info->SetReadOptions(opts);
+            }
+            else
+            {
+                info->SetReadOptions(new DBOptionsAttributes(*opts));
+            }
+        }
+        TRY
+        {
+            plugins.push_back(info ? info->GetName(): "");
+            rv = SetupDatabase(info, filelist, filelistN,
+                               timestep, fileIndex,
+                               nBlocks, forceReadAllCyclesAndTimes,
+                               treatAllDBsAsTimeVarying, true, times, filesAreEnsemble);
+            // If some file reader claimed this file, but couldn't open it,
+            // but another one could, then report a warning.
+            if (rv != NULL && noncompliantPlugins.size() > 0)
+            {
+                int n = noncompliantPlugins.size();
+                string warning = "While we were able to open the file "
+                    "with the " + string(info ? info->GetName() : "") + " reader, "+
+                    (n==1?"an":"") + "other file format "+Plural(n,"reader")+
+                    " believed "+(n==1?"it":"they")+" should be "
+                    "able to open it ("+HumanReadableList(noncompliantPlugins)+
+                    ") but found the following errors, which may be worth "
+                    "investigating:\n";
+                for (int i=0; i<n; i++)
+                    warning += noncompliantErrors[i] + "\n";
+                dbmgr->ReportWarning(warning);                
+            }
+        }
+        CATCH(NonCompliantException &e)
+        {
+            rv = NULL;
+            noncompliantPlugins.push_back(info ? info->GetName(): "");
+            noncompliantErrors.push_back(e.Message());
+        }
+        CATCH(NonCompliantFileException &e)
+        {
+            rv = NULL;
+            noncompliantPlugins.push_back(info ? info->GetName(): "");
+            noncompliantErrors.push_back(e.Message());
+        }
+        CATCHALL
+        {
+            rv = NULL;
+        }
+        ENDTRY
+    }
+
+    //
+    // If none of the preferred plugins which matched the filename worked,
+    // try any others which match the filename.  Try *all* of these, because
+    // since we're just guessing with no input from the user, we want to warn
+    // the user if more than one would have worked.
+    //
     if (rv == NULL)
     {
         vector<string> succeeded;
         for (int i = 0; i < fileMatchedIds.size(); i++)
         {
+            // Skip this one if it was preferred -- if we got here, it
+            // already failed on the previous pass
+            if (std::find(preferred.begin(),preferred.end(),fileMatchedIds[i])
+                                                            != preferred.end())
+                continue;
+
             // For some reason, disabling of db plugins at load time is
             // apparently not working at the moment.  That's okay, we can
             // double check here that the current ID is enabled with no harm.
@@ -423,8 +634,8 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
                 plugins.push_back(info ? info->GetName() : "");
                 avtDatabase *dbtmp =
                     SetupDatabase(info, filelist, filelistN, timestep,
-                               fileIndex, nBlocks, forceReadAllCyclesAndTimes,
-                               treatAllDBsAsTimeVarying, true);
+                                  fileIndex, nBlocks, forceReadAllCyclesAndTimes,
+                                  treatAllDBsAsTimeVarying, true, times, filesAreEnsemble);
                 if (dbtmp)
                 {
                     succeeded.push_back(info->GetName());
@@ -434,33 +645,58 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
                         delete dbtmp;
                 }
             }
+            CATCH(NonCompliantException &e)
+            {
+                rv = NULL;
+                noncompliantPlugins.push_back(info ? info->GetName(): "");
+                noncompliantErrors.push_back(e.Message());
+            }
+            CATCH(NonCompliantFileException &e)
+            {
+                rv = NULL;
+                noncompliantPlugins.push_back(info ? info->GetName(): "");
+                noncompliantErrors.push_back(e.Message());
+            }
             CATCHALL
             {
             }
             ENDTRY
         }
-        if (succeeded.size() > 1)
+        // If some file reader claimed this file, but couldn't open it,
+        // but another one could, then report a warning.
+        if (succeeded.size() > 0 && noncompliantPlugins.size() > 0)
+        {
+
+            int n = noncompliantPlugins.size();
+            string warning = "While we were able to open the file "
+                "with the " + succeeded[0] + " reader, " + 
+                (n==1?"an":"") + "other file format "+Plural(n,"reader")+
+                " believed "+(n==1?"it":"they")+" should be "
+                "able to open it ("+HumanReadableList(noncompliantPlugins)+
+                ") but found the following errors, which may be worth "
+                "investigating:\n";
+            for (int i=0; i<n; i++)
+                warning += noncompliantErrors[i] + "\n";
+            dbmgr->ReportWarning(warning);
+        }
+        // And if more than one could open it, also report a warning.
+        else if (succeeded.size() > 1)
         {
             string used = succeeded[0];
             string warning = "Multiple file format reader plugins (";
-            for (int i=0; i<succeeded.size(); i++)
-            {
-                if (i > 0 && i == succeeded.size()-1)
-                    warning += " and ";
-                else if (i > 0)
-                    warning += ", ";
-                warning += succeeded[i];
-            }
+            warning += HumanReadableList(succeeded);
             warning += ") matched the filename and would have been able to "
                        "successfully open the file.\n\n";
             warning += "We will try the first successful one: "+used+".\n\n";
             warning += "If this is not a " + used + " file, you can "
                        "manually select the correct file format reader "
-                       "when opening the file, disable the " + used +
+                       "when opening the file, set the correct reader as "
+                       "a preferred plugin, disable the " + used +
                        " plugin, or request that the developers of the " +
                        used + " plugin add code to distinguish your file "
                        "from one of theirs.\n\n";
             warning += "If this *is* a "+used+" file, "
+                       "making the "+used+" reader a preferred plugin, or "
                        "ensuring the other file reader plugins listed above "
                        "do not successfully open this type of file will "
                        "prevent this warning in the future.\n";
@@ -473,7 +709,6 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
     // fallbacks, unless they are strictly unable to open the given
     // file without a matching filename.
     //
-    vector<string> &preferred = defaultFileOpenOptions.GetPreferredIDs();
     for (int i = 0 ; i < preferred.size() && rv == NULL ; i++)
     {
         string formatid = preferred[i];
@@ -536,7 +771,35 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
             rv = SetupDatabase(info, filelist, filelistN,
                                timestep, fileIndex,
                                nBlocks, forceReadAllCyclesAndTimes,
-                               treatAllDBsAsTimeVarying, true);
+                               treatAllDBsAsTimeVarying, true, times, filesAreEnsemble);
+            // If some file reader claimed this file, but couldn't open it,
+            // but another one could, then report a warning.
+            if (rv != NULL && noncompliantPlugins.size() > 0)
+            {
+                int n = noncompliantPlugins.size();
+                string warning = "While we were able to open the file "
+                    "with the " + string(info ? info->GetName() : "") + " reader, "+
+                    (n==1?"an":"") + "other file format "+Plural(n,"reader")+
+                    " believed "+(n==1?"it":"they")+" should be "
+                    "able to open it ("+HumanReadableList(noncompliantPlugins)+
+                    ") but found the following errors, which may be worth "
+                    "investigating:\n";
+                for (int i=0; i<n; i++)
+                    warning += noncompliantErrors[i] + "\n";
+                dbmgr->ReportWarning(warning);                
+            }
+        }
+        CATCH(NonCompliantException &e)
+        {
+            rv = NULL;
+            noncompliantPlugins.push_back(info ? info->GetName(): "");
+            noncompliantErrors.push_back(e.Message());
+        }
+        CATCH(NonCompliantFileException &e)
+        {
+            rv = NULL;
+            noncompliantPlugins.push_back(info ? info->GetName(): "");
+            noncompliantErrors.push_back(e.Message());
         }
         CATCHALL
         {
@@ -544,7 +807,22 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
         }
         ENDTRY
     }
- 
+
+    // If we couldn't open the file, always report details occurring
+    // from any NonCompliant exceptions.
+    if (rv == NULL && noncompliantPlugins.size() > 0)
+    {
+        int nNonCompl = noncompliantPlugins.size();
+        string error;
+        if (nNonCompl > 1)
+        {
+            error += "At least one file format reader claimed this file, "
+                     " but could not open it:\n";
+        }
+        for (int i=0; i<nNonCompl; i++)
+            error += noncompliantErrors[i] + "\n";
+        EXCEPTION2(InvalidFilesException,"the file",error);
+    }
 
     return rv;
 }
@@ -604,6 +882,12 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
 //    Added a new strict file reading mode used when we're trying to
 //    determine what type of file something is.
 //
+//    Hank Childs, Sun Sep 19 09:02:05 PDT 2010
+//    Add argument for explicit setting of times by user.
+//
+//    Kathleen Biagas, Thu Feb 14 10:36:09 PST 2013
+//    Only set isEnsemble if rv not null.
+//
 // ****************************************************************************
 
 avtDatabase *
@@ -612,7 +896,9 @@ avtDatabaseFactory::SetupDatabase(CommonDatabasePluginInfo *info,
                                   int timestep, int fileIndex, int nBlocks,
                                   bool forceReadAllCyclesAndTimes,
                                   bool treatAllDBsAsTimeVarying, 
-                                  bool strictMode)
+                                  bool strictMode,
+                                  const std::vector<double> &times,
+                                  bool isEnsemble)
 {
     if (info == 0)
     {
@@ -642,21 +928,33 @@ avtDatabaseFactory::SetupDatabase(CommonDatabasePluginInfo *info,
     if (rv != NULL)
     {
         int t0 = visitTimer->StartTimer();
+        rv->SetIsEnsemble(isEnsemble);
         rv->SetStrictMode(strictMode);
         if (timestep != -2)
             rv->ActivateTimestep(timestep);
         rv->SetFileFormat(info->GetID());
         bool forceReadThisStateCycleTime = false;
         if (timestep != -2)
-            rv->GetMetaData(timestep, forceReadAllCyclesAndTimes, 
+        {
+            avtDatabaseMetaData *md = rv->GetMetaData(timestep, 
+                            forceReadAllCyclesAndTimes, 
                             forceReadThisStateCycleTime,
                             treatAllDBsAsTimeVarying);
+            int nStates = md->GetNumStates();
+            // Expectation is that nStates == times.size() or times.size() == 0
+            int nToDo = (nStates < times.size() ? nStates : times.size());
+            for (int i = 0 ; i < nToDo ; i++)
+            {
+                md->SetTime(i, times[i]);
+                md->SetTimeIsAccurate(true, i);
+            }
+        }
+       
         visitTimer->StopTimer(t0, "Forcing file format to do initialization");
         debug4 << "File open appears to be successful." << endl;
     }
     else
         debug4 << "File open resulted in NULL database" << endl;
-
     return rv;
 }
 

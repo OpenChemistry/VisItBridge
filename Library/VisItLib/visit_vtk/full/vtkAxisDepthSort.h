@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,14 +43,14 @@
 #ifndef __vtkAxisDepthSort_h
 #define __vtkAxisDepthSort_h
 #include <visit_vtk_exports.h>
-#include <vtkPolyDataAlgorithm.h>
 
+#include <vtkPolyDataAlgorithm.h>
 
 // ****************************************************************************
 //  Class: vtkAxisDepthSort
 //
 //  Purpose:
-//      This will sort poly data along all six axes (+x, -x, +y, -y, +z, -z).
+//    This will sort poly data along all six axes (+x, -x, +y, -y, +z, -z).
 //
 //  Programmer: Hank Childs
 //  Creation:   July 13, 2002
@@ -59,6 +59,9 @@
 //    Brad Whitlock, Mon Jul 15 15:43:22 PST 2002
 //    Added API.
 //
+//    Eric Brugger, Wed Jan  9 10:54:24 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
 // ****************************************************************************
 
 class VISIT_VTK_API vtkAxisDepthSort : public vtkPolyDataAlgorithm
@@ -66,26 +69,25 @@ class VISIT_VTK_API vtkAxisDepthSort : public vtkPolyDataAlgorithm
   public:
     static vtkAxisDepthSort      *New();
 
-    vtkPolyData                  *GetPlusXOutput(vtkInformationVector*);
-    vtkPolyData                  *GetMinusXOutput(vtkInformationVector*);
-    vtkPolyData                  *GetPlusYOutput(vtkInformationVector*);
-    vtkPolyData                  *GetMinusYOutput(vtkInformationVector*);
-    vtkPolyData                  *GetPlusZOutput(vtkInformationVector*);
-    vtkPolyData                  *GetMinusZOutput(vtkInformationVector*);
+    vtkPolyData                  *GetPlusXOutput();
+    vtkPolyData                  *GetMinusXOutput();
+    vtkPolyData                  *GetPlusYOutput();
+    vtkPolyData                  *GetMinusYOutput();
+    vtkPolyData                  *GetPlusZOutput();
+    vtkPolyData                  *GetMinusZOutput();
 
   protected:
                                   vtkAxisDepthSort();
     virtual                      ~vtkAxisDepthSort() {;};
 
-    virtual int                   RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
+    virtual int                   RequestData(vtkInformation *,
+                                      vtkInformationVector **,
+                                      vtkInformationVector *);
 
   private:
-    vtkPolyData                   *GetOutput(int, vtkInformationVector*);
                                   vtkAxisDepthSort(const vtkAxisDepthSort &);
                                   void operator=(const vtkAxisDepthSort &);
 };
 
 
 #endif
-
-

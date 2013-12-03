@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -919,7 +919,7 @@ public:
     bool Write();
 
     void DisableReadingDataInformation();
-    std::string CoordinateVariable(int axis) const;
+    std::string CoordinateVariable(int axis, bool returnEmpty) const;
     int ZoneNameToIndex(const std::string &) const;
     int VarNameToIndex(const std::string &) const;
     int GetNumSpatialDimensions(int zoneId) const;

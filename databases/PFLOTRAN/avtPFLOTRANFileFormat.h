@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -97,10 +97,10 @@ class avtPFLOTRANFileFormat : public avtMTMDFileFormat
     // This is used to return unconvention data -- ranging from material
     // information to information about block connectivity.
     //
-    virtual void      *GetAuxiliaryData(const char *var, int timestep,
-                                         int domain, const char *type, void *args,
+    virtual void      *GetAuxiliaryData(const char *var, int timestep, 
+                                         int domain, const char *type, void *args, 
                                          DestructorFunction &df);
-
+    
 
     //
     // If you know the times and cycle numbers, overload this function.
@@ -112,7 +112,7 @@ class avtPFLOTRANFileFormat : public avtMTMDFileFormat
     virtual int            GetNTimesteps(void);
 
     virtual const char    *GetType(void)   { return "PFLOTRAN"; };
-    virtual void           FreeUpResources(void);
+    virtual void           FreeUpResources(void); 
 
 
     virtual vtkDataSet    *GetMesh(int, int, const char *);

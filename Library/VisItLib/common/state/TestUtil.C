@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -78,7 +78,7 @@ TestUtil::TestUtil(int argc, char *argv[],
             cout << "usage: " << argv[0] << " [-v] [-help]" << endl;
             cout << "    -v    = print verbose output" << endl;
             cout << "    -help = print usage and exit" << endl;
-            exit(0);
+            exit(0); // HOOKS_IGNORE
         }
     }
 

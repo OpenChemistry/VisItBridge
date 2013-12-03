@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -41,6 +41,7 @@
 
 #include <state_exports.h>
 #include <XMLNode.h>
+#include <JSONNode.h>
 #include <Variant.h>
 #include <map>
 
@@ -67,8 +68,12 @@ class STATE_API MapNode : public Variant
   public:
     MapNode();
     MapNode(const MapNode&);
-    MapNode(const XMLNode&);
-    MapNode(const XMLNode*);
+    MapNode(const XMLNode&,bool decodeString = true);
+    MapNode(const XMLNode*,bool decodeString = true);
+    explicit MapNode(const JSONNode&, bool decodeString = true);
+    explicit MapNode(const JSONNode*, bool decodeString = true);
+    explicit MapNode(const JSONNode&, const JSONNode& metadata, bool decodeString = true);
+    explicit MapNode(const JSONNode*,const JSONNode *metadata, bool decodeString = true);
     MapNode  &operator=(const MapNode&);
     MapNode  &operator=(bool);
     MapNode  &operator=(char);
@@ -87,6 +92,7 @@ class STATE_API MapNode : public Variant
     MapNode  &operator=(const floatVector &);
     MapNode  &operator=(const doubleVector &);
     MapNode  &operator=(const stringVector &);
+    MapNode  &operator=(const Variant &);
     virtual  ~MapNode();
 
     bool                 operator ==(const MapNode &obj) const;
@@ -99,20 +105,32 @@ class STATE_API MapNode : public Variant
     
     void                 RemoveEntry(const std::string &);
     bool                 HasEntry(const std::string &) const;
+    bool                 HasNumericEntry(const std::string &) const;
+    bool                 HasNumericVectorEntry(const std::string &) const;
     void                 GetEntryNames(stringVector &) const;
-    int                  GetNumEntries() const {return entries.size();}
+    int                  GetNumEntries() const {return (int)entries.size();}
     void                 Reset();
 
-    virtual std::string  ToXML() const;
-    virtual XMLNode      ToXMLNode() const;
+    virtual std::string  ToXML(bool encodeString = true) const;
+    virtual XMLNode      ToXMLNode(bool encodeString = true) const;
+
+    virtual std::string  ToJSON(bool encodeString = true) const;
+    virtual JSONNode     ToJSONNode(bool encodeString = true, bool id = true) const;
 
     int                  CalculateMessageSize(Connection &conn) const;
+    int                  CalculateMessageSize(Connection *conn) const;
     void                 Write(Connection &conn) const;
+    void                 Write(Connection *conn) const;
     void                 Read(Connection &conn);
 
+    static int MapNodeType;
  private:
-    void  SetValue(const XMLNode &);
-    std::map<std::string,MapNode> entries;  
+    virtual JSONNode ToJSONNodeData(bool encodeString) const;
+    virtual JSONNode ToJSONNodeMetaData(bool id) const;
+    void  SetValue(const XMLNode &, bool decodeString = true);
+    void  SetValue(const JSONNode &, bool decodeString = true);
+    void  SetValue(const JSONNode& data, const JSONNode& metadata,bool decodeString);
+    std::map<std::string,MapNode> entries;
 };
 
 #endif

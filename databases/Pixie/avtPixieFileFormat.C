@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -47,25 +47,31 @@
 
 #include <avtPixieFileFormat.h>
 
-#include <algorithm>
-#include <string>
-
+#include <vtkCellData.h>
 #include <vtkCellType.h>
+#include <vtkExtentTranslator.h>
 #include <vtkFloatArray.h>
+#include <vtkInformation.h>
 #include <vtkDoubleArray.h>
 #include <vtkIntArray.h>
 #include <vtkRectilinearGrid.h>
+#include <vtkStreamingDemandDrivenPipeline.h>
 #include <vtkStructuredGrid.h>
+#include <vtkUnsignedCharArray.h>
 #include <vtkUnstructuredGrid.h>
 
 #include <avtDatabaseMetaData.h>
+#include <avtParallel.h>
 #include <DebugStream.h>
+#include <DBOptionsAttributes.h>
 #include <Expression.h>
 #include <InvalidVariableException.h>
 #include <InvalidDBTypeException.h>
 #include <InvalidFilesException.h>
 #include <InvalidTimeStepException.h>
 #include <snprintf.h>
+
+#include <avtPixieOptions.h>
 
 // Define this symbol BEFORE including hdf5.h to indicate the HDF5 code
 // in this file uses version 1.6 of the HDF5 API. This is harmless for
@@ -76,7 +82,128 @@
 #include <hdf5.h>
 #include <visit-hdf5.h>
 
+#include <algorithm>
+#include <string>
+#include <vector>
 
+//
+// These routines detect whether the file looks like a certain flavor of
+// HDF5 file reader. If the flavor is detected, we throw an exception so
+// the proper reader can be used instead of Pixie.
+//
+static void DetectSilo(int fileId)
+{
+    hid_t siloDir = H5Gopen(fileId, ".silo");
+    if (siloDir >= 0)
+    {
+        H5Gclose(siloDir);
+        H5Fclose(fileId);
+        EXCEPTION1(InvalidDBTypeException,
+                   "Cannot be a Pixie file because it looks like a Silo file.");
+    }
+}
+
+static void DetectTetrad(int fileId)
+{
+    hid_t cell_array = H5Dopen(fileId, "CellArray");
+    if (cell_array >= 0)
+    {
+        H5Dclose(cell_array);
+        H5Fclose(fileId);
+        EXCEPTION1(InvalidDBTypeException,
+                   "Cannot be a Pixie file because it looks like a Tetrad file.");
+    }
+}
+
+static void DetectPFLOTRAN(int fileId)
+{
+    hid_t coordsGID = H5Gopen(fileId, "Coordinates");
+    if (coordsGID >= 0)
+    {
+        H5Gclose(coordsGID);
+        H5Fclose(fileId);
+        EXCEPTION1(InvalidDBTypeException,
+                   "Cannot be a Pixie file because it looks like a PFLOTRAN file.");
+    }
+}
+
+static void DetectUNIC(int fileId)
+{
+    hid_t control = H5Dopen(fileId, "CONTROL");
+    if (control >= 0)
+    {
+        H5Dclose(control);
+        H5Fclose(fileId);
+        EXCEPTION1(InvalidDBTypeException,
+                   "Cannot be a Pixie file because it looks like an UNIC file.");
+    }
+}
+
+static void DetectVisSchema(int fileId)
+{
+    hid_t runInfo = H5Gopen(fileId, "runInfo");
+    if (runInfo >= 0)
+    {
+        hid_t vsVersion = H5Aopen_name(runInfo, "vsVersion");
+        if (vsVersion >= 0)
+        {
+            H5Aclose(vsVersion);
+            H5Gclose(runInfo);
+            H5Fclose(fileId);
+            EXCEPTION1(InvalidDBTypeException,
+                       "Cannot be a Pixie file because it looks like a VizSchema file.");
+        }
+
+        hid_t vsVsVersion = H5Aopen_name(runInfo, "vsVsVersion");
+        if (vsVsVersion >= 0)
+        {
+            H5Aclose(vsVsVersion);
+            H5Gclose(runInfo);
+            H5Fclose(fileId);
+            EXCEPTION1(InvalidDBTypeException,
+                       "Cannot be a Pixie file because it looks like a VizSchema file.");
+        }
+
+        hid_t software = H5Aopen_name(runInfo, "software");
+        hid_t version = H5Aopen_name(runInfo, "version");
+        H5Gclose(runInfo);
+        if (software >=0 && version >=0)
+        {
+            H5Aclose(software);
+            H5Aclose(version);
+            H5Fclose(fileId);
+            EXCEPTION1(InvalidDBTypeException,
+                       "Cannot be a Pixie file because it looks like a legacy VizSchema file.");
+        }
+        if (software >=0) H5Aclose(software);
+        if (version >=0) H5Aclose(version);
+    }
+}
+static void DetectTyphonIO(int fileId)
+{
+    //
+    //See if file is TyphonIO[v0] format
+    //
+    hid_t tio_root = H5Gopen(fileId, "/");
+    hid_t tio_version = H5Aopen_name(tio_root, "TIO_version_major");
+    if (tio_version >= 0)
+    {
+        H5Aclose(tio_version);
+        H5Gclose(tio_root);
+        H5Fclose(fileId);
+        EXCEPTION1(InvalidDBTypeException,
+                   "Cannot be a Pixie file because it looks like a TyphonIO file.");
+    }
+    if (tio_root >= 0) H5Gclose(tio_root);
+    hid_t tio_info = H5Gopen(fileId, "/TyphonIO_FileInfo");
+    if (tio_info >= 0)
+    {
+        H5Gclose(tio_info);
+        H5Fclose(fileId);
+        EXCEPTION1(InvalidDBTypeException,
+                   "Cannot be a Pixie file because it looks like a TyphonIOv0 file.");
+    }    
+}
 // ****************************************************************************
 //  Method: avtPixie constructor
 //
@@ -92,15 +219,28 @@
 //   Moved the code to turn off error message printing to the constructor
 //   so that it is always called.
 //
+//   Jean Favre, Thu Jun 21 16:28:40 PDT 2012
+//   Add read options.
+//
 // ****************************************************************************
 
-avtPixieFileFormat::avtPixieFileFormat(const char *filename)
+avtPixieFileFormat::avtPixieFileFormat(const char *filename, DBOptionsAttributes *readOpts)
     : avtMTSDFileFormat(&filename, 1), variables(), meshes(),
-    timeStatePrefix("/Timestep ")
+      timeStatePrefix("/Timestep ")
 {
-     fileId = -1;
-     nTimeStates = 0;
-     haveMeshCoords = false;
+    fileId = -1;
+    nTimeStates = 0;
+    haveMeshCoords = false;
+    if (readOpts != NULL)
+    {
+        for (int i = 0; i < readOpts->GetNumberOfOptions(); ++i)
+        {
+            if (readOpts->GetName(i) == PixieDBOptions::RDOPT_PARTITIONING)
+                this->Partitioning = (PartitioningDirection) readOpts->GetEnum(PixieDBOptions::RDOPT_PARTITIONING);
+            else
+                debug1 << "Ignoring unknown option " << readOpts->GetName(i) << endl;
+        }
+    }
 
     // Turn off error message printing.
     H5Eset_auto(0,0);
@@ -119,7 +259,10 @@ avtPixieFileFormat::avtPixieFileFormat(const char *filename)
 avtPixieFileFormat::~avtPixieFileFormat()
 {
     if(fileId >= 0)
+    {
         H5Fclose(fileId);
+        fileId = -1;
+    }
 }
 
 // ****************************************************************************
@@ -147,9 +290,9 @@ avtPixieFileFormat::~avtPixieFileFormat()
 void
 avtPixieFileFormat::GetCycles(std::vector<int> &cycles)
 {
-    int nts = (nTimeStates < 1) ? 1 : nTimeStates;
+    size_t nts = (nTimeStates < 1) ? 1 : nTimeStates;
     int lastCycle = 0;
-    for(int i = 0; i < nts; ++i)
+    for(size_t i = 0; i < nts; ++i)
     {
         if(i < this->cycles.size())
         {
@@ -251,6 +394,11 @@ avtPixieFileFormat::GetNTimesteps(void)
 void
 avtPixieFileFormat::FreeUpResources(void)
 {
+    if(fileId >= 0)
+    {
+        H5Fclose(fileId);
+        fileId = -1;
+    }
 }
 
 // ****************************************************************************
@@ -298,6 +446,17 @@ avtPixieFileFormat::FreeUpResources(void)
 //   Luis Chacon, Tue Mar 2 10:02:00 EST 2010
 //   Added code to sort time values
 //
+//   Jeremy Meredith, Wed Mar 30 11:24:30 EDT 2011
+//   Add a test to avoid opening PFLOTRAN files (though like the others tests,
+//   it will be skipped if the user does Open As so we're not in strict mode).
+//
+//   Brad Whitlock, Thu Oct 25 10:18:53 PDT 2012
+//   Move detection of other formats to helper functions.
+//
+//   Satheesh Maheswaran, Thu Oct 26 14:14:53 PDT 2012
+//   Added static function for detecting TyphonIO function
+//
+//
 // ****************************************************************************
 
 void
@@ -309,12 +468,24 @@ avtPixieFileFormat::Initialize()
         meshes.clear();
         variables.clear();
         nTimeStates = 0;
-
-        if((fileId = H5Fopen(filenames[0], H5F_ACC_RDONLY, H5P_DEFAULT)) < 0)
+        hid_t fileAccessPropListID = H5Pcreate(H5P_FILE_ACCESS);
+        if (fileAccessPropListID < 0)
         {
-            EXCEPTION1(InvalidFilesException, (const char *)filenames[0]);
+            EXCEPTION1(ImproperUseException, "Couldn't H5Pcreate");
         }
+        herr_t err = H5Pset_fclose_degree(fileAccessPropListID, H5F_CLOSE_SEMI);
+        if (err < 0)
+        {
+            EXCEPTION1(ImproperUseException, "Couldn't set file close access");
+        }
+        if((fileId = H5Fopen(filenames[0], H5F_ACC_RDONLY, fileAccessPropListID)) < 0)
+        {
+            char error[1024];
+            SNPRINTF(error, 1024, "Cannot be a pixie file (%s)",filenames[0]);
 
+            EXCEPTION1(InvalidDBTypeException, error);
+        }
+        H5Pclose(fileAccessPropListID);
         if (GetStrictMode())
         {
             //
@@ -324,67 +495,12 @@ avtPixieFileFormat::Initialize()
             // that are really HDF5 files following a convention supported
             // by another format.
             //
-            hid_t siloDir = H5Gopen(fileId, ".silo");
-            if (siloDir >= 0)
-            {
-                H5Gclose(siloDir);
-                H5Fclose(fileId);
-                EXCEPTION1(InvalidDBTypeException,
-                           "Cannot be a Pixie file because it looks like a Silo file.");
-            }
-            hid_t cell_array = H5Dopen(fileId, "CellArray");
-            if (cell_array >= 0)
-            {
-                H5Dclose(cell_array);
-                H5Fclose(fileId);
-                EXCEPTION1(InvalidDBTypeException,
-                           "Cannot be a Pixie file because it looks like a Tetrad file.");
-            }
-            hid_t control = H5Dopen(fileId, "CONTROL");
-            if (control >= 0)
-            {
-                H5Dclose(control);
-                H5Fclose(fileId);
-                EXCEPTION1(InvalidDBTypeException,
-                           "Cannot be a Pixie file because it looks like an UNIC file.");
-            }
-            hid_t runInfo = H5Gopen(fileId, "runInfo");
-            if (runInfo >= 0)
-            {
-                hid_t vsVersion = H5Aopen_name(runInfo, "vsVersion");
-                if (vsVersion >= 0)
-                {
-                    H5Aclose(vsVersion);
-                    H5Gclose(runInfo);
-                    H5Fclose(fileId);
-                    EXCEPTION1(InvalidDBTypeException,
-                               "Cannot be a Pixie file because it looks like a VizSchema file.");
-                }
-
-                hid_t vsVsVersion = H5Aopen_name(runInfo, "vsVsVersion");
-                if (vsVsVersion >= 0)
-                {
-                    H5Aclose(vsVsVersion);
-                    H5Gclose(runInfo);
-                    H5Fclose(fileId);
-                    EXCEPTION1(InvalidDBTypeException,
-                               "Cannot be a Pixie file because it looks like a VizSchema file.");
-                }
-
-                hid_t software = H5Aopen_name(runInfo, "software");
-                hid_t version = H5Aopen_name(runInfo, "version");
-                H5Gclose(runInfo);
-                if (software >=0 && version >=0)
-                {
-                    H5Aclose(software);
-                    H5Aclose(version);
-                    H5Fclose(fileId);
-                    EXCEPTION1(InvalidDBTypeException,
-                               "Cannot be a Pixie file because it looks like a legacy VizSchema file.");
-                }
-                if (software >=0) H5Aclose(software);
-                if (version >=0) H5Aclose(version);
-            }
+            DetectSilo(fileId);
+            DetectTetrad(fileId);
+            DetectPFLOTRAN(fileId);
+            DetectUNIC(fileId);
+            DetectVisSchema(fileId);
+            DetectTyphonIO(fileId);
         }
 
         // Populate the scalar variable list
@@ -434,7 +550,7 @@ avtPixieFileFormat::Initialize()
             if (ndims != 1 || H5Tget_class(tyid) != H5T_STRING)
             {
                 EXCEPTION2(InvalidFilesException, (const char *)filenames[0],
-                    "The dataset \"visit_expressions\" is not a 1D, character dataset");
+                           "The dataset \"visit_expressions\" is not a 1D, character dataset");
             }
 
             // allocate and read
@@ -463,7 +579,198 @@ avtPixieFileFormat::Initialize()
         H5Fclose(fileId);
         fileId = -1;
 #endif
+
+        PartitionDims();
     }
+}
+
+// ****************************************************************************
+// Method: avtPixieFileFormat::PartitionDims
+//
+// Purpose:
+//   calculates the local count and start of a hyperslab before reading variable
+//
+// Programmer: Jean Favre
+// Creation:   Thu Dec 22 10:46:13 CET 2011
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+avtPixieFileFormat::PartitionDims()
+{
+#ifdef PARALLEL
+    int extents[6], globalExtents[6];
+    vtkExtentTranslator *extTran = vtkExtentTranslator::New();
+
+    switch(this->Partitioning)
+    {
+    case XSLAB:
+        extTran->SetSplitModeToXSlab();
+        break;
+    case YSLAB:
+        extTran->SetSplitModeToYSlab();
+        break;
+    case ZSLAB:
+        extTran->SetSplitModeToZSlab();
+        break;
+    case KDTREE:
+        extTran->SetSplitModeToBlock();
+        break;
+    }
+    extTran->SetNumberOfPieces(PAR_Size());
+    extTran->SetPiece(PAR_Rank());
+
+    VarInfoMap::iterator it;
+    for(it = variables.begin(); it != variables.end(); ++it)
+    {
+        extTran->SetGhostLevel(1);
+        globalExtents[0] = 0;
+        globalExtents[1] = it->second.dims[0] - 1;
+        globalExtents[2] = 0;
+        globalExtents[3] = it->second.dims[1] - 1;
+        globalExtents[4] = 0;
+        globalExtents[5] = it->second.dims[2] - 1;
+        extTran->SetWholeExtent(globalExtents);
+        extTran->PieceToExtent();
+// get each proc's extents including one ghost zone
+        extTran->GetExtent(extents);
+        it->second.start[0] = extents[0];
+        it->second.start[1] = extents[2];
+        it->second.start[2] = extents[4];
+        it->second.count[0] = extents[1] - extents[0] + 1;
+        it->second.count[1] = extents[3] - extents[2] + 1;
+        it->second.count[2] = extents[5] - extents[4] + 1;
+// redo without ghost to get the strict bounds
+        extTran->SetGhostLevel(0);
+        extTran->PieceToExtent();
+        extTran->GetExtent(extents);
+        it->second.start_no_ghost[0] = extents[0];
+        it->second.start_no_ghost[1] = extents[2];
+        it->second.start_no_ghost[2] = extents[4];
+        it->second.count_no_ghost[0] = extents[1] - extents[0] + 1;
+        it->second.count_no_ghost[1] = extents[3] - extents[2] + 1;
+        it->second.count_no_ghost[2] = extents[5] - extents[4] + 1;
+
+        if(!PAR_Rank())
+        {
+            debug4 << PAR_Rank() << " : " << it->second.fileVarName
+                   /*
+                                      << " e=["<< extents[0]
+                                      << ","<< extents[1]
+                                      << ","<< extents[2]
+                                      << " ,"<< extents[3]
+                                      << ","<< extents[4]
+                                      << ","<< extents[5] << "]"
+                   */
+                   << " d=["<< it->second.dims[0]
+                   << "x"<< it->second.dims[1]
+                   << "x"<< it->second.dims[2] <<"]"
+
+                   << " c=["<< it->second.count[0]
+                   << "x"<< it->second.count[1]
+                   << "x"<< it->second.count[2] <<"]"
+
+                   << " s=["<< it->second.start[0]
+                   << "x"<< it->second.start[1]
+                   << "x"<< it->second.start[2] << "]"
+
+                   << " c0=["<< it->second.count_no_ghost[0]
+                   << "x"<< it->second.count_no_ghost[1]
+                   << "x"<< it->second.count_no_ghost[2] <<"]"
+
+                   << " s0=["<< it->second.start_no_ghost[0]
+                   << "x"<< it->second.start_no_ghost[1]
+                   << "x"<< it->second.start_no_ghost[2] << "]"
+                   <<"\n";
+        }
+    } // end of loop
+    for(it = meshes.begin(); it != meshes.end(); ++it)
+    {
+        extTran->SetGhostLevel(1);
+        globalExtents[0] = 0;
+        globalExtents[1] = it->second.dims[0] - 1;
+        globalExtents[2] = 0;
+        globalExtents[3] = it->second.dims[1] - 1;
+        globalExtents[4] = 0;
+        globalExtents[5] = it->second.dims[2] - 1;
+        extTran->SetWholeExtent(globalExtents);
+        extTran->PieceToExtent();
+// get each proc's extents including one ghost zone
+        extTran->GetExtent(extents);
+        it->second.start[0] = extents[0];
+        it->second.start[1] = extents[2];
+        it->second.start[2] = extents[4];
+        it->second.count[0] = extents[1] - extents[0] + 1;
+        it->second.count[1] = extents[3] - extents[2] + 1;
+        it->second.count[2] = extents[5] - extents[4] + 1;
+// redo without ghost to get the strict bounds
+        extTran->SetGhostLevel(0);
+        extTran->PieceToExtent();
+        extTran->GetExtent(extents);
+        it->second.start_no_ghost[0] = extents[0];
+        it->second.start_no_ghost[1] = extents[2];
+        it->second.start_no_ghost[2] = extents[4];
+        it->second.count_no_ghost[0] = extents[1] - extents[0] + 1;
+        it->second.count_no_ghost[1] = extents[3] - extents[2] + 1;
+        it->second.count_no_ghost[2] = extents[5] - extents[4] + 1;
+
+        if(!PAR_Rank())
+        {
+            debug4 << PAR_Rank() << " : " << it->second.fileVarName
+                   /*
+                                      << " e=["<< extents[0]
+                                      << ","<< extents[1]
+                                      << ","<< extents[2]
+                                      << " ,"<< extents[3]
+                                      << ","<< extents[4]
+                                      << ","<< extents[5] << "]"
+                   */
+                   << " d=["<< it->second.dims[0]
+                   << "x"<< it->second.dims[1]
+                   << "x"<< it->second.dims[2] <<"]"
+
+                   << " c=["<< it->second.count[0]
+                   << "x"<< it->second.count[1]
+                   << "x"<< it->second.count[2] <<"]"
+
+                   << " s=["<< it->second.start[0]
+                   << "x"<< it->second.start[1]
+                   << "x"<< it->second.start[2] << "]"
+
+                   << " c0=["<< it->second.count_no_ghost[0]
+                   << "x"<< it->second.count_no_ghost[1]
+                   << "x"<< it->second.count_no_ghost[2] <<"]"
+
+                   << " s0=["<< it->second.start_no_ghost[0]
+                   << "x"<< it->second.start_no_ghost[1]
+                   << "x"<< it->second.start_no_ghost[2] << "]"
+                   <<"\n";
+        }
+    } // end of loop
+    extTran->Delete();
+#else
+    VarInfoMap::iterator it;
+    for(it = variables.begin(); it != variables.end(); ++it)
+    {
+        it->second.count[0] = it->second.dims[0];
+        it->second.count[1] = it->second.dims[1];
+        it->second.count[2] = it->second.dims[2];
+        it->second.start[0] = 0;
+        it->second.start[1] = 0;
+        it->second.start[2] = 0;
+    }
+    for(it = meshes.begin(); it != meshes.end(); ++it)
+    {
+        it->second.count[0] = it->second.dims[0];
+        it->second.count[1] = it->second.dims[1];
+        it->second.count[2] = it->second.dims[2];
+        it->second.start[0] = 0;
+        it->second.start[1] = 0;
+        it->second.start[2] = 0;
+    }
+#endif
 }
 
 // ****************************************************************************
@@ -511,11 +818,13 @@ avtPixieFileFormat::ActivateTimestep(int ts)
 //   also modified the routine to handle the fact that any arrays associated
 //   with a curvilinear mesh that are 2*nx*ny should be treated as 2d.
 //
+//   Jean Favre, Fri Dec 23 16:17:18 CET 2011
+//   returned the new count for hyperslabDims
 // ****************************************************************************
 
 void
 avtPixieFileFormat::DetermineVarDimensions(const VarInfo &info,
-    hsize_t *hyperslabDims, int *varDims, int &nVarDims) const
+        hsize_t *hyperslabDims, int *varDims, int &nVarDims) const
 {
     //
     // If the mesh is rectilinear, then 1*nx*ny arrays should be treated
@@ -533,9 +842,9 @@ avtPixieFileFormat::DetermineVarDimensions(const VarInfo &info,
     //
     if (hyperslabDims != 0)
     {
-        hyperslabDims[0] = (info.dims[0] > size1D) ? info.dims[0] : 1;
-        hyperslabDims[1] = (info.dims[1] > size1D) ? info.dims[1] : 1;
-        hyperslabDims[2] = (info.dims[2] > size1D) ? info.dims[2] : 1;
+        hyperslabDims[0] = (int(info.dims[0]) > size1D) ? info.count[0] : 1;
+        hyperslabDims[1] = (int(info.dims[1]) > size1D) ? info.count[1] : 1;
+        hyperslabDims[2] = (int(info.dims[2]) > size1D) ? info.count[2] : 1;
     }
 
     //
@@ -544,7 +853,9 @@ avtPixieFileFormat::DetermineVarDimensions(const VarInfo &info,
     if(varDims != 0)
     {
         int di = 0;
-        varDims[0] = 1; varDims[1] = 1; varDims[2] = 1;
+        varDims[0] = 1;
+        varDims[1] = 1;
+        varDims[2] = 1;
 
         if(info.dims[0] > size1D)
             varDims[di++] = int(info.dims[0]);
@@ -612,15 +923,15 @@ avtPixieFileFormat::MeshIsCurvilinear(const std::string &name) const
             dims[0] = int(mesh->second.dims[0]);
             dims[1] = int(mesh->second.dims[1]);
             dims[2] = int(mesh->second.dims[2]);
-            int xDims[3], nXDims = 3;
+            int xDims[3];
             xDims[0] = int(xvar->second.dims[0]);
             xDims[1] = int(xvar->second.dims[1]);
             xDims[2] = int(xvar->second.dims[2]);
-            int yDims[3], nYDims = 3;
+            int yDims[3];
             yDims[0] = int(yvar->second.dims[0]);
             yDims[1] = int(yvar->second.dims[1]);
             yDims[2] = int(yvar->second.dims[2]);
-            int zDims[3], nZDims = 3;
+            int zDims[3];
             zDims[0] = int(zvar->second.dims[0]);
             zDims[1] = int(zvar->second.dims[1]);
             zDims[2] = int(zvar->second.dims[2]);
@@ -669,11 +980,14 @@ avtPixieFileFormat::MeshIsCurvilinear(const std::string &name) const
 //
 //    Mark C. Miller, Tue May 17 18:48:38 PDT 2005
 //    Added timeState arg to satisfy new interface
+//
+//    Jean Favre, Fri Dec 23 16:17:18 CET 2011
+//    Added SetFormatCanDoDomainDecomposition(true) and mmd->numBlocks = 1
 // ****************************************************************************
 
 void
 avtPixieFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
-    int timeState)
+        int timeState)
 {
 //#define ADD_POINT_MESH
     VarInfoMap::const_iterator it;
@@ -681,6 +995,7 @@ avtPixieFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
     int pmnDims = -1;
     VarInfo pm;
 #endif
+    md->SetFormatCanDoDomainDecomposition(true);
     for(it = meshes.begin();
         it != meshes.end(); ++it)
     {
@@ -695,7 +1010,9 @@ avtPixieFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
         mmd->name = it->first;
         mmd->spatialDimension = nSpatialDims;
         mmd->topologicalDimension = nSpatialDims;
-
+        mmd->numBlocks = 1;  // must be 1 for automatic decomposition
+        mmd->blockTitle = "blocks";
+        mmd->blockPieceName = "block";
         // Determine the mesh type. Usually it will be rectilinear but
         // sometimes, if we have the right kind of coordinate arrays, it
         // could be curvilinear.
@@ -833,6 +1150,8 @@ avtPixieFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md,
 //    I modified the routine to handle the fact that variables defined on a
 //    curvilinear mesh are now nodal.
 //
+//    Jean Favre, Fri Dec 23 16:17:18 CET 2011
+//    Added stuff to read in parallel
 // ****************************************************************************
 
 vtkDataSet *
@@ -849,7 +1168,7 @@ avtPixieFileFormat::GetMesh(int timestate, const char *meshname)
 
     // Check the mesh name.
     std::string meshNameString(meshname);
-    VarInfoMap::const_iterator it = meshes.find(meshNameString);
+    VarInfoMap::iterator it = meshes.find(meshNameString);
     if(it == meshes.end())
     {
         EXCEPTION1(InvalidVariableException, meshNameString);
@@ -861,10 +1180,10 @@ avtPixieFileFormat::GetMesh(int timestate, const char *meshname)
     originalDims[0] = it->second.dims[0];
     originalDims[1] = it->second.dims[1];
     originalDims[2] = it->second.dims[2];
-    debug4 << "avtPixieFileFormat::GetMesh: 0: "
-           << "originalDims={" << originalDims[0]
+    debug4 << "avtPixieFileFormat::GetMesh: 0: " << it->second.fileVarName
+           << " : originalDims={" << originalDims[0]
            << ", " << originalDims[1]
-           << ", " << originalDims[2] << "}" << endl;
+           << ", " << originalDims[2] << "} "<< endl;
 
     //
     // Determine the number of cells in each dimension. Note that
@@ -885,7 +1204,8 @@ avtPixieFileFormat::GetMesh(int timestate, const char *meshname)
 
     debug4 << "avtPixieFileFormat::GetMesh: 1: nVarDims=" << nVarDims
            << ", varDims={" << varDims[0] << ", " << varDims[1] << ", "
-           << varDims[2] << "}" << endl;
+           << varDims[2] << "} hyperslabDims={" << hyperslabDims[0] << ", " << hyperslabDims[1] << ", "
+           << hyperslabDims[2] << "}" << endl;
 
     // Try to create a point or curvilinear mesh.
     vtkDataSet *retval = 0;
@@ -898,52 +1218,61 @@ avtPixieFileFormat::GetMesh(int timestate, const char *meshname)
 
     // If the mesh isn't a point or curvilinear mesh, then create a
     // rectilinear mesh.
+    // here below, used hyperslabDims instead of the original (serial) varDims, JF
+    // and used offset of coordinate's value due to hyperslab's new position
     if(retval == 0)
     {
         //
         // Add 1 so we have the number of nodes instead of #cells.
         //
-        ++varDims[0];
-        ++varDims[1];
+
+        ++hyperslabDims[0];
+        ++hyperslabDims[1];
         if(nVarDims == 3)
-            ++varDims[2];
+            ++hyperslabDims[2];
 
         // Reverse X,Z dimensions so the mesh is drawn properly.
         if(nVarDims == 3)
         {
-            int tmp = varDims[0];
-            varDims[0] = varDims[2];
-            varDims[2] = tmp;
+            int tmp = hyperslabDims[0];
+            hyperslabDims[0] = hyperslabDims[2];
+            hyperslabDims[2] = tmp;
         }
         else if (nVarDims == 2)
         {
-            int tmp = varDims[0];
-            varDims[0] = varDims[1];
-            varDims[1] = tmp;
+            int tmp = hyperslabDims[0];
+            hyperslabDims[0] = hyperslabDims[1];
+            hyperslabDims[1] = tmp;
         }
 
         vtkRectilinearGrid *rgrid = vtkRectilinearGrid::New();
         vtkFloatArray *coords[3];
+        int I;
         for (int i = 0 ; i < 3 ; i++)
         {
             // Default number of components for an array is 1.
             coords[i] = vtkFloatArray::New();
-
+            if(i==0)
+                I = 2;
+            else if(i==2)
+                I = 0;
+            else
+                I = 1;
             if (i < nVarDims)
             {
-                coords[i]->SetNumberOfTuples(varDims[i]);
-                for (int j = 0; j < varDims[i]; j++)
-                    coords[i]->SetComponent(j, 0, j);
+                coords[i]->SetNumberOfTuples(hyperslabDims[i]);
+                for (int j = 0; j < hyperslabDims[i]; j++)
+                    coords[i]->SetComponent(j, 0, it->second.start[I]+j);
             }
             else
             {
-                varDims[i] = 1;
+                hyperslabDims[i] = 1;
                 coords[i]->SetNumberOfTuples(1);
                 coords[i]->SetComponent(0, 0, 0.);
             }
         }
 
-        rgrid->SetDimensions(varDims);
+        rgrid->SetDimensions(hyperslabDims[0], hyperslabDims[1], hyperslabDims[2]);
         rgrid->SetXCoordinates(coords[0]);
         coords[0]->Delete();
         rgrid->SetYCoordinates(coords[1]);
@@ -952,7 +1281,7 @@ avtPixieFileFormat::GetMesh(int timestate, const char *meshname)
         coords[2]->Delete();
         retval = rgrid;
     }
-
+    AddGhostCellInfo(it->second, retval);
     return retval;
 }
 
@@ -1097,17 +1426,17 @@ avtPixieFileFormat::CreateCurvilinearMesh(int timestate, const VarInfo &info,
         //
         if(nVarDims == 2)
         {
-            int yxzNodes[] = {varDims[1], varDims[0], varDims[2]};
+            int yxzNodes[] = {hyperslabDims[2], hyperslabDims[1], hyperslabDims[0]};
             sgrid->SetDimensions((int *)yxzNodes);
         }
         else
         {
             // In 3D, Pixie dimensions are stored ZYX. Reverse them so we
             // give the right order to VTK.
-            int xyzNodes[] = {varDims[2], varDims[1], varDims[0]};
+            int xyzNodes[] = {hyperslabDims[2], hyperslabDims[1], hyperslabDims[0]};
             sgrid->SetDimensions(xyzNodes);
         }
-        int nMeshNodes = varDims[0] * varDims[1] * varDims[2];
+        int nMeshNodes = hyperslabDims[0] * hyperslabDims[1] * hyperslabDims[2];
 
         //
         // Populate the coordinates.  Put in 3D points with z=0 if the mesh is 2D.
@@ -1122,8 +1451,8 @@ avtPixieFileFormat::CreateCurvilinearMesh(int timestate, const VarInfo &info,
         switch (nVarDims)
         {
         case 2:
-            nx = varDims[0];
-            ny = varDims[1];
+            nx = hyperslabDims[1]; //varDims[0];
+            ny = hyperslabDims[2]; //varDims[1];
             coord0 = coords[0];
             coord1 = coords[1];
 
@@ -1141,9 +1470,9 @@ avtPixieFileFormat::CreateCurvilinearMesh(int timestate, const VarInfo &info,
             // If things are 3D then the varDims array did not get reduced
             // in the DetermineVarDimensions call in GetMesh so the numbers
             // of dimensions will be stored Z,Y,X.
-            nx = varDims[2];
-            ny = varDims[1];
-            nz = varDims[0];
+            nx = hyperslabDims[2];
+            ny = hyperslabDims[1];
+            nz = hyperslabDims[0];
             coord0 = coords[0];
             coord1 = coords[1];
             coord2 = coords[2];
@@ -1211,7 +1540,7 @@ avtPixieFileFormat::GetVar(int timestate, const char *varname)
     }
 
     // Check the variable name.
-    VarInfoMap::const_iterator it = variables.find(varname);
+    VarInfoMap::iterator it = variables.find(varname);
     if(it == variables.end())
     {
         EXCEPTION1(InvalidVariableException, varname);
@@ -1221,8 +1550,8 @@ avtPixieFileFormat::GetVar(int timestate, const char *varname)
     if(it->first == "pointvar")
     {
         int nels = it->second.dims[0] *
-                      it->second.dims[1] *
-                      it->second.dims[2];
+                   it->second.dims[1] *
+                   it->second.dims[2];
         vtkFloatArray *fscalars = vtkFloatArray::New();
         fscalars->SetNumberOfTuples(nels);
         float *data = (float *)fscalars->GetVoidPointer(0);
@@ -1328,6 +1657,10 @@ avtPixieFileFormat::GetVar(int timestate, const char *varname)
 //    Mark C. Miller, Thu Apr  6 17:06:33 PDT 2006
 //    Added conditional compilation for hssize_t type
 //
+//   Jean Favre, Fri Dec 23 16:17:18 CET 2011
+//   Added a simple memspace for partial read, and used it.start to offset the
+//   start of the hyperslab read
+//
 // ****************************************************************************
 
 bool
@@ -1335,7 +1668,7 @@ avtPixieFileFormat::ReadVariableFromFile(int timestate, const std::string &varna
     const VarInfo &it, const hsize_t *dims, void *dest) const
 {
     bool retval = false;
-
+    VarInfo dup = it;
     // Add the time state prefix if necessary.
     std::string fileVar(it.fileVarName);
     if(nTimeStates > 0 && it.timeVarying)
@@ -1366,12 +1699,21 @@ avtPixieFileFormat::ReadVariableFromFile(int timestate, const std::string &varna
         EXCEPTION1(InvalidVariableException, varname);
     }
 #if HDF5_VERSION_GE(1,6,4)
-    hsize_t start[3];
+    hsize_t start[3], count[3];
 #else
-    hssize_t start[3];
+    hssize_t start[3], count[3];
 #endif
-    start[0] = 0; start[1] = 0; start[2] = 0;
-    H5Sselect_hyperslab(spaceId, H5S_SELECT_SET, start, NULL, dims, NULL);
+    start[0] = it.start[0];
+    start[1] = it.start[1];
+    start[2] = it.start[2];
+    count[0] = dims[0];
+    count[1] = dims[1];
+    count[2] = dims[2];
+    debug4 << "RVSTART: " << start[0] << " " <<  start[1] << " " << start[2] << endl;
+    debug4 << "RVCOUNT: " << count[0] << " " <<  count[1] << " " << count[2] << endl;
+    H5Sselect_hyperslab(spaceId, H5S_SELECT_SET, start, NULL, count, NULL);
+
+    hid_t memspace  = H5Screate_simple(3, count, NULL);
 
     //
     // Try and read the data from the file.
@@ -1382,7 +1724,7 @@ avtPixieFileFormat::ReadVariableFromFile(int timestate, const std::string &varna
        H5Tequal(it.nativeVarType, H5T_NATIVE_DOUBLE) > 0)
     {
         // Read the data into all_vars array.
-        if(H5Dread(dataId, it.nativeVarType, H5S_ALL, spaceId,
+        if(H5Dread(dataId, it.nativeVarType, memspace, spaceId,
                    H5P_DEFAULT, dest) < 0)
         {
             H5Sclose(spaceId);
@@ -1399,6 +1741,7 @@ avtPixieFileFormat::ReadVariableFromFile(int timestate, const std::string &varna
     }
 
     // Close the data space so we don't leak resources.
+    H5Sclose(memspace);
     H5Sclose(spaceId);
     H5Dclose(dataId);
     return retval;
@@ -1489,12 +1832,13 @@ avtPixieFileFormat::ReadCoordinateFields(int timestate, const VarInfo &info,
     vars[0] = variables.find(info.coordX);
     vars[1] = variables.find(info.coordY);
     if(nDims > 2)
+    {
         vars[2] = variables.find(info.coordZ);
-
+    }
     int i;
     for(i = 0; i < nDims; ++i)
         if(vars[i] == variables.end())
-             return false;
+            return false;
 
     TRY
     {
@@ -1506,13 +1850,13 @@ avtPixieFileFormat::ReadCoordinateFields(int timestate, const VarInfo &info,
             bool allocated;
             int  nels = dims[0] * dims[1] * dims[2];
             if(H5Tequal(vars[i]->second.nativeVarType, H5T_NATIVE_INT) > 0 ||
-               H5Tequal(vars[i]->second.nativeVarType, H5T_NATIVE_UINT) > 0)
+            H5Tequal(vars[i]->second.nativeVarType, H5T_NATIVE_UINT) > 0)
             {
                 int *data = new int[nels];
                 TRY
                 {
                     ReadVariableFromFile(timestate, vars[i]->first,
-                        vars[i]->second, dims, (void *)data);
+                    vars[i]->second, dims, (void *)data);
                     coords[i] = ConvertToFloat(data, nels, allocated);
                     if(allocated)
                         delete [] data;
@@ -1528,7 +1872,7 @@ avtPixieFileFormat::ReadCoordinateFields(int timestate, const VarInfo &info,
             {
                 coords[i] = new float[nels];
                 ReadVariableFromFile(timestate, vars[i]->first, vars[i]->second,
-                    dims, coords[i]);
+                                     dims, coords[i]);
             }
             else if(H5Tequal(vars[i]->second.nativeVarType, H5T_NATIVE_DOUBLE) > 0)
             {
@@ -1536,7 +1880,7 @@ avtPixieFileFormat::ReadCoordinateFields(int timestate, const VarInfo &info,
                 TRY
                 {
                     ReadVariableFromFile(timestate, vars[i]->first,
-                        vars[i]->second, dims, (void *)data);
+                    vars[i]->second, dims, (void *)data);
                     coords[i] = ConvertToFloat(data, nels, allocated);
                     if(allocated)
                         delete [] data;
@@ -1552,7 +1896,7 @@ avtPixieFileFormat::ReadCoordinateFields(int timestate, const VarInfo &info,
             {
                 debug1 << "The " << vars[i]->first.c_str()
                        << " variable was not a type that the Pixie reader "
-                          "supports yet." << endl;
+                       "supports yet." << endl;
                 EXCEPTION1(InvalidVariableException, vars[i]->first);
             }
         }
@@ -1621,11 +1965,11 @@ avtPixieFileFormat::GetVariableList(hid_t group, const char *name,
 {
     // Silo files have a ".." group.  Don't process that....  Ideally we
     // might detect and skip hard links, but this doesn't come up often.
-    if (string(name)=="..")
+    if (std::string(name)=="..")
         return 0;
 
-    hid_t                   obj;
-    H5G_stat_t              statbuf;
+    hid_t      obj;
+    H5G_stat_t statbuf;
 
     //
     // Create a variable name that includes the path and the current
@@ -1640,8 +1984,8 @@ avtPixieFileFormat::GetVariableList(hid_t group, const char *name,
     //
     // Get information about the object so we know if it is a dataset,
     // group, type, etc.
-    //
-    H5Gget_objinfo(group, name, 0, &statbuf);
+    // changed 3rd argument to 1 to allow external links. Jean@cscs
+    H5Gget_objinfo(group, name, 1, &statbuf);
 
     //
     // Do something with the object based on its type.
@@ -1749,31 +2093,31 @@ avtPixieFileFormat::GetVariableList(hid_t group, const char *name,
             {
                 debug4 << "Variable " << varName.c_str()
                        << "'s type is: ";
-                 if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_CHAR) > 0)
-                     debug4 << "CHAR";
-                 else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_SHORT) > 0)
-                     debug4 << "SHORT";
-                 else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_INT) > 0)
-                     debug4 << "INT";
-                 else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_LONG) > 0)
-                     debug4 << "LONG";
-                 else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_LLONG) > 0)
-                     debug4 << "LLONG";
-                 else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_UCHAR) > 0)
-                     debug4 << "UCHAR";
-                 else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_USHORT) > 0)
-                     debug4 << "USHORT";
-                 else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_UINT) > 0)
-                     debug4 << "UINT";
-                 else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_ULONG) > 0)
-                     debug4 << "ULONG";
-                 else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_ULLONG) > 0)
-                     debug4 << "ULLONG";
-                 else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_LDOUBLE) > 0)
-                     debug4 << "LDOUBLE";
-                 else
-                     debug4 << "???";
-                 debug4 << ", which is not supported at this time." << endl;
+                if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_CHAR) > 0)
+                    debug4 << "CHAR";
+                else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_SHORT) > 0)
+                    debug4 << "SHORT";
+                else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_INT) > 0)
+                    debug4 << "INT";
+                else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_LONG) > 0)
+                    debug4 << "LONG";
+                else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_LLONG) > 0)
+                    debug4 << "LLONG";
+                else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_UCHAR) > 0)
+                    debug4 << "UCHAR";
+                else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_USHORT) > 0)
+                    debug4 << "USHORT";
+                else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_UINT) > 0)
+                    debug4 << "UINT";
+                else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_ULONG) > 0)
+                    debug4 << "ULONG";
+                else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_ULLONG) > 0)
+                    debug4 << "ULLONG";
+                else if(H5Tequal(varInfo.nativeVarType, H5T_NATIVE_LDOUBLE) > 0)
+                    debug4 << "LDOUBLE";
+                else
+                    debug4 << "???";
+                debug4 << ", which is not supported at this time." << endl;
             }
 
             // Store information about the variable.
@@ -1803,9 +2147,9 @@ avtPixieFileFormat::GetVariableList(hid_t group, const char *name,
 
             int cycle;
             if (varName[9] == '_')
-               cycle = atoi(varName.substr(10).c_str());
+                cycle = atoi(varName.substr(10).c_str());
             else
-               cycle = atoi(varName.substr(9).c_str());
+                cycle = atoi(varName.substr(9).c_str());
             info->This->cycles.push_back(cycle);
         }
 
@@ -1937,3 +2281,187 @@ avtPixieFileFormat::GetVariableList(hid_t group, const char *name,
 
     return 0;
 }
+
+// ****************************************************************************
+// Method: avtPixieFileFormat::AddGhostCellInfo
+//
+// Purpose: 
+//   Add ghost cell arrays to the dataset.
+//
+// Arguments:
+//
+// Returns:    
+//
+// Note:       
+//
+// Programmer: Jean Favre
+// Creation:   Thu Jun 21 14:53:29 PDT 2012
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+void
+avtPixieFileFormat::AddGhostCellInfo(const VarInfo &info, vtkDataSet *ds)
+{
+#ifndef PARALLEL
+    return;
+#else
+#define GHOST
+#ifdef GHOST
+    int nx, ny, nz, i, x, y, z, id, ncells;
+    unsigned char realVal = 0, ghostVal=0;
+    avtGhostData::AddGhostZoneType(ghostVal, DUPLICATED_ZONE_INTERNAL_TO_PROBLEM);
+    vtkUnsignedCharArray *ghostCells = vtkUnsignedCharArray::New();
+    ghostCells->SetName("avtGhostZones");
+    if (info.hasCoords)
+    {
+        nx = info.count[2]-1;
+        ny = info.count[1]-1;
+        nz = info.count[0]-1;
+    }
+    else
+// the default is to always have zone-centered data and
+// grid dims were incremented by 1 in GetMesh
+// this fixes the size of the ghostCells array, but
+// marked cells are still wrong because I wrote this
+// for node-based variables and curvilinear meshes.
+    {
+        nx = info.count[2];
+        ny = info.count[1];
+        nz = info.count[0];
+    }
+// here we swapped indices again, 2 <-> 0
+
+    debug4 << "allocate GhostZone array of size " << nx << "x" << ny << "x" << nz << endl;
+
+    ncells = nx * ny * nz;
+    ghostCells->SetNumberOfTuples(ncells);
+    unsigned char *gnp = ghostCells->GetPointer(0);
+    for (i=0; i<ncells; i++)
+    {
+        gnp[i] = realVal;
+    }
+    if (info.start[2] < info.start_no_ghost[2])
+    {
+    debug4 << "Xmin: " << info.start[2]<< " < " << info.start_no_ghost[2] << endl;
+        x = 0;
+        for (y=0; y<ny; y++)
+            for (z=0; z<nz; z++)
+            {
+                id = z*nx*ny + y*nx + x;
+                gnp[id] = ghostVal;
+            }
+    }
+    if (info.start[2]+info.count[2] > info.start_no_ghost[2]+info.count_no_ghost[2])
+    {
+    debug4 << "Xmax: " << info.start[2]+info.count[2] << " > " << info.start_no_ghost[2]+info.count_no_ghost[2] << endl;
+        x = nx-1;
+        for ( y=0; y<ny; y++)
+            for ( z=0; z<nz; z++)
+            {
+                id = z*nx*ny + y*nx + x;
+                gnp[id] = ghostVal;
+            }
+    }
+    // Check planes cutting y
+    if (info.start[1] < info.start_no_ghost[1])
+    {
+debug4 << "Ymin: " << info.start[1] << " < " << info.start_no_ghost[1] << endl;
+        y = 0;
+        for (x=0; x<nx; x++)
+            for ( z=0; z<nz; z++)
+            {
+                id = z*nx*ny + y*nx + x;
+                gnp[id] = ghostVal;
+            }
+    }
+    if (info.start[1]+info.count[1] > info.start_no_ghost[1]+info.count_no_ghost[1])
+    {
+    debug4 << "Ymax: " << info.start[1]+info.count[1] << " > " << info.start_no_ghost[1]+info.count_no_ghost[1] << endl;
+        y = ny-1;
+        for (x=0; x<nx; x++)
+            for (z=0; z<nz; z++)
+            {
+                id = z*nx*ny + y*nx + x;
+                gnp[id] = ghostVal;
+            }
+    }
+    // Check planes cutting z
+//
+    if (info.start[0] < info.start_no_ghost[0])
+    {
+    debug4 << "Zmin: " << info.start[0] << " < " << info.start_no_ghost[0] << endl;
+        z = 0;
+        for (x=0; x<nx; x++)
+            for (y=0; y<ny; y++)
+            {
+                id = z*nx*ny + y*nx + x;
+                gnp[id] = ghostVal;
+            }
+    }
+    if (info.start[0]+info.count[0] > info.start_no_ghost[0]+info.count_no_ghost[0])
+    {
+    debug4 << "Zmax: " << info.start[0]+info.count[0] << " > " << info.start_no_ghost[0]+info.count_no_ghost[0] << endl;
+        z = nz-1;
+        for (x=0; x<nx; x++)
+            for (y=0; y<ny; y++)
+            {
+                id = z*nx*ny + y*nx + x;
+                gnp[id] = ghostVal;
+            }
+    }
+//
+    ds->GetCellData()->AddArray(ghostCells);
+    ghostCells->Delete();
+
+    ds->GetInformation()->Set(
+        vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0);
+#endif
+    // Add the min/max local logical extents of this domain.  It's
+    // an alternate way we label ghost zones for structured grids.
+    vtkIntArray *realDims = vtkIntArray::New();
+    realDims->SetName("avtRealDims");
+    realDims->SetNumberOfValues(6);
+
+    realDims->SetValue(0, info.start_no_ghost[2]-info.start[2]);
+    realDims->SetValue(1, info.count[2]-1);
+
+    realDims->SetValue(2, info.start_no_ghost[1]-info.start[1]);
+    realDims->SetValue(3, info.count[1]-1);
+
+    realDims->SetValue(4, info.start_no_ghost[0]-info.start[0]);
+    realDims->SetValue(5, info.count[0]-1);
+
+    debug5 << "adding avtRealDims (" <<
+           realDims->GetValue(0) << ", " <<
+           realDims->GetValue(1) << ", " <<
+           realDims->GetValue(2) << ", " <<
+           realDims->GetValue(3) << ", " <<
+           realDims->GetValue(4) << ", " <<
+           realDims->GetValue(5) << ")\n";
+
+    ds->GetFieldData()->AddArray(realDims);
+    ds->GetFieldData()->CopyFieldOn("avtRealDims");
+    realDims->Delete();
+
+    vtkIntArray *arr = vtkIntArray::New();
+    arr->SetNumberOfTuples(3);
+
+    arr->SetValue(0, info.start[2]);
+    arr->SetValue(1, info.start[1]);
+    arr->SetValue(2, info.start[0]);
+
+    debug1 << "adding base_index " <<
+           arr->GetValue(0) << " " <<
+           arr->GetValue(1) << " " <<
+           arr->GetValue(2) << endl;
+
+    arr->SetName("base_index");
+    ds->GetFieldData()->AddArray(arr);
+    arr->Delete();
+#endif
+}
+
+
+

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,6 +46,7 @@
 #include <regex.h>
 #endif
 #include <stdlib.h>
+#include <algorithm>
 #include <map>
 #include <string>
 #include <cstring>
@@ -65,13 +66,68 @@ static char StaticStringBuf[STATIC_BUF_SIZE];
 
 bool has_nonspace_chars(const std::string &s);
 
+#if defined(_WIN32) || defined(__APPLE__)
+
+#define MACCESS(...)
+
+#else
+
+#include <stdint.h>    // uintptr_t
+#include <stdio.h>
+#include <unistd.h>     // getpid...
+
+extern int etext;
+
+#define MAXRNGS 100
+
+static struct rng { uintptr_t alpha, omega; } rngv[MAXRNGS], *rend = NULL;
+
+void maccess_init()
+{
+    uintptr_t       brk = (uintptr_t)sbrk(0);
+    char            buf[99];
+    sprintf(buf, "/proc/%d/maps", getpid());
+    FILE            *fp = fopen(buf, "re");
+    rend = rngv;
+    while (0 < fscanf(fp, "%x-%x %4s %*[^\n]",
+                          &rend->alpha, &rend->omega, buf)) {
+        if (buf[1] == '-' || rend->alpha < brk)
+            continue;
+        else if (rend > rngv && rend->alpha == rend[-1].omega)
+            rend[-1].omega = rend->omega;
+        else if (++rend == rngv+MAXRNGS)
+            break;
+    }
+    fclose(fp);
+}
+
+// On my home system, "sbrk(0)" takes about .015 usec.
+int maccess(void const *mem, int len)
+{
+    if ((intptr_t)mem < 0 && (intptr_t)mem + len >= 0)
+        return 0;
+    if ((char const*)mem + len < (char const*)sbrk(0))
+        return mem > (void*)&etext;
+    if (!rend)
+        maccess_init();
+    struct rng *p;
+    for (p = rngv; p != rend; ++p)
+        if ((uintptr_t)mem + len <= p->omega)
+            return (uintptr_t)mem >= p->alpha;
+    return 0;
+}
+
+#define MACCESS(curArgTypeName, num) if( maccess(curArgTypeName, num) == 0 ) break;
+
+#endif
+
 // ****************************************************************************
-//  Function: RelevantString 
+//  Function: RelevantString
 //
 //  Purpose: Return a string containing only the relevant characters of the
 //  input string. Relevant characters are those NOT in IGNORE_CHARS
 //
-//  Programmer: Mark C. Miller 
+//  Programmer: Mark C. Miller
 //  Creation:   Unknown
 //
 // ****************************************************************************
@@ -83,7 +139,7 @@ string RelevantString(string inStr)
    n = inStr.find_first_not_of(IGNORE_CHARS);
    while (n != string::npos)
    {
-       outStr += inStr[n]; 
+       outStr += inStr[n];
        n = inStr.find_first_not_of(IGNORE_CHARS, n+1);
    }
 
@@ -93,9 +149,9 @@ string RelevantString(string inStr)
 // ****************************************************************************
 //  Function: CompareRelevantStrings
 //
-//  Purpose: Compare two strings using only their relevant characters 
+//  Purpose: Compare two strings using only their relevant characters
 //
-//  Programmer: Mark C. Miller 
+//  Programmer: Mark C. Miller
 //  Creation:   Unknown
 //
 // ****************************************************************************
@@ -108,12 +164,12 @@ static int CompareRelevantStrings(const void *arg1, const void *arg2)
 }
 
 // ****************************************************************************
-//  Function: GroupStrings 
+//  Function: GroupStrings
 //
 //  Purpose: Groups a list of strings by finding identical leading substrings
 //  of length numLeadingVals.
 //
-//  Programmer: Mark C. Miller 
+//  Programmer: Mark C. Miller
 //  Creation:   Unknown
 //
 // ****************************************************************************
@@ -144,7 +200,7 @@ StringHelpers::GroupStrings(vector<string> stringList,
    // now, call qsort for this array of string pointers
    qsort(stringPtrs, nStrings, sizeof(char *), CompareRelevantStrings);
 
-   // adjust numLeadingVals if its too big 
+   // adjust numLeadingVals if its too big
    int len = strlen(stringPtrs[0]);
    if (numLeadingVals < 0)
    {
@@ -230,7 +286,7 @@ StringHelpers::GroupStrings(vector<string> stringList,
 //  Purpose: Groups a list of strings that look like file paths into groups
 //  that have same dirname
 //
-//  Programmer: Mark C. Miller 
+//  Programmer: Mark C. Miller
 //  Creation:   Unknown
 //
 // ****************************************************************************
@@ -294,7 +350,7 @@ StringHelpers::GroupStringsAsPaths(vector<string> stringList,
 //  Purpose: Groups a list of strings into a fixed number of groups
 //  by alphabetizing and then dividing the alphabetized list into pieces
 //
-//  Programmer: Brad Whitlock 
+//  Programmer: Brad Whitlock
 //  Creation:   Unknown
 //
 // ****************************************************************************
@@ -351,7 +407,7 @@ StringHelpers::GroupStringsFixedAlpha(vector<string> stringList,
 //  as that for the other GroupStringsFixedAlpha because IGNORE_CHARS gets
 //  set to "", which means use the entire string in comparisons.
 //
-//  Programmer: Brad Whitlock 
+//  Programmer: Brad Whitlock
 //  Creation:   Unknown
 //
 // ****************************************************************************
@@ -383,12 +439,12 @@ StringHelpers::GroupStringsFixedAlpha(
 }
 
 // ****************************************************************************
-//  Function: FindRE 
+//  Function: FindRE
 //
 //  Purpose: Find match of a regular expression in a given string. Return the
 //  starting offset into the string where the match occured.
 //
-//  Programmer: Mark C. Miller 
+//  Programmer: Mark C. Miller
 //  Creation:   Unknown
 //
 //  Modifications:
@@ -431,12 +487,12 @@ StringHelpers::FindRE(const char *strToSearch, const char *re)
 }
 
 // ****************************************************************************
-//  Function: ReplaceRE 
+//  Function: ReplaceRE
 //
-//  Purpose: Replace portion of string matching RE with replacement string 
+//  Purpose: Replace portion of string matching RE with replacement string
 //
-//  Programmer: Mark C. Miller 
-//  Creation:   August 17, 2009 
+//  Programmer: Mark C. Miller
+//  Creation:   August 17, 2009
 //
 //  Modifications:
 //    Mark C. Miller, Mon Aug 31 14:37:45 PDT 2009
@@ -489,9 +545,9 @@ StringHelpers::Replace(const string &source,
 }
 
 // ****************************************************************************
-//  Function: ExtractRESubstr 
+//  Function: ExtractRESubstr
 //
-//  Purpose: Extract the (sub)string matched by the regular expression. 
+//  Purpose: Extract the (sub)string matched by the regular expression.
 //
 //  The format of RE string passed here is an opening '<' followed by the
 //  actual regular expression string followed by a closing '>', optionally
@@ -501,14 +557,18 @@ StringHelpers::Replace(const string &source,
 //   pass here would look like...
 //
 //                                               V--substring reference
-//                      "<.*_([0-9]{4})_.*\\..*> \1"
+//                      "<.*_([0-9]{4})_.*\\..*> \0"
 //          opening char-^                     ^--closing char
 //                        ^------RE part------^
 //
 //  Do a 'man 7 regex' to get more information on regular expression syntax
 //
-//  Programmer: Mark C. Miller 
-//  Creation:   June 12, 2007 
+//  Note: The substring reference implemented here is a zero-origin index.
+//  That is NOT consistent with 'man 7 regex' which uses a one-origin index.
+//  We should probably update this logic to use one-origin index.
+//
+//  Programmer: Mark C. Miller
+//  Creation:   June 12, 2007
 //
 // ****************************************************************************
 std::string
@@ -526,7 +586,7 @@ StringHelpers::ExtractRESubstr(const char *strToSearch, const char *re)
     int matchToExtract;
     if (re[0] != '<')
         return retval;
-    const char *last = strrchr(re, '>'); 
+    const char *last = strrchr(re, '>');
     if (last == 0)
         return retval;
     if (*(last+1) == '\0')
@@ -572,17 +632,21 @@ StringHelpers::ExtractRESubstr(const char *strToSearch, const char *re)
 }
 
 // ****************************************************************************
-//  Function: Basename 
+//  Function: Basename
 //
 //  Purpose: Find the basename of a file path string
 //
-//  Programmer: Mark C. Miller 
+//  Programmer: Mark C. Miller
 //  Creation:   Unknown
 //
 //  Modifications:
 //    Jeremy Meredith, Wed May 20 13:46:39 EDT 2009
-//    Should default to "0" for start, and only use "-1" for 
+//    Should default to "0" for start, and only use "-1" for
 //    the "all-slash-string" case.
+//
+//    Kathleen Biagas, Thu Jul 28 09:41:27 PDT 2011
+//    When searching the string, look for either type of slash char, but still
+//    use the sys-dependent VISIT_SLASH_STRING when setting in the empty buf.
 //
 // ****************************************************************************
 static const char *
@@ -604,7 +668,7 @@ basename(const char *path, int& start)
    {
        // find end of path string
        int n = 0;
-       while ((path[n] != '\0') && (n < STATIC_BUF_SIZE)) 
+       while ((path[n] != '\0') && (n < STATIC_BUF_SIZE))
            n++;
 
        // deal with string too large
@@ -614,12 +678,12 @@ basename(const char *path, int& start)
            return StaticStringBuf;
        }
 
-       // backup, skipping over all trailing VISIT_SLASH_CHAR chars
+       // backup, skipping over all trailing slash chars
        int j = n-1;
-       while ((j >= 0) && (path[j] == VISIT_SLASH_CHAR))
+       while ((j >= 0) && (path[j] == '/' || path[j] == '\\'))
            j--;
 
-       // deal with string consisting of all VISIT_SLASH_CHAR chars
+       // deal with string consisting of all slash chars
        if (j == -1)
        {
            start = -1;
@@ -627,9 +691,9 @@ basename(const char *path, int& start)
            return StaticStringBuf;
        }
 
-       // backup to just after next VISIT_SLASH_CHAR char
+       // backup to just after next slash char
        int i = j-1;
-       while ((i >= 0) && (path[i] != VISIT_SLASH_CHAR))
+       while ((i >= 0) && (path[i] != '/' && path[i] != '\\'))
            i--;
        i++;
        start = i;
@@ -650,12 +714,18 @@ StringHelpers::Basename(const char *path)
    return basename(path, dummy1);
 }
 
+string
+StringHelpers::Basename(string const path)
+{
+    return Basename(path.c_str());
+}
+
 // ****************************************************************************
-//  Function: Dirname 
+//  Function: Dirname
 //
 //  Purpose: Find the dirname of a file path string
 //
-//  Programmer: Mark C. Miller 
+//  Programmer: Mark C. Miller
 //  Creation:   Unknown
 //
 //  Modifications:
@@ -664,6 +734,13 @@ StringHelpers::Basename(const char *path)
 //    returned from the above implementation of basename naturally.  Fixed
 //    a couple of the special cases as well.
 //
+//    Kathleen Biagas, Thu Jul 28 09:41:27 PDT 2011
+//    When searching the string, look for either type of slash char, but still
+//    use the sys-dependent VISIT_SLASH_STRING when setting in the empty buf.
+//
+//    Mark C. Miller, Wed Jul 11 20:03:16 PDT 2012
+//    Fixed the special case where the only part of the string left after
+//    eliminating the basename part is a single slash char at index zero.
 // ****************************************************************************
 const char *
 StringHelpers::Dirname(const char *path)
@@ -688,12 +765,191 @@ StringHelpers::Dirname(const char *path)
         int i;
         for (i = 0; i < start; i++)
             StaticStringBuf[i] = path[i];
-        if (StaticStringBuf[i-1] == VISIT_SLASH_CHAR)
+        if (i > 1 && (StaticStringBuf[i-1] == '/' ||
+                      StaticStringBuf[i-1] == '\\'))
             StaticStringBuf[i-1] = '\0';
-       else
+        else
             StaticStringBuf[i] = '\0';
         return StaticStringBuf;
     }
+}
+
+string
+StringHelpers::Dirname(string const path)
+{
+    return Dirname(path.c_str());
+}
+
+// ****************************************************************************
+//  Function: Normalize
+//
+//  Purpose: Normalize a pathname; removing all embedded './' and/or '../' or
+//  '//', and any trailing '/'. Note, however, that he code is written to use
+//  whatever the VISIT_SLASH_STRING is so it should work on Windows as well
+//  with the exception of a leading drive letter and colon.
+//
+//  Programmer: Mark C. Miller, Mon Jul 16 21:56:03 PDT 2012
+//
+//  Modifications:
+//    Kathleen Biagas, Thu June 6 09:39:25 PDT 2013
+//    Added pathSep argument that defaults to platform-specific 
+//    VISIT_SLASH_STRING.  Use of non-platform specific case my be needed if
+//    parsing internal database path-names.
+//
+// ****************************************************************************
+
+const char *
+StringHelpers::Normalize(const char *path, const char *pathSep)
+{
+    string retval = string(path);
+
+    // First, remove any double slashes
+    string dbl_slash = string(pathSep) + string(pathSep);
+    size_t dbl_slash_idx = retval.rfind(dbl_slash);
+    while (dbl_slash_idx != std::string::npos)
+    {
+        retval.erase(dbl_slash_idx, 1);
+        dbl_slash_idx = retval.rfind(dbl_slash);
+    }
+
+    // Remove any terms of the form "./". These have no effect
+    string dot_slash = string(".") + string(pathSep);
+    size_t dot_slash_idx = retval.rfind(dot_slash);
+    while (dot_slash_idx != std::string::npos)
+    {
+        if ((dot_slash_idx > 0 && retval[dot_slash_idx-1] != '.') ||
+             dot_slash_idx == 0)
+        {
+            retval.erase(dot_slash_idx, 2);
+            dot_slash_idx = retval.rfind(dot_slash,dot_slash_idx-1);
+        }
+        else
+        {
+            if (dot_slash_idx > 0)
+                dot_slash_idx = retval.rfind(dot_slash,dot_slash_idx-1);
+            else
+                dot_slash_idx = std::string::npos;
+        }
+    }
+
+    // Remove any trailing slash if one exists
+    if (retval[retval.size()-1] == pathSep[0])
+        retval.erase(retval.size()-1);
+
+    // At this point we have a string that begins with a slash
+    // and has only <path> terms or "../" terms. We need to
+    // resolve any "../" terms by backing up through the <path>
+    // terms that precede them.
+    string slash_dot_dot = string(pathSep) + string("..");
+    size_t slash_dot_dot_idx = retval.find(slash_dot_dot);
+    bool noCharsRemainingToBackup = false;
+    while (slash_dot_dot_idx != std::string::npos)
+    {
+        size_t preceding_slash_idx = retval.rfind(pathSep, slash_dot_dot_idx-1);
+        if (preceding_slash_idx == std::string::npos)
+        {
+            size_t nchars = slash_dot_dot_idx + 3;
+            retval.erase(0, nchars);
+            slash_dot_dot_idx = retval.find(slash_dot_dot);
+            if (slash_dot_dot_idx == 0)
+            {
+                retval = "";
+                noCharsRemainingToBackup = true;
+                break;
+            }
+        }
+        else
+        {
+            size_t nchars = slash_dot_dot_idx - preceding_slash_idx + 3;
+            retval.erase(preceding_slash_idx+1, nchars);
+            slash_dot_dot_idx = retval.find(slash_dot_dot);
+        }
+    }
+
+    // Remove any trailing slash if one exists
+    if (retval[retval.size()-1] == pathSep[0])
+        retval.erase(retval.size()-1);
+
+    if (retval == "" && !noCharsRemainingToBackup) retval = ".";
+
+    StaticStringBuf[0] = '\0';
+    strcat(StaticStringBuf, retval.c_str());
+    return StaticStringBuf;
+}
+
+string
+StringHelpers::Normalize(const string& path, string const pathSep)
+{
+    return Normalize(path.c_str(), pathSep.c_str());
+}
+
+// ****************************************************************************
+//  Function: Absname
+//
+//  Purpose: Compute absolute path name based on cwd and a path relative to
+//  the cwd.
+//
+//  Programmer: Mark C. Miller, Mon Jul 16 21:56:03 PDT 2012
+//
+//  Modifications:
+//    Kathleen Biagas, Thu June 6 09:39:25 PDT 2013
+//    Added pathSep argument that defaults to platform-specific 
+//    VISIT_SLASH_STRING.  Use of non-platform specific case my be needed if
+//    parsing internal database path-names.
+//
+// ****************************************************************************
+
+const char *
+StringHelpers::Absname(const char *cwd_context, const char *path, 
+    const char *pathSep)
+{
+    // Clear our temporary array for handling char * return values.
+    StaticStringBuf[0] = '\0';
+
+    // cwd_context is null or empty string
+    if (!cwd_context || cwd_context[0] == '\0')
+    {
+        if (!path) return StaticStringBuf;
+        if (path[0] != pathSep[0]) return StaticStringBuf;
+
+        string npath = Normalize(path, pathSep);
+        strcpy(StaticStringBuf, npath.c_str());
+        return StaticStringBuf;
+    }
+
+    // path is null or empty string
+    if (!path || path[0] == '\0')
+    {
+        if (!cwd_context) return StaticStringBuf;
+        if (cwd_context[0] != pathSep[0]) return StaticStringBuf;
+
+        string ncwd = Normalize(cwd_context, pathSep);
+        strcpy(StaticStringBuf, ncwd.c_str());
+        return StaticStringBuf;
+    }
+
+    if (path[0] == pathSep[0])
+    {
+        string npath = Normalize(path, pathSep);
+        strcpy(StaticStringBuf, npath.c_str());
+        return StaticStringBuf;
+    }
+
+    if (cwd_context[0] != pathSep[0]) return StaticStringBuf;
+
+    // Catenate path to cwd_context and then Normalize the result
+    string path2 = string(cwd_context) + string(pathSep) + string(path);
+    string npath = Normalize(path2.c_str(), pathSep);
+    strcpy(StaticStringBuf, npath.c_str());
+    return StaticStringBuf;
+}
+
+string
+StringHelpers::Absname(string const cwd_context, 
+                       string const path, 
+                       string const pathSep)
+{
+    return Absname(cwd_context.c_str(), path.c_str(), pathSep.c_str());
 }
 
 // ****************************************************************************
@@ -704,8 +960,8 @@ StringHelpers::Dirname(const char *path)
 //
 //  Do a 'man 7 regex' for information on format of the regular expression.
 //
-//  Programmer: Mark C. Miller 
-//  Creation:   September 20, 2007 
+//  Programmer: Mark C. Miller
+//  Creation:   September 20, 2007
 //
 //  Modifications:
 //    Mark C. Miller, Fri Sep 21 20:26:18 PDT 2007
@@ -736,12 +992,12 @@ static void InitTypeNameToFmtREMap()
     typeNameToFmtREMap["size_t"]                  = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?z[ouxX]{1}";
 
     // aliases
-    typeNameToFmtREMap["long"]                    = typeNameToFmtREMap["long int"]; 
-    typeNameToFmtREMap["long long"]               = typeNameToFmtREMap["long long int"]; 
-    typeNameToFmtREMap["unsigned"]                = typeNameToFmtREMap["unsigned int"]; 
-    typeNameToFmtREMap["unsigned long"]           = typeNameToFmtREMap["unsigned long int"]; 
-    typeNameToFmtREMap["unsigned long long"]      = typeNameToFmtREMap["unsigned long long int"]; 
-    typeNameToFmtREMap["short"]                   = typeNameToFmtREMap["short int"]; 
+    typeNameToFmtREMap["long"]                    = typeNameToFmtREMap["long int"];
+    typeNameToFmtREMap["long long"]               = typeNameToFmtREMap["long long int"];
+    typeNameToFmtREMap["unsigned"]                = typeNameToFmtREMap["unsigned int"];
+    typeNameToFmtREMap["unsigned long"]           = typeNameToFmtREMap["unsigned long int"];
+    typeNameToFmtREMap["unsigned long long"]      = typeNameToFmtREMap["unsigned long long int"];
+    typeNameToFmtREMap["short"]                   = typeNameToFmtREMap["short int"];
     typeNameToFmtREMap["unsigned short"]          = typeNameToFmtREMap["unsigned short int"];
 }
 
@@ -749,10 +1005,10 @@ static void InitTypeNameToFmtREMap()
 //  Function: ValidatePrintfFormatString
 //
 //  Purpose: Validates a printf style format string against a variable length
-//  list of argument type names. 
+//  list of argument type names.
 //
-//  Programmer: Mark C. Miller 
-//  Creation:   September 20, 2007 
+//  Programmer: Mark C. Miller
+//  Creation:   September 20, 2007
 //
 //  Modifications:
 //    Mark C. Miller, Fri Sep 21 07:31:02 PDT 2007
@@ -783,7 +1039,7 @@ StringHelpers::ValidatePrintfFormatString(const char *fmtStr, const char *arg1Ty
         // walk over field width digits
         while (fmtStr[n] >= '0' && fmtStr[n] <= '9')
             n++;
-   
+
         // optional dot
         if (fmtStr[n] == '.')
         {
@@ -828,10 +1084,11 @@ StringHelpers::ValidatePrintfFormatString(const char *fmtStr, const char *arg1Ty
     // start processing the varargs list
     va_list ap;
     va_start(ap, arg1Type);
-    const char *currentArgTypeName = arg1Type; 
+    const char *currentArgTypeName = arg1Type;
     // loop adding RE terms for each argument type
     for (i = 0; i < ncspecs; i++)
     {
+        //MACCESS(currentArgTypeName, 1);
         if (typeNameToFmtREMap.find(string(currentArgTypeName)) == typeNameToFmtREMap.end())
             break;
         re += typeNameToFmtREMap[string(currentArgTypeName)];
@@ -980,10 +1237,10 @@ StringHelpers::split(const std::string input, const char separator)
 // ****************************************************************************
 //  Function: Plural (and support structures)
 //
-//  Purpose: Given singular english noun, compute plural form 
+//  Purpose: Given singular english noun, compute plural form
 //
-//  Programmer: Mark C. Miller 
-//  Creation:   August 17, 2009 
+//  Programmer: Mark C. Miller
+//  Creation:   August 17, 2009
 //
 //  Notes: The regular expression table below is by no means complete in that
 //  it covers all nouns in the english language. However, it does cover most
@@ -996,6 +1253,11 @@ StringHelpers::split(const std::string input, const char separator)
 //
 //    Mark C. Miller, Mon Aug 31 14:38:18 PDT 2009
 //    Made function arg a reference.
+//
+//    Jeremy Meredith, Tue Mar 29 14:38:02 EDT 2011
+//    Added a new flavor of this function which only pluralizes if
+//    a passed integer is greater than one.
+//
 // ****************************************************************************
 typedef struct _plural_rule_t {
     const char *re;
@@ -1084,6 +1346,45 @@ StringHelpers::Plural(const string &s)
     return ps + "s";
 }
 
+string
+StringHelpers::Plural(int n, const std::string &s)
+{
+    if (n == 1)
+        return s;
+    else
+        return Plural(s);
+}
+
+// ****************************************************************************
+// Method:  StringHelpers::HumanReadableList
+//
+// Purpose:
+//   Turns a vector of strings into a comma-delimited single string
+//   appropriate for insertion into a paragraph of text.
+//
+// Arguments:
+//   sv         the string vector to turn into a single comma-delimited string
+//
+// Programmer:  Jeremy Meredith
+// Creation:    March 29, 2011
+//
+// ****************************************************************************
+string
+StringHelpers::HumanReadableList(const std::vector<std::string> &sv)
+{
+    int n = sv.size();
+    string s;
+    for (int i=0; i<n; i++)
+    {
+        if (i > 0 && i == n-1)
+            s += ", and "; // to serial comma, or not to serial comma?
+        else if (i > 0)
+            s += ", ";
+        s += sv[i];
+    }
+    return s;
+}
+
 
 // ****************************************************************************
 // Method:  StringHelpers::IsPureASCII
@@ -1106,9 +1407,9 @@ StringHelpers::IsPureASCII(const std::string &txt)
 }
 
 bool
-StringHelpers::IsPureASCII(const char *const txt, int length)
+StringHelpers::IsPureASCII(const char *const txt, size_t length)
 {
-    for (int i=0; i<length; i++)
+    for (size_t i=0; i<length; i++)
     {
         const unsigned char c = txt[i];
 
@@ -1121,4 +1422,94 @@ StringHelpers::IsPureASCII(const char *const txt, int length)
     }
     return true;
 }
+
+// ****************************************************************************
+// Method:  StringHelpers::CaseInsenstiveEqual
+//
+// Purpose:
+//   Check to see two strings compare as equal, after result of ::tolower.
+//
+// Arguments:
+//   str_a, str_b   Input strings.
+//
+// Programmer:  Cyrus Harrison
+// Creation:    Mon Sep 19 16:23:05 PDT 2011
+//
+// ****************************************************************************
+bool
+StringHelpers::CaseInsenstiveEqual(const std::string &str_a,
+                                   const std::string &str_b)
+{
+    std::string sa_l = str_a;
+    std::string sb_l = str_b;
+    std::transform(sa_l.begin(),sa_l.end(),sa_l.begin(),::tolower);
+    std::transform(sb_l.begin(),sb_l.end(),sb_l.begin(),::tolower);
+    return sa_l == sb_l;
+}
+
+// ****************************************************************************
+// Method:  StringHelpers::rtrim
+//
+// Purpose:
+//  Trim whitespace off the right of a string.
+//
+//
+// Programmer:  Cyrus Harrison
+// Creation:   Tue Mar 12 12:07:21 PDT 2013
+//
+// ****************************************************************************
+void
+StringHelpers::rtrim(string &val)
+{
+    // trim trailing spaces & tabs
+    size_t pos = val.find_last_not_of(" \t");
+    if( string::npos != pos)
+    {
+        val = val.substr( 0, pos+1 );
+    }
+}
+
+
+// ****************************************************************************
+// Method:  StringHelpers::ltrim
+//
+// Purpose:
+//  Trim whitespace off the left of a string.
+//
+//
+// Programmer:  Cyrus Harrison
+// Creation:   Tue Mar 12 12:07:21 PDT 2013
+//
+// ****************************************************************************
+void
+StringHelpers::ltrim(string &val)
+{
+    // trim leading spaces & tabs
+    size_t pos = val.find_first_not_of(" \t");
+    if( string::npos != pos )
+    {
+        val = val.substr( pos );
+    }
+}
+
+
+// ****************************************************************************
+// Method:  StringHelpers::trim
+//
+// Purpose:
+//  Trim whitespace off the left and right of a string.
+//
+// Programmer:  Cyrus Harrison
+// Creation:   Tue Mar 12 12:07:21 PDT 2013
+//
+// ****************************************************************************
+
+void
+StringHelpers::trim(string &val)
+{
+    rtrim(val);
+    ltrim(val);
+}
+
+
 

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -95,6 +95,9 @@ const double avtFileFormat::FORMAT_INVALID_TIME  = INVALID_TIME / 10.0;
 //    Jeremy Meredith, Fri Jan  8 16:15:02 EST 2010
 //    Added ability to turn on stricter file format error checking.
 //
+//    Hank Childs, Sun Dec 26 12:13:19 PST 2010
+//    Initialize doingStreaming.
+//
 // ****************************************************************************
 
 avtFileFormat::avtFileFormat()
@@ -103,6 +106,7 @@ avtFileFormat::avtFileFormat()
     materialName = NULL;
     doMaterialSelection = false;
     canDoStreaming = true;
+    doingStreaming = false;
     metadata = NULL;
     closingFile = false;
     resultMustBeProducedOnlyOnThisProcessor = false;
@@ -306,6 +310,7 @@ avtFileFormat::SetCache(avtVariableCache *c)
 //      origin    The origin of the block numbers. (optional, = 0)
 //      spatial   The spatial dimension of the mesh. (optional, = 3)
 //      topo      The topological dimension of the mesh. (optional, = 3)
+//      bounds    The bounds of the mesh. (optional)
 //
 //  Programmer: Hank Childs
 //  Creation:   February 23, 2001
@@ -327,7 +332,8 @@ avtFileFormat::SetCache(avtVariableCache *c)
 void
 avtFileFormat::AddMeshToMetaData(avtDatabaseMetaData *md, string name,
                                  avtMeshType type, const double *extents,
-                                 int blocks, int origin, int spatial, int topo)
+                                 int blocks, int origin, int spatial, int topo,
+                                 const int* bounds)
 {
     if (type == AVT_POINT_MESH)
         topo = 0;
@@ -341,6 +347,16 @@ avtFileFormat::AddMeshToMetaData(avtDatabaseMetaData *md, string name,
     mesh->topologicalDimension = topo;
     mesh->blockTitle = "blocks";
     mesh->blockPieceName = "block";
+    if (bounds != NULL)
+    {
+        mesh->SetBounds(bounds);
+        mesh->hasLogicalBounds = true;
+    }
+    else
+    {
+        mesh->hasLogicalBounds = false;
+    }
+
     if (extents != NULL)
     {
         mesh->SetExtents(extents);
@@ -968,11 +984,31 @@ FileFormatCloseFileCallback(void *ptr, int idx)
 
 // ****************************************************************************
 // These need to be in the implementation so that linking across dll's work
-int avtFileFormat::GetCycle(void){ return INVALID_CYCLE;}
-int avtFileFormat::GetCycle(int){ return INVALID_CYCLE;}
-double avtFileFormat::GetTime(void){ return INVALID_TIME; }
-double avtFileFormat::GetTime(int){ return INVALID_TIME; }
+int avtFileFormat::GetCycle(void)
+{
+  return INVALID_CYCLE;
+}
+int avtFileFormat::GetCycle(int)
+{
+  return INVALID_CYCLE;
+}
+double avtFileFormat::GetTime(void)
+{
+  return INVALID_TIME;
+}
+double avtFileFormat::GetTime(int)
+{
+  return INVALID_TIME;
+}
 int avtFileFormat::GetCycleFromFilename(const char *f) const
-  { if (f[0] == '\0') return FORMAT_INVALID_CYCLE; return GuessCycle(f); }
+{
+  if (f[0] == '\0')
+    return FORMAT_INVALID_CYCLE;
+  return GuessCycle(f);
+}
 double avtFileFormat::GetTimeFromFilename(const char *f) const
-  { if (f[0] == '\0') return FORMAT_INVALID_TIME; return GuessTime(f); }
+{
+  if (f[0] == '\0')
+    return FORMAT_INVALID_TIME;
+  return GuessTime(f);
+}

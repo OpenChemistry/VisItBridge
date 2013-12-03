@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -100,6 +100,12 @@ typedef ref_ptr<avtContract> avtContract_p;
 //    Cyrus Harrison, Sat Feb 20 21:37:24 PST 2010
 //    Added Print() which calls 'operator<<' to get around visiblity issues.
 //
+//    Dave Pugmire, Tue May 25 10:15:35 EDT 2010
+//    Add domain single domain replication to all processors.
+//
+//    Hank Childs, Wed Aug 25 22:45:04 PDT 2010
+//    Add data members for whether or not extents should be calculated.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtContract
@@ -133,12 +139,27 @@ class PIPELINE_API avtContract
                                { return doingOnDemandStreaming; };
     void                SetOnDemandStreaming(bool b)
                                { doingOnDemandStreaming = b; };
+    bool                ReplicateSingleDomainOnAllProcessors()
+                               { return replicateSingleDomainOnAllProcessors; }
+    void                SetReplicateSingleDomainOnAllProcessors(bool b)
+                               { replicateSingleDomainOnAllProcessors = b; }    
 
     avtDataRequest_p    GetDataRequest(void)   { return data; };
     int                 GetPipelineIndex(void) { return pipelineIndex; };
 
     void                AddFilter(void)  { nFilters++; };
     int                 GetNFilters(void)  { return nFilters; };
+
+    bool                ShouldCalculateMeshExtents(void) { return calculateMeshExtents; };
+    void                SetCalculateMeshExtents(bool c)  { calculateMeshExtents = c; };
+    bool                ShouldCalculateVariableExtents(const std::string &s);
+    void                SetCalculateVariableExtents(const std::string &s, bool v);
+    void                SetCalculateVariableExtentsList(const std::vector<std::string> &l)
+                                                      { needExtentsForTheseVariables = l; };
+    const std::vector<std::string> &  GetCalculateVariableExtentsList(void)
+                                                      { return needExtentsForTheseVariables; };
+    void                DisableExtentsCalculations(void) { calculateMeshExtents = false; 
+                                                           needExtentsForTheseVariables.clear(); };
 
     avtContract        &operator=(const avtContract &);
     void                DebugDump(avtWebpage *);
@@ -151,7 +172,11 @@ class PIPELINE_API avtContract
     bool                useLoadBalancing;
     bool                haveCurvilinearMeshOptimizations;
     bool                haveRectilinearMeshOptimizations;
+    bool                replicateSingleDomainOnAllProcessors;
     int                 nFilters;
+
+    std::vector<std::string>    needExtentsForTheseVariables;
+    bool                        calculateMeshExtents;
 
   private:
     // This method is defined to prevent accidental use of a bitwise copy

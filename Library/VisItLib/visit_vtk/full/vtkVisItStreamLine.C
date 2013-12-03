@@ -46,6 +46,9 @@ vtkStandardNewMacro(vtkVisItStreamLine);
 #define VTK_START_FROM_LOCATION 1
 
 #ifdef WIN32
+// JRC 21Jul2010: this hack no longer needed, as vtk patch
+// now export StreamArray
+#ifndef VTK_STREAM_ARRAY_EXPORTED
 //
 // VTK does not export these symbols from their Graphics DLL and it causes
 // link problems for us on Windows, so define the functions here and hope it
@@ -89,6 +92,7 @@ vtkStreamer::StreamArray::StreamArray()
   this->Direction = VTK_INTEGRATE_FORWARD;
 }
 #endif
+#endif
 
 // Construct object with step size set to 1.0.
 vtkVisItStreamLine::vtkVisItStreamLine()
@@ -97,21 +101,8 @@ vtkVisItStreamLine::vtkVisItStreamLine()
     this->NumberOfStreamers = 0;
 }
 
-int vtkVisItStreamLine::RequestData(
-    vtkInformation *vtkNotUsed(request),
-    vtkInformationVector **inputVector,
-    vtkInformationVector *outputVector)
+void vtkVisItStreamLine::Execute()
 {
-    // get the info objects
-    vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
-    vtkInformation *outInfo = outputVector->GetInformationObject(0);
-
-    // get the input and output
-    vtkDataSet *input = vtkDataSet::SafeDownCast(
-       inInfo->Get(vtkDataObject::DATA_OBJECT()));
-    vtkPolyData *output = vtkPolyData::SafeDownCast(
-       outInfo->Get(vtkDataObject::DATA_OBJECT()));
-
     vtkStreamer::StreamPoint *sPrev, *sPtr;
     vtkPoints      *newPts;
     vtkFloatArray  *newVectors;
@@ -121,6 +112,8 @@ int vtkVisItStreamLine::RequestData(
     int j;
     vtkIdList *pts;
     double tOffset, x[3], v[3], s, r;
+    vtkPolyData   *output = this->GetOutput();
+    vtkDataSet   *input = vtkDataSet::SafeDownCast(this->GetOutput());
 
 #ifdef VORTICITY
     double theta;
@@ -132,11 +125,11 @@ int vtkVisItStreamLine::RequestData(
     this->SavePointInterval = this->StepLength;
 
     // This can take a long time.
-    this->Integrate(input);
+    this->Integrate();
 
     if(this->NumberOfStreamers <= 0)
     {
-        return 0;
+        return;
     }
 
     pts = vtkIdList::New();
@@ -318,8 +311,6 @@ int vtkVisItStreamLine::RequestData(
     this->NumberOfStreamers = 0;
 
     output->Squeeze();
-
-    return 1;
 }
 
 void vtkVisItStreamLine::PrintSelf(ostream& os, vtkIndent indent)
@@ -339,7 +330,7 @@ void vtkVisItStreamLine::PrintSelf(ostream& os, vtkIndent indent)
 // ****************************************************************************
 
 VTK_THREAD_RETURN_TYPE
-vtkVisItStreamLine::ThreadedIntegrate( void *arg, vtkDataSet *input)
+vtkVisItStreamLine::ThreadedIntegrate( void *arg)
 {
     vtkVisItStreamLine       *self;
     int                      thread_count;
@@ -353,6 +344,7 @@ vtkVisItStreamLine::ThreadedIntegrate( void *arg, vtkDataSet *input)
     double                    xNext[3], vel[3], *cellVel, derivs[9];
     double                    *w, pcoords[3];
     double                    coords[4];
+    vtkDataSet               *input;
     vtkGenericCell           *cell;
     vtkPointData             *pd;
     vtkDataArray             *inScalars;
@@ -367,6 +359,7 @@ vtkVisItStreamLine::ThreadedIntegrate( void *arg, vtkDataSet *input)
     thread_count = ((vtkMultiThreader::ThreadInfo *)(arg))->NumberOfThreads;
     self = (vtkVisItStreamLine *)(((vtkMultiThreader::ThreadInfo *)(arg))->UserData);
 
+    input     = vtkDataSet::SafeDownCast(self->GetInput());
     pd        = input->GetPointData();
     inScalars = pd->GetScalars();
     inVectors = pd->GetVectors();
@@ -593,8 +586,9 @@ vtkVisItStreamLine::ThreadedIntegrate( void *arg, vtkDataSet *input)
     return VTK_THREAD_RETURN_VALUE;
 }
 
-void vtkVisItStreamLine::Integrate(vtkDataSet *input)
+void vtkVisItStreamLine::Integrate()
 {
+    vtkDataSet *input = vtkDataSet::SafeDownCast(this->GetInput());
     vtkDataSet *source = this->GetSource();
     vtkPointData *pd=input->GetPointData();
     vtkDataArray *inScalars;
@@ -787,7 +781,7 @@ void vtkVisItStreamLine::Integrate(vtkDataSet *input)
     t.ThreadID = 0;
     t.NumberOfThreads = 1;
     t.UserData = (void *)this;
-    ThreadedIntegrate((void *)&t, input);
+    ThreadedIntegrate((void *)&t);
 #endif
 
     //

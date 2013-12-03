@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -58,6 +58,11 @@
 //  Programmer: Hank Childs
 //  Creation:   January 5, 2009
 //
+//  Modifications:
+//
+//    Hank Childs, Tue Dec 20 14:43:08 PST 2011
+//    Add method DescriptionString.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtPlaneSelection : public avtDataSelection 
@@ -68,6 +73,7 @@ class PIPELINE_API avtPlaneSelection : public avtDataSelection
 
     virtual const char *    GetType() const
                                 { return "Plane Selection"; }; 
+    virtual std::string     DescriptionString(void);
 
     void                    SetNormal(const double *_normal);
     void                    SetOrigin(const double *_origin);

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -65,8 +65,8 @@
 #include <visit_vtk_exports.h>
 
 #include <vtkUnstructuredGridAlgorithm.h>
-#include <vtkFloatArray.h>
 
+class vtkDataAray;
 class vtkPointSet;
 class vtkRectilinearGrid;
 
@@ -81,28 +81,31 @@ class VISIT_VTK_API
 vtkSurfaceFilter : public vtkUnstructuredGridAlgorithm
 {
 public:
-  static vtkSurfaceFilter *New();
   vtkTypeMacro(vtkSurfaceFilter,vtkUnstructuredGridAlgorithm);
   void PrintSelf(ostream& os, vtkIndent indent);
 
+  static vtkSurfaceFilter *New();
+
   // Description:
   // Set/Get the scalars to use for z-values in the output. 
-  virtual void SetinScalars(vtkFloatArray*); 
-  vtkGetObjectMacro(inScalars, vtkFloatArray); 
-
+  virtual void SetinScalars(vtkDataArray*); 
+  vtkGetObjectMacro(inScalars, vtkDataArray); 
  
 protected:
   vtkSurfaceFilter();
   ~vtkSurfaceFilter() ;
 
-  int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-  void ExecuteRectilinearGrid(vtkRectilinearGrid*, vtkUnstructuredGrid*);
-  void ExecutePointSet(vtkPointSet*, vtkUnstructuredGrid*);
-  int FillInputPortInformation(int, vtkInformation*);
+  virtual int RequestData(vtkInformation *,
+                          vtkInformationVector **,
+                          vtkInformationVector *);
+  virtual int FillInputPortInformation(int port, vtkInformation *info);
+
+  void ExecuteRectilinearGrid(vtkRectilinearGrid *, vtkUnstructuredGrid *);
+  void ExecutePointSet(vtkPointSet *, vtkUnstructuredGrid *);
 
 // Protected Data Members
 
-  vtkFloatArray *inScalars;
+  vtkDataArray *inScalars;
 
 private:
   vtkSurfaceFilter(const vtkSurfaceFilter&);
@@ -110,5 +113,3 @@ private:
 };
 
 #endif
-
-

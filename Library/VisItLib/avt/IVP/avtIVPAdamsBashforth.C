@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -53,8 +53,6 @@ static const double epsilon = std::numeric_limits<double>::epsilon();
 static const double bashforth[] = { 1901.0, -2774.0, 2616.0, -1274.0, 251.0 };
 static const double divisor = 1.0 / 720.0;
 
-#define NSTEPS sizeof(bashforth)/sizeof(bashforth[0])
-
 // helper function
 // returns a with the same sign as b
 static inline double sign( const double& a, const double& b )
@@ -92,7 +90,6 @@ avtIVPAdamsBashforth::avtIVPAdamsBashforth()
     t = 0.0;
     d = 0.0;
     numStep = 0;
-    initialized = 0;
     degenerate_iterations = 0;
     stiffness_eps = tol / 1000.0;
 }
@@ -311,7 +308,9 @@ avtIVPAdamsBashforth::SetTolerances(const double& relt, const double& abst)
 // ****************************************************************************
 
 void 
-avtIVPAdamsBashforth::Reset(const double& t_start, const avtVector &y_start)
+avtIVPAdamsBashforth::Reset(const double& t_start,
+                            const avtVector &y_start,
+                            const avtVector &v_start)
 {
     t = t_start;
     d = 0.0;
@@ -320,13 +319,6 @@ avtIVPAdamsBashforth::Reset(const double& t_start, const avtVector &y_start)
     degenerate_iterations = 0;
     yCur = y_start;
     h = h_max;
-    initialized = 0;
-
-    history[0] = yCur;
-    history[1] = yCur;
-    history[2] = yCur;
-    history[3] = yCur;
-    history[4] = yCur;
 }
 
 
@@ -352,8 +344,8 @@ avtIVPAdamsBashforth::Reset(const double& t_start, const avtVector &y_start)
 void
 avtIVPAdamsBashforth::OnExitDomain()
 {
-    initialized = 0;
 }
+
 
 // ****************************************************************************
 //  Method: avtIVPAdamsBashforth::RK4Step
@@ -369,22 +361,37 @@ avtIVPAdamsBashforth::OnExitDomain()
 //    Dave Pugmire, Tue Dec  1 11:50:18 EST 2009
 //    Switch from avtVec to avtVector.
 //
+//    Hank Childs, Mon Mar 12 10:26:33 PDT 2012
+//    Integrate fix from Christoph Garth.
+//
 // ****************************************************************************
 
 avtIVPSolver::Result 
 avtIVPAdamsBashforth::RK4Step(const avtIVPField* field,
                               avtVector &yNew )
 {
-  avtVector f[4];
-
-  f[0] = (*field)(t,yCur)              * h;
-  f[1] = (*field)(t,yCur + f[0] * 0.5) * h;
-  f[2] = (*field)(t,yCur + f[1] * 0.5) * h;
-  f[3] = (*field)(t,yCur + f[2])       * h;
-
-  yNew = yCur + (f[0] + 2.0 * f[1] + 2.0 * f[2] + f[3]) * (1.0 / 6.0);
-
-  return avtIVPSolver::OK;
+    avtVector f[4];
+    avtIVPField::Result result;
+    
+    if ((result = (*field)(t, yCur,              f[0])) != avtIVPField::OK)
+        return ConvertResult(result);
+    
+    f[0] *= h;
+    if ((result = (*field)(t+0.5*h, yCur + f[0] * 0.5, f[1])) != avtIVPField::OK)
+        return ConvertResult(result);
+    
+    f[1] *= h;
+    if ((result = (*field)(t+0.5*h, yCur + f[1] * 0.5, f[2])) != avtIVPField::OK)
+        return ConvertResult(result);
+    
+    f[2] *= h;
+    if ((result = (*field)(t+h, yCur + f[2],       f[3])) != avtIVPField::OK)
+        return ConvertResult(result);
+    
+    f[3] *= h;
+    yNew = yCur + (f[0] + 2.0 * f[1] + 2.0 * f[2] + f[3]) * (1.0 / 6.0);
+    
+    return avtIVPSolver::OK;
 }
 
 
@@ -414,7 +421,7 @@ avtIVPAdamsBashforth::ABStep(const avtIVPField* field,
     // Calculate the predictor using the Adams-Bashforth formula
     yNew = yCur;
 
-    for (size_t i = 0; i < NSTEPS; i++)
+    for (size_t i = 0; i < ADAMS_BASHFORTH_NSTEPS; i++)
         yNew += h*divisor*bashforth[i] * history[i];
 
     return avtIVPSolver::OK;
@@ -457,129 +464,88 @@ avtIVPAdamsBashforth::ABStep(const avtIVPField* field,
 //   Dave Pugmire, Tue Feb 23 09:42:25 EST 2010
 //   Set the velStart/velEnd direction based on integration direction.
 //
+//   Dave Pugmire, Wed May 26 13:48:24 EDT 2010
+//   The velStart/velEnd direction was reversed.
+//
 // ****************************************************************************
 
 avtIVPSolver::Result 
-avtIVPAdamsBashforth::Step(const avtIVPField* field,
-                           const TerminateType &termType,
-                           const double &end,   
+avtIVPAdamsBashforth::Step(avtIVPField* field, double t_max,
                            avtIVPStep* ivpstep)
 {
-    double t_max;
-
-    if (termType == TIME)
-        t_max = end;
-    else if (termType == DISTANCE || termType == STEPS || termType == INTERSECTIONS)
-    {
-        t_max = std::numeric_limits<double>::max();
-        if (end < 0)
-            t_max = -t_max;
-    }
-
     const double direction = sign( 1.0, t_max - t );
     
     h = sign( h, direction );
     
+    bool last = false;
+
     // do not run past integration end
     if( (t + 1.01*h - t_max) * direction > 0.0 ) 
     {
+        last = true;
         h = t_max - t;
     }
 
     // stepsize underflow?
     if( 0.1*std::abs(h) <= std::abs(t)*epsilon )
-    {
         return avtIVPSolver::STEPSIZE_UNDERFLOW;
-    }
 
     avtIVPSolver::Result res;
+    avtIVPField::Result fieldResult;
     avtVector yNew = yCur;
-    // Use a forth order Runga Kutta integration to seed the Adams-Bashforth.
-    if ( initialized < NSTEPS )
+
+    // Use a fourth-order Runga Kutta integration to seed the Adams-Bashforth.
+    if( numStep < ADAMS_BASHFORTH_NSTEPS )
     {
         // Save the first vector values in the history. 
-        if( initialized == 0 )
+        if( numStep == 0 )
         {
-            history[0] = (*field)(t,yCur);
+            if ((fieldResult = (*field)(t, yCur, history[0])) != avtIVPField::OK)
+                return ConvertResult(fieldResult);
         }
+         
         res = RK4Step( field, yNew );
-        
-        ++initialized;
     }
     else
-    {
         res = ABStep( field, yNew );
-    }
 
-    if ( res == avtIVPSolver::OK )
+    if (res == OK)
     {
         ivpstep->resize(2);
-        
-        (*ivpstep)[0] = yCur;
-        (*ivpstep)[1] = yNew;
-        ivpstep->tStart = t;
-        ivpstep->tEnd = t + h;
-        numStep++;
 
-        // Handle distanced based termination.
-        if (termType == TIME)
+        if( convertToCartesian )
         {
-            if ((end > 0 && t >= end) ||
-                (end < 0 && t <= end))
-                return TERMINATE;
-        }
-        else if (termType == DISTANCE)
-        {
-            double len = ivpstep->length();
-            
-            //debug1<<"ABStep: "<<t<<" d: "<<d<<" => "<<(d+len)<<" h= "<<h<<" len= "<<len<<" sEps= "<<stiffness_eps<<endl;
-            if (len < stiffness_eps)
-            {
-                degenerate_iterations++;
-                if (degenerate_iterations > 15)
-                {
-                    //debug1<<"********** STIFFNESS ***************************\n";
-                    return STIFFNESS_DETECTED;
-                }
-            }
-            else
-                degenerate_iterations = 0;
-
-            if (d+len > fabs(end))
-                throw avtIVPField::Undefined();
-            else if (d+len >= fabs(end))
-                return TERMINATE;
-
-            d = d+len;
-        }
-        else if (termType == STEPS &&
-                 numStep >= (int)fabs(end))
-            return TERMINATE;
-
-        if (end < 0.0)
-        {
-            ivpstep->velStart = (*field)(t,yCur);
-            ivpstep->velEnd = (*field)((t+h),yNew);
+          (*ivpstep)[0] = field->ConvertToCartesian( yCur );
+          (*ivpstep)[1] = field->ConvertToCartesian( yNew );
         }
         else
         {
-            ivpstep->velStart = - (*field)(t,yCur);
-            ivpstep->velEnd = - (*field)((t+h),yNew);
+          (*ivpstep)[0] = yCur;
+          (*ivpstep)[1] = yNew;
         }
+
+        ivpstep->t0 = t;
+        ivpstep->t1 = t + h;
+        numStep++;
 
         // Update the history to save the last 5 vector values.
         history[4] = history[3];
         history[3] = history[2];
         history[2] = history[1];
         history[1] = history[0];
-        history[0] = (*field)(t,yNew); 
+        if ((fieldResult = (*field)(t, yNew, history[0])) != avtIVPField::OK)
+            return ConvertResult(fieldResult);
 
         yCur = yNew;
         t = t+h;
+
+        if( last )
+            res = avtIVPSolver::TERMINATE;
+
+        // Reset the step size on sucessful step.
+        h = h_max;
     }
 
-    // Reset the step size on sucessful step.
-    h = h_max;
     return res;
 }
 
@@ -617,8 +583,5 @@ avtIVPAdamsBashforth::AcceptStateVisitor(avtIVPStateHelper& aiss)
         .Accept(history[1])
         .Accept(history[2])
         .Accept(history[3])
-        .Accept(history[4])
-        .Accept(initialized)
-        .Accept(ys[0])
-        .Accept(ys[1]);
+        .Accept(history[4]);
 }

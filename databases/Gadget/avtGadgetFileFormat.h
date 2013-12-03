@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -80,11 +80,10 @@ class avtGadgetFileFormat : public avtSTSDFileFormat
     }
   protected:
     // DATA MEMBERS
-    FILE *fd;
     int4bytes blksize,swap;
     unsigned long ntot;
     double masstab[6],redshift,time;
-    const char *fname;
+    std::string fname;
 
     size_t my_fread(void *ptr, size_t size, size_t nmemb, FILE * stream);
     void swap_Nbyte(char *data,int n,int m);

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -37,6 +37,7 @@
 *****************************************************************************/
 
 #include <ExistingRemoteProcess.h>
+#include <DebugStream.h>
 
 // ****************************************************************************
 // Method: ExistingRemoteProcess::ExistingRemoteProcess
@@ -86,7 +87,7 @@ ExistingRemoteProcess::~ExistingRemoteProcess()
 //   Opens sockets and launches a remote process using ssh.
 //
 // Arguments:
-//   rHost    : The remote host to run on.
+//   profile  : The machine profile of the remote host to run on.
 //   numRead  : The number of read sockets to create to the remote process.
 //   numWrite : The number of write sockets to create to the remote process.
 //   createAsThoughLocal : Forces local process creation.
@@ -120,34 +121,62 @@ ExistingRemoteProcess::~ExistingRemoteProcess()
 //   Jeremy Meredith, Thu Feb 18 15:25:27 EST 2010
 //   Split HostProfile int MachineProfile and LaunchProfile.
 //
+//   Eric Brugger, Mon May  2 16:45:21 PDT 2011
+//   I added the ability to use a gateway machine when connecting to a
+//   remote host.
+//
+//   Eric Brugger, Mon Sep 26 17:02:16 PDT 2011
+//   I modified the remote launching to pass the remote user name to the
+//   ssh command to the gateway machine instead of to the ssh command to
+//   the remote machine.
+//
+//   Brad Whitlock, Fri Jan 13 15:13:12 PST 2012
+//   I updated the signature for CreateCommandLine.
+//
+//   Brad Whitlock, Tue Jun  5 15:54:12 PDT 2012
+//   Pass in MachineProfile.
+//
+//   Brad Whitlock, Mon Nov  5 10:04:45 PST 2012
+//   Add printing of arguments. Don't pass host to StartMakingConnection since
+//   it's no longer needed. ExistingRemoteProcess will not check for a host's
+//   validity anymore.
+//
 // ****************************************************************************
 
 bool
-ExistingRemoteProcess::Open(const std::string &rHost,
-                            MachineProfile::ClientHostDetermination chd,
-                            const std::string &clientHostName,
-                            bool manualSSHPort,
-                            int sshPort, bool useTunneling,
+ExistingRemoteProcess::Open(const MachineProfile &profile,
                             int numRead, int numWrite,
                             bool createAsThoughLocal)
 {
+    // Write the arguments to the debug log.
+    const char *mName = "ExistingRemoteProcess::Open: ";
+    debug5 << mName << "Called with (profile";
+    debug5 << ", numRead=" << numRead;
+    debug5 << ", numWrite=" << numWrite;
+    debug5 << ", createAsThoughLocal=" << (createAsThoughLocal?"true":"false");
+    debug5 << ") where profile is:" << endl;
+    if(DebugStream::Level5())
+        profile.Print(DebugStream::Stream5());
+
     // Start making the connections and start listening.
-    if(!StartMakingConnection(rHost, numRead, numWrite))
+    if(!StartMakingConnection(profile.GetHost(), numRead, numWrite))
         return false;
 
     // Add all of the relevant command line arguments to a vector of strings.
     stringVector commandLine;
-    CreateCommandLine(commandLine, rHost,
-                      chd, clientHostName, manualSSHPort, sshPort,useTunneling,
-                      numRead, numWrite,
-                      createAsThoughLocal);
+    CreateCommandLine(commandLine, profile, numRead, numWrite);
+
+    debug5 << "ExistingRemoteProcess::Open: commandLine = {" << endl;
+    for(size_t i = 0; i < commandLine.size(); ++i)
+        debug5 << "\t" << commandLine[i] << endl;
+    debug5 << "}" << endl;
 
     //
     // Call a user-defined callback function to launch the process.
     //
     if(connectCallback != NULL)
     {
-        (*connectCallback)(rHost, commandLine, connectCallbackData);
+        (*connectCallback)(profile.GetHost(), commandLine, connectCallbackData);
     }
 
     // Finish the connections.

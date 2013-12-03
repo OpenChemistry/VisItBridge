@@ -14,6 +14,7 @@
 =========================================================================*/
 #include "vtkEnumThreshold.h"
 
+#include "vtkBitArray.h"
 #include "vtkCell.h"
 #include "vtkCellData.h"
 #include "vtkIdList.h"
@@ -21,13 +22,14 @@
 #include "vtkInformationVector.h"
 #include "vtkObjectFactory.h"
 #include "vtkPointData.h"
-#include "vtkUnstructuredGrid.h"
-#include "vtkStructuredGrid.h"
-#include "vtkRectilinearGrid.h"
 #include "vtkPolyData.h"
-#include "vtkUniformGrid.h"
+#include "vtkRectilinearGrid.h"
+#include "vtkStructuredGrid.h"
 #include "vtkStructuredPoints.h"
+#include "vtkUniformGrid.h"
+#include "vtkUnstructuredGrid.h"
 #include "vtkVertex.h"
+#include <vtkVisItUtility.h>
 
 #include "BJHash.h"
 
@@ -107,7 +109,7 @@ ComboDigitsFromId(double id, int n, int maxr, const vector<vector<int> > &ptMap,
 
 vtkStandardNewMacro(vtkEnumThreshold);
 
-//  Modifications:
+//  Modifications:  
 //    Jeremy Meredith, Tue Aug 22 16:20:41 EDT 2006
 //    Taken from 5.0.0.a vtkThreshold source, renamed to vtkEnumThreshold, and
 //    made it work on an enumerated scalar selection.
@@ -134,11 +136,13 @@ vtkEnumThreshold::vtkEnumThreshold()
     pascalsTriangleR = -1;
     returnEmptyIfAllCellsKept = false;
     allCellsKeptInLastRequestData = false;
-    selectedEnumMask = 0;
+    selectedEnumMask = 0; 
+    selectedEnumMaskBitArray = 0;
 }
 
 vtkEnumThreshold::~vtkEnumThreshold()
 {
+    if (selectedEnumMaskBitArray) selectedEnumMaskBitArray->Delete();
 }
 
 // Need for argument to qsort
@@ -220,7 +224,7 @@ static bool AlreadyAddedCell(vtkCell *theCell,
 // and a node is wholly defined by just one vtkIdType, this
 // is pretty simple.
 //
-static bool AlreadyAddedNode(vtkIdType ptId,
+static bool AlreadyAddedNode(vtkIdType ptId, 
     const map<vtkIdType, unsigned char> &theMap)
 {
     return theMap.find(ptId) != theMap.end();
@@ -311,7 +315,7 @@ static void AddFaceToMaps(vtkCell *faceCell,
     outCD->CopyData(cd,cellId,newCellId);                                     \
     newCellPts->Reset();
 
-//  Modifications:
+//  Modifications:  
 //    Jeremy Meredith, Tue Aug 22 16:20:41 EDT 2006
 //    Taken from 5.0.0.a vtkThreshold source, renamed to vtkEnumThreshold, and
 //    made it work on an enumerated scalar selection.
@@ -346,9 +350,9 @@ int vtkEnumThreshold::RequestData(
     vtkDebugMacro(<< "Executing threshold filter");
 
     allCellsKeptInLastRequestData = true;
-
+  
     vtkDataArray *inScalars = this->GetInputArrayToProcess(0,inputVector);
-
+  
     if (!inScalars)
     {
         vtkDebugMacro(<<"No scalar data to threshold");
@@ -360,7 +364,7 @@ int vtkEnumThreshold::RequestData(
 
     numPts = input->GetNumberOfPoints();
     output->Allocate(input->GetNumberOfCells());
-    newPoints = vtkPoints::New();
+    newPoints = vtkVisItUtility::NewPoints(input);
     newPoints->Allocate(numPts);
 
     pointMap = vtkIdList::New(); //maps old point ids into new
@@ -370,7 +374,7 @@ int vtkEnumThreshold::RequestData(
         pointMap->SetId(i,-1);
     }
 
-    newCellPts = vtkIdList::New();
+    newCellPts = vtkIdList::New();     
 
     //
     // If we dissect cells, we use these maps for what amounts to
@@ -389,14 +393,14 @@ int vtkEnumThreshold::RequestData(
 
     // are we using pointScalars?
     usePointScalars = (inScalars->GetNumberOfTuples() == numPts);
-
+  
     // Check that the scalars of each cell satisfy the threshold criterion
     for (cellId=0; cellId < input->GetNumberOfCells(); cellId++)
     {
         cell = input->GetCell(cellId);
         cellPts = cell->GetPointIds();
         numCellPts = cell->GetNumberOfPoints();
-
+    
         if ( usePointScalars )
         {
             if (true) // was "this->allScalars in vtkEnumThreshold
@@ -452,7 +456,7 @@ int vtkEnumThreshold::RequestData(
                         for (int j = 0; keepEdge && j < edgeCell->GetNumberOfPoints(); j++)
                             keepEdge = this->EvaluateComponents( inScalars, edgeCell->GetPointId(j));
 
-                        if (keepEdge) // keep this edge
+                        if (keepEdge) // keep this edge 
                         {
                             ADD_CELL_POINTS_AND_CELL(edgeCell);
                             AddEdgeToMaps(edgeCell, edgeMap, nodeMap);
@@ -468,12 +472,12 @@ int vtkEnumThreshold::RequestData(
 
                         int keepNode = this->EvaluateComponents( inScalars, ptId);
 
-                        if (keepNode) // keep this node
+                        if (keepNode) // keep this node 
                         {
                             // Build a temporary vertex cell so it
                             // can be added by the macro.
                             vtkVertex *tmpVert = vtkVertex::New();
-                            vtkPoints *dummyPoints = vtkPoints::New();
+                            vtkPoints *dummyPoints = vtkVisItUtility::NewPoints(input);
                             dummyPoints->InsertNextPoint(0.0, 0.0, 0.0);
                             tmpVert->Initialize(1, &ptId, dummyPoints);
 
@@ -494,7 +498,7 @@ int vtkEnumThreshold::RequestData(
 
         if (keepCell == 0)
             allCellsKeptInLastRequestData = false;
-
+    
         if (  numCellPts > 0 && keepCell )
         {
             // satisfied thresholding (also non-empty cell, i.e. not VTK_EMPTY_CELL)
@@ -505,7 +509,7 @@ int vtkEnumThreshold::RequestData(
 
     if (faceMap.size() || edgeMap.size() || nodeMap.size())
     {
-        int idCount = 0;
+        size_t idCount = 0;
         map<unsigned int, vector<vtkIdType> >::iterator it;
 
         for (it = faceMap.begin(); it != faceMap.end(); it++)
@@ -514,25 +518,25 @@ int vtkEnumThreshold::RequestData(
             idCount += it->second.size();
         idCount += nodeMap.size();
 
-        vtkDebugMacro(<< "Stored " << idCount << " node ids (%"
+        vtkDebugMacro(<< "Stored " << idCount << " node ids (%" 
                       << (100.0 * idCount / numPts) << " of input nodes)"
                       << " in maps for partial cell dissection.");
     }
 
-    vtkDebugMacro(<< "Extracted " << output->GetNumberOfCells()
+    vtkDebugMacro(<< "Extracted " << output->GetNumberOfCells() 
                   << " number of cells.");
 
     // now clean up / update ourselves
     pointMap->Delete();
     newCellPts->Delete();
-
+  
     output->SetPoints(newPoints);
     newPoints->Delete();
 
     if (returnEmptyIfAllCellsKept && allCellsKeptInLastRequestData)
     {
         vtkDebugMacro(<< "Kept all cells. At caller's request, returning empty ugrid.");
-
+        
         //
         // clear out the output
         //
@@ -604,7 +608,7 @@ bool vtkEnumThreshold::HasValuesInEnumerationMap(double val)
 {
     list<int> values;
     ComboDigitsFromId(val, pascalsTriangleN, pascalsTriangleR, pascalsTriangleMap, values);
-
+    
     list<int>::iterator it = values.begin();
     for (it = values.begin(); it != values.end(); it++)
     {
@@ -616,7 +620,7 @@ bool vtkEnumThreshold::HasValuesInEnumerationMap(double val)
 }
 
 
-//  Modifications:
+//  Modifications:  
 //    Jeremy Meredith, Tue Aug 22 16:20:41 EDT 2006
 //    Taken from 5.0.0.a vtkThreshold source, renamed to vtkEnumThreshold, and
 //    made it work on an enumerated scalar selection.
@@ -628,11 +632,40 @@ bool vtkEnumThreshold::HasValuesInEnumerationMap(double val)
 //    Added alwaysExclude and alwaysInclude values
 int vtkEnumThreshold::EvaluateComponents( vtkDataArray *scalars, vtkIdType id )
 {
-    int numComp = scalars->GetNumberOfComponents();
+    // Handle ByBitMask enum mode with vtkBitArray specially
+    if (enumMode == ByBitMask && scalars->GetDataType() == VTK_BIT)
+    {
+        vtkBitArray *bscalars = vtkBitArray::SafeDownCast(scalars);
 
-    double val = scalars->GetComponent(id, 0);
+        // vtkBitArray's GetPointer method won't work if the number of
+        // components is not a multiple of sizeof(unsigned char). Only 
+        // do this test once though for cell id zero.
+        if (id==0 && bscalars->GetNumberOfComponents()%sizeof(unsigned char)) 
+        {
+            vtkDebugMacro(<< "number of components for vtkBitArray "
+                << bscalars->GetNumberOfComponents() <<
+                " should be an even multiple of " << sizeof(unsigned char));
+            return 0;
+        }
+
+        // I think its strange we need to multiple 'id' here by num-comps
+        // in order for vtkBitArray::GetPointer to return a pointer to the
+        // correct set of unsigned chars. But, this method is not really too
+        // well defined for vtkBitArray in any case. For example, what happens
+        // if num-comps is NOT an even multiple of sizeof(unsigned char).
+        const int bpuc = sizeof(unsigned char)*8;
+        const unsigned char *bit_tuple = bscalars->GetPointer(id*bscalars->GetNumberOfComponents());
+        const unsigned char *mask_tuple = selectedEnumMaskBitArray->GetPointer(0);
+        for (int i = 0; i < bscalars->GetNumberOfComponents()/bpuc; i++)
+        {
+            if (bit_tuple[i] & mask_tuple[i]) return 1;
+        }
+        return 0;
+    }
 
     int keepCell = false;
+    double val = scalars->GetComponent(id, 0);
+
     if      (alwaysExcludeMin <= val && val <= alwaysExcludeMax)
         keepCell = false;
     else if (alwaysIncludeMin <= val && val <= alwaysIncludeMax)
@@ -666,7 +699,7 @@ void vtkEnumThreshold::PrintSelf(ostream& os, vtkIndent indent)
 }
 
 
-//  Modifications:
+//  Modifications:  
 //    Jeremy Meredith, Tue Aug 22 16:20:41 EDT 2006
 //    Taken from 5.0.0.a vtkThreshold source, renamed to vtkEnumThreshold, and
 //    made it work on an enumerated scalar selection.
@@ -688,7 +721,7 @@ static int CompareRanges(const void *a, const void *b)
         return 0;
 }
 
-//  Modifications:
+//  Modifications:  
 //    Jeremy Meredith, Tue Aug 22 16:20:41 EDT 2006
 //    Taken from 5.0.0.a vtkThreshold source, renamed to vtkEnumThreshold, and
 //    made it work on an enumerated scalar selection.
@@ -734,15 +767,29 @@ void vtkEnumThreshold::SetEnumerationSelection(const std::vector<bool> &sel)
             }
 
             //
-            // Build the enumeration map (and enum mask for ByBitMask mode)
+            // Build the enumeration map (and enum mask & bitarray for ByBitMask mode)
+            // We use a tiny vtkBitArray to manage the selection mask to ensure indexing
+            // logic remains consistent with the scalar variable.
             //
+            const int bpuc = sizeof(unsigned char)*8;
             selectedEnumMask = 0;
+            if (selectedEnumMaskBitArray) selectedEnumMaskBitArray->Delete();
+            selectedEnumMaskBitArray = vtkBitArray::New();
+            selectedEnumMaskBitArray->SetNumberOfComponents(((enumerationRanges.size()/2+bpuc-1)/bpuc)*bpuc);
+            selectedEnumMaskBitArray->SetNumberOfTuples(1);
+            memset(selectedEnumMaskBitArray->GetVoidPointer(0), 0,
+                   selectedEnumMaskBitArray->GetSize()/bpuc);
+
             for (size_t i=0; i<enumerationRanges.size(); i += 2)
             {
                 if (sel[i/2])
                 {
                     if (enumMode == ByBitMask)
-                        selectedEnumMask |= (((unsigned long long)1)<<(i/2));
+                    {
+                        if ((i/2) < sizeof(unsigned long long)*8)
+                            selectedEnumMask |= (((unsigned long long)1)<<(i/2));
+                        selectedEnumMaskBitArray->SetComponent(0, i/2, 1);
+                    }
                     else
                         enumerationMap[int(enumerationRanges[i]-minEnumerationValue)] = 1;
                 }

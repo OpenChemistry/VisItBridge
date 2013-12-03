@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -314,6 +314,9 @@ vtkCellIntersections::PolyLineIntersectWithLine(vtkPolyLine *cell, double p1[3],
 //   If the line is coplanar with the triangle, and we should test for
 //   intersection in this case, call EdgeLineIsect. 
 //
+//   Hank Childs, Fri Mar  2 15:18:17 PST 2012
+//   Add special handling for cases close to 0.  (Needed for 2D.)
+//
 // ****************************************************************************
 int
 vtkCellIntersections::TriangleIntersectWithLine(vtkTriangle *cell, 
@@ -381,6 +384,16 @@ vtkCellIntersections::TriangleIntersectWithLine(vtkTriangle *cell,
   for (i = 0; i < 3; i++)
     {
     x[i] = p1[i] + (dt*rayDir[i]);
+    }
+  if (fabs(dt-0.5) < 1e-7)
+    {
+    double mag = sqrt(rayDir[0]*rayDir[0]+rayDir[1]*rayDir[1]+rayDir[2]*rayDir[2]);
+    if (mag > 1e-3)
+      {
+      for (i = 0 ; i < 3 ; i++)
+        if (fabs(x[i]) < 1e-10)
+          x[i] = 0.;
+      }
     }
   t = vtkMath::Distance2BetweenPoints(p1, x);
 
@@ -589,7 +602,6 @@ vtkCellIntersections::QuadIntersectWithLine(vtkQuad *cell, double p1[3],
   // no matter where the diagonal). In this case use the point ids as 
   // a tie breaker to insure unique triangulation across the quad.
   //
-  double dist = VTK_DOUBLE_MAX;
   int i, intersection = 0;
 
   for (int diagCase = 0; diagCase < 4; diagCase++)

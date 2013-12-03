@@ -18,17 +18,33 @@
 #ifndef VS_FILE_FORMAT_H
 #define VS_FILE_FORMAT_H
 
-#include <VsH5Reader.h>
+#include <vtkUnsignedCharArray.h>
+#include <vtkPoints.h>
+#include <VsH5Dataset.h>
+//#include <VsH5Reader.h>
 #include <avtSTMDFileFormat.h>
 #include <hdf5.h>
 #include <visit-hdf5.h>
 
+#include <string>
+#include <vector>
+
 // Forward references to minimize compilation
+class DBOptionsAttributes;
+class vtkPoints;
+class vtkUnsignedCharArray;
 class vtkDataSet;
 class vtkDataArray;
 class avtDatabaseMetaData;
 class avtMeshMetaData;
-class DBOptionsAttributes;
+class VsVariableWithMesh;
+class VsUnstructuredMesh;
+class VsUniformMesh;
+class VsStructuredMesh;
+class VsRectilinearMesh;
+class VsRegistry;
+class VsH5Reader;
+
 
 /**
  * avtSTMDFileFormat is a base class for multi-domain, single-time
@@ -46,10 +62,8 @@ class avtVsFileFormat: public avtSTMDFileFormat {
    * Construct a file reader from a data file.
    *
    * @param dfnm the name of the data file
-   * @param readOpts The db options that holds the stride to use when loading data
    */
-  avtVsFileFormat(const char* dfnm, DBOptionsAttributes *readOpts);
-
+  avtVsFileFormat(const char*, DBOptionsAttributes *);
 
   /**
    * Destructor
@@ -64,6 +78,21 @@ class avtVsFileFormat: public avtSTMDFileFormat {
   virtual const char* GetType(void) {
     return "Vs";
   };
+
+  virtual std::string CreateCacheNameIncludingSelections(std::string s);
+
+  /**
+   * Get the data selections
+   *
+   */
+  virtual void RegisterDataSelections( const std::vector<avtDataSelection_p> &sels,
+                                       std::vector<bool> *selectionsApplied );
+
+  /**
+   * Process the data selections
+   *
+   */
+  bool ProcessDataSelections(int *mins, int *maxs, int *strides);
 
   /**
    * Get a mesh by name
@@ -90,15 +119,50 @@ class avtVsFileFormat: public avtSTMDFileFormat {
    */
   virtual void FreeUpResources(void);
 
+  /**
+   * Called to alert the database reader that VisIt is about to ask for data
+   * at this timestep.  Since this reader is single-time, this is 
+   * only provided for reference and does nothing.
+   */
+  virtual void ActivateTimestep(void);
+  
+  /**
+   * Updates cycles and times in the given database metadata object
+   * Deprecated 06.02.2011 in favor of GetCycle and GetTime
+   * Marc Durant
+   */
+  virtual void UpdateCyclesAndTimes(avtDatabaseMetaData* md);
+  
   protected:
+  /**
+   * Determines if the associated file has a valid cycle number
+   * @return true if cycle is valid, otherwise false
+   */
+  virtual bool ReturnsValidCycle();
+
+  /**
+   * Get the cycle for the associated file
+   * @return the cycle, or INVALID_CYCLE if none is available
+   */
+  virtual int GetCycle();
+
+  /**
+   * Determines if the associated file has a valid time
+   * @return true if time is valid, otherwise false
+   */
+  virtual bool ReturnsValidTime();
+
+  /**
+   * Get the time for the associated file
+   * @return the time, or INVALID_TIME if none is available
+   */
+  virtual double GetTime();
+
   /** Populate the meta data */
   virtual void PopulateDatabaseMetaData(avtDatabaseMetaData* md);
 
   /** The file containing the data */
   std::string dataFileName;
-
-  /** Reference to our stream for debugging information */
-  std::ostream& debugStrmRef;
 
   /** Pointer to the reader */
   VsH5Reader* reader;
@@ -108,11 +172,25 @@ class avtVsFileFormat: public avtSTMDFileFormat {
 
   private:
   /**
-   * A user-specified setting for the stride to use when loading data.
-   * Default is 1 on all axes.
+   * A counter to track the number of avtVsFileFormat objects in existence
    */
-  std::vector<int> stride;
+  static int instanceCounter;
 
+  /**
+   * A registry of all objects found in the data file
+   */
+  VsRegistry* registry;
+
+  /** Some stuff to keep track of data selections */
+  std::vector<avtDataSelection_p> selList;
+  std::vector<bool>              *selsApplied;
+
+  bool processDataSelections;
+
+  /**
+   * Maintain a list of curve names so we can classify expressions better
+   */
+  std::vector<std::string> curveNames;
 
   /**
    * Set the axis labels for a mesh.
@@ -124,14 +202,11 @@ class avtVsFileFormat: public avtSTMDFileFormat {
   /**
    * Create various meshes.
    */
-  vtkDataSet* getUniformMesh(const std::string& nm, const VsMeshMeta&);
-  vtkDataSet* getUnstructuredMesh(const std::string& nm, const VsMeshMeta&);
-  vtkDataSet* getRectilinearMesh(const std::string& name, const VsMeshMeta&);
-  vtkDataSet* getStructuredMesh(const std::string& nm, const VsMeshMeta&);
-  vtkDataSet* getPointMesh(const std::string& name,
-      const VsVariableWithMeshMeta& meta);
-  vtkDataSet* getSplitPointMesh(const std::string& name,
-      const VsUnstructuredMesh& meta);
+  vtkDataSet* getUniformMesh(VsUniformMesh*, bool, int*, int*, int*);
+  vtkDataSet* getRectilinearMesh(VsRectilinearMesh*, bool, int*, int*, int*, bool);
+  vtkDataSet* getStructuredMesh(VsStructuredMesh*, bool, int*, int*, int*);
+  vtkDataSet* getUnstructuredMesh(VsUnstructuredMesh*, bool, int*, int*, int*);
+  vtkDataSet* getPointMesh(VsVariableWithMesh*, bool, int*, int*, int*, bool);
   vtkDataSet* getCurve(int domain, const std::string& name);
 
   /**
@@ -144,10 +219,38 @@ class avtVsFileFormat: public avtSTMDFileFormat {
   void RegisterVars(avtDatabaseMetaData* md);
   void RegisterMdVars(avtDatabaseMetaData* md);
   void RegisterExpressions(avtDatabaseMetaData* md);
+
+  void GetSelectionBounds( int numTopologicalDims,
+                           std::vector<int> &numCells,
+                           std::vector<int> &gdims,
+                           int *mins,
+                           int *maxs,
+                           int *strides,
+                           bool haveDataSelections,
+                           bool isNodal = true );
+
+  bool GetParallelDecomp( int numTopologicalDims,
+                          std::vector<int> &dims,
+                          int *mins,
+                          int *maxs,
+                          int *strides,
+                          bool isNodal = true );
+  
+  template <typename TYPE>
+  void fillInMaskNodeArray(const std::vector<int>& gdims,
+                           VsH5Dataset *mask, bool maskIsFortranOrder,
+                           vtkUnsignedCharArray *maskedNodes);
+
+  template <typename TYPE>
+    void setStructuredMeshCoords(const std::vector<int>& gdims,
+                                 const TYPE* dataPtr,
+                                 bool isFortranOrder,
+                                 vtkPoints* vpoints);
+
+
 #else
   avtVsFileFormat(const char* dfnm) : avtSTMDFileFormat(&dfnm, 1) {;};
 #endif
 };
 
 #endif
-

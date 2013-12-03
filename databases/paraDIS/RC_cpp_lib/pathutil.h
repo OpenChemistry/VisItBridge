@@ -1,17 +1,8 @@
-#include <visit-config.h>
+#ifndef RDC_PATHUTIL_H
+#define RDC_PATHUTIL_H
 #include "stringutil.h"
-#ifdef HAVE_UNISTD_H
-#  include <unistd.h>
-#elif defined(WIN32)
-#  include <direct.h>
-#  define WINDOWS_LEAN_AND_MEAN
-#  include <windows.h>
-#  ifndef PATH_MAX
-#    define PATH_MAX MAX_PATH
-#  endif
-#endif
-#include <limits.h>
 
+#include <limits.h>
 //===============================================================
 /*!
   Returns the full path to the directory containing the given file or directory, without the trailing "/", unless the result is "/" itself.  
@@ -57,5 +48,8 @@ inline string Basename(string filename) {
   if (loc == string::npos) {
     return filename; 
   } 
-  return filename.substr(loc); 
+  string filename2 = filename.substr(loc+1); 
+  
+  return filename2; 
 }
+#endif

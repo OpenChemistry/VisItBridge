@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -190,9 +190,9 @@ avtDataObjectString::Append(char *s, int sN, APPEND_ACTION_ITEM os)
 void
 avtDataObjectString::GetString(int n, char *&s, int &l)
 {
-    if (n < 0 || n >= strs.size())
+    if (n < 0 || n >= (int)strs.size())
     {
-        EXCEPTION2(BadIndexException, n, strs.size());
+        EXCEPTION2(BadIndexException, n, (int)strs.size());
     }
 
     s = strs[n];

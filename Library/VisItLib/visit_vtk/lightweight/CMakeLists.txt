@@ -43,6 +43,10 @@ SET(LIGHTWEIGHT_VISIT_VTK_SOURCES
 ClipCasesHex.C
 ClipCasesLin.C
 ClipCasesPix.C
+ClipCasesPoly5.C
+ClipCasesPoly6.C
+ClipCasesPoly7.C
+ClipCasesPoly8.C
 ClipCasesPyr.C
 ClipCasesQua.C
 ClipCasesTet.C

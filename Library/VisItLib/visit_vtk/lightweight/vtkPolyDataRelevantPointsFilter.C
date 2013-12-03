@@ -7,7 +7,7 @@
   Version:   $Revision: 1.54 $
 
 
-Copyright (c) 1993-2000 Ken Martin, Will Schroeder, Bill Lorensen
+Copyright (c) 1993-2000 Ken Martin, Will Schroeder, Bill Lorensen 
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =========================================================================*/
 #include "vtkPolyDataRelevantPointsFilter.h"
+
 #include <vtkCellArray.h>
 #include <vtkCellData.h>
 #include <vtkInformation.h>
@@ -50,16 +51,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 //-----------------------------------------------------------------------------
 // Modifications:
-//   Kathleen Bonnell, Wed Mar  6 15:14:29 PST 2002
+//   Kathleen Bonnell, Wed Mar  6 15:14:29 PST 2002 
 //   Replace 'New' method with Macro to match VTK 4.0 API.
 //-----------------------------------------------------------------------------
 
 vtkStandardNewMacro(vtkPolyDataRelevantPointsFilter);
 
-
 // ***************************************************************************
 //  Modifications:
-//
 //    Kathleen Bonnell, Mon Oct 29 13:22:36 PST 2001
 //    Make cells of type vtkIdType to match VTK 4.0 API.
 //
@@ -76,42 +75,48 @@ vtkStandardNewMacro(vtkPolyDataRelevantPointsFilter);
 //    Brad Whitlock, Mon Apr 4 11:34:03 PDT 2005
 //    Added support for cells that have more than 1024 points.
 //
+//    Brad Whitlock, Wed Mar 21 12:29:53 PDT 2012
+//    Support for double coordinates.
+//
+//    Eric Brugger, Wed Jan  9 13:15:08 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
 // ****************************************************************************
 
-int vtkPolyDataRelevantPointsFilter::RequestData(vtkInformation *vtkNotUsed(request),
-                                                 vtkInformationVector **inputVector,
-                                                 vtkInformationVector *outputVector )
+int vtkPolyDataRelevantPointsFilter::RequestData(
+  vtkInformation *vtkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *outputVector)
 {
-  int   i, j, k;
+  // get the info objects
+  vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
+  vtkInformation *outInfo = outputVector->GetInformationObject(0);
 
   //
   // Initialize some frequently used values.
   //
-
-  vtkInformation* inInfo = inputVector[0]->GetInformationObject(0);
-  vtkInformation* outInfo = outputVector->GetInformationObject(0);
-  
-  vtkPolyData  *input  = vtkPolyData::SafeDownCast(
+  vtkPolyData  *input = vtkPolyData::SafeDownCast(
     inInfo->Get(vtkDataObject::DATA_OBJECT()));
-  vtkPolyData  *output = vtkPolyData::SafeDownCast(
+  vtkPolyData *output = vtkPolyData::SafeDownCast(
     outInfo->Get(vtkDataObject::DATA_OBJECT()));
-  vtkPoints *inPts  = input->GetPoints();
-  int numPts        = input->GetNumberOfPoints();
-  int numCells      = input->GetNumberOfCells();
 
+  vtkPoints *inPts     = input->GetPoints();
+  vtkIdType numPts     = input->GetNumberOfPoints();
+  vtkIdType numCells   = input->GetNumberOfCells();
+  
   //
   // Sanity checks
   //
   vtkDebugMacro(<<"Beginning PolyData Relevant Points Filter ");
   if (input == NULL) {
       vtkErrorMacro(<<"Input is NULL");
-      return 0;
+      return 1;
   }
   if ( (numPts<1) || (inPts == NULL ) ) {
       vtkErrorMacro(<<"No data to Operate On!");
-      return 0;
+      return 1;
   }
-
+ 
   //
   // The cells will be largely unaffected, so pass them straight through.
   //
@@ -119,7 +124,7 @@ int vtkPolyDataRelevantPointsFilter::RequestData(vtkInformation *vtkNotUsed(requ
   vtkCellData  *inputCD  = input->GetCellData();
   vtkCellData  *outputCD = output->GetCellData();
   outputCD->PassData(inputCD);
-
+  
   //
   // First set up some of the constructs that will be used to create a mapping
   // between the old point indices and the new point indices.
@@ -127,7 +132,7 @@ int vtkPolyDataRelevantPointsFilter::RequestData(vtkInformation *vtkNotUsed(requ
   int numNewPts = 0;
   int *oldToNew = new int[numPts];
   int *newToOld = new int[numPts];
-  for (i = 0; i < numPts; i++)
+  for (vtkIdType i = 0; i < numPts; i++)
     {
     oldToNew[i] = -1;
     }
@@ -142,14 +147,14 @@ int vtkPolyDataRelevantPointsFilter::RequestData(vtkInformation *vtkNotUsed(requ
   // Create a mapping as we go of old points to new points and another one of
   // new points to old points.
   //
-  for (i = 0 ; i < 4 ; i++)
+  for (int i = 0 ; i < 4 ; i++)
     {
-    int ncells = arrays[i]->GetNumberOfCells();
+    vtkIdType ncells = arrays[i]->GetNumberOfCells();
     vtkIdType *ptr = arrays[i]->GetPointer();
-    for (j = 0 ; j < ncells ; j++)
+    for (vtkIdType j = 0 ; j < ncells ; j++)
       {
       int npts = *ptr++;
-      for (k = 0 ; k < npts ; k++)
+      for (int k = 0 ; k < npts ; k++)
         {
         int oldPt = *ptr++;
         if (oldToNew[oldPt] == -1)
@@ -164,10 +169,8 @@ int vtkPolyDataRelevantPointsFilter::RequestData(vtkInformation *vtkNotUsed(requ
 
   //
   // Now create a new vtkPoints construct that reflects the mapping we created.
-  // This is a bit ugly (re: pointer arithmetic) in the interest of
-  // performance.
   //
-  vtkPoints *newPts = vtkPoints::New();
+  vtkPoints *newPts = vtkPoints::New(inPts->GetDataType());
   newPts->SetNumberOfPoints(numNewPts);
   vtkPointData *inputPD = input->GetPointData();
   vtkPointData *outputPD = output->GetPointData();
@@ -176,15 +179,40 @@ int vtkPolyDataRelevantPointsFilter::RequestData(vtkInformation *vtkNotUsed(requ
     {
     outputPD->CopyAllocate(inputPD, numNewPts);
     }
-  float *in_ptr = (float *) inPts->GetVoidPointer(0);
-  float *out_ptr = (float *) newPts->GetVoidPointer(0);
-  int out_index = 0;
-  for (i = 0 ; i < numNewPts ; i++)
+  if(inPts->GetDataType() == VTK_FLOAT)
     {
-    int in_index  = 3*newToOld[i];
-    out_ptr[out_index++] = in_ptr[in_index++];
-    out_ptr[out_index++] = in_ptr[in_index++];
-    out_ptr[out_index++] = in_ptr[in_index];
+    const float *in_ptr = (const float *) inPts->GetVoidPointer(0);
+    float *out_ptr = (float *) newPts->GetVoidPointer(0);
+    for (vtkIdType i = 0 ; i < numNewPts ; i++)
+      {
+      const float *src = in_ptr + 3*newToOld[i];
+      *out_ptr++ = src[0];
+      *out_ptr++ = src[1];
+      *out_ptr++ = src[2];
+      }
+    }
+  else if(inPts->GetDataType() == VTK_DOUBLE)
+    {
+    const double *in_ptr = (const double *) inPts->GetVoidPointer(0);
+    double *out_ptr = (double *) newPts->GetVoidPointer(0);
+    for (vtkIdType i = 0 ; i < numNewPts ; i++)
+      {
+      const double *src = in_ptr + 3*newToOld[i];
+      *out_ptr++ = src[0];
+      *out_ptr++ = src[1];
+      *out_ptr++ = src[2];
+      }
+    }
+  else
+    {
+    for (vtkIdType i = 0 ; i < numNewPts ; i++)
+      {
+      newPts->SetPoint(i, inPts->GetPoint(newToOld[i]));
+      }
+    }
+
+  for (vtkIdType i = 0 ; i < numNewPts ; i++)
+    {
     if (havePointVars)
       {
       outputPD->CopyData(inputPD, newToOld[i], i);
@@ -202,7 +230,7 @@ int vtkPolyDataRelevantPointsFilter::RequestData(vtkInformation *vtkNotUsed(requ
   vtkIdType *oldPts = NULL;
   vtkIdType nids = 0;
   input->BuildCells();
-  for (i = 0; i < numCells; i++)
+  for (vtkIdType i = 0; i < numCells; i++) 
     {
     input->GetCellPoints(i, nids, oldPts);
     if(nids > nIdStoreSize)
@@ -212,7 +240,7 @@ int vtkPolyDataRelevantPointsFilter::RequestData(vtkInformation *vtkNotUsed(requ
       pts = new vtkIdType[nIdStoreSize];
       }
     int cellType = input->GetCellType(i);
-    for (j = 0; j < nids; j++)
+    for (vtkIdType j = 0; j < nids; j++)
       {
       pts[j] = oldToNew[oldPts[j]];
       }
@@ -221,11 +249,12 @@ int vtkPolyDataRelevantPointsFilter::RequestData(vtkInformation *vtkNotUsed(requ
   delete [] pts;
   delete [] oldToNew;
   delete [] newToOld;
+
   return 1;
 }
 
 //-----------------------------------------------------------------------------
-void vtkPolyDataRelevantPointsFilter::PrintSelf(ostream& os, vtkIndent indent)
+void vtkPolyDataRelevantPointsFilter::PrintSelf(ostream& os, vtkIndent indent) 
 {
   this->Superclass::PrintSelf(os,indent);
 }

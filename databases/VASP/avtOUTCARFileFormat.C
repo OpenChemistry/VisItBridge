@@ -45,6 +45,12 @@ using std::vector;
 //    Jeremy Meredith, Tue Mar 10 17:42:52 EDT 2009
 //    Initialize potim.
 //
+//    Jeremy Meredith, Thu Aug 12 16:26:24 EDT 2010
+//    Allowed per-cycle changes in unit cell vectors.
+//
+//    Jeremy Meredith, Tue Oct 19 12:59:24 EDT 2010
+//    Added support for optional velocities.
+//
 // ****************************************************************************
 
 avtOUTCARFileFormat::avtOUTCARFileFormat(const char *fn)
@@ -55,13 +61,11 @@ avtOUTCARFileFormat::avtOUTCARFileFormat(const char *fn)
 
     metadata_read = false;
     has_magnetization = false;
+    has_velocities = false;
 
     natoms = 0;
     ntimesteps = 0;
     potim = 1.0; // delta-t per timestep
-    unitCell[0][0] = 1;    unitCell[0][1] = 0;    unitCell[0][2] = 0;
-    unitCell[1][0] = 0;    unitCell[1][1] = 1;    unitCell[1][2] = 0;
-    unitCell[2][0] = 0;    unitCell[2][1] = 0;    unitCell[2][2] = 1;
 }
 
 
@@ -149,6 +153,12 @@ avtOUTCARFileFormat::OpenFileAtBeginning()
 //    Only add the force vector if we're adding the force variables.
 //    Changed the way cycles and times were added.
 //
+//    Jeremy Meredith, Thu Aug 12 16:26:24 EDT 2010
+//    Allowed per-cycle changes in unit cell vectors.
+//
+//    Jeremy Meredith, Tue Oct 19 12:59:24 EDT 2010
+//    Added support for optional velocities.
+//
 // ****************************************************************************
 
 void
@@ -160,18 +170,24 @@ avtOUTCARFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int ts)
                                                3, 0,
                                                AVT_POINT_MESH);
     mmd->nodesAreCritical = true;
-    for (int i=0; i<9; i++)
+    if (unitCell.size() > ts)
     {
-        mmd->unitCellVectors[i] = unitCell[i/3][i%3];
+        for (int i=0; i<9; i++)
+        {
+            mmd->unitCellVectors[i] = unitCell[ts][i/3][i%3];
+        }
     }
     md->Add(mmd);
 
     avtMeshMetaData *mmd_bbox = new avtMeshMetaData("unitCell", 1, 0,0,0,
                                                     3, 1,
                                                     AVT_UNSTRUCTURED_MESH);
-    for (int i=0; i<9; i++)
+    if (unitCell.size() > ts)
     {
-        mmd_bbox->unitCellVectors[i] = unitCell[i/3][i%3];
+        for (int i=0; i<9; i++)
+        {
+            mmd_bbox->unitCellVectors[i] = unitCell[ts][i/3][i%3];
+        }
     }
     md->Add(mmd_bbox);
 
@@ -195,6 +211,18 @@ avtOUTCARFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int ts)
         forcevec_expr.SetDefinition("{fx, fy, fz}");
         forcevec_expr.SetType(Expression::VectorMeshVar);
         md->AddExpression(&forcevec_expr);
+    }
+    if (has_velocities)
+    {
+        AddScalarVarToMetaData(md, "vx", "mesh", AVT_NODECENT);
+        AddScalarVarToMetaData(md, "vy", "mesh", AVT_NODECENT);
+        AddScalarVarToMetaData(md, "vz", "mesh", AVT_NODECENT);
+
+        Expression velocityvec_expr;
+        velocityvec_expr.SetName("velocity");
+        velocityvec_expr.SetDefinition("{vx, vy, vz}");
+        velocityvec_expr.SetType(Expression::VectorMeshVar);
+        md->AddExpression(&velocityvec_expr);
     }
     if (has_magnetization)
     {
@@ -229,8 +257,11 @@ avtOUTCARFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int ts)
 //  Creation:   August 29, 2006
 //
 //  Modifications:
-//    Kathleen Bonnell, Mon Jul 14 16:01:32 PDT 2008
-//    Specify curves as 1D rectilinear grids with y values stored in point data.
+//   Kathleen Bonnell, Mon Jul 14 16:01:32 PDT 2008
+//   Specify curves as 1D rectilinear grids with y values stored in point data.
+//
+//   Jeremy Meredith, Thu Aug 12 16:26:24 EDT 2010
+//   Allowed per-cycle changes in unit cell vectors.
 //
 // ****************************************************************************
 
@@ -253,9 +284,9 @@ avtOUTCARFileFormat::GetMesh(int ts, const char *name)
             {
                 if (j & (1<<axis))
                 {
-                    x += unitCell[axis][0];
-                    y += unitCell[axis][1];
-                    z += unitCell[axis][2];
+                    x += unitCell[ts][axis][0];
+                    y += unitCell[ts][axis][1];
+                    z += unitCell[ts][axis][2];
                 }
             }
             pts->SetPoint(j, x,y,z);
@@ -357,6 +388,9 @@ avtOUTCARFileFormat::GetMesh(int ts, const char *name)
 //    Jeremy Meredith, Fri Apr 20 15:01:36 EDT 2007
 //    Added support for magnetization fields.
 //
+//    Jeremy Meredith, Tue Oct 19 12:59:24 EDT 2010
+//    Added support for optional velocities.
+//
 // ****************************************************************************
 
 vtkDataArray *
@@ -411,6 +445,42 @@ avtOUTCARFileFormat::GetVar(int ts, const char *varname)
         for (int i=0; i<natoms; i++)
         {
             ptr[i] = atoms[i].fz;
+        }
+        return scalars;
+    }
+
+    if (string(varname) == "vx")
+    {
+        vtkFloatArray *scalars = vtkFloatArray::New();
+        scalars->SetNumberOfTuples(atoms.size());
+        float *ptr = (float *) scalars->GetVoidPointer(0);
+        for (int i=0; i<natoms; i++)
+        {
+            ptr[i] = atoms[i].vx;
+        }
+        return scalars;
+    }
+
+    if (string(varname) == "vy")
+    {
+        vtkFloatArray *scalars = vtkFloatArray::New();
+        scalars->SetNumberOfTuples(atoms.size());
+        float *ptr = (float *) scalars->GetVoidPointer(0);
+        for (int i=0; i<natoms; i++)
+        {
+            ptr[i] = atoms[i].vy;
+        }
+        return scalars;
+    }
+
+    if (string(varname) == "vz")
+    {
+        vtkFloatArray *scalars = vtkFloatArray::New();
+        scalars->SetNumberOfTuples(atoms.size());
+        float *ptr = (float *) scalars->GetVoidPointer(0);
+        for (int i=0; i<natoms; i++)
+        {
+            ptr[i] = atoms[i].vz;
         }
         return scalars;
     }
@@ -585,6 +655,19 @@ avtOUTCARFileFormat::GetNTimesteps(void)
 //    Jeremy Meredith, Mon May 10 18:01:23 EDT 2010
 //    Don't assume short line lengths.
 //
+//    Jeremy Meredith, Tue Aug 10 12:09:19 EDT 2010
+//    Check string length so we don't compare garbage.  Avoid UMR.
+//
+//    Jeremy Meredith, Thu Aug 12 16:26:24 EDT 2010
+//    Allowed per-cycle changes in unit cell vectors.
+//
+//    Jeremy Meredith, Tue Oct 19 12:59:24 EDT 2010
+//    Added support for optional velocities.
+//
+//    Jeremy Meredith, Tue Oct 19 17:02:28 EDT 2010
+//    Velocities are actually now written after the positions/forces
+//    with their own header.
+//
 // ****************************************************************************
 void
 avtOUTCARFileFormat::ReadAllMetaData()
@@ -599,7 +682,6 @@ avtOUTCARFileFormat::ReadAllMetaData()
     char line[4096];
     in.getline(line, 4096);
 
-    bool read_lattice = false;
     bool all_ions_read = false;
     int nions_doublecheck = -1;
 
@@ -622,6 +704,20 @@ avtOUTCARFileFormat::ReadAllMetaData()
         {
             file_positions.push_back(in.tellg());
             ntimesteps++;
+
+            // detect how many vals per line
+            in.getline(line, 4096); // skip the separator
+            in.getline(line, 4096); // get the value line
+            float d1,d2,d3,d4,d5,d6,d7,d8,d9;
+            int n = sscanf(line, "%f %f %f %f %f %f %f %f %f",
+                           &d1,&d2,&d3,&d4,&d5,&d6,&d7,&d8,&d9);
+            if (n != 6)
+                EXCEPTION2(InvalidFilesException, filename.c_str(),
+                           "Expected 6 values per atom line.");
+        }
+        else if (!strncmp(line," VELOCITIES",11))
+        {
+            has_velocities = true;
         }
         /*
           NOT SURE WHY, BUT THESE ARE IN THE WRONG ORDER AND NEGATIVE
@@ -649,23 +745,30 @@ avtOUTCARFileFormat::ReadAllMetaData()
             unitCell[2][1] = atof(s.substr(23,15).c_str());
             unitCell[2][2] = atof(s.substr(39,15).c_str());
         }*/
-        else if (read_lattice == false &&
-                 !strncmp(line,"      direct lattice vectors",28))
+        else if (!strncmp(line,"      direct lattice vectors",28))
         {
+            UCV uctmp;
             float tmp;
-            in >> unitCell[0][0];
-            in >> unitCell[0][1];
-            in >> unitCell[0][2];
+            in >> uctmp[0][0];
+            in >> uctmp[0][1];
+            in >> uctmp[0][2];
             in >> tmp >> tmp >> tmp;
-            in >> unitCell[1][0];
-            in >> unitCell[1][1];
-            in >> unitCell[1][2];
+            in >> uctmp[1][0];
+            in >> uctmp[1][1];
+            in >> uctmp[1][2];
             in >> tmp >> tmp >> tmp;
-            in >> unitCell[2][0];
-            in >> unitCell[2][1];
-            in >> unitCell[2][2];
+            in >> uctmp[2][0];
+            in >> uctmp[2][1];
+            in >> uctmp[2][2];
             in >> tmp >> tmp >> tmp;
-            read_lattice = true;
+            if (unitCell.size() <= ntimesteps)
+            {
+                unitCell.push_back(uctmp);
+            }
+            else
+            {
+                unitCell[ntimesteps] = uctmp;
+            }
         }
         else if (!strncmp(line," magnetization (x)",18))
         {
@@ -748,7 +851,8 @@ avtOUTCARFileFormat::ReadAllMetaData()
             element_names.push_back(element);
             element_types.push_back(number);
         }
-        else if (!strncmp(line+58,"NIONS =",7))
+        else if (strlen(line) > 65 &&
+                 !strncmp(line+58,"NIONS =",7))
         {
             istringstream sin(line+65);
             string arg1;
@@ -862,6 +966,13 @@ avtOUTCARFileFormat::ReadAllMetaData()
 //    Jeremy Meredith, Mon May 10 18:01:23 EDT 2010
 //    Don't assume short line lengths.
 //
+//    Jeremy Meredith, Tue Oct 19 12:59:24 EDT 2010
+//    Added support for optional velocities.
+//
+//    Jeremy Meredith, Tue Oct 19 17:02:28 EDT 2010
+//    Velocities are actually now written after the positions/forces
+//    with their own header.
+//
 // ****************************************************************************
 void
 avtOUTCARFileFormat::ReadAtomsForTimestep(int timestep)
@@ -910,7 +1021,35 @@ avtOUTCARFileFormat::ReadAtomsForTimestep(int timestep)
                 a.elementtype_index = et_index;
                 in >> a.x  >> a.y  >> a.z;
                 in >> a.fx >> a.fy >> a.fz;
+                a.vx = a.vy = a.vz = 0.;
                 index++;
+            }
+        }
+
+        // the velocities appear after the positions/forces now
+        if (has_velocities)
+        {
+            in.getline(line, 4096);
+            int maxlines = 100, linectr = 0;
+            while (in && linectr < maxlines)
+            {
+                if (!strncmp(line," VELOCITIES",11))
+                {
+                    in.getline(line, 4096); // skip the separator
+                    for (int i = 0 ; i < natoms; i++)
+                    {
+                        in >> atoms[i].vx >> atoms[i].vy >> atoms[i].vz;
+                    }
+                    break;
+                }
+                linectr++;
+                in.getline(line, 4096);
+            }
+            if (linectr >= maxlines)
+            {
+                EXCEPTION2(InvalidFilesException, filename.c_str(),
+                           "Could not find velocities for time step within a "
+                           "reasonable number of lines after the positions.");
             }
         }
     }
@@ -941,6 +1080,7 @@ avtOUTCARFileFormat::ReadAtomsForTimestep(int timestep)
                 a.elementtype_index = et_index;
                 in >> a.x  >> a.y  >> a.z;
                 a.fx = a.fy = a.fz = 0.;
+                a.vx = a.vy = a.vz = 0.;
                 index++;
             }
         }

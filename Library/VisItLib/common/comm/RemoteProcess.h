@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -122,6 +122,27 @@ class Connection;
 //    Jeremy Meredith, Thu Feb 18 15:25:27 EST 2010
 //    Split HostProfile int MachineProfile and LaunchProfile.
 //
+//    Eric Brugger, Mon May  2 16:35:56 PDT 2011
+//    I added the ability to use a gateway machine when connecting to a
+//    remote host.
+//
+//    Eric Brugger, Mon Sep 26 16:40:20 PDT 2011
+//    I modified the remote launching to pass the remote user name to the
+//    ssh command to the gateway machine instead of to the ssh command to
+//    the remote machine.
+//
+//    Brad Whitlock, Fri Jan 13 14:55:55 PST 2012
+//    I modifed the launching routines to handle SSH separately from the 
+//    regular command line so we can better support gateway machines with
+//    SSH tunneling.
+//
+//    Brad Whitlock, Tue Jun  5 17:23:25 PDT 2012
+//    Change Open so it takes a MachineProfile instead of a bunch of separate
+//    options.
+//
+//    Brad Whitlock, Wed Jun 13 11:12:25 PDT 2012
+//    I added KillProcess.
+//
 // ****************************************************************************
 
 class COMM_API RemoteProcess
@@ -129,47 +150,40 @@ class COMM_API RemoteProcess
 public:
     RemoteProcess(const std::string &rProgram);
     virtual ~RemoteProcess();
-    virtual bool Open(const std::string &rHost,
-                      MachineProfile::ClientHostDetermination chd,
-                      const std::string &clientHostName,
-                      bool manualSSHPort,
-                      int sshPort,
-                      bool useTunneling,
+    virtual bool Open(const MachineProfile &profile,
                       int numRead, int numWrite,
                       bool createAsThoughLocal = false);
     void WaitForTermination();
     void AddArgument(const std::string &arg);
-    void SetRemoteUserName(const std::string &rUserName);
+
     const std::string &GetLocalHostName() const;
     const std::string &GetLocalUserName() const;
     Connection *GetReadConnection(int i=0) const;
     Connection *GetWriteConnection(int i=0) const;
     int  GetProcessId() const;
     void SetProgressCallback(bool (*)(void *, int), void *);
-#if defined(PANTHERHACK)
-// Broken on Panther
-#else
     std::map<int,int> GetPortTunnelMap() { return portTunnelMap; }
-#endif
 
-    static void SetAuthenticationCallback(void (*)(const char *, const char *, int));    
+    static void SetAuthenticationCallback(void (*)(const char *, const char *, int));
+    static void SetChangeUserNameCallback(bool (*)(const std::string &,std::string&));
     static void DisablePTY();
+    static void SetCustomConnectionCallback(Connection* (*)(int, void *), void* cbData);
 protected:
-    bool StartMakingConnection(const std::string &rHost, int numRead,
-                               int numWrite);
+    bool StartMakingConnection(const std::string &remoteHost, int numRead, int numWrite);
     void FinishMakingConnection(int numRead, int numWrite);
     const char *SecureShell() const;
     const char *SecureShellArgs() const;
     bool CallProgressCallback(int stage);
     bool HostIsLocal(const std::string &rHost) const;
-    void CreateCommandLine(stringVector &args, const std::string &rHost,
-                           MachineProfile::ClientHostDetermination chd,
-                           const std::string &clientHostName,
-                           bool manualSSHPort,
-                           int sshPort, bool useTunneling,
-                           int numRead, int numWrite, bool local);
-    virtual void Launch(const std::string &rHost, bool createAsThoughLocal,
-                        const stringVector &commandLine);
+    void CreatePortNumbers(int *local, int *remote, int *gateway, int nPorts) const;
+    void CreateSSHCommandLine(stringVector &args, const MachineProfile &profile);
+    void CreateCommandLine(stringVector &args, const MachineProfile &profile, 
+                           int numRead, int numWrite);
+    virtual void Launch(const stringVector &);
+    void LaunchLocal(const stringVector &);
+    void LaunchRemote(const std::string &host, const std::string &remoteUserName, 
+                      const stringVector &);
+    void KillProcess();
 protected:
     int                      listenPortNum;
     std::string              localHost, localUserName;
@@ -181,29 +195,26 @@ private:
     int  MultiThreadedAcceptSocket();
     void CloseListenSocket();
     void ExchangeTypeRepresentations();
-    void LaunchRemote(const stringVector &args);
-    void LaunchLocal(const stringVector &args);
     char **CreateSplitCommandLine(const stringVector &args, int &argc) const;
     void DestroySplitCommandLine(char **args, int argc) const;
     char *StrDup(const std::string &) const;
 private:
     DESCRIPTOR               listenSocketNum;
     struct sockaddr_in       sin;
-    std::string              remoteHost, remoteProgram, remoteUserName;
+    std::string              remoteProgram;
     std::vector<std::string> argList;
     int                      remoteProgramPid;
     Connection             **readConnections, **writeConnections;
     int                      nReadConnections, nWriteConnections;
     bool                   (*progressCallback)(void *, int);
     void                    *progressCallbackData;
-#if defined(PANTHERHACK)
-// Broken on Panther
-#else
     std::map<int,int>        portTunnelMap;
-#endif
 
     static void            (*getAuthentication)(const char *, const char *, int);
+    static bool            (*changeUsername)(const std::string &, std::string&);
     static bool              disablePTY;
+    static Connection*     (*customConnectionCallback)(int,void*);
+    static void             *customConnectionCallbackData;
 };
 
 #endif

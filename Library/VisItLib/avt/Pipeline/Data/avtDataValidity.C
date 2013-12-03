@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -47,6 +47,10 @@
 #include <avtWebpage.h>
 
 #include <cstring>
+
+#include <string>
+
+using std::string;
 
 // ****************************************************************************
 //  Method: avtDataValidity constructor
@@ -415,10 +419,10 @@ avtDataValidity::Write(avtDataObjectString &str,
     vals[15]= (queryable ? 1 : 0);
     vals[16]= (hasEverOwnedAnyDomain ? 1 : 0);
     vals[17]= (errorOccurred ? 1 : 0);
-    vals[18]= errorString.size();
+    vals[18]= static_cast<int>(errorString.size());
     wrtr->WriteInt(str, vals, numVals);
 
-    str.Append((char *) errorString.c_str(), errorString.size(),
+    str.Append((char *) errorString.c_str(), static_cast<int>(errorString.size()),
                      avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY); 
 }
 
@@ -659,6 +663,8 @@ avtDataValidity::DebugDump(avtWebpage *webpage)
                             YesOrNo(originalZonesIntact));
     webpage->AddTableEntry2("Is the spatial meta data preserved?", 
                             YesOrNo(spatialMetaDataPreserved));
+    webpage->AddTableEntry2("Is the data meta data preserved?", 
+                            YesOrNo(dataMetaDataPreserved));
     webpage->AddTableEntry2("Has an operation failed?",
                             YesOrNo(operationFailed));
     webpage->AddTableEntry2("The pipeline is using all of the data",

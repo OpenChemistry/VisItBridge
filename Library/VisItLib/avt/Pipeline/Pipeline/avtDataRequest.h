@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -205,6 +205,18 @@ typedef ref_ptr<avtDataRequest> avtDataRequest_p;
 //    Jeremy Meredith, Fri Feb 13 11:22:39 EST 2009
 //    Added MIR iteration capability.
 //
+//    Hank Childs, Fri Sep  3 12:10:47 PDT 2010
+//    Added Boolean for whether the velocity field must be continuous.
+//
+//    Brad Whitlock, Thu Sep  1 10:56:29 PDT 2011
+//    Add selectionName.
+//
+//    Brad Whitlock, Wed Jan  4 16:42:43 PST 2012
+//    Added flag for how to handle missing data.
+//
+//    Mark C. Miller, Fri Apr 13 10:41:35 PDT 2012
+//    I const qualified a couple of methods preventing use of this class
+//    in a const setting.
 // ****************************************************************************
 
 class PIPELINE_API avtDataRequest
@@ -225,9 +237,9 @@ class PIPELINE_API avtDataRequest
     avtDataRequest        &operator=(const avtDataRequest &);
     bool                         operator==(const avtDataRequest &);
 
-    int                          GetTimestep(void)     { return timestep; };
+    int                          GetTimestep(void) const { return timestep; };
     void                         SetTimestep(int t)     { timestep = t; };
-    const char                  *GetVariable(void)     { return variable; };
+    const char                  *GetVariable(void) const { return variable; };
     avtSILSpecification         &GetSIL(void)          { return sil; };
     avtSILRestriction_p          GetRestriction(void);
 
@@ -280,6 +292,11 @@ class PIPELINE_API avtDataRequest
                                      { return needStructuredIndices; };
     void                         SetNeedStructuredIndices(bool v)
                                      { needStructuredIndices = v; };
+
+    bool                         VelocityFieldMustBeContinuous(void)
+                                     { return velocityMustBeContinuous; };
+    void                         SetVelocityFieldMustBeContinuous(bool v)
+                                     { velocityMustBeContinuous = v; };
 
     int                          NeedAMRIndices(void)
                                      { return needAMRIndices; };
@@ -404,6 +421,7 @@ class PIPELINE_API avtDataRequest
     void                         RemoveAllDataSelections();
     const avtDataSelection_p     GetDataSelection(int id) const;
     const std::vector<avtDataSelection_p> GetAllDataSelections() const;
+    std::vector<avtDataSelection_p> GetAllDataSelections();
 
 
     bool                         NeedNativePrecision(void) const
@@ -412,7 +430,12 @@ class PIPELINE_API avtDataRequest
                                      { needNativePrecision = nnp; }
 
     void                         UpdateAdmissibleDataTypes(
-                                     std::vector<int> admissibleTypes);
+                                     const std::vector<int> &admissibleTypes);
+    void                         UpdateAdmissibleDataTypes(int dt1);
+    void                         UpdateAdmissibleDataTypes(int dt1, int dt2);
+    void                         UpdateAdmissibleDataTypes(int dt1, int dt2, int dt3);
+    static std::vector<int>      AllAdmissibleDataTypes();
+
     bool                         IsAdmissibleDataType(int dataType) const;
     std::vector<int>             GetAdmissibleDataTypes() const;
     void                         InitAdmissibleDataTypes();
@@ -445,6 +468,27 @@ class PIPELINE_API avtDataRequest
                                      { return needPostGhostMaterialInfo; }
     void                         SetNeedPostGhostMaterialInfo(bool b)
                                      { needPostGhostMaterialInfo = b; }
+
+    void                         SetSelectionName(const std::string &s)
+                                     { selectionName = s; }
+    const std::string           &GetSelectionName() const
+                                     { return selectionName; }
+
+    typedef enum {
+        MISSING_DATA_IGNORE,   // Ignore any missing data
+        MISSING_DATA_REMOVE,   // Remove all missing data
+        MISSING_DATA_IDENTIFY  // Identify missing data by adding avtMissingData
+                               // array to the datasets so we can show which
+                               // cells contain missing data.
+    } MissingDataBehavior_t;
+    void                         IgnoreMissingData()
+                                     { missingDataBehavior = MISSING_DATA_IGNORE;}
+    void                         RemoveMissingData()
+                                     { missingDataBehavior = MISSING_DATA_REMOVE;}
+    void                         IdentifyMissingData()
+                                     { missingDataBehavior = MISSING_DATA_IDENTIFY;}
+    MissingDataBehavior_t        MissingDataBehavior() const
+                                     { return missingDataBehavior; }
 
     void                         DebugDump(avtWebpage *);
 
@@ -480,6 +524,7 @@ class PIPELINE_API avtDataRequest
     bool                         needMixedVariableReconstruction;
     bool                         needSmoothMaterialInterfaces;
     bool                         needCleanZonesOnly;
+    bool                         velocityMustBeContinuous;
     int                          mirAlgorithm;
     int                          mirNumIterations;
     float                        mirIterationDamping;
@@ -498,6 +543,8 @@ class PIPELINE_API avtDataRequest
     bool                         passNativeCSG;
     bool                         transformVectorsDuringProject;
     bool                         needPostGhostMaterialInfo;
+    std::string                  selectionName;
+    MissingDataBehavior_t        missingDataBehavior;
 
     //
     // If we are processing in parallel, this information may have been lost.

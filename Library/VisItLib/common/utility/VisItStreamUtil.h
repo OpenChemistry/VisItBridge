@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -49,12 +49,15 @@
 //  Method: ostream operator<<
 //
 //  Purpose:
-//      Output vectors, lists and maps to a stream.
+//      Output vectors, lists, maps and pairs to a stream.
 //
 //  Returns:    the stream
 //
 //  Programmer: Dave Pugmire
 //  Creation:   June 8, 2009
+//
+//   Dave Pugmire, Wed Jun 13 14:21:26 EDT 2012
+//   Add code for pairs.
 //
 // ****************************************************************************
 
@@ -114,4 +117,13 @@ inline std::ostream& operator<<(std::ostream& out,
     out<<"]";
     return out;
 }
+
+template<class S, class T>
+inline std::ostream& operator<<(std::ostream& out,
+                                const std::pair<S,T> &p)
+{
+    out<<"("<<p.first<<", "<<p.second<<")";
+    return out;
+}
+
 #endif

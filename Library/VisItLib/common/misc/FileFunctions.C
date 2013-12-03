@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -52,13 +52,13 @@
 #endif
 
 // ****************************************************************************
-// Method: VisItStat 
+// Method: VisItStat
 //
 // Purpose: platform independent stat function that supports large files
 // when possible
 //
-// Programmer: Mark C. Miller 
-// Creation:   March 23, 2006 
+// Programmer: Mark C. Miller
+// Creation:   March 23, 2006
 //
 // ****************************************************************************
 
@@ -79,7 +79,7 @@ VisItStat(const char *file_name, VisItStat_t *buf)
 }
 
 // ****************************************************************************
-// Method: VisItFStat 
+// Method: VisItFStat
 //
 // Purpose: platform independent fstat function that supports large files
 // when possible
@@ -114,7 +114,7 @@ VisItFstat(int fd, VisItStat_t *buf)
 //
 // Arguments:
 //   directory     : The directory to read.
-//   procesOneFile : Callback function to process one file.
+//   processOneFile : Callback function to process one file.
 //   data          : Callback data.
 //   checkAccess   : Whether or not to check the file permissions.
 //
@@ -162,7 +162,7 @@ ReadAndProcessDirectory(const std::string &directory,
             }
         }
     }
-    else
+    else if (directory.size() > 0)
     {
         // Try and read the files in fullPath.
         std::string searchPath(directory + std::string("\\*"));
@@ -172,7 +172,7 @@ ReadAndProcessDirectory(const std::string &directory,
         {
             do
             {
-                bool isDir = 
+                bool isDir =
                     ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) ||
                      (strcmp(fd.cFileName, "..") == 0) ||
                      (strcmp(fd.cFileName, ".") == 0) ;
@@ -187,6 +187,9 @@ ReadAndProcessDirectory(const std::string &directory,
             } while(FindNextFile(dirHandle, &fd));
             FindClose(dirHandle);
         }
+    } else {
+        //Directory string was empty, nothing to do
+        retval = false;
     }
 #else
     DIR     *dir;

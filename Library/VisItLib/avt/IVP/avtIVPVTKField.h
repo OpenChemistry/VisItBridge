@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -44,11 +44,11 @@
 #define AVT_IVPVTKFIELD_H
 
 #include <avtIVPField.h>
-
-#include <vtkVisItInterpolatedVelocityField.h>
-
+#include <avtCellLocator.h>
 #include <ivp_exports.h>
 
+class vtkDataSet;
+class vtkDataArray;
 
 // ****************************************************************************
 //  Class:  avtIVPVTKField
@@ -78,36 +78,75 @@
 //   Dave Pugmire, Tue Dec 29 14:37:53 EST 2009
 //   Generalize the compute scalar variable.
 //
+//   Christoph Garth, Fri Jul 9, 10:10:22 PDT 2010
+//   Incorporate vtkVisItInterpolatedVelocityField in avtIVPVTKField.
+//
+//   Christoph Garth, July 13 16:49:12 PDT 2010
+//   Compute scalars by index instead of by name.
+//
+//   Dave Pugmire, Mon Feb  7 13:46:56 EST 2011
+//   Fix ghost mask for ghost cell integration.
+//
+//   Christoph Garth, Tue Mar 6 16:38:00 PDT 2012
+//   Moved ghost data handling into cell locator and changed IsInside()
+//   to only consider non-ghost cells.
+//
 // ****************************************************************************
 
 class IVP_API avtIVPVTKField: public avtIVPField
 {
   public:
-                   avtIVPVTKField( vtkVisItInterpolatedVelocityField* velocity ); 
-                   avtIVPVTKField();
-                   ~avtIVPVTKField();
+    avtIVPVTKField( vtkDataSet* dataset, avtCellLocator* locator );
+    ~avtIVPVTKField();
 
     // avtIVPField interface
-    avtVector      operator()(const double& t, const avtVector &pt) const;
-    double         ComputeVorticity(const double& t, const avtVector &pt) const;
-    double         ComputeScalarVariable(const std::string &var,
-                                         const double& t, 
-                                         const avtVector &pt) const;
+    virtual Result    operator()(const double& t,
+                                 const avtVector &pt,
+                                       avtVector &retV) const;
 
-    
-    bool           IsInside( const double& t, const avtVector &pt ) const;
-    unsigned int   GetDimension() const;
-    void           SetNormalized( bool v );
-    virtual bool   GetValidTimeRange(double range[]) const {return false;}
-    virtual bool   HasGhostZones() const;
-    virtual void   GetExtents(double *extents) const;
+    virtual Result    operator()(const double& t,
+                                 const avtVector &pt,
+                                 const avtVector &vel,
+                                       avtVector &retV) const
+    { return FAIL; }
+
+    virtual bool      FindValue(vtkDataArray* vectorData, avtVector &vel) const;
+
+    virtual avtVector ConvertToCartesian(const avtVector& pt) const;
+    virtual avtVector ConvertToCylindrical(const avtVector& pt) const;
+
+    virtual double    ComputeVorticity(const double& t, const avtVector &pt) const;
+
+    virtual double    ComputeScalarVariable(unsigned char index,
+                                            const double& t,
+                                            const avtVector& x) const;
+
+    virtual void      SetScalarVariable( unsigned char index, 
+                                         const std::string& name );
+
+    virtual Result    IsInside( const double& t, const avtVector &pt ) const;
+    unsigned int      GetDimension() const {return 3;}
+    virtual void      GetExtents( double extents[6] ) const;
+    virtual void      GetTimeRange( double range[2] ) const;
 
   protected:
-    vtkVisItInterpolatedVelocityField   *iv;
-    bool           normalized;
-    
+
+    Result             FindCell( const double& t, const avtVector& p ) const;
+
+    vtkDataSet*        ds;
+    avtCellLocator*    loc;
+
+    vtkDataArray*      velData;
+    bool               velCellBased;
+    vtkDataArray*      sclData[256];
+    bool               sclCellBased[256];
+
+    mutable avtVector               lastPos;
+    mutable vtkIdType               lastCell;
+    mutable avtInterpolationWeights lastWeights;
+
+  private:
+    static const unsigned char ghostMask;
 };
 
 #endif
-
-

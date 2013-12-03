@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -69,13 +69,13 @@ class PIPELINE_API avtRangeMaxTable
                                  avtRangeMaxTable();
     virtual                     ~avtRangeMaxTable();
 
-    void                         SetTable(int, float *);
-    float                        GetMaximumOverRange(int, int);
+    void                         SetTable(int, double *);
+    double                       GetMaximumOverRange(int, int);
 
   protected:
     int                          numEntries;
-    float                       *entries;
-    float                       *powRange;
+    double                      *entries;
+    double                      *powRange;
     int                          logRange;
 
     // These methods are defined to prevent accidental use of bitwise copy

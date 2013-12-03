@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -39,6 +39,8 @@
 #include <avtStructuredDomainBoundaries.h>
 #include <VisItException.h>
 #include <vtkStructuredGrid.h>
+
+#include <vector>
 
 #define BNDMIN(A,B) (((A) < (B)) ? (A) : (B))
 #define BNDMAX(A,B) (((A) > (B)) ? (A) : (B))
@@ -132,12 +134,25 @@ Boundary::SetExtents(int e[6])
 //  Programmer:  Jeremy Meredith
 //  Creation:    November 21, 2001
 //
+//  Modifications:
+//
+//    Hank Childs, Tue Jan  4 12:33:17 PST 2011
+//    Add arguments for creating ghost data across refinement levels.
+//
+//    Gunther H. Weber, Wed Jul 18 15:38:36 PDT 2012
+//    Support anisotropic refinement.
+//
 // ****************************************************************************
 void
-Boundary::AddNeighbor(int d, int mi, int o[3], int e[6])
+Boundary::AddNeighbor(int d, int mi, int o[3], int e[6],
+                      RefinementRelationship rr, const std::vector<int>& ref_ratio,
+                      NeighborRelationship nr)
 {
     Neighbor n;
 
+    n.refinement_rel   = rr;
+    n.refinement_ratio = ref_ratio;
+    n.neighbor_rel     = nr;
     n.domain        = d;
     n.match         = mi;
 
@@ -253,12 +268,12 @@ Boundary::AddNeighbor(int d, int mi, int o[3], int e[6])
 //
 // ****************************************************************************
 void
-Boundary::DeleteNeighbor(int d, vector<Boundary> &wholelist)
+Boundary::DeleteNeighbor(int d, std::vector<Boundary> &wholelist)
 {
-    vector<int> delete_list;
+    std::vector<int> delete_list;
     for (size_t i=0; i<neighbors.size(); i++)
         if (neighbors[i].domain == d)
-            delete_list.push_back(i);
+            delete_list.push_back((int)i);
 
     if (delete_list.size() == 0)
     {
@@ -386,15 +401,29 @@ Boundary::IsGhostZone(int i, int j, int k)
 //  Programmer:  Jeremy Meredith
 //  Creation:    November 21, 2001
 //
+//  Modifications:
+//
+//    Hank Childs, Tue Jan  4 11:31:06 PST 2011
+//    Add handling for differences in refinement ratio.
+//
+//    Gunther H. Weber, Wed Jul 18 15:38:36 PDT 2012
+//    Support anisotropic refinement.
+//
 // ****************************************************************************
+
 int 
-Boundary::TranslatedPointIndex(Neighbor *n1,
-                                                              Neighbor *n2,
-                                                              int i,int j,int k)
+Boundary::TranslatedPointIndex(Neighbor *n1, Neighbor *n2, int i,int j,int k)
 {
     i -= n1->nextents[0];
     j -= n1->nextents[2];
     k -= n1->nextents[4];
+
+    if (n1->refinement_rel == MORE_COARSE)
+    {
+        i /= n1->refinement_ratio[0];
+        j /= n1->refinement_ratio[1];
+        k /= n1->refinement_ratio[2];
+    }
 
     int lookup[7] = {n1->ndims[2]-k-1,
                      n1->ndims[1]-j-1,
@@ -403,7 +432,7 @@ Boundary::TranslatedPointIndex(Neighbor *n1,
                      i,
                      j,
                      k};
-                            
+
 
     if      (n2->type & IMIN)
         i = n2->nextents[0] + 1;
@@ -436,6 +465,28 @@ Boundary::TranslatedPointIndex(Neighbor *n1,
 //    Return the old cell index, translated from one neighbor's domain to
 //    the other's.
 //
+//  Notes:  Imagine that we are taking data from a donor domain and putting it
+//          as ghost data into a target domain.  The information that the donor
+//          is a neighbor to the target is in "n1".  And the information that 
+//          target is also a neighbor to the donor is in "n2".  The goal is
+//          to populate the ghost data for cell (i,j,k) of the target.  So
+//          this function is to determine the cell ID from the donor 
+//          corresponding to (i,j,k) of the target.  We know that the domains have
+//          an overlap.  That is, there is some area of size AxBxC that they
+//          share (note that their orientations may be different and one domain 
+//          might think of it as AxBxC while the other thinks of it as, for 
+//          example, BxAxC).  
+//
+//          The recipe for doing the translation is to first determine its
+//          position in the overlapped area. You do this by taking (i,j,k)
+//          and subtracting off the target's "base indices", which is where
+//          the overlapped area begins with respect to the target's indexing.
+//          This will give a (i', j', k') that is relative to area of overlap 
+//          between the target and donor domains.  Once we have that, we can 
+//          then add the "base indices" of the donor domain, which will give an 
+//          (i",j",k") which is indexed correctly for the donor domain.  The
+//          cell ID of (i",j",k") for the donor domain is the return value.
+//
 //  Arguments:
 //    n1         the "from" domain
 //    n2         the "to" domain
@@ -449,15 +500,27 @@ Boundary::TranslatedPointIndex(Neighbor *n1,
 //    Fixed a bug.  I forgot ghost cells behaved quite differently from
 //    ghost nodes.
 //
+//    Hank Childs, Tue Jan  4 11:31:06 PST 2011
+//    Add handling for differences in refinement ratio.
+//
+//    Gunther H. Weber, Wed Jul 18 15:38:36 PDT 2012
+//    Support anisotropic refinement.
+//
 // ****************************************************************************
+
 int
-Boundary::TranslatedCellIndex(Neighbor *n1,
-                                                             Neighbor *n2,
-                                                             int i,int j,int k)
+Boundary::TranslatedCellIndex(Neighbor *n1, Neighbor *n2, int i,int j,int k)
 {
     i -= n1->zextents[0];
     j -= n1->zextents[2];
     k -= n1->zextents[4];
+
+    if (n1->refinement_rel == MORE_COARSE)
+    {
+        i /= n1->refinement_ratio[0];
+        j /= n1->refinement_ratio[1];
+        k /= n1->refinement_ratio[2];
+    }
 
     int lookup[7] = {n1->zdims[2]-k-1,
                      n1->zdims[1]-j-1,
@@ -466,7 +529,6 @@ Boundary::TranslatedCellIndex(Neighbor *n1,
                      i,
                      j,
                      k};
-                            
 
     if      (n2->type & IMIN)
         i = n2->zextents[0];

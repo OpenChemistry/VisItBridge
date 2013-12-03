@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -79,11 +79,31 @@ vtkDataSetFromVolume::PointList::~PointList()
 }
 
 
+void
+vtkDataSetFromVolume::PointList::Clear()
+{
+    for (int i = 0 ; i < listSize ; i++)
+    {
+        if (list[i] != NULL)
+        {
+            delete [] list[i];
+            list[i] = NULL;
+        }
+        else
+            break;
+    }
+    list[0] = new PointEntry[pointsPerList];
+
+    currentList = 0;
+    currentPoint = 0;
+}
+
+
 int
-vtkDataSetFromVolume::PointList::GetList(int listId,
+vtkDataSetFromVolume::PointList::GetList(vtkIdType listId,
                                          const PointEntry *&outlist) const
 {
-    if (listId < 0 || listId > currentList)
+    if (listId > currentList)
     {
         outlist = NULL;
         return 0;
@@ -94,18 +114,18 @@ vtkDataSetFromVolume::PointList::GetList(int listId,
 }
  
  
-int
+vtkIdType
 vtkDataSetFromVolume::PointList::GetNumberOfLists(void) const
 {
     return currentList+1;
 }
  
  
-int
+vtkIdType
 vtkDataSetFromVolume::PointList::GetTotalNumberOfPoints(void) const
 {
-    int numFullLists = currentList;  // actually currentList-1+1
-    int numExtra = currentPoint;  // again, currentPoint-1+1
+    vtkIdType numFullLists = currentList;  // actually currentList-1+1
+    vtkIdType numExtra = currentPoint;  // again, currentPoint-1+1
  
     return numFullLists*pointsPerList + numExtra;
 }
@@ -115,17 +135,17 @@ vtkDataSetFromVolume::PointList::GetTotalNumberOfPoints(void) const
 //    Sean Ahern, Mon Mar  5 15:44:05 EST 2007
 //    Fixed test for resizing list.  Initialized new entries.
 //
-int
-vtkDataSetFromVolume::PointList::AddPoint(int pt0, int pt1, float percent)
+vtkIdType
+vtkDataSetFromVolume::PointList::AddPoint(vtkIdType pt0, vtkIdType pt1, float percent)
 {
     if (currentPoint >= pointsPerList)
     {
         if ((currentList+1) >= listSize)
         {
             PointEntry **tmpList = new PointEntry*[2*listSize];
-            for (int i = 0 ; i < listSize ; i++)
+            for (vtkIdType i = 0 ; i < listSize ; i++)
                 tmpList[i] = list[i];
-            for (int i = listSize ; i < listSize*2 ; i++)
+            for (vtkIdType i = listSize ; i < listSize*2 ; i++)
                 tmpList[i] = NULL;
 
             listSize *= 2;
@@ -149,15 +169,15 @@ vtkDataSetFromVolume::PointList::AddPoint(int pt0, int pt1, float percent)
 
 vtkDataSetFromVolume::EdgeHashEntry::EdgeHashEntry()
 {
-    id1  = -1;
-    id2  = -1;
-    ptId = -1;
+    id1  = 0;
+    id2  = 0;
+    ptId = 0;
     next = NULL;
 }
  
  
 void
-vtkDataSetFromVolume::EdgeHashEntry::SetInfo(int i1, int i2, int pId)
+vtkDataSetFromVolume::EdgeHashEntry::SetInfo(vtkIdType i1, vtkIdType i2, vtkIdType pId)
 {
     id1  = i1;
     id2  = i2;
@@ -174,8 +194,8 @@ vtkDataSetFromVolume::EdgeHashEntryMemoryManager::EdgeHashEntryMemoryManager()
  
 vtkDataSetFromVolume::EdgeHashEntryMemoryManager::~EdgeHashEntryMemoryManager()
 {
-    int npools = edgeHashEntrypool.size();
-    for (int i = 0 ; i < npools ; i++)
+    size_t npools = edgeHashEntrypool.size();
+    for (size_t i = 0 ; i < npools ; i++)
     {
         EdgeHashEntry *pool = edgeHashEntrypool[i];
         delete [] pool;
@@ -216,10 +236,20 @@ vtkDataSetFromVolume::EdgeHashTable::~EdgeHashTable()
 }
  
  
-int
-vtkDataSetFromVolume::EdgeHashTable::GetKey(int p1, int p2)
+void
+vtkDataSetFromVolume::EdgeHashTable::Clear()
 {
-    int rv = ((p1*18457 + p2*234749) % nHashes);
+    delete [] hashes;
+    hashes = new EdgeHashEntry*[nHashes];
+    for (int i = 0 ; i < nHashes ; i++)
+        hashes[i] = NULL;
+}
+
+
+vtkIdType
+vtkDataSetFromVolume::EdgeHashTable::GetKey(vtkIdType p1, vtkIdType p2)
+{
+    vtkIdType rv = ((p1*18457 + p2*234749) % nHashes);
  
     // In case of overflows and modulo with negative numbers.
     if (rv < 0)
@@ -229,10 +259,10 @@ vtkDataSetFromVolume::EdgeHashTable::GetKey(int p1, int p2)
 }
 
 
-int
-vtkDataSetFromVolume::EdgeHashTable::AddPoint(int ap1, int ap2, float apercent)
+vtkIdType
+vtkDataSetFromVolume::EdgeHashTable::AddPoint(vtkIdType ap1, vtkIdType ap2, float apercent)
 {
-    int p1, p2;
+    vtkIdType p1, p2;
     float percent;
     if (ap2 < ap1)
     {
@@ -247,7 +277,7 @@ vtkDataSetFromVolume::EdgeHashTable::AddPoint(int ap1, int ap2, float apercent)
         percent = apercent;
     }
 
-    int key = GetKey(p1, p2);
+    vtkIdType key = GetKey(p1, p2);
  
     //
     // See if we have any matches in the current hashes.
@@ -270,7 +300,7 @@ vtkDataSetFromVolume::EdgeHashTable::AddPoint(int ap1, int ap2, float apercent)
     //
     EdgeHashEntry *new_one = emm.GetFreeEdgeHashEntry();
  
-    int newPt = pointlist.AddPoint(p1, p2, percent);
+    vtkIdType newPt = pointlist.AddPoint(p1, p2, percent);
     new_one->SetInfo(p1, p2, newPt);
     new_one->SetNext(hashes[key]);
     hashes[key] = new_one;
@@ -279,12 +309,12 @@ vtkDataSetFromVolume::EdgeHashTable::AddPoint(int ap1, int ap2, float apercent)
 }
 
 
-vtkDataSetFromVolume::vtkDataSetFromVolume(int ptSizeGuess)
+vtkDataSetFromVolume::vtkDataSetFromVolume(vtkIdType ptSizeGuess)
    : pt_list(), edges(ptSizeGuess, pt_list), numPrevPts(0)
 {
 }
       
-vtkDataSetFromVolume::vtkDataSetFromVolume(int nPts, int ptSizeGuess)
+vtkDataSetFromVolume::vtkDataSetFromVolume(vtkIdType nPts, vtkIdType ptSizeGuess)
    : pt_list(), edges(ptSizeGuess, pt_list), numPrevPts(nPts)
 {
 }

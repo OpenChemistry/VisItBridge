@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -505,11 +505,10 @@ HostProfileList::SetFromNode(DataNode *parentNode)
     if(searchNode == 0)
         return;
 
-    DataNode *node;
     DataNode **children;
-    // Clear all the MachineProfiles.
-    ClearMachines();
 
+    // Clear all the MachineProfiles if we got any.
+    bool clearedMachines = false;
     // Go through all of the children and construct a new
     // MachineProfile for each one of them.
     children = searchNode->GetChildren();
@@ -519,6 +518,11 @@ HostProfileList::SetFromNode(DataNode *parentNode)
         {
             if(children[i]->GetKey() == std::string("MachineProfile"))
             {
+                if (!clearedMachines)
+                {
+                    ClearMachines();
+                    clearedMachines = true;
+                }
                 MachineProfile temp;
                 temp.SetFromNode(children[i]);
                 AddMachines(temp);
@@ -668,7 +672,7 @@ HostProfileList::RemoveMachines(int index)
 int
 HostProfileList::GetNumMachines() const
 {
-    return machines.size();
+    return (int)machines.size();
 }
 
 // ****************************************************************************

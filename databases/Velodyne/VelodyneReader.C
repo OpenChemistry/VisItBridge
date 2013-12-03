@@ -17,9 +17,21 @@ using std::cout;
 
 #include <VelodyneReader.h>
 
+#include <visit-hdf5.h>
+
+#include <set>
+#include <string>
+
+//
+// Modifications:
+//    Mark C. Miller, Mon Oct 25 17:17:50 PDT 2010
+//    Added call to H5Eset_auto to silence output on stderr.
+//
+
 int VelodyneReader::
 open( const char* filename ) 
 {
+  H5Eset_auto(H5E_DEFAULT , 0, 0);
   file_id = H5Fopen( filename, H5F_ACC_RDONLY, H5P_DEFAULT );
   if( file_id<0 ) {
     debug1 << "Failed to open Velodyne plot file: " << filename << ".\n";
@@ -270,7 +282,7 @@ getGeneralData()
   H5Aread( aid, H5T_NATIVE_INT, &nmmat );H5Aclose(aid);
   debug2 << "NumMaterials= " << nmmat << "\n";
 
-  mat_titles = new string[nmmat];
+  mat_titles = new std::string[nmmat];
   if( getMaterialTitles( gid )<0 ) {
     debug1 << "Failed to get material titles.\n";
     return -5;
@@ -749,7 +761,7 @@ readHVarray( hid_t gpid, int ind, int bufsz, float* buf, int* ndim, int* rdms )
 
 
 int VelodyneReader::
-getMaterialSet( hid_t gpid, const char* matname, set<int>& mset )
+getMaterialSet( hid_t gpid, const char* matname, std::set<int>& mset )
 {
   hid_t dsid = openDataSet( gpid, matname );
   if( dsid<0 ) {
@@ -804,7 +816,7 @@ GetMeshSize( int grp ) const
 
 
 
-const set<int>& VelodyneReader::
+const std::set<int>& VelodyneReader::
 GetMeshMatInfo( int grp ) const
 {
   switch( grp ) {
@@ -840,7 +852,7 @@ readMeshMaterialSet( int grp )
 {
   int ierr;
   hid_t gid;
-  set<int> *pset;
+  std::set<int> *pset;
   switch( grp ) {
   case solid_type:
     gid = solid_id;    pset= &mat_solid;

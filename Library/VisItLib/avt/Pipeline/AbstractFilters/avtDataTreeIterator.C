@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -103,6 +103,10 @@ avtDataTreeIterator::~avtDataTreeIterator()
 void
 avtDataTreeIterator::ManageMemory(vtkDataSet *ds)
 {
+#ifdef VISIT_THREADS
+    if (ds != NULL)
+        ds->Register(NULL);
+#else
     if (ds == lastDataset)
         return;
 
@@ -116,6 +120,7 @@ avtDataTreeIterator::ManageMemory(vtkDataSet *ds)
     {
         lastDataset->Register(NULL);
     }
+#endif // VISIT_THREADS
 }
 
 

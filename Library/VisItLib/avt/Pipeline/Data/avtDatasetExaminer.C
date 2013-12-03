@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,8 +42,11 @@
 
 #include <avtDatasetExaminer.h>
 
+#include <avtParallel.h>
+
 #include <float.h>
 #include <DebugStream.h>
+#include <TimingsManager.h>
 
 
 // ****************************************************************************
@@ -316,6 +319,9 @@ bool
 avtDatasetExaminer::GetDataExtents(avtDataset_p &ds, double *de,
                                    const char *varname)
 {
+    if (*ds == NULL || *(ds->GetDataTree()) == NULL)
+        return false;
+
     if (varname == NULL)
     {
         varname = ds->GetInfo().GetAttributes().GetVariableName().c_str();
@@ -707,3 +713,80 @@ avtDatasetExaminer::GetNumberOfNodes(avtDataset_p &ds, VISIT_LONG_LONG &nReal,
     nReal = numNodes[0];
     nGhost = numNodes[1];
 }
+
+
+// ****************************************************************************
+//  Method: avtDatasetExaminer::CalculateHistogram
+//
+//  Purpose:
+//      Calculates a histogram for a given variable.  This deals with parallel
+//      details as well.
+//
+//  Arguments:
+//      var       The variable to calculate the histogram for
+//      min       The minimum value for the histogram (values below this are
+//                clamped to min).
+//      max       The maximum value for the histogram (values above this are
+//                clamped to max).
+//      numvals   An array to store the number of values.  Note that this array
+//                should be sized to the number of bins in the histogram.
+//
+//  Returns:      true if the histogram was successfully calculated, false 
+//                otherwise.
+//  
+//  Programmer: Hank Childs
+//  Creation:   May 21, 2010
+//
+//  Modifications:
+//    Brad Whitlock, Tue Jun 14 13:41:24 PST 2011
+//    Don't return early if any processors failed. Those processors will just
+//    not contribute to the results. We still return false in the event that
+//    any processors failed though so we can test for it. I made this change
+//    because I was calling this routine in a filter where some processors
+//    had no data and it caused me to have NO histogram information.
+//
+// ****************************************************************************
+
+bool
+avtDatasetExaminer::CalculateHistogram(avtDataset_p &ds, 
+                                       const std::string &var,
+                                       double min, double max,
+                                       std::vector<VISIT_LONG_LONG> &numvals)
+{
+    avtDataTree_p dataTree = ds->dataTree;
+
+    bool err = false;
+    CalculateHistogramArgs args;
+    int t1 = visitTimer->StartTimer();
+    if (*dataTree != NULL)
+    {
+        args.min      = min;
+        args.max      = max;
+        args.variable = var;
+        args.numVals.resize(numvals.size(), 0);
+        dataTree->Traverse(CCalculateHistogram, (void *) &args, err);
+    }
+    visitTimer->StopTimer(t1, "Per-processor histogram calculation");
+
+    int t2 = visitTimer->StartTimer();
+    int iFailed        = (err ? 1 : 0);
+    int somebodyFailed = UnifyMaximumValue(iFailed);
+
+    // Create a vector that will serve as input to the global sum. We put
+    // zeroes if this processor has no data. Otherwise, we use the histogram.
+    std::vector<VISIT_LONG_LONG> input(numvals.size(), 0);
+    if(!err)
+    {
+        for(size_t i = 0; i < numvals.size(); ++i)
+            input[i] = args.numVals[i];
+    }
+    
+    // Sum the vector element-wise, placing results in numvals.
+    SumLongLongArrayAcrossAllProcessors(&input[0], &(numvals[0]),
+                                        static_cast<int>(numvals.size()));
+    visitTimer->StopTimer(t2, "Parallel processing of histogram");
+    
+    return somebodyFailed;
+}
+
+

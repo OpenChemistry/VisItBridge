@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -104,8 +104,8 @@ avtOpacityMapSamplePointArbitrator::~avtOpacityMapSamplePointArbitrator()
 // ****************************************************************************
 
 bool
-avtOpacityMapSamplePointArbitrator::ShouldOverwrite(float whatIgot,
-                                                    float whatIcouldHave)
+avtOpacityMapSamplePointArbitrator::ShouldOverwrite(double whatIgot,
+                                                    double whatIcouldHave)
 {
     RGBA val1 = omap->GetOpacity(whatIgot);
     RGBA val2 = omap->GetOpacity(whatIcouldHave);

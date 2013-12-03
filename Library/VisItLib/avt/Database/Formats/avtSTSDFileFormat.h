@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -70,12 +70,12 @@ class     avtIOInformation;
 //    Hank Childs, Mon Mar 11 08:48:41 PST 2002
 //    Removed SetDatabaseMetaData since it is defined in the base class.
 //
-//    Kathleen Bonnell, Mon Mar 18 17:22:30 PST 2002
-//    vtkScalars and vtkVectors have been deprecated in VTK 4.0,
+//    Kathleen Bonnell, Mon Mar 18 17:22:30 PST 2002  
+//    vtkScalars and vtkVectors have been deprecated in VTK 4.0, 
 //    use vtkDataArray instead.
 //
-//    Kathleen Bonnell, Mon Mar 18 17:22:30 PST 2002
-//    vtkScalars and vtkVectors have been deprecated in VTK 4.0,
+//    Kathleen Bonnell, Mon Mar 18 17:22:30 PST 2002  
+//    vtkScalars and vtkVectors have been deprecated in VTK 4.0, 
 //    use vtkDataArray instead.
 //
 //    Brad Whitlock, Mon Oct 13 14:42:42 PST 2003
@@ -93,6 +93,8 @@ class     avtIOInformation;
 //    Mark C. Miller, Tue May 17 18:48:38 PDT 2005
 //    Removed ReturnsValidCycle/Time GetCycle/Time. Added SetDatabaseMetaData
 //
+//    Mark C. Miller, Fri Oct 29 09:58:43 PDT 2010
+//    Moved implementation of SetDatabaseMetaData to the .C file.
 // ****************************************************************************
 
 class DATABASE_API avtSTSDFileFormat : public avtFileFormat
@@ -128,8 +130,7 @@ class DATABASE_API avtSTSDFileFormat : public avtFileFormat
                                { avtFileFormat::ActivateTimestep(); };
     virtual void           PopulateIOInformation(avtIOInformation& ioInfo)
                                { avtFileFormat::PopulateIOInformation(ioInfo); };
-    virtual void           SetDatabaseMetaData(avtDatabaseMetaData *md)
-                               { metadata = md; PopulateDatabaseMetaData(metadata); };
+    virtual void           SetDatabaseMetaData(avtDatabaseMetaData *md);
 
   protected:
     char                  *filename;

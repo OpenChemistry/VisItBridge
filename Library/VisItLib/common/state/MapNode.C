@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -39,8 +39,10 @@
 #include <MapNode.h>
 #include <Connection.h>
 #include <visitstream.h>
+#include <cstdlib>
 
 using namespace std;
+int MapNode::MapNodeType = Variant::STRING_VECTOR_TYPE + 1000;
 
 // ****************************************************************************
 //  Method:  MapNode::MapNode
@@ -62,14 +64,34 @@ MapNode::MapNode(const MapNode &node)
     entries = node.entries;
 }
 
-MapNode::MapNode(const XMLNode &node)
+MapNode::MapNode(const XMLNode &node,bool decodeString)
 {
-    SetValue(node);
+    SetValue(node,decodeString);
 }
 
-MapNode::MapNode(const XMLNode *node)
+MapNode::MapNode(const XMLNode *node, bool decodeString)
 {
-    SetValue(*node);
+    SetValue(*node,decodeString);
+}
+
+MapNode::MapNode(const JSONNode &node, bool decodeString)
+{
+    SetValue(node, decodeString);
+}
+
+MapNode::MapNode(const JSONNode *node, bool decodeString)
+{
+    SetValue(*node,decodeString);
+}
+
+MapNode::MapNode(const JSONNode &node,const JSONNode &metadata, bool decodeString)
+{
+    SetValue(node, metadata, decodeString);
+}
+
+MapNode::MapNode(const JSONNode *node, const JSONNode* metadata, bool decodeString)
+{
+    SetValue(*node,*metadata,decodeString);
 }
 
 // ****************************************************************************
@@ -232,6 +254,21 @@ MapNode::operator=(const doubleVector& val)
     return *this;
 }
 
+MapNode &
+MapNode::operator=(const stringVector& val)
+{
+    Variant::operator=(val);
+    return *this;
+}
+
+MapNode &
+MapNode::operator=(const Variant& val)
+{
+    Variant::operator=(val);
+    return *this;
+}
+
+
 
 // ****************************************************************************
 //  Method:  MapNode::operator[]
@@ -304,6 +341,46 @@ MapNode::HasEntry(const string &key) const
     return entries.find(key) != entries.end();
 }
 
+// ****************************************************************************
+//  Method:  MapNode::HasNumericEntry
+//
+//  Purpose:
+//     Checks if the map has a numeric entry for the given key.
+//
+//  Programmer:  Kathleen Biagas 
+//  Creation:    January 9, 2012
+//
+// ****************************************************************************
+bool
+MapNode::HasNumericEntry(const string &key) const
+{
+    map<string,MapNode>::const_iterator itr = entries.find(key);
+    if(itr == entries.end())
+        return false;
+    else
+        return itr->second.IsNumeric();
+}
+
+// ****************************************************************************
+//  Method:  MapNode::HasNumericVectorEntry
+//
+//  Purpose:
+//     Checks if the map has a numeric vector entry for the given key.
+//
+//  Programmer:  Kathleen Biagas 
+//  Creation:    January 9, 2012
+//
+// ****************************************************************************
+bool
+MapNode::HasNumericVectorEntry(const string &key) const
+{
+    map<string,MapNode>::const_iterator itr = entries.find(key);
+    if(itr == entries.end())
+        return false;
+    else
+        return itr->second.IsNumericVector();
+}
+
 
 // ****************************************************************************
 //  Method:  MapNode::GetEntryNames
@@ -355,9 +432,15 @@ MapNode::Reset()
 //
 // ****************************************************************************
 string
-MapNode::ToXML() const
+MapNode::ToXML(bool encodeToString) const
 {
-    return ToXMLNode().ToString();
+    return ToXMLNode(encodeToString).ToString();
+}
+
+string
+MapNode::ToJSON(bool encodeToString) const
+{
+    return ToJSONNode(encodeToString).ToString();
 }
 
 // ****************************************************************************
@@ -371,7 +454,7 @@ MapNode::ToXML() const
 //
 // ****************************************************************************
 XMLNode
-MapNode::ToXMLNode() const
+MapNode::ToXMLNode(bool encodeString) const
 {
     XMLNode node;
     node.Name() = "map_node";
@@ -381,15 +464,71 @@ MapNode::ToXMLNode() const
         map<string,MapNode>::const_iterator itr;
         for(itr = entries.begin(); itr != entries.end(); ++itr)
         {
-            XMLNode *child = node.AddChild(itr->second.ToXMLNode());
+            XMLNode *child = node.AddChild(itr->second.ToXMLNode(encodeString));
             child->Attribute("key") = itr->first;
         }    
     }
     else // save value, if we have a value
     {
-        node.AddChild(Variant::ToXMLNode());
+        node.AddChild(Variant::ToXMLNode(encodeString));
     }
     
+    return node;
+}
+
+/// JSON has fewer types to map, so a meta structure is added to be able
+/// reverse the mapping, the metastructure contains type information for each
+/// item..
+/// parent = { contents = object, metadata = object }
+/// SetValue can now use this to appropriately map back to VisIt internal structures..
+JSONNode
+MapNode::ToJSONNode(bool encodeString,bool id) const
+{
+    JSONNode parent;
+
+    /// Fill out types..
+    parent["data"] = ToJSONNodeData(encodeString);
+    parent["metadata"] = ToJSONNodeMetaData(id);
+
+    return parent;
+}
+
+JSONNode
+MapNode::ToJSONNodeData(bool encodeString) const
+{
+    /// Fill out contents...
+    JSONNode node;
+    // save children if not a value node
+    if(entries.size() > 0 && Type() == 0)
+    {
+        map<string,MapNode>::const_iterator itr;
+        for(itr = entries.begin(); itr != entries.end(); ++itr)
+            node[itr->first] = itr->second.ToJSONNodeData(encodeString);
+    }
+    else // save value, if we have a value
+    {
+        node = Variant::ToJSONNode(encodeString);
+    }
+
+    return node;
+}
+
+JSONNode
+MapNode::ToJSONNodeMetaData(bool id) const
+{
+    JSONNode node;
+    // save children if not a value node
+    if(entries.size() > 0 && Type() == 0)
+    {
+        map<string,MapNode>::const_iterator itr;
+        for(itr = entries.begin(); itr != entries.end(); ++itr)
+            node[itr->first] = itr->second.ToJSONNodeMetaData(id);
+    }
+    else // save value, if we have a value
+    {
+        node = Variant::ToJSONNodeMetaData(id);
+    }
+
     return node;
 }
 
@@ -409,7 +548,7 @@ MapNode::ToXMLNode() const
 //
 // ****************************************************************************
 void 
-MapNode::SetValue(const XMLNode &node)
+MapNode::SetValue(const XMLNode &node,bool decodeString)
 {
     entries.clear();
     int nchildren = node.GetNumChildren();    
@@ -419,7 +558,7 @@ MapNode::SetValue(const XMLNode &node)
     // find out if we have child nodes, or if this node is a value node
     if(nchildren == 1 && node.GetChild(0)->Name() == "variant")
     {
-        Variant::SetValue(node.GetChild(0));
+        Variant::SetValue(node.GetChild(0),decodeString);
     }
     else
     {
@@ -427,8 +566,117 @@ MapNode::SetValue(const XMLNode &node)
         {
             XMLNode *child = node.GetChild(i);
             // children should have a key ....
-            entries[child->Attribute("key")] = MapNode(child);
+            entries[child->Attribute("key")] = MapNode(child,decodeString);
         }   
+    }
+}
+
+// ****************************************************************************
+//  Method:  Variant::SetValue
+//
+//  Purpose:
+//     Sets this variant's value from an json node. The MapNode must have a
+//     data component and a metadata component. This is due to the fact that
+//     JSON has fewer components than MapNode
+//
+//  Programmer:  Hari Krishnan
+//  Creation:    October 13, 2012
+//
+//  Modifications:
+//
+// ****************************************************************************
+void
+MapNode::SetValue(const JSONNode &node,bool decodeString)
+{
+    entries.clear();
+
+    if(node.GetType() != JSONNode::JSONOBJECT) return;
+
+    const JSONNode::JSONObject& object = node.GetJsonObject();
+
+    //if( object.find("data") == object.end() ||
+    //    object.find("metadata") == object.end()) return;
+
+    /// Since JSON has fewer types than VisIt, we need a way to remap the types
+    /// back to mapnode, I chose to separate the data and metadata.
+    /// This way users can use the data object as a structure..
+
+    JSONNode data, metadata;
+    for(JSONNode::JSONObject::const_iterator itr = object.begin(); itr != object.end(); ++itr)
+    {
+        if(itr->first == "data")
+            data = itr->second;
+        if(itr->first == "metadata")
+            metadata = itr->second;
+    }
+
+    SetValue(data,metadata,decodeString);
+}
+
+// ****************************************************************************
+//  Method:  Variant::SetValue
+//
+//  Purpose:
+//     Sets this variant's value from an json node. The MapNode must have a
+//     data component and a metadata component. This is due to the fact that
+//     JSON has fewer components than MapNode
+//
+//  Programmer:  Hari Krishnan
+//  Creation:    October 13, 2012
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+void
+MapNode::SetValue(const JSONNode& data, const JSONNode& metadata, bool decodeString)
+{
+    int data_type = 0;
+
+    if(metadata.GetType() == JSONNode::JSONINTEGER){
+        data_type = metadata.GetInt();
+    }
+    else
+    {
+        const string name = metadata.GetString();
+
+        data_type = isdigit(name[0]) ? atoi(name.c_str()) :
+                                       NameToTypeID(name);
+    }
+
+    if(data_type == 0 && data.GetType() == JSONNode::JSONOBJECT)
+    {
+        const JSONNode::JSONObject& object = data.GetJsonObject();
+        const JSONNode::JSONObject& mobject = metadata.GetJsonObject();
+        JSONNode::JSONObject::const_iterator itr  = object.begin();
+        JSONNode::JSONObject::const_iterator mitr = mobject.begin();
+
+        for(;itr != object.end(); ++itr,++mitr)
+        {
+            entries[itr->first] = MapNode();
+            entries[itr->first].SetValue(itr->second,mitr->second,decodeString);
+        }
+    }
+    else if(data_type == 0 && data.GetType() == JSONNode::JSONARRAY)
+    {
+        const JSONNode::JSONArray& array = data.GetArray();
+        const JSONNode::JSONArray& marray = metadata.GetArray();
+        char buffer[1024];
+
+        for(int i = 0; i < array.size(); ++i) {
+            sprintf(buffer, "%d", i);
+            entries[buffer] = MapNode();
+            entries[buffer].SetValue(array[i], marray[i], decodeString);
+        }
+    }
+    else
+    {
+        if(data_type == MapNodeType) {
+            SetValue(data);
+        }
+        else {
+            Variant::SetValue(data,metadata,decodeString);
+        }
     }
 }
 
@@ -509,20 +757,25 @@ MapNode::operator ==(const MapNode &obj) const
 // Modifications:
 //   
 // ****************************************************************************
-
 int
 MapNode::CalculateMessageSize(Connection &conn) const
 {
-    int messageSize = conn.IntSize(conn.DEST);
+    return CalculateMessageSize(&conn);
+}
+
+int
+MapNode::CalculateMessageSize(Connection *conn) const
+{
+    int messageSize = conn->IntSize(conn->DEST);
 
     if(Type() == EMPTY_TYPE)
     {
-        messageSize += conn.IntSize(conn.DEST);
+        messageSize += conn->IntSize(conn->DEST);
 
         map<string,MapNode>::const_iterator itr;
         for(itr = entries.begin(); itr != entries.end(); ++itr)
         {
-            messageSize += conn.CharSize(conn.DEST) * (itr->first.size() + 1);
+            messageSize += conn->CharSize(conn->DEST) * (itr->first.size() + 1);
             messageSize += itr->second.CalculateMessageSize(conn);
         }
     }
@@ -547,22 +800,27 @@ MapNode::CalculateMessageSize(Connection &conn) const
 // Modifications:
 //   
 // ****************************************************************************
-
 void
 MapNode::Write(Connection &conn) const
 {
-    conn.WriteInt(Type());
+    Write(&conn);
+}
+
+void
+MapNode::Write(Connection *conn) const
+{
+    conn->WriteInt(Type());
 
     if(Type() == EMPTY_TYPE)
     {
         // Write the number of entries
-        conn.WriteInt(entries.size());
+        conn->WriteInt((int)entries.size());
 
         map<string,MapNode>::const_iterator itr;
         for(itr = entries.begin(); itr != entries.end(); ++itr)
         {
             // Write the name of the item
-            conn.WriteString(itr->first);
+            conn->WriteString(itr->first);
 
             // Write the item data.
             itr->second.Write(conn);
@@ -699,4 +957,26 @@ MapNode::Merge(const MapNode &obj)
             *this = merged;
         }
     }
+}
+
+// ****************************************************************************
+// Method: MapNode::Remove
+//
+// Purpose: 
+//   This method removes the entry for the given key.
+//
+// Arguments:
+//   key  : The entry to remove.
+//
+// Programmer: Kathleen Biagas
+// Creation:   January 12, 2012
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+void
+MapNode::RemoveEntry(const std::string &key)
+{
+    entries.erase(key);
 }

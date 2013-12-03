@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,6 +43,10 @@
 const int RenderingAttributes::DEFAULT_SCALABLE_AUTO_THRESHOLD = 2000000;
 
 const int RenderingAttributes::DEFAULT_SCALABLE_ACTIVATION_MODE = Auto;
+
+const int RenderingAttributes::DEFAULT_COMPACT_DOMAINS_ACTIVATION_MODE = Auto;
+
+const int RenderingAttributes::DEFAULT_COMPACT_DOMAINS_AUTO_THRESHOLD = 256;
 
 //
 // Enum conversion methods for RenderingAttributes::GeometryRepresentation
@@ -176,6 +180,8 @@ RenderingAttributes::TriStateMode_FromString(const std::string &s, RenderingAttr
 void RenderingAttributes::Init()
 {
     antialiasing = false;
+    multiresolutionMode = false;
+    multiresolutionCellSize = 0.002;
     geometryRepresentation = Surfaces;
     displayListMode = Auto;
     stereoRendering = false;
@@ -198,6 +204,8 @@ void RenderingAttributes::Init()
     endCuePoint[2] = 0;
     compressionActivationMode = Never;
     colorTexturingFlag = true;
+    compactDomainsActivationMode = Never;
+    compactDomainsAutoThreshold = 256;
 
     RenderingAttributes::SelectAll();
 }
@@ -220,6 +228,8 @@ void RenderingAttributes::Init()
 void RenderingAttributes::Copy(const RenderingAttributes &obj)
 {
     antialiasing = obj.antialiasing;
+    multiresolutionMode = obj.multiresolutionMode;
+    multiresolutionCellSize = obj.multiresolutionCellSize;
     geometryRepresentation = obj.geometryRepresentation;
     displayListMode = obj.displayListMode;
     stereoRendering = obj.stereoRendering;
@@ -245,6 +255,8 @@ void RenderingAttributes::Copy(const RenderingAttributes &obj)
 
     compressionActivationMode = obj.compressionActivationMode;
     colorTexturingFlag = obj.colorTexturingFlag;
+    compactDomainsActivationMode = obj.compactDomainsActivationMode;
+    compactDomainsAutoThreshold = obj.compactDomainsAutoThreshold;
 
     RenderingAttributes::SelectAll();
 }
@@ -415,6 +427,8 @@ RenderingAttributes::operator == (const RenderingAttributes &obj) const
 
     // Create the return value
     return ((antialiasing == obj.antialiasing) &&
+            (multiresolutionMode == obj.multiresolutionMode) &&
+            (multiresolutionCellSize == obj.multiresolutionCellSize) &&
             (geometryRepresentation == obj.geometryRepresentation) &&
             (displayListMode == obj.displayListMode) &&
             (stereoRendering == obj.stereoRendering) &&
@@ -433,7 +447,9 @@ RenderingAttributes::operator == (const RenderingAttributes &obj) const
             startCuePoint_equal &&
             endCuePoint_equal &&
             (compressionActivationMode == obj.compressionActivationMode) &&
-            (colorTexturingFlag == obj.colorTexturingFlag));
+            (colorTexturingFlag == obj.colorTexturingFlag) &&
+            (compactDomainsActivationMode == obj.compactDomainsActivationMode) &&
+            (compactDomainsAutoThreshold == obj.compactDomainsAutoThreshold));
 }
 
 // ****************************************************************************
@@ -577,26 +593,30 @@ RenderingAttributes::NewInstance(bool copy) const
 void
 RenderingAttributes::SelectAll()
 {
-    Select(ID_antialiasing,              (void *)&antialiasing);
-    Select(ID_geometryRepresentation,    (void *)&geometryRepresentation);
-    Select(ID_displayListMode,           (void *)&displayListMode);
-    Select(ID_stereoRendering,           (void *)&stereoRendering);
-    Select(ID_stereoType,                (void *)&stereoType);
-    Select(ID_notifyForEachRender,       (void *)&notifyForEachRender);
-    Select(ID_scalableActivationMode,    (void *)&scalableActivationMode);
-    Select(ID_scalableAutoThreshold,     (void *)&scalableAutoThreshold);
-    Select(ID_specularFlag,              (void *)&specularFlag);
-    Select(ID_specularCoeff,             (void *)&specularCoeff);
-    Select(ID_specularPower,             (void *)&specularPower);
-    Select(ID_specularColor,             (void *)&specularColor);
-    Select(ID_doShadowing,               (void *)&doShadowing);
-    Select(ID_shadowStrength,            (void *)&shadowStrength);
-    Select(ID_doDepthCueing,             (void *)&doDepthCueing);
-    Select(ID_depthCueingAutomatic,      (void *)&depthCueingAutomatic);
-    Select(ID_startCuePoint,             (void *)startCuePoint, 3);
-    Select(ID_endCuePoint,               (void *)endCuePoint, 3);
-    Select(ID_compressionActivationMode, (void *)&compressionActivationMode);
-    Select(ID_colorTexturingFlag,        (void *)&colorTexturingFlag);
+    Select(ID_antialiasing,                 (void *)&antialiasing);
+    Select(ID_multiresolutionMode,          (void *)&multiresolutionMode);
+    Select(ID_multiresolutionCellSize,      (void *)&multiresolutionCellSize);
+    Select(ID_geometryRepresentation,       (void *)&geometryRepresentation);
+    Select(ID_displayListMode,              (void *)&displayListMode);
+    Select(ID_stereoRendering,              (void *)&stereoRendering);
+    Select(ID_stereoType,                   (void *)&stereoType);
+    Select(ID_notifyForEachRender,          (void *)&notifyForEachRender);
+    Select(ID_scalableActivationMode,       (void *)&scalableActivationMode);
+    Select(ID_scalableAutoThreshold,        (void *)&scalableAutoThreshold);
+    Select(ID_specularFlag,                 (void *)&specularFlag);
+    Select(ID_specularCoeff,                (void *)&specularCoeff);
+    Select(ID_specularPower,                (void *)&specularPower);
+    Select(ID_specularColor,                (void *)&specularColor);
+    Select(ID_doShadowing,                  (void *)&doShadowing);
+    Select(ID_shadowStrength,               (void *)&shadowStrength);
+    Select(ID_doDepthCueing,                (void *)&doDepthCueing);
+    Select(ID_depthCueingAutomatic,         (void *)&depthCueingAutomatic);
+    Select(ID_startCuePoint,                (void *)startCuePoint, 3);
+    Select(ID_endCuePoint,                  (void *)endCuePoint, 3);
+    Select(ID_compressionActivationMode,    (void *)&compressionActivationMode);
+    Select(ID_colorTexturingFlag,           (void *)&colorTexturingFlag);
+    Select(ID_compactDomainsActivationMode, (void *)&compactDomainsActivationMode);
+    Select(ID_compactDomainsAutoThreshold,  (void *)&compactDomainsAutoThreshold);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -633,6 +653,18 @@ RenderingAttributes::CreateNode(DataNode *parentNode, bool completeSave, bool fo
     {
         addToParent = true;
         node->AddNode(new DataNode("antialiasing", antialiasing));
+    }
+
+    if(completeSave || !FieldsEqual(ID_multiresolutionMode, &defaultObject))
+    {
+        addToParent = true;
+        node->AddNode(new DataNode("multiresolutionMode", multiresolutionMode));
+    }
+
+    if(completeSave || !FieldsEqual(ID_multiresolutionCellSize, &defaultObject))
+    {
+        addToParent = true;
+        node->AddNode(new DataNode("multiresolutionCellSize", multiresolutionCellSize));
     }
 
     if(completeSave || !FieldsEqual(ID_geometryRepresentation, &defaultObject))
@@ -751,6 +783,18 @@ RenderingAttributes::CreateNode(DataNode *parentNode, bool completeSave, bool fo
         node->AddNode(new DataNode("colorTexturingFlag", colorTexturingFlag));
     }
 
+    if(completeSave || !FieldsEqual(ID_compactDomainsActivationMode, &defaultObject))
+    {
+        addToParent = true;
+        node->AddNode(new DataNode("compactDomainsActivationMode", TriStateMode_ToString(compactDomainsActivationMode)));
+    }
+
+    if(completeSave || !FieldsEqual(ID_compactDomainsAutoThreshold, &defaultObject))
+    {
+        addToParent = true;
+        node->AddNode(new DataNode("compactDomainsAutoThreshold", compactDomainsAutoThreshold));
+    }
+
 
     // Add the node to the parent node.
     if(addToParent || forceAdd)
@@ -789,6 +833,10 @@ RenderingAttributes::SetFromNode(DataNode *parentNode)
     DataNode *node;
     if((node = searchNode->GetNode("antialiasing")) != 0)
         SetAntialiasing(node->AsBool());
+    if((node = searchNode->GetNode("multiresolutionMode")) != 0)
+        SetMultiresolutionMode(node->AsBool());
+    if((node = searchNode->GetNode("multiresolutionCellSize")) != 0)
+        SetMultiresolutionCellSize(node->AsFloat());
     if((node = searchNode->GetNode("geometryRepresentation")) != 0)
     {
         // Allow enums to be int or string in the config file
@@ -897,6 +945,24 @@ RenderingAttributes::SetFromNode(DataNode *parentNode)
     }
     if((node = searchNode->GetNode("colorTexturingFlag")) != 0)
         SetColorTexturingFlag(node->AsBool());
+    if((node = searchNode->GetNode("compactDomainsActivationMode")) != 0)
+    {
+        // Allow enums to be int or string in the config file
+        if(node->GetNodeType() == INT_NODE)
+        {
+            int ival = node->AsInt();
+            if(ival >= 0 && ival < 3)
+                SetCompactDomainsActivationMode(TriStateMode(ival));
+        }
+        else if(node->GetNodeType() == STRING_NODE)
+        {
+            TriStateMode value;
+            if(TriStateMode_FromString(node->AsString(), value))
+                SetCompactDomainsActivationMode(value);
+        }
+    }
+    if((node = searchNode->GetNode("compactDomainsAutoThreshold")) != 0)
+        SetCompactDomainsAutoThreshold(node->AsInt());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -908,6 +974,20 @@ RenderingAttributes::SetAntialiasing(bool antialiasing_)
 {
     antialiasing = antialiasing_;
     Select(ID_antialiasing, (void *)&antialiasing);
+}
+
+void
+RenderingAttributes::SetMultiresolutionMode(bool multiresolutionMode_)
+{
+    multiresolutionMode = multiresolutionMode_;
+    Select(ID_multiresolutionMode, (void *)&multiresolutionMode);
+}
+
+void
+RenderingAttributes::SetMultiresolutionCellSize(float multiresolutionCellSize_)
+{
+    multiresolutionCellSize = multiresolutionCellSize_;
+    Select(ID_multiresolutionCellSize, (void *)&multiresolutionCellSize);
 }
 
 void
@@ -1047,6 +1127,20 @@ RenderingAttributes::SetColorTexturingFlag(bool colorTexturingFlag_)
     Select(ID_colorTexturingFlag, (void *)&colorTexturingFlag);
 }
 
+void
+RenderingAttributes::SetCompactDomainsActivationMode(RenderingAttributes::TriStateMode compactDomainsActivationMode_)
+{
+    compactDomainsActivationMode = compactDomainsActivationMode_;
+    Select(ID_compactDomainsActivationMode, (void *)&compactDomainsActivationMode);
+}
+
+void
+RenderingAttributes::SetCompactDomainsAutoThreshold(int compactDomainsAutoThreshold_)
+{
+    compactDomainsAutoThreshold = compactDomainsAutoThreshold_;
+    Select(ID_compactDomainsAutoThreshold, (void *)&compactDomainsAutoThreshold);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Get property methods
 ///////////////////////////////////////////////////////////////////////////////
@@ -1055,6 +1149,18 @@ bool
 RenderingAttributes::GetAntialiasing() const
 {
     return antialiasing;
+}
+
+bool
+RenderingAttributes::GetMultiresolutionMode() const
+{
+    return multiresolutionMode;
+}
+
+float
+RenderingAttributes::GetMultiresolutionCellSize() const
+{
+    return multiresolutionCellSize;
 }
 
 RenderingAttributes::GeometryRepresentation
@@ -1189,6 +1295,18 @@ RenderingAttributes::GetColorTexturingFlag() const
     return colorTexturingFlag;
 }
 
+RenderingAttributes::TriStateMode
+RenderingAttributes::GetCompactDomainsActivationMode() const
+{
+    return TriStateMode(compactDomainsActivationMode);
+}
+
+int
+RenderingAttributes::GetCompactDomainsAutoThreshold() const
+{
+    return compactDomainsAutoThreshold;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Select property methods
 ///////////////////////////////////////////////////////////////////////////////
@@ -1235,26 +1353,30 @@ RenderingAttributes::GetFieldName(int index) const
 {
     switch (index)
     {
-    case ID_antialiasing:              return "antialiasing";
-    case ID_geometryRepresentation:    return "geometryRepresentation";
-    case ID_displayListMode:           return "displayListMode";
-    case ID_stereoRendering:           return "stereoRendering";
-    case ID_stereoType:                return "stereoType";
-    case ID_notifyForEachRender:       return "notifyForEachRender";
-    case ID_scalableActivationMode:    return "scalableActivationMode";
-    case ID_scalableAutoThreshold:     return "scalableAutoThreshold";
-    case ID_specularFlag:              return "specularFlag";
-    case ID_specularCoeff:             return "specularCoeff";
-    case ID_specularPower:             return "specularPower";
-    case ID_specularColor:             return "specularColor";
-    case ID_doShadowing:               return "doShadowing";
-    case ID_shadowStrength:            return "shadowStrength";
-    case ID_doDepthCueing:             return "doDepthCueing";
-    case ID_depthCueingAutomatic:      return "depthCueingAutomatic";
-    case ID_startCuePoint:             return "startCuePoint";
-    case ID_endCuePoint:               return "endCuePoint";
-    case ID_compressionActivationMode: return "compressionActivationMode";
-    case ID_colorTexturingFlag:        return "colorTexturingFlag";
+    case ID_antialiasing:                 return "antialiasing";
+    case ID_multiresolutionMode:          return "multiresolutionMode";
+    case ID_multiresolutionCellSize:      return "multiresolutionCellSize";
+    case ID_geometryRepresentation:       return "geometryRepresentation";
+    case ID_displayListMode:              return "displayListMode";
+    case ID_stereoRendering:              return "stereoRendering";
+    case ID_stereoType:                   return "stereoType";
+    case ID_notifyForEachRender:          return "notifyForEachRender";
+    case ID_scalableActivationMode:       return "scalableActivationMode";
+    case ID_scalableAutoThreshold:        return "scalableAutoThreshold";
+    case ID_specularFlag:                 return "specularFlag";
+    case ID_specularCoeff:                return "specularCoeff";
+    case ID_specularPower:                return "specularPower";
+    case ID_specularColor:                return "specularColor";
+    case ID_doShadowing:                  return "doShadowing";
+    case ID_shadowStrength:               return "shadowStrength";
+    case ID_doDepthCueing:                return "doDepthCueing";
+    case ID_depthCueingAutomatic:         return "depthCueingAutomatic";
+    case ID_startCuePoint:                return "startCuePoint";
+    case ID_endCuePoint:                  return "endCuePoint";
+    case ID_compressionActivationMode:    return "compressionActivationMode";
+    case ID_colorTexturingFlag:           return "colorTexturingFlag";
+    case ID_compactDomainsActivationMode: return "compactDomainsActivationMode";
+    case ID_compactDomainsAutoThreshold:  return "compactDomainsAutoThreshold";
     default:  return "invalid index";
     }
 }
@@ -1279,26 +1401,30 @@ RenderingAttributes::GetFieldType(int index) const
 {
     switch (index)
     {
-    case ID_antialiasing:              return FieldType_bool;
-    case ID_geometryRepresentation:    return FieldType_enum;
-    case ID_displayListMode:           return FieldType_enum;
-    case ID_stereoRendering:           return FieldType_bool;
-    case ID_stereoType:                return FieldType_enum;
-    case ID_notifyForEachRender:       return FieldType_bool;
-    case ID_scalableActivationMode:    return FieldType_enum;
-    case ID_scalableAutoThreshold:     return FieldType_int;
-    case ID_specularFlag:              return FieldType_bool;
-    case ID_specularCoeff:             return FieldType_float;
-    case ID_specularPower:             return FieldType_float;
-    case ID_specularColor:             return FieldType_color;
-    case ID_doShadowing:               return FieldType_bool;
-    case ID_shadowStrength:            return FieldType_double;
-    case ID_doDepthCueing:             return FieldType_bool;
-    case ID_depthCueingAutomatic:      return FieldType_bool;
-    case ID_startCuePoint:             return FieldType_doubleArray;
-    case ID_endCuePoint:               return FieldType_doubleArray;
-    case ID_compressionActivationMode: return FieldType_enum;
-    case ID_colorTexturingFlag:        return FieldType_bool;
+    case ID_antialiasing:                 return FieldType_bool;
+    case ID_multiresolutionMode:          return FieldType_bool;
+    case ID_multiresolutionCellSize:      return FieldType_float;
+    case ID_geometryRepresentation:       return FieldType_enum;
+    case ID_displayListMode:              return FieldType_enum;
+    case ID_stereoRendering:              return FieldType_bool;
+    case ID_stereoType:                   return FieldType_enum;
+    case ID_notifyForEachRender:          return FieldType_bool;
+    case ID_scalableActivationMode:       return FieldType_enum;
+    case ID_scalableAutoThreshold:        return FieldType_int;
+    case ID_specularFlag:                 return FieldType_bool;
+    case ID_specularCoeff:                return FieldType_float;
+    case ID_specularPower:                return FieldType_float;
+    case ID_specularColor:                return FieldType_color;
+    case ID_doShadowing:                  return FieldType_bool;
+    case ID_shadowStrength:               return FieldType_double;
+    case ID_doDepthCueing:                return FieldType_bool;
+    case ID_depthCueingAutomatic:         return FieldType_bool;
+    case ID_startCuePoint:                return FieldType_doubleArray;
+    case ID_endCuePoint:                  return FieldType_doubleArray;
+    case ID_compressionActivationMode:    return FieldType_enum;
+    case ID_colorTexturingFlag:           return FieldType_bool;
+    case ID_compactDomainsActivationMode: return FieldType_enum;
+    case ID_compactDomainsAutoThreshold:  return FieldType_int;
     default:  return FieldType_unknown;
     }
 }
@@ -1323,26 +1449,30 @@ RenderingAttributes::GetFieldTypeName(int index) const
 {
     switch (index)
     {
-    case ID_antialiasing:              return "bool";
-    case ID_geometryRepresentation:    return "enum";
-    case ID_displayListMode:           return "enum";
-    case ID_stereoRendering:           return "bool";
-    case ID_stereoType:                return "enum";
-    case ID_notifyForEachRender:       return "bool";
-    case ID_scalableActivationMode:    return "enum";
-    case ID_scalableAutoThreshold:     return "int";
-    case ID_specularFlag:              return "bool";
-    case ID_specularCoeff:             return "float";
-    case ID_specularPower:             return "float";
-    case ID_specularColor:             return "color";
-    case ID_doShadowing:               return "bool";
-    case ID_shadowStrength:            return "double";
-    case ID_doDepthCueing:             return "bool";
-    case ID_depthCueingAutomatic:      return "bool";
-    case ID_startCuePoint:             return "doubleArray";
-    case ID_endCuePoint:               return "doubleArray";
-    case ID_compressionActivationMode: return "enum";
-    case ID_colorTexturingFlag:        return "bool";
+    case ID_antialiasing:                 return "bool";
+    case ID_multiresolutionMode:          return "bool";
+    case ID_multiresolutionCellSize:      return "float";
+    case ID_geometryRepresentation:       return "enum";
+    case ID_displayListMode:              return "enum";
+    case ID_stereoRendering:              return "bool";
+    case ID_stereoType:                   return "enum";
+    case ID_notifyForEachRender:          return "bool";
+    case ID_scalableActivationMode:       return "enum";
+    case ID_scalableAutoThreshold:        return "int";
+    case ID_specularFlag:                 return "bool";
+    case ID_specularCoeff:                return "float";
+    case ID_specularPower:                return "float";
+    case ID_specularColor:                return "color";
+    case ID_doShadowing:                  return "bool";
+    case ID_shadowStrength:               return "double";
+    case ID_doDepthCueing:                return "bool";
+    case ID_depthCueingAutomatic:         return "bool";
+    case ID_startCuePoint:                return "doubleArray";
+    case ID_endCuePoint:                  return "doubleArray";
+    case ID_compressionActivationMode:    return "enum";
+    case ID_colorTexturingFlag:           return "bool";
+    case ID_compactDomainsActivationMode: return "enum";
+    case ID_compactDomainsAutoThreshold:  return "int";
     default:  return "invalid index";
     }
 }
@@ -1372,6 +1502,16 @@ RenderingAttributes::FieldsEqual(int index_, const AttributeGroup *rhs) const
     case ID_antialiasing:
         {  // new scope
         retval = (antialiasing == obj.antialiasing);
+        }
+        break;
+    case ID_multiresolutionMode:
+        {  // new scope
+        retval = (multiresolutionMode == obj.multiresolutionMode);
+        }
+        break;
+    case ID_multiresolutionCellSize:
+        {  // new scope
+        retval = (multiresolutionCellSize == obj.multiresolutionCellSize);
         }
         break;
     case ID_geometryRepresentation:
@@ -1479,6 +1619,16 @@ RenderingAttributes::FieldsEqual(int index_, const AttributeGroup *rhs) const
         retval = (colorTexturingFlag == obj.colorTexturingFlag);
         }
         break;
+    case ID_compactDomainsActivationMode:
+        {  // new scope
+        retval = (compactDomainsActivationMode == obj.compactDomainsActivationMode);
+        }
+        break;
+    case ID_compactDomainsAutoThreshold:
+        {  // new scope
+        retval = (compactDomainsAutoThreshold == obj.compactDomainsAutoThreshold);
+        }
+        break;
     default: retval = false;
     }
 
@@ -1490,6 +1640,18 @@ RenderingAttributes::FieldsEqual(int index_, const AttributeGroup *rhs) const
 ///////////////////////////////////////////////////////////////////////////////
 
 int RenderingAttributes::GetEffectiveScalableThreshold(TriStateMode mode, int autoThreshold)
+{
+    if (mode == Never)
+        return INT_MAX;
+    else if (mode == Always)
+        return 0;
+    else if (mode == Auto)
+        return autoThreshold;
+    else
+        return -1;
+}
+
+int RenderingAttributes::GetEffectiveCompactDomainsThreshold(TriStateMode mode, int autoThreshold)
 {
     if (mode == Never)
         return INT_MAX;

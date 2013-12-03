@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -49,7 +49,6 @@
 #include <avtGhostData.h>
 
 #include <vector>
-using std::vector;
 
 class vtkDataSet;
 class vtkDataArray;
@@ -80,6 +79,13 @@ class avtMaterial;
 //    Inherit from avtDomainBoundaries.  Also add method 
 //    CanOnlyCreateGhostNodes.
 //   
+//    Hank Childs, Mon Feb 28 10:02:55 PST 2011
+//    Add data member for multiple blocks.  This is for the case where multiple
+//    domains have been put in the same VTK data set.
+//
+//    Brad Whitlock, Sun Apr 22 10:29:43 PDT 2012
+//    Double support.
+//
 // ****************************************************************************
 
 class DATABASE_API avtNekDomainBoundaries : public avtDomainBoundaries
@@ -91,42 +97,47 @@ class DATABASE_API avtNekDomainBoundaries : public avtDomainBoundaries
     static void Destruct(void *);
 
     // These are required to be implemented, but an exception is thrown if used.
-    virtual vector<vtkDataSet*>       ExchangeMesh(vector<int>       domainNum,
-                                               vector<vtkDataSet*>   meshes);
+    virtual std::vector<vtkDataSet*>       ExchangeMesh(std::vector<int>       domainNum,
+                                               std::vector<vtkDataSet*>   meshes);
 
-    virtual vector<vtkDataArray*>     ExchangeScalar(vector<int>     domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeScalar(std::vector<int>     domainNum,
                                                bool                  isPointData,
-                                               vector<vtkDataArray*> scalars);
+                                               std::vector<vtkDataArray*> scalars);
 
-    virtual vector<vtkDataArray*>     ExchangeFloatVector(vector<int> domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeFloatVector(std::vector<int> domainNum,
                                                bool                   isPointData,
-                                               vector<vtkDataArray*>  vectors);
+                                               std::vector<vtkDataArray*>  vectors);
 
-    virtual vector<vtkDataArray*>     ExchangeIntVector(vector<int>  domainNum,
+    virtual std::vector<vtkDataArray*>     ExchangeDoubleVector(std::vector<int> domainNum,
+                                               bool                   isPointData,
+                                               std::vector<vtkDataArray*>  vectors);
+
+    virtual std::vector<vtkDataArray*>     ExchangeIntVector(std::vector<int>  domainNum,
                                                bool                  isPointData,
-                                               vector<vtkDataArray*> vectors);
+                                               std::vector<vtkDataArray*> vectors);
 
-    virtual vector<avtMaterial*>      ExchangeMaterial(vector<int>   domainNum,
-                                              vector<avtMaterial*>   mats);
+    virtual std::vector<avtMaterial*>      ExchangeMaterial(std::vector<int>   domainNum,
+                                              std::vector<avtMaterial*>   mats);
 
-    virtual vector<avtMixedVariable*> ExchangeMixVar(vector<int>     domainNum,
-                                        const vector<avtMaterial*>   mats,
-                                        vector<avtMixedVariable*>    mixvars);
+    virtual std::vector<avtMixedVariable*> ExchangeMixVar(std::vector<int>     domainNum,
+                                        const std::vector<avtMaterial*>   mats,
+                                        std::vector<avtMixedVariable*>    mixvars);
 
     // These are inherited and have real implementations.
-    virtual void                      CreateGhostNodes(vector<int>   domainNum,
-                                               vector<vtkDataSet*>   meshes,
-                                               vector<int> &allDomains);
+    virtual void                      CreateGhostNodes(std::vector<int>   domainNum,
+                                               std::vector<vtkDataSet*>   meshes,
+                                               std::vector<int> &allDomains);
     virtual bool                      CanOnlyCreateGhostNodes(void)
                                                               { return true; };
     virtual bool                      RequiresCommunication(avtGhostDataType);
-    virtual bool                      ConfirmMesh(vector<int>      domainNum,
-                                                  vector<vtkDataSet*> meshes);
+    virtual bool                      ConfirmMesh(std::vector<int>      domainNum,
+                                                  std::vector<vtkDataSet*> meshes);
     virtual void                      ResetCachedMembers(void) {;};
 
     // These are unique to this class
     virtual void                      SetDomainInfo(int num_domains, 
-                                                    const int dims[3]);
+                                                    const int dims[3],
+                                                    bool multipleBlocks = false);
     virtual void                      SetCacheDomainAdjacency(bool bCache) 
                                           {bSaveDomainInfo = bCache;}
 
@@ -144,10 +155,10 @@ class DATABASE_API avtNekDomainBoundaries : public avtDomainBoundaries
     static int CompareFaces(const void *f0, const void *f1);
     static int CompareFaceProcs(const void *f0, const void *f1);
 
-    void       CreateNeighborList(const vector<int>         &domainNum,
-                                  const vector<vtkDataSet*> &meshes);
+    void       CreateNeighborList(const std::vector<int>         &domainNum,
+                                  const std::vector<vtkDataSet*> &meshes);
     int        ExtractMatchingFaces(Face *faces, int nFaces, 
-                                    vector<int> &aMatchedFaces, 
+                                    std::vector<int> &aMatchedFaces, 
                                     bool bCompressFaces);
 
 
@@ -161,6 +172,8 @@ class DATABASE_API avtNekDomainBoundaries : public avtDomainBoundaries
 
     int  nDomains;
     int  iBlockSize[3];
+    int  ptsPerDomain;
+    bool multipleBlocks;
     int  aCornerOffsets[8];
 };
 

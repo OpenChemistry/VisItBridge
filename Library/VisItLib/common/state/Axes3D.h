@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -41,6 +41,7 @@
 #include <state_exports.h>
 #include <string>
 #include <AttributeSubject.h>
+
 #include <AxisAttributes.h>
 
 // ****************************************************************************
@@ -76,13 +77,23 @@ public:
         Both
     };
 
+    // These constructors are for objects of this class
     Axes3D();
     Axes3D(const Axes3D &obj);
+protected:
+    // These constructors are for objects derived from this class
+    Axes3D(private_tmfs_t tmfs);
+    Axes3D(const Axes3D &obj, private_tmfs_t tmfs);
+public:
     virtual ~Axes3D();
 
     virtual Axes3D& operator = (const Axes3D &obj);
     virtual bool operator == (const Axes3D &obj) const;
     virtual bool operator != (const Axes3D &obj) const;
+private:
+    void Init();
+    void Copy(const Axes3D &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -94,6 +105,7 @@ public:
     void SelectXAxis();
     void SelectYAxis();
     void SelectZAxis();
+    void SelectBboxLocation();
 
     // Property setting methods
     void SetVisible(bool visible_);
@@ -107,6 +119,8 @@ public:
     void SetXAxis(const AxisAttributes &xAxis_);
     void SetYAxis(const AxisAttributes &yAxis_);
     void SetZAxis(const AxisAttributes &zAxis_);
+    void SetSetBBoxLocation(bool setBBoxLocation_);
+    void SetBboxLocation(const double *bboxLocation_);
 
     // Property getting methods
     bool                 GetVisible() const;
@@ -123,6 +137,9 @@ public:
           AxisAttributes &GetYAxis();
     const AxisAttributes &GetZAxis() const;
           AxisAttributes &GetZAxis();
+    bool                 GetSetBBoxLocation() const;
+    const double         *GetBboxLocation() const;
+          double         *GetBboxLocation();
 
     // Persistence methods
     virtual bool CreateNode(DataNode *node, bool completeSave, bool forceAdd);
@@ -159,7 +176,10 @@ public:
         ID_bboxFlag,
         ID_xAxis,
         ID_yAxis,
-        ID_zAxis
+        ID_zAxis,
+        ID_setBBoxLocation,
+        ID_bboxLocation,
+        ID__LAST
     };
 
 private:
@@ -174,9 +194,13 @@ private:
     AxisAttributes xAxis;
     AxisAttributes yAxis;
     AxisAttributes zAxis;
+    bool           setBBoxLocation;
+    double         bboxLocation[6];
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define AXES3D_TMFS "bbbiiibbaaabD"
 
 #endif

@@ -7,7 +7,7 @@
   Version:   $Revision: 1.1 $
 
 
-Copyright (c) 1993-2001 Ken Martin, Will Schroeder, Bill Lorensen
+Copyright (c) 1993-2001 Ken Martin, Will Schroeder, Bill Lorensen 
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -43,8 +43,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <vtkCellData.h>
 #include <vtkCellArray.h>
+#include <vtkExecutive.h>
 #include <vtkFloatArray.h>
 #include <vtkIdTypeArray.h>
+#include <vtkInformation.h>
+#include <vtkInformationVector.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkPolyData.h>
@@ -52,14 +55,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vtkStructuredGrid.h>
 #include <vtkUnsignedCharArray.h>
 #include <vtkUnstructuredGrid.h>
-#include <vtkInformation.h>
-#include <vtkInformationVector.h>
-#include <vtkExecutive.h>
 
 #include <vtkVisItUtility.h>
 #include <vtkVisItExtractGrid.h>
 #include <vtkVisItExtractRectilinearGrid.h>
-
 
 #include <avtGhostData.h>
 
@@ -72,20 +71,21 @@ vtkStandardNewMacro(vtkDataSetRemoveGhostCells);
 
 
 // ****************************************************************************
-// Modifications:
+//  Purpose:
+//    Construct with ghost level = 1.
 //
-//   Hank Childs, Mon Aug 30 16:27:16 PDT 2004
-//   Remove references to ghost level, since it is no longer a data member.
+//  Modifications:
+//    Hank Childs, Mon Aug 30 16:27:16 PDT 2004
+//    Remove references to ghost level, since it is no longer a data member.
 //
-//   Hank Childs, Fri Aug  3 16:56:36 PDT 2007
-//   Initialize GhostNodeTypesToRemove.
+//    Hank Childs, Fri Aug  3 16:56:36 PDT 2007
+//    Initialize GhostNodeTypesToRemove.
 //
-//   Hank Childs, Sun Oct 28 10:48:50 PST 2007
-//   Initialize GhostZoneTypesToRemove.
+//    Hank Childs, Sun Oct 28 10:48:50 PST 2007
+//    Initialize GhostZoneTypesToRemove.
 //
 // ****************************************************************************
 
-// Construct with ghost level = 1.
 vtkDataSetRemoveGhostCells::vtkDataSetRemoveGhostCells()
 {
     GhostNodeTypesToRemove = 255;
@@ -93,55 +93,62 @@ vtkDataSetRemoveGhostCells::vtkDataSetRemoveGhostCells()
 }
 
 
-int vtkDataSetRemoveGhostCells::RequestData(
-  vtkInformation *vtkNotUsed(request),
-  vtkInformationVector **inputVector,
-  vtkInformationVector *outputVector)
+// ****************************************************************************
+//  Modifications:
+//    Eric Brugger, Wed Jan  9 14:56:57 PST 2013
+//    Modified to inherit from vtkDataSetAlgorithm.
+//
+// ****************************************************************************
+
+int
+vtkDataSetRemoveGhostCells::RequestData(
+    vtkInformation *vtkNotUsed(request),
+    vtkInformationVector **inputVector,
+    vtkInformationVector *outputVector)
 {
-  // get the info objects
-  vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
-  vtkInformation *outInfo = outputVector->GetInformationObject(0);
+    // get the info objects
+    vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
+    vtkInformation *outInfo = outputVector->GetInformationObject(0);
 
-  // get the input and output
-  vtkDataObject *input =  inInfo->Get(vtkDataObject::DATA_OBJECT());
-  vtkDataObject *output = vtkDataObject::SafeDownCast(
-    outInfo->Get(vtkDataObject::DATA_OBJECT()));
+    //
+    // Initialize some frequently used values.
+    //
+    input  = vtkDataSet::SafeDownCast(
+        inInfo->Get(vtkDataObject::DATA_OBJECT()));
+    output = vtkDataSet::SafeDownCast(
+        outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
-  switch(input->GetDataObjectType())
-  {
-
+    switch(input->GetDataObjectType())
+    {
       case VTK_RECTILINEAR_GRID :
-          RectilinearGridExecute(static_cast<vtkRectilinearGrid*>(input),
-                                 static_cast<vtkRectilinearGrid*>(output));
-          break;
+        RectilinearGridExecute();
+        break;
+
       case VTK_POLY_DATA :
-          PolyDataExecute(static_cast<vtkPolyData*>(input),
-                          static_cast<vtkPolyData*>(output));
-          break;
+        PolyDataExecute();
+        break;
 
       case VTK_UNSTRUCTURED_GRID :
-          UnstructuredGridExecute(static_cast<vtkUnstructuredGrid*>(input),
-                                  static_cast<vtkUnstructuredGrid*>(output));
-          break;
+        UnstructuredGridExecute();
+        break;
 
       case VTK_STRUCTURED_GRID :
-          StructuredGridExecute(static_cast<vtkStructuredGrid*>(input),
-                                static_cast<vtkStructuredGrid*>(output));
-          break;
+        StructuredGridExecute();
+        break;
 
-      default:
-          vtkDebugMacro(<<"vtkDataSetRemoveGhostCells not set up to "
-                          "operate on this data type" );
-          vtkDataSet::SafeDownCast(output)->DeepCopy(input);
-          break;
-  }
+      default: 
+        vtkDebugMacro(<<"vtkDataSetRemoveGhostCells not set up to "
+                        "operate on this data type" );
+        output->DeepCopy(input); 
+        break;
+    }
 
-  return 1;
+    return 1;
 }
+
 
 // ****************************************************************************
 //  Modifications:
-//
 //    Hank Childs, Thu Mar  2 11:14:53 PST 2006
 //    Created.
 //
@@ -153,20 +160,25 @@ int vtkDataSetRemoveGhostCells::RequestData(
 //    use it to determine if all the cells are selected -- and if they
 //    are, then just short-circuit out.
 //
+//    Eric Brugger, Wed Jan  9 14:56:57 PST 2013
+//    Modified to inherit from vtkDataSetAlgorithm.
+//
 // ****************************************************************************
 
-void vtkDataSetRemoveGhostCells::GenericExecute(vtkDataSet *input, vtkDataSet *output)
+void
+vtkDataSetRemoveGhostCells::GenericExecute()
 {
     int  i;
 
-    vtkDataArray *arr = input->GetCellData()->GetArray("avtGhostZones");
+    vtkDataSet *ds = input;
+    vtkDataArray *arr = ds->GetCellData()->GetArray("avtGhostZones");
     if (arr == NULL)
     {
-        output->ShallowCopy(input);
+        output->ShallowCopy(ds);
         return;
     }
     int nOut = 0;
-    int nCells = input->GetNumberOfCells();
+    int nCells = ds->GetNumberOfCells();
     for (i = 0 ; i < nCells ; i++)
         if (arr->GetTuple1(i) == 0)
             nOut++;
@@ -174,19 +186,19 @@ void vtkDataSetRemoveGhostCells::GenericExecute(vtkDataSet *input, vtkDataSet *o
     // If *all* the cells are selected, exit early, returning the input
     if (nOut == nCells)
     {
-        output->ShallowCopy(input);
+        output->ShallowCopy(ds);
         return;
     }
-
-    vtkPoints *ptsObj = vtkVisItUtility::GetPoints(input);
+     
+    vtkPoints *ptsObj = vtkVisItUtility::GetPoints(ds);
     vtkUnstructuredGrid *ugrid = vtkUnstructuredGrid::New();
     ugrid->SetPoints(ptsObj);
     ptsObj->Delete();
-    ugrid->GetPointData()->ShallowCopy(input->GetPointData());
+    ugrid->GetPointData()->ShallowCopy(ds->GetPointData());
     ugrid->Allocate(8*nOut);
-
+   
     int cellId = 0;
-    vtkCellData *inCD  = input->GetCellData();
+    vtkCellData *inCD  = ds->GetCellData();
     vtkCellData *outCD = ugrid->GetCellData();
     outCD->CopyAllocate(inCD, nOut);
     vtkIdList *ptList = vtkIdList::New();
@@ -194,9 +206,9 @@ void vtkDataSetRemoveGhostCells::GenericExecute(vtkDataSet *input, vtkDataSet *o
     {
         if (arr->GetTuple1(i) != 0)
             continue;
-
-        input->GetCellPoints(i, ptList);
-        int type = input->GetCellType(i);
+   
+        ds->GetCellPoints(i, ptList);
+        int type = ds->GetCellType(i);
         ugrid->InsertNextCell(type, ptList);
         outCD->CopyData(inCD, i, cellId++);
     }
@@ -210,7 +222,6 @@ void vtkDataSetRemoveGhostCells::GenericExecute(vtkDataSet *input, vtkDataSet *o
 
 // ***************************************************************************
 //  Modifications:
-//
 //    Kathleen Bonnell, Fri Aug 31 08:50:30 PDT 2001
 //    Removed check of field data.  No longer necessary with new vtk.
 //
@@ -220,8 +231,8 @@ void vtkDataSetRemoveGhostCells::GenericExecute(vtkDataSet *input, vtkDataSet *o
 //    Hank Childs, Sat Jun 29 16:27:41 PDT 2002
 //    Copy over field data.
 //
-//    Kathleen Bonnell, Wed Jul 10 16:02:56 PDT 2002
-//    Reworked code to utilize vtk RemoveGhostCells method.
+//    Kathleen Bonnell, Wed Jul 10 16:02:56 PDT 2002 
+//    Reworked code to utilize vtk RemoveGhostCells method. 
 //
 //    Hank Childs, Thu Aug 26 10:53:28 PDT 2004
 //    Renamed ghost arrays.  Added logic to remove cells that are ghosted,
@@ -235,26 +246,32 @@ void vtkDataSetRemoveGhostCells::GenericExecute(vtkDataSet *input, vtkDataSet *o
 //    (if they existed) potentially providing bogus connectivity info after
 //    the ghost zones were removed.
 //
+//    Eric Brugger, Wed Jan  9 14:56:57 PST 2013
+//    Modified to inherit from vtkDataSetAlgorithm.
+//
 // ****************************************************************************
 
-void vtkDataSetRemoveGhostCells::UnstructuredGridExecute(vtkUnstructuredGrid *input,
-                                                         vtkUnstructuredGrid *output)
+void
+vtkDataSetRemoveGhostCells::UnstructuredGridExecute()
 {
   vtkIdType i;
 
   vtkDebugMacro(<< "Executing remove ghost cells filter for unstructured grid");
+ 
+  vtkUnstructuredGrid *inGrid  = (vtkUnstructuredGrid*)input;
+  vtkUnstructuredGrid *outGrid = (vtkUnstructuredGrid*)output;
+ 
+  outGrid->vtkPointSet::ShallowCopy(inGrid);
+  outGrid->SetPoints(inGrid->GetPoints());
+  outGrid->GetPointData()->ShallowCopy(inGrid->GetPointData());
+  outGrid->GetFieldData()->ShallowCopy(inGrid->GetFieldData());
 
-  output->vtkPointSet::ShallowCopy(input);
-  output->SetPoints(input->GetPoints());
-  output->GetPointData()->ShallowCopy(input->GetPointData());
-  output->GetFieldData()->ShallowCopy(input->GetFieldData());
-
-  vtkDataArray *arr = input->GetCellData()->GetArray("avtGhostZones");
+  vtkDataArray *arr = inGrid->GetCellData()->GetArray("avtGhostZones");
   if (arr == NULL)
   {
-      output->GetCellData()->ShallowCopy(input->GetCellData());
-      output->SetCells(input->GetCellTypesArray(), input->GetCellLocationsArray(),
-                       input->GetCells());
+      outGrid->GetCellData()->ShallowCopy(inGrid->GetCellData());
+      outGrid->SetCells(inGrid->GetCellTypesArray(),
+                        inGrid->GetCellLocationsArray(), inGrid->GetCells());
       return;
   }
   if (arr->GetDataType() != VTK_UNSIGNED_CHAR)
@@ -264,8 +281,8 @@ void vtkDataSetRemoveGhostCells::UnstructuredGridExecute(vtkUnstructuredGrid *in
   }
   vtkUnsignedCharArray *ghosts = (vtkUnsignedCharArray *) arr;
 
-  vtkIdType ncells = input->GetNumberOfCells();
-  int totalSize = input->GetCells()->GetSize();
+  vtkIdType ncells = inGrid->GetNumberOfCells();
+  int totalSize = inGrid->GetCells()->GetSize();
 
   // Over-allocate for now.
   vtkIdType *buff = new vtkIdType[totalSize];
@@ -279,8 +296,8 @@ void vtkDataSetRemoveGhostCells::UnstructuredGridExecute(vtkUnstructuredGrid *in
   cellLocations->SetNumberOfValues(ncells);
   vtkIdType *cl = cellLocations->GetPointer(0);
 
-  vtkCellData *inCD = input->GetCellData();
-  vtkCellData *outCD = output->GetCellData();
+  vtkCellData *inCD = inGrid->GetCellData();
+  vtkCellData *outCD = outGrid->GetCellData();
   outCD->CopyAllocate(inCD, ncells);
   int currentIndex = 0;
   vtkIdType cellId = 0;
@@ -292,8 +309,8 @@ void vtkDataSetRemoveGhostCells::UnstructuredGridExecute(vtkUnstructuredGrid *in
 
       vtkIdType npts;
       vtkIdType *pts;
-      input->GetCellPoints(i, npts, pts);
-      *ct++ = input->GetCellType(i);
+      inGrid->GetCellPoints(i, npts, pts);
+      *ct++ = inGrid->GetCellType(i);
       *cl++ = currentIndex;
       *b++ = npts;
       currentIndex += npts+1;
@@ -307,7 +324,7 @@ void vtkDataSetRemoveGhostCells::UnstructuredGridExecute(vtkUnstructuredGrid *in
   vtkIdTypeArray *nlist = vtkIdTypeArray::New();
   nlist->SetNumberOfValues(currentIndex);
   vtkIdType *nl = nlist->GetPointer(0);
-  for (i = 0 ; i < currentIndex ; i++)
+  for (i = 0 ; i < currentIndex ; i++) 
       nl[i] = buff[i];
   delete [] buff;
 
@@ -315,29 +332,28 @@ void vtkDataSetRemoveGhostCells::UnstructuredGridExecute(vtkUnstructuredGrid *in
   cells->SetCells(cellId, nlist);
   nlist->Delete();
 
-  output->SetCells(cellTypes, cellLocations, cells);
+  outGrid->SetCells(cellTypes, cellLocations, cells);
   cellTypes->Delete();
   cellLocations->Delete();
   cells->Delete();
 
-  output->Squeeze();
+  outGrid->Squeeze();
   if (GhostZoneTypesToRemove == 255)
-    output->GetCellData()->RemoveArray("avtGhostZones");
+    outGrid->GetCellData()->RemoveArray("avtGhostZones");
 }
 
 
 // ***************************************************************************
 //  Modifications:
-//
 //    Kathleen Bonnell, Fri Aug 31 08:50:30 PDT 2001
-//    Removed check of field data, as it is no longer necessary with VTK 4.0
+//    Removed check of field data, as it is no longer necessary with VTK 4.0 
 //    Made pts of type vtkIdType to match VTK 4.0 API.
 //
 //    Hank Childs, Sat Jun 29 16:27:41 PDT 2002
 //    Copy over field data.
 //
-//    Kathleen Bonnell, Wed Jul 10 16:02:56 PDT 2002
-//    Reworked code to utilize vtk RemoveGhostCells method.
+//    Kathleen Bonnell, Wed Jul 10 16:02:56 PDT 2002 
+//    Reworked code to utilize vtk RemoveGhostCells method. 
 //
 //    Hank Childs, Fri Sep 13 20:19:52 PDT 2002
 //    Reverted back to removing ghost zones by hand since the VTK
@@ -373,31 +389,37 @@ void vtkDataSetRemoveGhostCells::UnstructuredGridExecute(vtkUnstructuredGrid *in
 //    Hank Childs, Sun Oct 28 10:48:50 PST 2007
 //    Added support for GhostZoneTypesToRemove.
 //
+//    Eric Brugger, Wed Jan  9 14:56:57 PST 2013
+//    Modified to inherit from vtkDataSetAlgorithm.
+//
 // ***************************************************************************
 
-void vtkDataSetRemoveGhostCells::PolyDataExecute(vtkPolyData *input, vtkPolyData *output)
+void
+vtkDataSetRemoveGhostCells::PolyDataExecute()
 {
+  vtkPolyData *inGrid  = (vtkPolyData*)input;
+  vtkPolyData *outGrid = (vtkPolyData*)output;
 
   vtkUnsignedCharArray *ghost_zones = (vtkUnsignedCharArray *)
-                              input->GetCellData()->GetArray("avtGhostZones");
+                            inGrid->GetCellData()->GetArray("avtGhostZones");
 
   vtkUnsignedCharArray *ghost_nodes = (vtkUnsignedCharArray *)
-                              input->GetPointData()->GetArray("avtGhostNodes");
+                            inGrid->GetPointData()->GetArray("avtGhostNodes");
 
   if ((ghost_zones == NULL) && (ghost_nodes == NULL))
     {
-    output->ShallowCopy(input);
+    outGrid->ShallowCopy(inGrid);
     return;
     }
 
-  output->SetPoints(input->GetPoints());
-  output->GetPointData()->PassData(input->GetPointData());
-  output->GetFieldData()->PassData(input->GetFieldData());
+  outGrid->SetPoints(inGrid->GetPoints());
+  outGrid->GetPointData()->PassData(inGrid->GetPointData());
+  outGrid->GetFieldData()->PassData(inGrid->GetFieldData());
 
-  vtkCellData *inCD  = input->GetCellData();
-  vtkCellData *outCD = output->GetCellData();
+  vtkCellData *inCD  = inGrid->GetCellData();
+  vtkCellData *outCD = outGrid->GetCellData();
   outCD->CopyAllocate(inCD);
-
+ 
   bool usingGhostZones = (ghost_zones != NULL);
   bool usingGhostNodes = (ghost_nodes != NULL);
   unsigned char *zone_ptr = NULL;
@@ -407,9 +429,9 @@ void vtkDataSetRemoveGhostCells::PolyDataExecute(vtkPolyData *input, vtkPolyData
   if (usingGhostNodes)
     node_ptr = ghost_nodes->GetPointer(0);
 
-  int nCells = input->GetNumberOfCells();
-  output->Allocate(nCells);
-  input->BuildCells();
+  int nCells = inGrid->GetNumberOfCells();
+  outGrid->Allocate(nCells);
+  inGrid->BuildCells();
   vtkIdType npts;
   vtkIdType *pts;
   int cell = 0;
@@ -424,7 +446,7 @@ void vtkDataSetRemoveGhostCells::PolyDataExecute(vtkPolyData *input, vtkPolyData
         }
       }
 
-    input->GetCellPoints(i, npts, pts);
+    inGrid->GetCellPoints(i, npts, pts);
 
     if (usingGhostNodes)
       {
@@ -442,29 +464,28 @@ void vtkDataSetRemoveGhostCells::PolyDataExecute(vtkPolyData *input, vtkPolyData
         continue;
       }
 
-    output->InsertNextCell(input->GetCellType(i), npts, pts);
+    outGrid->InsertNextCell(inGrid->GetCellType(i), npts, pts);
     outCD->CopyData(inCD, i, cell++);
     }
   if (GhostZoneTypesToRemove == 255)
-    output->GetCellData()->RemoveArray("avtGhostZones");
-  output->GetPointData()->RemoveArray("avtGhostNodes");
-  output->Squeeze();
+    outGrid->GetCellData()->RemoveArray("avtGhostZones");
+  outGrid->GetPointData()->RemoveArray("avtGhostNodes");
+  outGrid->Squeeze();
 }
 
 
 // ***************************************************************************
 //  Modifications:
-//
 //    Kathleen Bonnell, Fri Aug 31 08:50:30 PDT 2001
-//    VTK 4.0 compatibility issues: Removed check of field data.
+//    VTK 4.0 compatibility issues: Removed check of field data.  
 //    Use vtkDataArray for rectilinear grid coordinates instead of vtkScalars,
 //    use correct access methods for this array.
 //
 //    Hank Childs, Sat Jun 29 16:27:41 PDT 2002
 //    Copy over field data and set the dimensions.
 //
-//    Kathleen Bonnell, Wed Jul 10 16:02:56 PDT 2002
-//    Reworked code to utilize vtk ExtractRectilinearGrid filter.
+//    Kathleen Bonnell, Wed Jul 10 16:02:56 PDT 2002 
+//    Reworked code to utilize vtk ExtractRectilinearGrid filter. 
 //    Use new avtRealDims array.
 //
 //    Hank Childs, Sun Nov  9 13:19:45 PST 2003
@@ -483,12 +504,21 @@ void vtkDataSetRemoveGhostCells::PolyDataExecute(vtkPolyData *input, vtkPolyData
 //    Cyrus Harrison, Fri Mar 26 15:29:47 PDT 2010
 //    Guard against invalid 'avtRealDims' data.
 //
+//    Eric Brugger, Wed Jan  9 14:56:57 PST 2013
+//    Modified to inherit from vtkDataSetAlgorithm.
+//
+//    Kathleen Biagas, Fri Jan 25 16:04:46 PST 2013
+//    Call Update on the filter, not the data object.
+//
 // ***************************************************************************
 
-void vtkDataSetRemoveGhostCells::RectilinearGridExecute(vtkRectilinearGrid *input,
-                                                        vtkRectilinearGrid *output)
+void
+vtkDataSetRemoveGhostCells::RectilinearGridExecute()
 {
-  vtkDataArray *realDims = input->GetFieldData()->GetArray("avtRealDims");
+  vtkRectilinearGrid *inGrid  = (vtkRectilinearGrid*)input;
+  vtkRectilinearGrid *outGrid = (vtkRectilinearGrid*)output;
+
+  vtkDataArray *realDims = inGrid->GetFieldData()->GetArray("avtRealDims");
 
 
     bool realDimsOk = false;
@@ -503,7 +533,7 @@ void vtkDataSetRemoveGhostCells::RectilinearGridExecute(vtkRectilinearGrid *inpu
 
         int ddims[3];
         int rdims[6];
-        input->GetDimensions(ddims);
+        inGrid->GetDimensions(ddims);
         memcpy(rdims,iarr->GetPointer(0),sizeof(int)*6);
 
         if( ((rdims[1] - rdims[0]) < ddims[0]) &&
@@ -514,8 +544,7 @@ void vtkDataSetRemoveGhostCells::RectilinearGridExecute(vtkRectilinearGrid *inpu
 
     if (!realDimsOk)
     {
-        GenericExecute(vtkDataSet::SafeDownCast(input),
-                       vtkDataSet::SafeDownCast(output));
+        GenericExecute();
         return;
     }
 
@@ -528,38 +557,37 @@ void vtkDataSetRemoveGhostCells::RectilinearGridExecute(vtkRectilinearGrid *inpu
     }
 
   vtkUnsignedCharArray *arr = (vtkUnsignedCharArray *)
-                               input->GetCellData()->GetArray("avtGhostZones");
+                              inGrid->GetCellData()->GetArray("avtGhostZones");
   if (GhostZoneTypesToRemove != 255 && arr != NULL)
   {
     unsigned char *ghosts = arr->GetPointer(0);
     int dims[3];
-    input->GetDimensions(dims);
+    inGrid->GetDimensions(dims);
 
     // Check to make sure that the zones we are going to remove are
     // uniformly of the type we should remove.
     // It will modify the voi if necessary.
     ConfirmRegion(ghosts, dims, voi);
   }
-
+ 
   vtkVisItExtractRectilinearGrid *extractor = vtkVisItExtractRectilinearGrid::New();
-  extractor->SetInputData(input);
+  extractor->SetInputData(inGrid);
   extractor->SetVOI(voi);
-  this->Update();
-
-  output->ShallowCopy(extractor->GetOutput());
+  extractor->Update();
+ 
+  outGrid->ShallowCopy(extractor->GetOutput());
   extractor->Delete();
-  output->GetFieldData()->PassData(input->GetFieldData());
-  output->GetFieldData()->RemoveArray("avtRealDims");
+  outGrid->GetFieldData()->PassData(inGrid->GetFieldData());
+  outGrid->GetFieldData()->RemoveArray("avtRealDims");
   if (GhostZoneTypesToRemove == 255)
   {
-    output->GetCellData()->RemoveArray("avtGhostZones");
+    outGrid->GetCellData()->RemoveArray("avtGhostZones");
   }
 }
 
 
 // ***************************************************************************
 //  Modifications:
-//
 //    Kathleen Bonnell, Fri Aug 31 08:50:30 PDT 2001
 //    Removed check of field data.  No longer necessary with new vtk.
 //
@@ -583,59 +611,68 @@ void vtkDataSetRemoveGhostCells::RectilinearGridExecute(vtkRectilinearGrid *inpu
 //    Hank Childs, Sun Oct 28 10:56:37 PST 2007
 //    Added support for GhostZoneTypesToRemove.
 //
+//    Eric Brugger, Wed Jan  9 14:56:57 PST 2013
+//    Modified to inherit from vtkDataSetAlgorithm.
+//
+//    Kathleen Biagas, Fri Jan 25 16:04:46 PST 2013
+//    Call Update on the filter, not the data object.
+//
 // ***************************************************************************
 
-void vtkDataSetRemoveGhostCells::StructuredGridExecute(vtkStructuredGrid *input,
-                                                       vtkStructuredGrid *output)
+void
+vtkDataSetRemoveGhostCells::StructuredGridExecute()
 {
-  vtkDataArray *realDims = input->GetFieldData()->GetArray("avtRealDims");
+  vtkStructuredGrid *inGrid  = (vtkStructuredGrid*)input;
+  vtkStructuredGrid *outGrid = (vtkStructuredGrid*)output;
+ 
+  vtkDataArray *realDims = inGrid->GetFieldData()->GetArray("avtRealDims");
   if (!realDims || (realDims->GetDataType() != VTK_INT)
     || (realDims->GetNumberOfComponents() != 1))
     {
-    GenericExecute(vtkDataSet::SafeDownCast(input),
-                   vtkDataSet::SafeDownCast(output));
+    GenericExecute();
     return;
     }
 
   vtkDebugMacro(<< "Executing remove ghost cells filter for structured grid");
-
+ 
    int i, voi[6];
    for (i = 0; i < 6; i++)
      {
      voi[i] = (int) realDims->GetComponent(i, 0);
      }
-
+ 
   vtkUnsignedCharArray *arr = (vtkUnsignedCharArray *)
-                               input->GetCellData()->GetArray("avtGhostZones");
+                              inGrid->GetCellData()->GetArray("avtGhostZones");
   if (GhostZoneTypesToRemove != 255 && arr != NULL)
   {
     unsigned char *ghosts = arr->GetPointer(0);
     int dims[3];
-    input->GetDimensions(dims);
+    inGrid->GetDimensions(dims);
 
     // Check to make sure that the zones we are going to remove are
     // uniformly of the type we should remove.
     // It will modify the voi if necessary.
     ConfirmRegion(ghosts, dims, voi);
   }
-
+ 
   vtkVisItExtractGrid *extractor = vtkVisItExtractGrid::New();
-  extractor->SetInputData(input);
+  extractor->SetInputData(inGrid);
   extractor->SetVOI(voi);
-  this->Update();
-
-  output->ShallowCopy(extractor->GetOutput());
+  extractor->Update();
+ 
+  outGrid->ShallowCopy(extractor->GetOutput());
   extractor->Delete();
-  output->GetFieldData()->PassData(input->GetFieldData());
-  output->GetFieldData()->RemoveArray("avtRealDims");
+  outGrid->GetFieldData()->PassData(inGrid->GetFieldData());
+  outGrid->GetFieldData()->RemoveArray("avtRealDims");
   if (GhostZoneTypesToRemove == 255)
   {
-    output->GetCellData()->RemoveArray("avtGhostZones");
+    outGrid->GetCellData()->RemoveArray("avtGhostZones");
   }
 }
 
-void vtkDataSetRemoveGhostCells::ConfirmRegion(unsigned char *ghosts,
-                                               int *pt_dims, int *voi)
+void
+vtkDataSetRemoveGhostCells::ConfirmRegion(unsigned char *ghosts,
+                                          int *pt_dims, int *voi)
 {
     int  i, j, k;
 
@@ -738,15 +775,17 @@ void vtkDataSetRemoveGhostCells::ConfirmRegion(unsigned char *ghosts,
 
 
 // ****************************************************************************
-// Modifications:
-//   Kathleen Bonnell, Wed Mar  6 13:48:48 PST 2002
-//   Call superclass's method the new vtk way.
+//  Modifications:
+//    Kathleen Bonnell, Wed Mar  6 13:48:48 PST 2002
+//    Call superclass's method the new vtk way.
 //
-//   Hank Childs, Mon Aug 30 16:27:16 PDT 2004
-//   Remove references to ghost level, since it is no longer a data member.
+//    Hank Childs, Mon Aug 30 16:27:16 PDT 2004
+//    Remove references to ghost level, since it is no longer a data member.
 //
 // ****************************************************************************
-void vtkDataSetRemoveGhostCells::PrintSelf(ostream& os, vtkIndent indent)
+
+void
+vtkDataSetRemoveGhostCells::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os,indent);
 }

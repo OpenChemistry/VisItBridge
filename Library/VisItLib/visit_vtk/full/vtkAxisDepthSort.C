@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -45,13 +45,13 @@
 #include <stdlib.h>
 
 #include <vtkCellData.h>
+#include <vtkExecutive.h>
 #include <vtkGenericCell.h>
 #include <vtkInformation.h>
 #include <vtkInformationVector.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkPolyData.h>
-#include <vtkExecutive.h>
 
 static int CoordSorter(const void *, const void *);
 
@@ -63,81 +63,115 @@ typedef struct
 
 vtkStandardNewMacro(vtkAxisDepthSort);
 
-
 // ****************************************************************************
 //  Modifications:
-//
 //    Hank Childs, Fri Mar 11 08:26:34 PST 2005
 //    Fix memory leak.
+//
+//    Eric Brugger, Wed Jan  9 11:20:53 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
 //
 // ****************************************************************************
 
 vtkAxisDepthSort::vtkAxisDepthSort()
 {
-    this->SetNumberOfOutputPorts(6);
+    SetNumberOfOutputPorts(6);
+    // Base class does 0.
+
+    vtkPolyData *p = vtkPolyData::New();
+    this->GetExecutive()->SetOutputData(1, p);
+    p->Delete();
+
+    p = vtkPolyData::New();
+    this->GetExecutive()->SetOutputData(2, p);
+    p->Delete();
+
+    p = vtkPolyData::New();
+    this->GetExecutive()->SetOutputData(3, p);
+    p->Delete();
+
+    p = vtkPolyData::New();
+    this->GetExecutive()->SetOutputData(4, p);
+    p->Delete();
+
+    p = vtkPolyData::New();
+    this->GetExecutive()->SetOutputData(5, p);
+    p->Delete();
 }
 
 
 vtkPolyData *
-vtkAxisDepthSort::GetPlusXOutput(vtkInformationVector* outputVector)
+vtkAxisDepthSort::GetPlusXOutput(void)
 {
-    return this->GetOutput(0, outputVector);
+    return vtkPolyData::SafeDownCast(
+        this->GetExecutive()->GetOutputData(0));
 }
 
 
 vtkPolyData *
-vtkAxisDepthSort::GetMinusXOutput(vtkInformationVector* outputVector)
+vtkAxisDepthSort::GetMinusXOutput(void)
 {
-    return this->GetOutput(1, outputVector);
+    return vtkPolyData::SafeDownCast(
+        this->GetExecutive()->GetOutputData(1));
 }
 
 
 vtkPolyData *
-vtkAxisDepthSort::GetPlusYOutput(vtkInformationVector* outputVector)
+vtkAxisDepthSort::GetPlusYOutput(void)
 {
-    return this->GetOutput(2, outputVector);
+    return vtkPolyData::SafeDownCast(
+        this->GetExecutive()->GetOutputData(2));
 }
 
 
 vtkPolyData *
-vtkAxisDepthSort::GetMinusYOutput(vtkInformationVector* outputVector)
+vtkAxisDepthSort::GetMinusYOutput(void)
 {
-    return this->GetOutput(3, outputVector);
+    return vtkPolyData::SafeDownCast(
+        this->GetExecutive()->GetOutputData(3));
 }
 
 
 vtkPolyData *
-vtkAxisDepthSort::GetPlusZOutput(vtkInformationVector* outputVector)
+vtkAxisDepthSort::GetPlusZOutput(void)
 {
-    return this->GetOutput(4, outputVector);
+    return vtkPolyData::SafeDownCast(
+        this->GetExecutive()->GetOutputData(4));
 }
 
 
 vtkPolyData *
-vtkAxisDepthSort::GetMinusZOutput(vtkInformationVector* outputVector)
+vtkAxisDepthSort::GetMinusZOutput(void)
 {
-    return this->GetOutput(5, outputVector);
+    return vtkPolyData::SafeDownCast(
+        this->GetExecutive()->GetOutputData(5));
 }
 
-vtkPolyData *
-vtkAxisDepthSort::GetOutput(int port, vtkInformationVector* outputVector)
-{
-    vtkInformation *outInfo = outputVector->GetInformationObject(port);
-    vtkPolyData *output = vtkPolyData::SafeDownCast(
-            outInfo->Get(vtkDataObject::DATA_OBJECT()));
-    return output;
-}
+
+// ****************************************************************************
+//  Modifications:
+//    Eric Brugger, Wed Jan  9 11:20:53 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
 
 int
-vtkAxisDepthSort::RequestData( vtkInformation* vtkNotUsed(request),
-                               vtkInformationVector** inputVector,
-                               vtkInformationVector* outputVector)
+vtkAxisDepthSort::RequestData(
+    vtkInformation *vtkNotUsed(request),
+    vtkInformationVector **inputVector,
+    vtkInformationVector *outputVector)
 {
-    int   i;
-    vtkInformation* inInfo = inputVector[0]->GetInformationObject(0);
-    
+    // get the info objects
+    vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
+
+    //
+    // Initialize some frequently used values.
+    //
     vtkPolyData *input = vtkPolyData::SafeDownCast(
-      inInfo->Get(vtkDataObject::DATA_OBJECT()));
+        inInfo->Get(vtkDataObject::DATA_OBJECT()));
+
+    int   i;
+
     int ncells = input->GetNumberOfCells();
 
     coord_cell_id_pair *pairs = new coord_cell_id_pair[ncells];
@@ -184,7 +218,7 @@ vtkAxisDepthSort::RequestData( vtkInformation* vtkNotUsed(request),
     //
     // Now create the PlusX/MinusX output.
     //
-    vtkPolyData *minusX = GetMinusXOutput(outputVector);
+    vtkPolyData *minusX = GetMinusXOutput();
     minusX->SetPoints(input->GetPoints());
     minusX->Allocate(input);
     outPD = minusX->GetPointData();
@@ -201,7 +235,7 @@ vtkAxisDepthSort::RequestData( vtkInformation* vtkNotUsed(request),
             outCD->CopyData(inCD, i, cell);
     }
 
-    vtkPolyData *plusX = GetPlusXOutput(outputVector);
+    vtkPolyData *plusX = GetPlusXOutput();
     plusX->SetPoints(input->GetPoints());
     plusX->Allocate(input);
     outPD = plusX->GetPointData();
@@ -231,7 +265,7 @@ vtkAxisDepthSort::RequestData( vtkInformation* vtkNotUsed(request),
     //
     // Now create the PlusY/MinusY output.
     //
-    vtkPolyData *minusY = GetMinusYOutput(outputVector);
+    vtkPolyData *minusY = GetMinusYOutput();
     minusY->SetPoints(input->GetPoints());
     minusY->Allocate(input);
     outPD = minusY->GetPointData();
@@ -248,7 +282,7 @@ vtkAxisDepthSort::RequestData( vtkInformation* vtkNotUsed(request),
             outCD->CopyData(inCD, i, cell);
     }
 
-    vtkPolyData *plusY = GetPlusYOutput(outputVector);
+    vtkPolyData *plusY = GetPlusYOutput();
     plusY->SetPoints(input->GetPoints());
     plusY->Allocate(input);
     outPD = plusY->GetPointData();
@@ -278,7 +312,7 @@ vtkAxisDepthSort::RequestData( vtkInformation* vtkNotUsed(request),
     //
     // Now create the PlusZ/MinusZ output.
     //
-    vtkPolyData *minusZ = GetMinusZOutput(outputVector);
+    vtkPolyData *minusZ = GetMinusZOutput();
     minusZ->SetPoints(input->GetPoints());
     minusZ->Allocate(input);
     outPD = minusZ->GetPointData();
@@ -295,7 +329,7 @@ vtkAxisDepthSort::RequestData( vtkInformation* vtkNotUsed(request),
             outCD->CopyData(inCD, i, cell);
     }
 
-    vtkPolyData *plusZ = GetPlusZOutput(outputVector);
+    vtkPolyData *plusZ = GetPlusZOutput();
     plusZ->SetPoints(input->GetPoints());
     plusZ->Allocate(input);
     outPD = plusZ->GetPointData();
@@ -317,6 +351,7 @@ vtkAxisDepthSort::RequestData( vtkInformation* vtkNotUsed(request),
     //
     delete [] loc;
     delete [] pairs;
+
     return 1;
 }
 
@@ -338,5 +373,3 @@ CoordSorter(const void *arg1, const void *arg2)
 
     return 0;
 }
-
-

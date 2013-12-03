@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -41,6 +41,7 @@
 #include <state_exports.h>
 #include <string>
 #include <AttributeSubject.h>
+
 #include <DBOptionsAttributes.h>
 
 // ****************************************************************************
@@ -61,13 +62,23 @@
 class STATE_API ExportDBAttributes : public AttributeSubject
 {
 public:
+    // These constructors are for objects of this class
     ExportDBAttributes();
     ExportDBAttributes(const ExportDBAttributes &obj);
+protected:
+    // These constructors are for objects derived from this class
+    ExportDBAttributes(private_tmfs_t tmfs);
+    ExportDBAttributes(const ExportDBAttributes &obj, private_tmfs_t tmfs);
+public:
     virtual ~ExportDBAttributes();
 
     virtual ExportDBAttributes& operator = (const ExportDBAttributes &obj);
     virtual bool operator == (const ExportDBAttributes &obj) const;
     virtual bool operator != (const ExportDBAttributes &obj) const;
+private:
+    void Init();
+    void Copy(const ExportDBAttributes &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -124,7 +135,8 @@ public:
         ID_filename,
         ID_dirname,
         ID_variables,
-        ID_opts
+        ID_opts,
+        ID__LAST
     };
 
 private:
@@ -137,6 +149,8 @@ private:
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define EXPORTDBATTRIBUTES_TMFS "sssss*a"
 
 #endif

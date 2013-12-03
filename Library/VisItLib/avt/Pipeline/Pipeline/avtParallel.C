@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -63,7 +63,7 @@ using std::vector;
 
 // VisIt's own MPI communicator
 static MPI_Comm VISIT_MPI_COMM_OBJ;
-void *VISIT_MPI_COMM_PTR;
+void *VISIT_MPI_COMM_PTR = NULL;
 
 static MPI_Op AVT_MPI_MINMAX = MPI_OP_NULL;
 static int mpiTagUpperBound = 32767;
@@ -139,6 +139,10 @@ PAR_Exit(void)
 //
 //    Mark C. Miller, Mon Jan 22 22:09:01 PST 2007
 //    Added call to dup MPI_COMM_WORLD to create VISIT_MPI_COMM 
+//
+//    Brad Whitlock, Fri Jul 20 11:23:05 PDT 2012
+//    Duplicate custom communicator if it has been set up.
+//
 // ****************************************************************************
 
 void
@@ -152,9 +156,19 @@ PAR_Init (int &argc, char **&argv)
     if (we_initialized_MPI)
         MPI_Init (&argc, &argv);
 
-    // duplicate the communicator
-    if (MPI_Comm_dup(MPI_COMM_WORLD, &VISIT_MPI_COMM_OBJ) != MPI_SUCCESS)
-        VISIT_MPI_COMM_OBJ = MPI_COMM_WORLD;
+    MPI_Comm vcomm;
+    if(VISIT_MPI_COMM_PTR == NULL)
+    {
+        debug5 << "Par_Init: Duplicating MPI_COMM_WORLD" << endl;
+        vcomm = MPI_COMM_WORLD;
+    }
+    else
+    {
+        debug5 << "Par_Init: Duplicating a custom MPI communicator." << endl;
+        vcomm = *((MPI_Comm *)VISIT_MPI_COMM_PTR);
+    }
+    if (MPI_Comm_dup(vcomm, &VISIT_MPI_COMM_OBJ) != MPI_SUCCESS)
+        VISIT_MPI_COMM_OBJ = vcomm;
     VISIT_MPI_COMM_PTR = (void*) &VISIT_MPI_COMM_OBJ;
 
     //
@@ -183,6 +197,55 @@ PAR_Init (int &argc, char **&argv)
 #endif
 }
 
+// ****************************************************************************
+// Function: PAR_SetComm
+//
+// Purpose: 
+//   Set the communicator for VisIt to use.
+//
+// Arguments:
+//   newcomm : The new communicator.
+//
+// Returns:    True on success; false on failure.
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Fri Aug 26 10:03:19 PDT 2011
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+bool
+PAR_SetComm(void *newcomm)
+{
+#ifdef PARALLEL
+    if(newcomm == NULL)
+    {
+        // switch back to the dup'd world communicator.
+        VISIT_MPI_COMM_PTR = (void*) &VISIT_MPI_COMM_OBJ;
+    }
+    else
+    {
+// Test that it is actually a comm?
+
+        // Use the communicator that was passed in.
+        debug5 << "PAR_SetComm: Setting VISIT_MPI_COMM_PTR to " << newcomm << endl;
+        VISIT_MPI_COMM_PTR = newcomm;
+    }
+
+    //
+    // Find the current process rank and the size of the process pool.
+    //
+    MPI_Comm_rank (VISIT_MPI_COMM, &par_rank);
+    MPI_Comm_size (VISIT_MPI_COMM, &par_size);
+
+    return true;
+#else
+    return false;
+#endif
+}
 
 // ****************************************************************************
 //  Function: PAR_Rank
@@ -363,7 +426,7 @@ UnifyMinMax(double *buff, int size, int altsize)
 
     // if it hasn't been created yet, create the min/max MPI reduction operator
     if (AVT_MPI_MINMAX == MPI_OP_NULL)
-        MPI_Op_create(MinMaxOp, true, &AVT_MPI_MINMAX);
+        MPI_Op_create((MPI_User_function *)MinMaxOp, true, &AVT_MPI_MINMAX);
 
     // we do this 'extra' communication if we can't be sure all processors
     // have an agreed upon size to work with. This will have effect of 
@@ -578,6 +641,32 @@ Collect(float *buff, int size)
 
     float *newbuff = new float[size];
     MPI_Reduce(buff, newbuff, size, MPI_FLOAT, MPI_MAX, 0, VISIT_MPI_COMM);
+    int rank;
+    MPI_Comm_rank(VISIT_MPI_COMM, &rank);
+    if (rank == 0)
+    {
+        for (int i = 0 ; i < size ; i++)
+        {
+            buff[i] = newbuff[i];
+        }
+    }
+
+    delete [] newbuff;
+
+    return (rank == 0 ? true : false);
+
+#else
+    return true;
+#endif
+}
+
+bool
+Collect(double *buff, int size)
+{
+#ifdef PARALLEL
+
+    double *newbuff = new double[size];
+    MPI_Reduce(buff, newbuff, size, MPI_DOUBLE, MPI_MAX, 0, VISIT_MPI_COMM);
     int rank;
     MPI_Comm_rank(VISIT_MPI_COMM, &rank);
     if (rank == 0)
@@ -842,6 +931,31 @@ SumDoubleArrayAcrossAllProcessors(double *inArray, double *outArray,int nArray)
 
 
 // ****************************************************************************
+// Function:  SumDoubleArray
+//
+// Purpose:
+//   Sum an array across all procs, and leave result on process 0.
+//
+// Programmer:  Dave Pugmire
+// Creation:    November 23, 2011
+//
+// ****************************************************************************
+
+
+void
+SumDoubleArray(double *inArray, double *outArray, int nArray)
+{
+#ifdef PARALLEL
+    MPI_Reduce(inArray, outArray, nArray, MPI_DOUBLE, MPI_SUM, 0,
+                  VISIT_MPI_COMM);
+#else
+    memcpy(outArray, inArray, nArray*sizeof(double));
+#endif
+}
+
+
+
+// ****************************************************************************
 //  Function: SumFloatArrayAcrossAllProcessors
 //
 //  Purpose:
@@ -872,6 +986,29 @@ SumFloatArrayAcrossAllProcessors(float *inArray, float *outArray, int nArray)
     {
         outArray[i] = inArray[i];
     }
+#endif
+}
+
+// ****************************************************************************
+// Function:  SumFloatArray
+//
+// Purpose:
+//   Sum an array across all procs, and leave result on process 0.
+//
+// Programmer:  Dave Pugmire
+// Creation:    November 23, 2011
+//
+// ****************************************************************************
+
+
+void
+SumFloatArray(float *inArray, float *outArray, int nArray)
+{
+#ifdef PARALLEL
+    MPI_Reduce(inArray, outArray, nArray, MPI_FLOAT, MPI_SUM, 0,
+                  VISIT_MPI_COMM);
+#else
+    memcpy(outArray, inArray, nArray*sizeof(float));
 #endif
 }
 
@@ -1067,6 +1204,32 @@ SumIntAcrossAllProcessors(int &value)
 #endif
 }
 
+// ****************************************************************************
+//  Function: SumLongAcrossAllProcessors
+//
+//  Purpose:
+//      Sums a single int across all processors.
+//
+//  Arguments:
+//      value      The input and output.
+//
+//  Programmer:    Jeremy Meredith
+//  Creation:      April 17, 2003
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+void
+SumLongAcrossAllProcessors(long &value)
+{
+#ifdef PARALLEL
+    long newvalue;
+    MPI_Allreduce(&value, &newvalue, 1, MPI_LONG, MPI_SUM,
+                  VISIT_MPI_COMM);
+    value = newvalue;
+#endif
+}
 
 // ****************************************************************************
 //  Function: SumDoubleAcrossAllProcessors
@@ -1222,6 +1385,54 @@ void BroadcastInt(int &i)
 }
 
 // ****************************************************************************
+//  Function:  BroadcastLongLong
+//
+//  Purpose:
+//    Broadcast a long long from processor 0 to all other processors
+//
+//  Arguments:
+//    l          the long long
+//
+//  Programmer:  Hank Childs
+//  Creation:    December 10, 2012
+//
+// ****************************************************************************
+void BroadcastLongLong(VISIT_LONG_LONG &l)
+{
+#ifdef PARALLEL
+    MPI_Bcast(&l, 1, MPI_LONG_LONG, 0, VISIT_MPI_COMM);
+#endif
+}
+
+// ****************************************************************************
+// Function: BroadcastIntArray
+//
+// Purpose: 
+//   Broadcast an array of int from processor 0 to all other processors.
+//
+// Arguments:
+//   array  : The array to send (or receive on non-rank-0).
+//   nArray : The number of values to send/receive.
+//
+// Returns:    
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Fri May 20 15:00:02 PDT 2011
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+void BroadcastIntArray(int *array, int nArray)
+{
+#ifdef PARALLEL
+    MPI_Bcast(array, nArray, MPI_INT, 0, VISIT_MPI_COMM);
+#endif
+}
+
+// ****************************************************************************
 //  Function:  BroadcastIntVector
 //
 //  Purpose:
@@ -1352,6 +1563,34 @@ void BroadcastDouble(double &i)
 {
 #ifdef PARALLEL
     MPI_Bcast(&i, 1, MPI_DOUBLE, 0, VISIT_MPI_COMM);
+#endif
+}
+
+// ****************************************************************************
+// Function: BroadcastDoubleArray
+//
+// Purpose: 
+//   Broadcast an array of double from processor 0 to all other processors.
+//
+// Arguments:
+//   array  : The array to send (or receive on non-rank-0).
+//   nArray : The number of values to send/receive.
+//
+// Returns:    
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Fri May 20 15:00:02 PDT 2011
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+void BroadcastDoubleArray(double *array, int nArray)
+{
+#ifdef PARALLEL
+    MPI_Bcast(array, nArray, MPI_DOUBLE, 0, VISIT_MPI_COMM);
 #endif
 }
 
@@ -1662,12 +1901,20 @@ bool GetListToRootProc(std::vector<std::string> &vars, int total)
 //  Creation:   June 22, 2009
 //
 //  Modifications:
+//    Brad Whitlock, Fri May 20 13:54:46 PDT 2011
+//    I moved the body into a static helper that I templated so I could add
+//    another version that uses doubles.
 //
 // ****************************************************************************
 
-void
-CollectIntArraysOnRootProc(int *&receiveBuf, int *&receiveCounts,
-    int *sendBuf, int sendCount)
+template <class T>
+static void
+CollectArraysOnRootProc(T *&receiveBuf, int *&receiveCounts,
+    T *sendBuf, int sendCount
+#ifdef PARALLEL
+    , MPI_Datatype dataType
+#endif
+    )
 {
 #ifdef PARALLEL
     int rank = PAR_Rank();
@@ -1702,11 +1949,11 @@ CollectIntArraysOnRootProc(int *&receiveBuf, int *&receiveCounts,
             nReceiveBuf += receiveCounts[i];
 
         // Allocate it.
-        receiveBuf = new int[nReceiveBuf];
+        receiveBuf = new T[nReceiveBuf];
     }
 
-    MPI_Gatherv(sendBuf, sendCount, MPI_INT, receiveBuf,
-                receiveCounts, procOffset, MPI_INT, 0, VISIT_MPI_COMM);
+    MPI_Gatherv(sendBuf, sendCount, dataType, receiveBuf,
+                receiveCounts, procOffset, dataType, 0, VISIT_MPI_COMM);
 
     if (rank == 0)
     {
@@ -1716,10 +1963,32 @@ CollectIntArraysOnRootProc(int *&receiveBuf, int *&receiveCounts,
     receiveCounts = new int[1];
     receiveCounts[0] = sendCount;
 
-    receiveBuf = new int[sendCount];
+    receiveBuf = new T[sendCount];
     for (int i = 0; i < sendCount; i++)
         receiveBuf[i] = sendBuf[i];
 #endif
+}
+
+void
+CollectIntArraysOnRootProc(int *&receiveBuf, int *&receiveCounts,
+    int *sendBuf, int sendCount)
+{
+    CollectArraysOnRootProc<int>(receiveBuf, receiveCounts, sendBuf, sendCount
+#ifdef PARALLEL
+                                 , MPI_INT
+#endif
+                                );
+}
+
+void
+CollectDoubleArraysOnRootProc(double *&receiveBuf, int *&receiveCounts,
+    double *sendBuf, int sendCount)
+{
+    CollectArraysOnRootProc<double>(receiveBuf, receiveCounts, sendBuf, sendCount
+#ifdef PARALLEL
+                                    , MPI_DOUBLE
+#endif
+                                   );
 }
 
 // ****************************************************************************

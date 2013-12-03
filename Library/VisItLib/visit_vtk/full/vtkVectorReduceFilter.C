@@ -44,13 +44,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vtkCell.h>
 #include <vtkCellData.h>
 #include <vtkDataSet.h>
+#include <vtkDoubleArray.h>
 #include <vtkFloatArray.h>
+#include <vtkInformation.h>
+#include <vtkInformationVector.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkPolyData.h>
 #include <vtkVisItUtility.h>
-#include <vtkInformation.h>
-#include <vtkInformationVector.h>
 
 // **************************************************************************
 //  Modifications:
@@ -68,28 +69,28 @@ vtkVectorReduceFilter::vtkVectorReduceFilter()
   origOnly = true;
 }
 
-
-void vtkVectorReduceFilter::SetStride(int s)
+void
+vtkVectorReduceFilter::SetStride(int s)
 {
   numEls = -1;
   stride = s;
 }
 
-
-void vtkVectorReduceFilter::SetNumberOfElements(int n)
+void
+vtkVectorReduceFilter::SetNumberOfElements(int n)
 {
   stride = -1;
   numEls = n;
 }
 
-void vtkVectorReduceFilter::SetLimitToOriginal(bool lto)
+void
+vtkVectorReduceFilter::SetLimitToOriginal(bool lto)
 {
   origOnly = lto;
 }
 
 // ****************************************************************************
-// Modifications:
-//
+//  Modifications:
 //    Kathleen Bonnell, Fri Feb  8 11:03:49 PST 2002
 //    vtkVectors has been deprecated in VTK 4.0, use 
 //    vtkDataArray and vtkFloatArray instead.
@@ -107,19 +108,36 @@ void vtkVectorReduceFilter::SetLimitToOriginal(bool lto)
 //    Added ability to limit to only one output vector per original
 //    cell/point.  Also, fixed cell-based vector algorithm bugs.
 //
+//    Hank Childs, Thu Oct 28 22:14:21 PDT 2010
+//    Don't output 0-magnitude vectors.
+//
+//    Kathleen Biagas, Wed Sep 5 13:24:11 MST 2012 
+//    Preserve coordinate and vector data types.
+//
+//    Eric Brugger, Thu Jan 10 10:13:10 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
 // ****************************************************************************
 
-int vtkVectorReduceFilter::RequestData(vtkInformation *vtkNotUsed(request),
-                                       vtkInformationVector **inputVector,
-                                       vtkInformationVector *outputVector)
+int
+vtkVectorReduceFilter::RequestData(
+  vtkInformation *vtkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *outputVector)
 {
+  vtkDebugMacro(<<"Executing vtkVectorReduceFilter");
+
   // get the info objects
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
-
-  // get the input and output
-  vtkPolyData *input = vtkPolyData::SafeDownCast(inInfo->Get(vtkDataObject::DATA_OBJECT()));
-  vtkPolyData *output = vtkPolyData::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
+  
+  //
+  // Initialize some frequently used values.
+  //
+  vtkDataSet   *input = vtkDataSet::SafeDownCast(
+    inInfo->Get(vtkDataObject::DATA_OBJECT()));
+  vtkPolyData *output = vtkPolyData::SafeDownCast(
+    outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
   vtkCellData *inCd = input->GetCellData();
   vtkPointData *inPd = input->GetPointData();
@@ -135,14 +153,17 @@ int vtkVectorReduceFilter::RequestData(vtkInformation *vtkNotUsed(request),
   if (inPvecs == NULL && inCvecs == NULL)
     {
     vtkErrorMacro(<<"No vectors to reduce");
-    return 0;
+    return 1;
     }
+
+  int inctype = (inCvecs ? inCvecs->GetDataType() : VTK_FLOAT);
+  int inptype = (inPvecs ? inPvecs->GetDataType() : VTK_FLOAT);
 
   // Determine what the stride is.
   if (stride <= 0 && numEls <= 0)
     {
     vtkErrorMacro(<<"Invalid stride");
-    return 0;
+    return 1;
     }
 
   float actingStride = stride;
@@ -160,8 +181,12 @@ int vtkVectorReduceFilter::RequestData(vtkInformation *vtkNotUsed(request),
     actingStride = ceil(((float) totalVecs) / ((float) numEls));
     }
 
-  vtkPoints *outpts = vtkPoints::New();
-  vtkFloatArray *outVecs = vtkFloatArray::New();
+  vtkPoints *outpts = vtkVisItUtility::NewPoints(input);
+  vtkDataArray *outVecs;
+  if (inctype == VTK_DOUBLE || inptype == VTK_DOUBLE)
+      outVecs = vtkDoubleArray::New();
+  else 
+      outVecs = vtkFloatArray::New();
   outVecs->SetNumberOfComponents(3);
 
   float nextToTake = 0.;
@@ -210,14 +235,18 @@ int vtkVectorReduceFilter::RequestData(vtkInformation *vtkNotUsed(request),
         {
         nextToTake += actingStride;
 
-        double pt[3];
-        input->GetPoint(i, pt);
-        outpts->InsertNextPoint(pt);
-
         double v[3];
         inPvecs->GetTuple(i, v);
-        outVecs->InsertNextTuple(v);
-        outPd->CopyData(inPd, i, count++);
+
+        if (v[0] != 0. || v[1] != 0. || v[2] != 0.)
+          {
+            double pt[3];
+            input->GetPoint(i, pt);
+            outpts->InsertNextPoint(pt);
+    
+            outVecs->InsertNextTuple(v);
+            outPd->CopyData(inPd, i, count++);
+          }
         }
 
       if (foundcell)
@@ -307,12 +336,28 @@ int vtkVectorReduceFilter::RequestData(vtkInformation *vtkNotUsed(request),
   return 1;
 }
 
+// ****************************************************************************
+//  Method: vtkVectorReduceFilter::FillInputPortInformation
+//
+// ****************************************************************************
+
+int
+vtkVectorReduceFilter::FillInputPortInformation(int, vtkInformation *info)
+{
+  info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
+  return 1;
+}
   
-void vtkVectorReduceFilter::PrintSelf(ostream &os, vtkIndent indent)
+// ****************************************************************************
+//  Method: vtkVectorReduceFilter::PrintSelf
+//
+// ****************************************************************************
+
+void
+vtkVectorReduceFilter::PrintSelf(ostream &os, vtkIndent indent)
 {
    this->Superclass::PrintSelf(os, indent);
    os << indent << "Stride: " << this->stride << "\n";
    os << indent << "Target number of vectors: " << this->numEls << "\n";
    os << indent << "Limit to original cell/point: " << this->origOnly << "\n";
 }
-

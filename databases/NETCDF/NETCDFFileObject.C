@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -457,7 +457,9 @@ NETCDFFileObject::ReadAttribute(const char *attname, TypeEnum *type, int *ndims,
 // Creation:   Fri Aug 19 13:30:46 PST 2005
 //
 // Modifications:
-//   
+//   Brad Whitlock, Thu Jan  5 17:02:43 PST 2012
+//   I added support for short and byte.
+//
 // ****************************************************************************
 
 bool
@@ -515,6 +517,26 @@ NETCDFFileObject::ReadAttribute(const char *varname, const char *attname,
                 }
                 t = CHARARRAY_TYPE;
             }
+            else if(atttype == NC_BYTE)
+            {
+                unsigned char *arr = new unsigned char[attsize+1];
+                status = nc_get_att_uchar(GetFileHandle(), varid, attname, arr);
+                if(status != NC_NOERR)
+                    delete [] arr;
+                else
+                    val = (void*)arr;
+                t = UCHARARRAY_TYPE;
+            }
+            else if(atttype == NC_SHORT)
+            {
+                short *arr = new short[attsize];
+                status = nc_get_att_short(GetFileHandle(), varid, attname, arr);
+                if(status != NC_NOERR)
+                    delete [] arr;
+                else
+                    val = (void*)arr;
+                t = SHORTARRAY_TYPE;
+            } 
             else if(atttype == NC_INT)
             {
                 int *arr = new int[attsize];
@@ -561,7 +583,7 @@ NETCDFFileObject::ReadAttribute(const char *varname, const char *attname,
                 *type = t;
                 *ndims = 1;
                 int *d = new int[1];
-                d[0] = attsize;
+                d[0] = (int)attsize;
                 *dims = d;
                 *value = val;
             }
@@ -585,6 +607,83 @@ NETCDFFileObject::ReadAttribute(const char *varname, const char *attname,
     }
 
     return varvalid;
+}
+
+// ****************************************************************************
+// Method: NETCDFFileObject::ReadAttributeAsDouble
+//
+// Purpose: 
+//   Convenience method to read all attribute values into a double array.
+//
+// Arguments:
+//   varname : The name of the variable.
+//   attname : The name of the attribute.
+//   originalType : Get the type of the attribute.
+//   attvalues : Get the attribute values as doubles.
+//   nvalues   : Get the number of attribute values.
+//
+// Returns:    True on success and false on failure.
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Fri Jan  6 10:57:40 PST 2012
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+bool
+NETCDFFileObject::ReadAttributeAsDouble(const char *varname, const char *attname,
+     TypeEnum *originalType, double **attvalues, int *nvalues)
+{
+    bool retval = false;
+
+    TypeEnum t = NO_TYPE;
+    int ndims = 0, *dims = 0;
+    void *values = 0;
+    if(ReadAttribute(varname, attname, &t, &ndims, &dims, &values))
+    {
+        int nvals = 1;
+        for(int j = 0; j < ndims; ++j)
+            nvals *= dims[j];
+
+        double *data = new double[nvals];
+        for(int j = 0; j < nvals; ++j)
+        {
+            data[j] = 0.;
+            if(t == CHARARRAY_TYPE)
+                data[j] = double(((char *)values)[j]);
+            else if(t == UCHARARRAY_TYPE)
+                data[j] = double(((unsigned char *)values)[j]);
+            else if(t == SHORTARRAY_TYPE)
+                data[j] = double(((short *)values)[j]);
+            else if(t == INTEGERARRAY_TYPE)
+                data[j] = double(((int *)values)[j]);
+            else if(t == LONGARRAY_TYPE)
+                data[j] = double(((long *)values)[j]);
+            else if(t == FLOATARRAY_TYPE)
+                data[j] = double(((float *)values)[j]);
+            else if(t == DOUBLEARRAY_TYPE)
+                data[j] = double(((double *)values)[j]);
+        }
+
+        delete [] dims;
+        free_void_mem(values, t);
+
+        retval = true;
+        *attvalues = data;
+        *nvalues = nvals;
+        *originalType = t;
+    }
+    else
+    {
+        *attvalues = NULL;
+        *nvalues = 0;
+        *originalType = NO_TYPE;
+    }
+
+    return retval;
 }
 
 // ****************************************************************************
@@ -633,7 +732,7 @@ NETCDFFileObject::InqVariable(const char *varname, TypeEnum *type, int *ndims,
                 size_t realSize;
                 status = nc_inq_dimlen(GetFileHandle(), vardims[i], &realSize);
                 if(status == NC_NOERR)
-                    vardims[i] = realSize;
+                    vardims[i] = (int)realSize;
                 else
                     HandleError(status);
             }
@@ -995,7 +1094,12 @@ NETCDFFileObject::HandleError(int status) const
 // Creation:   Fri Aug 19 13:43:21 PST 2005
 //
 // Modifications:
-//   
+//   Brad Whitlock, Thu Jan  5 17:13:01 PST 2012
+//   Add short support.
+//
+//   Kathleen Biagas, Thu May 16 17:05:57 PDT 2013
+//   Pass the varid to PRINT_ATTR_VALUES function.
+//
 // ****************************************************************************
 
 void
@@ -1057,14 +1161,14 @@ NETCDFFileObject::PrintFileContents(ostream &os)
                    debug4 << "NC_DOUBLE";
                 debug4 << ", size=" << attsize;
 
-#define PRINT_ATTR_VALUES(T, FUNC) \
+#define PRINT_ATTR_VALUES(T, FUNC, varid) \
                         {\
                             T *value = new T[attsize];\
-                            FUNC(GetFileHandle(), i, attname, value);\
+                            FUNC(GetFileHandle(), varid, attname, value);\
                             if(attsize > 1)\
                             {\
                                 debug4 << ", value={";\
-                                for(int k = 0; k < attsize; ++k)\
+                                for(size_t k = 0; k < attsize; ++k)\
                                 {\
                                     if(k > 0)\
                                         debug4 << ", ";\
@@ -1089,12 +1193,14 @@ NETCDFFileObject::PrintFileContents(ostream &os)
                     debug4 << ", value=\"" << value << "\"\n";
                     delete [] value;
                 }
+                else if(atttype == NC_SHORT)
+                    PRINT_ATTR_VALUES(short, nc_get_att_short, NC_GLOBAL)
                 else if(atttype == NC_INT)
-                    PRINT_ATTR_VALUES(int, nc_get_att_int)
+                    PRINT_ATTR_VALUES(int, nc_get_att_int, NC_GLOBAL)
                 else if(atttype == NC_FLOAT)
-                    PRINT_ATTR_VALUES(float, nc_get_att_float)
+                    PRINT_ATTR_VALUES(float, nc_get_att_float, NC_GLOBAL)
                 else if(atttype == NC_DOUBLE)
-                    PRINT_ATTR_VALUES(double, nc_get_att_double)
+                    PRINT_ATTR_VALUES(double, nc_get_att_double, NC_GLOBAL)
             }
             else
                 HandleError(status);
@@ -1192,12 +1298,14 @@ NETCDFFileObject::PrintFileContents(ostream &os)
                             debug4 << ", value=\"" << value << "\"\n";
                             delete [] value;
                         }
+                        else if(atttype == NC_SHORT)
+                            PRINT_ATTR_VALUES(short, nc_get_att_short, i)
                         else if(atttype == NC_INT)
-                            PRINT_ATTR_VALUES(int, nc_get_att_int)
+                            PRINT_ATTR_VALUES(int, nc_get_att_int, i)
                         else if(atttype == NC_FLOAT)
-                            PRINT_ATTR_VALUES(float, nc_get_att_float)
+                            PRINT_ATTR_VALUES(float, nc_get_att_float, i)
                         else if(atttype == NC_DOUBLE)
-                            PRINT_ATTR_VALUES(double, nc_get_att_double)
+                            PRINT_ATTR_VALUES(double, nc_get_att_double, i)
                     }
                     else
                         HandleError(status);

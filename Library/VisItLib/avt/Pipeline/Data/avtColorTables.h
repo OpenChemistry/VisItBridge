@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -71,6 +71,13 @@ class ColorTableAttributes;
 //   Jeremy Meredith, Fri Feb 20 14:54:04 EST 2009
 //   Added some alpha support methods.
 //
+//   David Camp, Thu Jan 13 11:03:52 PST 2011
+//   Added DeleteInstance function to delete global data. Helps with valgrind.
+//   It is inline because it will only be used if you define DEBUG_MEMORY_LEAKS.
+//
+//    Kathleen Bonnell, Mon Jan 17 11:18:35 MST 2011
+//    Added invert arg to color retrieval methods.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtColorTables
@@ -83,14 +90,18 @@ public:
     const std::string   &GetDefaultDiscreteColorTable() const;
     void                 SetDefaultDiscreteColorTable(const std::string &);
 
-    const unsigned char *GetColors(const std::string &ctName);
-    const unsigned char *GetAlphas(const std::string &ctName);
+    const unsigned char *GetColors(const std::string &ctName, 
+                                   bool invert = false);
+    const unsigned char *GetAlphas(const std::string &ctName, 
+                                   bool invert = false);
     bool                 ColorTableIsFullyOpaque(const std::string &ctName);
 
     unsigned char       *GetSampledColors(const std::string &ctName,
-                                          int nColors) const;
+                                          int nColors,
+                                          bool invert = false) const;
     bool                 GetControlPointColor(const std::string &ctName,
-                                              int i, unsigned char *rgb) const;
+                                              int i, unsigned char *rgb,
+                                              bool invert = false) const;
     int                  GetNumColors() const { return 256; };
     bool                 IsDiscrete(const std::string &ctName) const;
     bool                 ColorTableExists(const std::string &ctName) const;
@@ -101,6 +112,13 @@ public:
     bool                 ExportColorTable(const std::string &ctName,
                                           std::string &message);
     void                 ImportColorTables();
+
+    void                 DeleteInstance()
+                         {
+                             if(instance) delete instance;
+                             instance = NULL;
+                         }
+
 protected:
     avtColorTables();
     ~avtColorTables();

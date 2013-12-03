@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,13 +46,8 @@
 #include <database_exports.h>
 #include <avtUnstructuredDomainBoundaries.h>
 
-#include <map>
 #include <vector>
 #include <utility>
-
-using std::vector;
-using std::pair;
-using std::map;
 
 class vtkDataSet;
 class vtkDataArray;
@@ -87,19 +82,19 @@ class DATABASE_API avtUnstructuredPointBoundaries
 
     static void Destruct(void *);
     
-    virtual vector<vtkDataSet*>       ExchangeMesh(vector<int>       domainNum,
-                                         vector<vtkDataSet*>   meshes);
+    virtual std::vector<vtkDataSet*>       ExchangeMesh(std::vector<int>       domainNum,
+                                         std::vector<vtkDataSet*>   meshes);
 
-    virtual bool                      ConfirmMesh(vector<int>      domainNum,
-                                        vector<vtkDataSet*> meshes);
+    virtual bool                      ConfirmMesh(std::vector<int>      domainNum,
+                                        std::vector<vtkDataSet*> meshes);
     
   protected:
-    void                              Generate(vector<int> domainNum,
-                                               vector<vtkDataSet*> meshes);
+    void                              Generate(std::vector<int> domainNum,
+                                               std::vector<vtkDataSet*> meshes);
 
     bool                              CheckGenerated(int d1, int d2);
 
-    vector<vector<bool> >             generated;
+    std::vector<std::vector<bool> >             generated;
 };
 
 #endif

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -45,11 +45,10 @@
 
 #include <avtSTMDFileFormat.h>
 
-#include <string>
-#include <vector>
+#include <vectortypes.h>
+#include <visitstream.h>
 
-using std::string;
-using std::vector;
+class vtkPoints;
 
 // ****************************************************************************
 //  Class: avtDDCMDFileFormat
@@ -76,55 +75,67 @@ using std::vector;
 //    Eric Brugger, Fri Dec  5 16:37:44 PST 2008
 //    I enhanced the reader to read ascii atom files.
 //
+//    Brad Whitlock, Mon Oct  8 15:29:33 PDT 2012
+//    Use stringVector and std::string in some places.
+//
+//    Brad Whitlock, Thu Dec  6 10:48:33 PST 2012
+//    I changed several members to unsigned long to allow for larger files.
+//
 // ****************************************************************************
 
 class DDCMDHeader
 {
   public:
-                           DDCMDHeader(const char *, const char *);
+                           DDCMDHeader(const std::string &fname,
+                                       const std::string &subname);
     virtual               ~DDCMDHeader();
+    bool                   IsLegacy() const;
+    void                   Print(ostream &os) const;
+    bool                   GetCGridFile() const;
 
-    inline unsigned int    GetHeaderLength() const { return headerLength; };
-    inline bool            GetCGridFile() const { return cgridFile; };
-    inline char           *GetDataType() const { return dataType; };
-    inline unsigned int    GetLRec() const { return lRec; };
-    inline unsigned int    GetNRecord() const { return nRecord; };
-    inline unsigned int    GetNFiles() const { return nFiles; };
-    inline unsigned int    GetNFields() const { return nFields; };
-    inline unsigned int    GetSwap() const { return swap; };
-    inline const double   *GetHMatrix() const { return hMatrix; };
-    inline int             GetLoop() const { return loop; };
-    inline double          GetTime() const { return time; };
-    inline char          **GetFieldNames() const { return fieldNames; };
-    inline char          **GetFieldTypes() const { return fieldTypes; };
-    inline unsigned int   *GetFieldSizes() const { return fieldSizes; };
-    inline unsigned int    GetNXFile() const { return nXFile; };
-    inline unsigned int    GetNYFile() const { return nYFile; };
-    inline unsigned int    GetNZFile() const { return nZFile; };
-    inline unsigned int    GetNSpecies() const { return nSpecies; };
-    inline char          **GetSpeciesNames() const { return speciesNames; };
-    inline unsigned int    GetNGroups() const { return nGroups; };
-    inline char          **GetGroupNames() const { return groupNames; };
-    inline unsigned int    GetNTypes() const { return nTypes; };
-    inline char          **GetTypeNames() const { return typeNames; };
+    inline unsigned int        GetHeaderLength() const { return headerLength; }
+    inline const std::string  &GetDataType() const     { return dataType; }
+    inline unsigned int        GetLRec() const         { return lRec; }
+    inline unsigned long       GetNRecord() const      { return nRecord; }
+    inline unsigned int        GetNFiles() const       { return nFiles; }
+    inline unsigned int        GetNFields() const      { return nFields; }
+    inline unsigned int        GetSwap() const         { return swap; }
+    inline const double       *GetHMatrix() const      { return hMatrix; }
+    inline int                 GetLoop() const         { return loop; }
+    inline double              GetTime() const         { return time; }
+    inline const stringVector &GetFieldNames() const   { return fieldNames; }
+    inline const stringVector &GetFieldTypes() const   { return fieldTypes; }
+    inline const stringVector &GetFieldUnits() const   { return fieldUnits; }
+    inline unsigned int       *GetFieldSizes() const   { return fieldSizes; }
+    inline unsigned int        GetNXFile() const       { return nXFile; }
+    inline unsigned int        GetNYFile() const       { return nYFile; }
+    inline unsigned int        GetNZFile() const       { return nZFile; }
+    inline unsigned int        GetNSpecies() const     { return (unsigned int)speciesNames.size(); }
+    inline const stringVector &GetSpeciesNames() const { return speciesNames; }
+    inline unsigned int        GetNGroups() const      { return (unsigned int)groupNames.size(); }
+    inline const stringVector &GetGroupNames() const   { return groupNames; }
+    inline unsigned int        GetNTypes() const       { return (unsigned int)typeNames.size(); }
+    inline const stringVector &GetTypeNames() const    { return typeNames; }
+    inline const std::string  &GetExeVersion() const   { return exeVersion; }
 
   private:
+    int  Read(const std::string &filename, int maxlen, char *header);
+    void ParseHeader(char *header);
+
     unsigned int           headerLength;
-    bool                   cgridFile;
-    char                  *dataType;
-    unsigned int           lRec, nRecord, nFiles, nFields, swap;
+    std::string            dataType;
+    unsigned int           lRec, nFiles, nFields, swap;
+    unsigned long          nRecord;
     double                 hMatrix[9];
     int                    loop;
     double                 time;
-    char                 **fieldNames, **fieldTypes;
+    stringVector           fieldNames, fieldTypes, fieldUnits;
     unsigned int          *fieldSizes;
     unsigned int           nXFile, nYFile, nZFile;
-    unsigned int           nSpecies;
-    char                 **speciesNames;
-    unsigned int           nGroups;
-    char                 **groupNames;
-    unsigned int           nTypes;
-    char                 **typeNames;
+    stringVector           speciesNames;
+    stringVector           groupNames;
+    stringVector           typeNames;
+    std::string            exeVersion;
 };
     
 class avtDDCMDFileFormat : public avtSTMDFileFormat
@@ -157,40 +168,40 @@ class avtDDCMDFileFormat : public avtSTMDFileFormat
     virtual vtkDataArray  *GetVectorVar(int, const char *);
 
   protected:
-    string                 fname;
-    vector<string>         subnames;
+    std::string            fname;
+    stringVector           subnames;
     int                    nXFileBlocks, nYFileBlocks, nZFileBlocks, nBlocks;
 
     // Global header information
-    bool                   cgridFile;
+    bool                   cgridFile, isLegacy;
     int                    loop;
     double                 time;
     unsigned int           nXFile, nYFile, nZFile;
     unsigned int           nSpecies;
-    char                 **speciesNames;
+    stringVector           speciesNames;
     unsigned int           nGroups;
-    char                 **groupNames;
+    stringVector           groupNames;
     unsigned int           nTypes;
-    char                 **typeNames;
+    stringVector           typeNames;
 
     // Mesh information
-    string                 coordsUnit;
-    int                    nDims;
-    int                    nXMesh, nYMesh, nZMesh;
-    int                    nXMeshBlocks, nYMeshBlocks, nZMeshBlocks;
+    std::string            coordsUnit;
+    unsigned int           nDims;
+    unsigned int           nXMesh, nYMesh, nZMesh;
+    unsigned int           nXMeshBlocks, nYMeshBlocks, nZMeshBlocks;
     float                  xMin, yMin, zMin;
     float                  dX, dY, dZ;
     float                  coordsScale;
-    int                    nPoints;
+    unsigned long          nPoints;
 
     // Block information
-    int                    nXBlock, nYBlock, nZBlock;
-    int                    nZonesBlock;
-    int                    nVarsBlock;
-    string                *varNamesBlock;
+    unsigned int           nXBlock, nYBlock, nZBlock;
+    unsigned long          nZonesBlock;
+    unsigned int           nVarsBlock;
+    stringVector           varNamesBlock, varUnitsBlock;
     float                **varsBlock;
-    float                 *coordsBlock;
-    unsigned              *pinfoBlock;
+    vtkPoints             *coordsBlock;
+    unsigned int          *pinfoBlock;
 
     // Variable information
     int                    labelOffset, iSpeciesOffset;
@@ -201,7 +212,7 @@ class avtDDCMDFileFormat : public avtSTMDFileFormat
     int                    pinfoSize, xSize, ySize, zSize;
     char                   pinfoType, xType, yType, zType;
     int                    nVars;
-    string                *varNames;
+    stringVector           varNames, varUnits;
     float                **varValues;
     int                   *varOffsets;
     int                   *varSizes;
@@ -209,36 +220,39 @@ class avtDDCMDFileFormat : public avtSTMDFileFormat
 
     // File information
     bool                   dataRead;
-    long                  *nRecordsList;
-    int                   *fileNumberList;
-    off_t                 *fileOffsetList;
-
-    char                  *readProcessorData;
-
-    // Input buffer information
-    int                    nInRecords;
-    char                  *inProcessorData;
+    unsigned long         *nRecordsList;
+    unsigned int          *fileNumberList;
+    unsigned long         *fileOffsetList;
 
     virtual void           PopulateDatabaseMetaData(avtDatabaseMetaData *);
+
+    struct DataRecords
+    {
+        unsigned long  nRecords;
+        char          *data;
+    };
 
     void                   Convert(void *, int);
     long long              bFieldConvert(const unsigned char *, int);
     void                   DetermineBlockDecomposition();
-    void                   ExchangeProcessorData(const DDCMDHeader *);
-    void                   CopyExchangeDataToBlocks(const DDCMDHeader *);
-    void                   CopyAsciiDataToBlocks(const DDCMDHeader *);
-    void                   CopyBinaryDataToBlocks(const DDCMDHeader *);
-    void                   CopyDataToBlocks(const DDCMDHeader *);
-    void                   ReadProcessorChunk(const DDCMDHeader *,
-                               const char *);
+    DataRecords            ExchangeProcessorData(const DDCMDHeader *, DataRecords &input);
+    void                   CopyExchangeDataToBlocks(const DDCMDHeader *, DataRecords &input);
+
+    void                   CopyAsciiDataToBlocks(const DDCMDHeader *, DataRecords &input);
+    void                   CopyBinaryDataToBlocks(const DDCMDHeader *, DataRecords &input);
+    void                   CopyDataToBlocks(const DDCMDHeader *, DataRecords &input);
+
+    DataRecords            ReadProcessorChunk(const DDCMDHeader *,
+                                              const std::string &subname);
+
     void                   DetermineProcessorReadOffset(const DDCMDHeader *,
-                               const char *);
-    vector<DDCMDHeader*>   ReadHeader();
+                                                        const std::string &);
+    std::vector<DDCMDHeader*>   ReadHeader();
     void                   ParseCGridHeader(const DDCMDHeader *);
     void                   ParseAtomHeader(const DDCMDHeader *);
-    void                   ReadCGridData(const DDCMDHeader *, const string &);
-    void                   ReadAtomData(const DDCMDHeader *, const string &);
-    void                   ReadData(vector<DDCMDHeader*> &);
+    void                   ReadCGridData(const DDCMDHeader *, const std::string &);
+    void                   ReadAtomData(const DDCMDHeader *, const std::string &);
+    void                   ReadData(std::vector<DDCMDHeader*> &);
     vtkDataSet            *GetPointMesh();
     vtkDataSet            *GetRectilinearMesh();
     vtkDataArray          *GetPointVar(const char *);

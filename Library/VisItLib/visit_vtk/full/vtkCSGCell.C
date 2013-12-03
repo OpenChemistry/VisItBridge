@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -36,10 +36,10 @@
 *
 *****************************************************************************/
 
-#include <vtkCSGCell.h>
+#include "vtkCSGCell.h"
 #include <vtkMath.h>
 #include <vtkCellArray.h>
-#include <vtkIncrementalPointLocator.h>
+#include <vtkPointLocator.h>
 #include <vtkPoints.h>
 #include <vtkObjectFactory.h>
 
@@ -47,56 +47,54 @@ vtkStandardNewMacro(vtkCSGCell);
 
 vtkCSGCell::vtkCSGCell()
 {
-return;
 }
 
-int vtkCSGCell::EvaluatePosition(double  vtkNotUsed(x)[3],
+vtkCSGCell::~vtkCSGCell()
+{
+}
+
+int vtkCSGCell::EvaluatePosition(double  vtkNotUsed(x)[3], 
                                   double  vtkNotUsed(closestPoint)[3],
-                                  int&   vtkNotUsed(subId),
-                                  double  vtkNotUsed(pcoords)[3],
-                                  double& vtkNotUsed(dist2),
+                                  int&   vtkNotUsed(subId), 
+                                  double  vtkNotUsed(pcoords)[3], 
+                                  double& vtkNotUsed(dist2), 
                                   double  *vtkNotUsed(weights))
 {
   return 0;
 }
 
-void vtkCSGCell::EvaluateLocation(int&  vtkNotUsed(subId),
+void vtkCSGCell::EvaluateLocation(int&  vtkNotUsed(subId), 
                                    double vtkNotUsed(pcoords)[3],
                                    double vtkNotUsed(x)[3],
                                    double *vtkNotUsed(weights))
 {
 }
 
-int vtkCSGCell::CellBoundary(int vtkNotUsed(subId),
-                            double vtkNotUsed(pcoords)[3],
+int vtkCSGCell::CellBoundary(int vtkNotUsed(subId), 
+                            double vtkNotUsed(pcoords)[3], 
                             vtkIdList *vtkNotUsed(pts))
 {
   return 0;
 }
 
-void vtkCSGCell::Contour(double value,
-                           vtkDataArray *vtkNotUsed(cellScalars),
-                           vtkIncrementalPointLocator *vtkNotUsed(locator),
-                           vtkCellArray *vtkNotUsed(verts),
-                           vtkCellArray *vtkNotUsed(lines),
-                           vtkCellArray *vtkNotUsed(polys),
-                           vtkPointData *vtkNotUsed(inPd),
-                           vtkPointData *vtkNotUsed(outPd),
-                           vtkCellData *vtkNotUsed(inCd),
-                           vtkIdType vtkNotUsed(cellId),
-                           vtkCellData *vtkNotUsed(outCd))
+void
+vtkCSGCell::Contour(double, vtkDataArray*, vtkIncrementalPointLocator*, vtkCellArray*, vtkCellArray*, vtkCellArray*, vtkPointData*, vtkPointData*, vtkCellData*, vtkIdType, vtkCellData*)
 {
-return ;
+}
+
+void
+vtkCSGCell::Clip(double, vtkDataArray*, vtkIncrementalPointLocator*, vtkCellArray*, vtkPointData*, vtkPointData*, vtkCellData*, vtkIdType, vtkCellData*, int)
+{
 }
 
 // Project point on line. If it lies between 0<=t<=1 and distance off line
 // is less than tolerance, intersection detected.
-int vtkCSGCell::IntersectWithLine(double vtkNotUsed(p1)[3],
-                                   double vtkNotUsed(p2)[3],
-                                   double vtkNotUsed(tol),
+int vtkCSGCell::IntersectWithLine(double vtkNotUsed(p1)[3], 
+                                   double vtkNotUsed(p2)[3], 
+                                   double vtkNotUsed(tol), 
                                    double& vtkNotUsed(t),
-                                   double vtkNotUsed(x)[3],
-                                   double pcoords[3],
+                                   double vtkNotUsed(x)[3], 
+                                   double pcoords[3], 
                                    int& vtkNotUsed(subId))
 {
   pcoords[0] = -10.0;
@@ -112,24 +110,11 @@ int vtkCSGCell::Triangulate(int vtkNotUsed(index),
   return 1;
 }
 
-void vtkCSGCell::Derivatives(int vtkNotUsed(subId),
-                            double vtkNotUsed(pcoords)[3],
-                            double *vtkNotUsed(values),
-                            int vtkNotUsed(dim),
+void vtkCSGCell::Derivatives(int vtkNotUsed(subId), 
+                            double vtkNotUsed(pcoords)[3], 
+                            double *vtkNotUsed(values), 
+                            int vtkNotUsed(dim), 
                             double *vtkNotUsed(derivs))
 {
 }
 
-void vtkCSGCell::Clip(double vtkNotUsed(value),
-                        vtkDataArray *vtkNotUsed(cellScalars),
-                        vtkIncrementalPointLocator *vtkNotUsed(locator),
-                        vtkCellArray *vtkNotUsed(verts),
-                        vtkPointData *vtkNotUsed(inPD),
-                        vtkPointData *vtkNotUsed(outPD),
-                        vtkCellData *vtkNotUsed(inCD),
-                        vtkIdType vtkNotUsed(cellId),
-                        vtkCellData *vtkNotUsed(outCD),
-                        int vtkNotUsed(insideOut))
-{
-return;
-}

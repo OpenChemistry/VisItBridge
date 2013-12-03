@@ -39,7 +39,6 @@ PURPOSE.  See the above copyright notice for more information.
 #include <vtkByteSwap.h>
 #include <vtkCellArray.h>
 #include <vtkExecutive.h>
-#include <vtkStreamingDemandDrivenPipeline.h>
 
 #include <list>
 
@@ -633,6 +632,11 @@ void vtkCEAucdReader::GetNodeDataRange(int nodeComp, int index, float *min, floa
 }
 
 //----------------------------------------------------------------------------
+// Modifications
+// 
+//   Mark C. Miller, Wed Feb  6 17:18:37 PST 2013
+//   VTK-6 port: eliminated calls to SetMaximumNumberOfPieces. There are clues
+//   from orig. VTK source that these calls should not be necessary anyways.
 void vtkCEAucdReader::ReadGeometry(vtkInformationVector *outputVector)
 {
    int i;
@@ -648,14 +652,14 @@ void vtkCEAucdReader::ReadGeometry(vtkInformationVector *outputVector)
       {
          vtkDebugMacro(<<"Rebuild geometry from cache\n");
 
-         this->NumberOfMaterials = this->CachedOutputs.size();
+         this->NumberOfMaterials = (int)this->CachedOutputs.size();
          int numberOfOutputPorts = this->GetNumberOfOutputPorts ();
          this->SetNumberOfOutputPorts (this->NumberOfMaterials);
          for(i=numberOfOutputPorts; i<this->NumberOfMaterials; i++)
          {
             vtkUnstructuredGrid * ug = vtkUnstructuredGrid::New();
             ug->Initialize();
-            outputVector->GetInformationObject(i)->Set(vtkDataObject::DATA_OBJECT(), ug);
+            this->GetExecutive()->SetOutputData (i, ug);
             ug->Delete();
          }     
 
@@ -721,7 +725,7 @@ void vtkCEAucdReader::ReadGeometry(vtkInformationVector *outputVector)
       {
          vtkUnstructuredGrid * ug = vtkUnstructuredGrid::New();
          ug->Initialize();
-         outputVector->GetInformationObject(i)->Set(vtkDataObject::DATA_OBJECT(), ug);
+         this->GetExecutive()->SetOutputData (i, ug);
          ug->Delete();
       }
 
@@ -1609,7 +1613,8 @@ void vtkCEAucdReader::DisableAllCellArrays()
 //----------------------------------------------------------------------------
 int vtkCEAucdReader::GetLabel(char *string, int number, char *label)
 {
-   int   i, j, k, len;
+   int   i, j;
+   size_t k, len;
    char  current;
 
 
@@ -1733,7 +1738,7 @@ void vtkCEAucdReader::ClearCache()
    this->CachedFileName = 0;
    this->CachedFileStream = 0;
    this->CachedGlobalOffset = 0;
-   for(int i=0;i<CachedOutputs.size();i++)
+   for(size_t i=0;i<CachedOutputs.size();i++)
    {
       if (this->CachedOutputs[i] != 0) this->CachedOutputs[i]->Delete();
    }

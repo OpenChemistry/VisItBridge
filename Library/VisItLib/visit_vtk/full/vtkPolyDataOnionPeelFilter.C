@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -36,24 +36,22 @@
 *
 *****************************************************************************/
 
-//========================================================================
-//
+// ****************************************************************************
 //  Class:   vtkPolyDataOnionPeelFilter
 //
 //  Purpose:
 //    Derived type of vtkPolyDataToPolyDataFilter.
 //
-//  Notes:  
-//
 //  Programmer:  Kathleen S. Bonnell
-//
 //  Creation:  5 October 2000
 //
-//========================================================================
+// ****************************************************************************
 
 #include <vtkCell.h>
 #include <vtkCellData.h>
 #include <vtkIdList.h>
+#include <vtkInformation.h>
+#include <vtkInformationVector.h>
 #include <vtkIntArray.h>
 #include <vtkObjectFactory.h>
 #include <vtkPolyDataOnionPeelFilter.h>
@@ -63,34 +61,36 @@
 #include <vtkPolyData.h>
 #include <vtkUnsignedIntArray.h>
 #include <vtkVisItUtility.h>
-#include <vtkInformation.h>
-#include <vtkInformationVector.h>
 
-
-//======================================================================
-// Modifications:
-//   Kathleen Bonnell, Wed Mar  6 15:14:29 PST 2002 
-//   Replace 'New' method with Macro to match VTK 4.0 API. 
+// ****************************************************************************
+//  Modifications:
+//    Kathleen Bonnell, Wed Mar  6 15:14:29 PST 2002 
+//    Replace 'New' method with Macro to match VTK 4.0 API. 
 //
-//======================================================================
+// ****************************************************************************
+
 vtkStandardNewMacro(vtkPolyDataOnionPeelFilter);
 
 
-//======================================================================
-// Construct with adjacency set to Node-Adjacency.
-// SeedCellId set to 0, RequestedLayer set to 0
+// ****************************************************************************
+//  Constructor: vtkPolyDataOnionPeelFilter
 //
-// Modifications:
-//   Kathleen Bonnell, Thu Aug 15 18:37:59 PDT 2002 
-//   Initialize logicalIndex and useLogicalIndex. 
+//  Purpose:
+//    Construct with adjacency set to Node-Adjacency.
+//    SeedCellId set to 0, RequestedLayer set to 0
 //
-//   Kathleen Bonnell, Tue Jan 18 19:37:46 PST 2005 
-//   Initialize ReconstructOriginalCells. 
+//  Modifications:
+//    Kathleen Bonnell, Thu Aug 15 18:37:59 PDT 2002 
+//    Initialize logicalIndex and useLogicalIndex. 
 //
-//   Kathleen Bonnell, Wed Jan 19 15:54:38 PST 2005 
-//   Renamed 'SeedCellId' to 'SeedId'.  Initialize SeedIdIsForCell. 
+//    Kathleen Bonnell, Tue Jan 18 19:37:46 PST 2005 
+//    Initialize ReconstructOriginalCells. 
 //
-//======================================================================
+//    Kathleen Bonnell, Wed Jan 19 15:54:38 PST 2005 
+//    Renamed 'SeedCellId' to 'SeedId'.  Initialize SeedIdIsForCell. 
+//
+// ****************************************************************************
+
 vtkPolyDataOnionPeelFilter::vtkPolyDataOnionPeelFilter()
 {
     this->RequestedLayer = 0;
@@ -113,9 +113,11 @@ vtkPolyDataOnionPeelFilter::vtkPolyDataOnionPeelFilter()
 }
 
 
+// ****************************************************************************
+//  Destructor: ~vtkPolyDataOnionPeelFilter
+//
+// ****************************************************************************
 
-//======================================================================
-// Destructor
 vtkPolyDataOnionPeelFilter::~vtkPolyDataOnionPeelFilter()
 {
     this->layerCellIds->Delete();
@@ -125,26 +127,28 @@ vtkPolyDataOnionPeelFilter::~vtkPolyDataOnionPeelFilter()
     this->cellOffsets = NULL;
 }
 
-//======================================================================
+
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::SetBadSeedCallback
 //
-// Method:   vtkPolyDataOnionPeelFilter::SetBadSeedCallback
+//  Purpose:
+//    Sets a callback that is called if the seed cell is bad.
+// 
+//  Arguments:
+//    cb      The callback.
+//    args    The arguments to cb.
+// 
+//  Returns:  None 
+// 
+//  Programmer: Hank Childs
+//  Creation:   May 22, 2002
 //
-// Purpose:  
-//     Sets a callback that is called if the seed cell is bad.
-// 
-// Arguments:
-//     cb      The callback.
-//     args    The arguments to cb.
-// 
-// Returns:  None 
-// 
-// Programmer: Hank Childs
-// Creation:   May 22, 2002
+//  Modifications:
+//    Kathleen Bonnell, Wed Jan 19 15:54:38 PST 2005
+//    Removed 'Cell' from method name, arg name.
 //
-// Modifications:
-//   Kathleen Bonnell, Wed Jan 19 15:54:38 PST 2005
-//   Removed 'Cell' from method name, arg name.
-//======================================================================
+// ****************************************************************************
+
 void 
 vtkPolyDataOnionPeelFilter::SetBadSeedCallback(BadSeedCallback cb, void *args)
 {
@@ -152,56 +156,64 @@ vtkPolyDataOnionPeelFilter::SetBadSeedCallback(BadSeedCallback cb, void *args)
     bsc_args     = args;
 }
 
-//======================================================================
+
+// ****************************************************************************
+//  Method:   vtkPolyDataOnionPeelFilter::Initialize
 //
-// Method:   vtkPolyDataOnionPeelFilter::Initialize
-//
-// Purpose:  
-//   Initialize data members in preparation for new layers.
+//  Purpose:  
+//    Initialize data members in preparation for new layers.
 // 
-// Arguments:  None
+//  Arguments:  None
 // 
-// Returns:  None 
+//  Returns:  None 
 // 
-// Assumptions and Comments:
-//   Intialization should occur when certain fields of the filter have been
-//   modified.  Namely input to the filter, SeedCellId, and
-//   AdjacencyType.  Modification of RequestedLayer requires no initialization.
+//  Assumptions and Comments:
+//    Intialization should occur when certain fields of the filter have been
+//    modified.  Namely input to the filter, SeedCellId, and
+//    AdjacencyType.  Modification of RequestedLayer requires no initialization.
 //
-//   first item (slot 0) of layerCellIds is always SeedCellId
-//   first item (slot 0) of cellOffsets is always adjacenyType 
-//   (used for modification check in Execute method).
+//    first item (slot 0) of layerCellIds is always SeedCellId
+//    first item (slot 0) of cellOffsets is always adjacenyType 
+//    (used for modification check in Execute method).
+//
+//  Programmer: Kathleen S. Bonnell
+//  Creation:   5 October 2000
+//
+//  Modifications:
+//    Hank Childs, Wed May 22 16:59:53 PDT 2002
+//    Also call a callback if the seed cell is invalid.
+//
+//    Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
+//    Since we are issuing an error callback for a bad seed,
+//    don't allow further processing. 
+//
+//    Hank Childs, Fri Aug 27 15:15:20 PDT 2004
+//    Renamed ghost data arrays.
+//
+//    Kathleen Bonnell, Tue Jan 18 19:37:46 PST 2005 
+//    Addeed logic to handle requests for reconstructing original cells,
+//    e.g. when connectivity of original input has changed.
+//
+//    Kathleen Bonnell, Wed Jan 19 15:54:38 PST 2005 
+//    Renamed 'SeedCellId to 'SeedId', 'numCells' arg to 'numIds'.
+//    Added code to handle seedId that is a node. 
 // 
+//    Eric Brugger, Wed Jan  9 12:05:05 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
 //
-// Programmer: Kathleen S. Bonnell
-// Creation:   5 October 2000
-//
-// Modifications:
-//  
-//   Hank Childs, Wed May 22 16:59:53 PDT 2002
-//   Also call a callback if the seed cell is invalid.
-//
-//   Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
-//   Since we are issuing an error callback for a bad seed,
-//   don't allow further processing. 
-//
-//   Hank Childs, Fri Aug 27 15:15:20 PDT 2004
-//   Renamed ghost data arrays.
-//
-//   Kathleen Bonnell, Tue Jan 18 19:37:46 PST 2005 
-//   Addeed logic to handle requests for reconstructing original cells,
-//   e.g. when connectivity of original input has changed.
-//
-//   Kathleen Bonnell, Wed Jan 19 15:54:38 PST 2005 
-//   Renamed 'SeedCellId to 'SeedId', 'numCells' arg to 'numIds'.
-//   Added code to handle seedId that is a node. 
-// 
-//======================================================================
+// ****************************************************************************
+
 bool 
-vtkPolyDataOnionPeelFilter::Initialize(vtkDataSet *input, const int numIds)
+vtkPolyDataOnionPeelFilter::Initialize()
 {
     this->maxLayersReached = 0;
     this->maxLayerNum = VTK_INT_MAX;
+
+    int numIds;
+    if (this->SeedIdIsForCell)
+       numIds = input->GetNumberOfCells();
+    else 
+       numIds = input->GetNumberOfPoints();
 
     if (useLogicalIndex)
     {
@@ -299,8 +311,7 @@ vtkPolyDataOnionPeelFilter::Initialize(vtkDataSet *input, const int numIds)
         }
         else 
         {
-            this->FindCellsCorrespondingToOriginal(this->SeedId,
-                                                   this->layerCellIds, input);
+            this->FindCellsCorrespondingToOriginal(this->SeedId, this->layerCellIds);
             if (this->layerCellIds->GetNumberOfIds() == 0) 
             {
                 if (bsc_callback != NULL) 
@@ -315,7 +326,7 @@ vtkPolyDataOnionPeelFilter::Initialize(vtkDataSet *input, const int numIds)
     {
         if (!this->ReconstructOriginalCells)
         {
-            input->GetPointCells(this->SeedId, this->layerCellIds);
+            input->GetPointCells(this->SeedId, this->layerCellIds); 
             if (this->layerCellIds->GetNumberOfIds() == 0) 
             {
                 if (bsc_callback != NULL) 
@@ -329,7 +340,7 @@ vtkPolyDataOnionPeelFilter::Initialize(vtkDataSet *input, const int numIds)
         {
             int i;
             vtkIdList *nodes = vtkIdList::New();
-            this->FindNodesCorrespondingToOriginal(this->SeedId, nodes, input);
+            this->FindNodesCorrespondingToOriginal(this->SeedId, nodes);
             if (nodes->GetNumberOfIds() == 0)
             {
                 if (bsc_callback != NULL) 
@@ -364,8 +375,7 @@ vtkPolyDataOnionPeelFilter::Initialize(vtkDataSet *input, const int numIds)
                         int index = cellId *nc + comp;;
                         origIds->InsertNextId(oc[index]);
                 }
-                FindCellsCorrespondingToOriginal(origIds,
-                                                 this->layerCellIds, input);
+                FindCellsCorrespondingToOriginal(origIds, this->layerCellIds);
                 origIds->Delete();
             }
             
@@ -385,38 +395,41 @@ vtkPolyDataOnionPeelFilter::Initialize(vtkDataSet *input, const int numIds)
 } // Initialize
 
 
-//======================================================================
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::Grow
 //
-// Method:   vtkPolyDataOnionPeelFilter::Grow
+//  Purpose:
+//    Adds more layers to the onion peel, up to the layer requested by
+//    the user or grid boundaries, whichever is reached first.
 //
-// Purpose:  
-//   Adds more layers to the onion peel, up to the layer requested by
-//   the user or grid boundaries, whichever is reached first.
-// 
-// Arguments:  None
-// 
-// Returns:    None 
-// 
-// Assumptions and Comments:
-//   This method will stop attempting to grow layers when grid
-//   boundaries are reached and no more neighbors can be found.  At
-//   which point, a warning message is issued and RequestedLayer is
-//   set to the maximum layers possible for the current conditions.
+//  Arguments:  None
 //
-// Programmer: Kathleen S. Bonnell
-// Creation:   5 October 2000
+//  Returns:    None 
 //
-// Modifications:
-//   Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
-//   Coding style update.
+//  Assumptions and Comments:
+//    This method will stop attempting to grow layers when grid
+//    boundaries are reached and no more neighbors can be found.  At
+//    which point, a warning message is issued and RequestedLayer is
+//    set to the maximum layers possible for the current conditions.
+//
+//  Programmer: Kathleen S. Bonnell
+//  Creation:   5 October 2000
+//
+//  Modifications:
+//    Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
+//    Coding style update.
 //  
-//   Kathleen Bonnell, Tue Jan 18 19:37:46 PST 2005 
-//   Addeed logic to handle requests for reconstructing original cells,
-//   e.g. when connectivity of original input has changed.
+//    Kathleen Bonnell, Tue Jan 18 19:37:46 PST 2005 
+//    Addeed logic to handle requests for reconstructing original cells,
+//    e.g. when connectivity of original input has changed.
 //
-//======================================================================
+//    Eric Brugger, Wed Jan  9 12:05:05 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
+
 void 
-vtkPolyDataOnionPeelFilter::Grow(vtkDataSet *input)
+vtkPolyDataOnionPeelFilter::Grow()
 {
     vtkIdList  *currentLayerList  = vtkIdList::New();
     int         totalCurrentCells = this->layerCellIds->GetNumberOfIds();
@@ -457,13 +470,11 @@ vtkPolyDataOnionPeelFilter::Grow(vtkDataSet *input)
 
         if (this->AdjacencyType == VTK_FACE_ADJACENCY)  
         {
-            FindCellNeighborsByFaceAdjacency(currentLayerList,
-                                             this->layerCellIds, input);
+            FindCellNeighborsByFaceAdjacency(currentLayerList, this->layerCellIds);
         }
         else
         {
-            FindCellNeighborsByNodeAdjacency(currentLayerList,
-                                             this->layerCellIds, input);
+            FindCellNeighborsByNodeAdjacency(currentLayerList, this->layerCellIds);
         }
 
         // did we add new cells??? 
@@ -487,8 +498,7 @@ vtkPolyDataOnionPeelFilter::Grow(vtkDataSet *input)
                         int index = cellId *nc + comp;;
                         origIds->InsertNextId(oc[index]);
                     }
-                    FindCellsCorrespondingToOriginal(origIds,
-                                                     this->layerCellIds, input);
+                    FindCellsCorrespondingToOriginal(origIds, this->layerCellIds);
                     origIds->Delete();
                 }
             }
@@ -511,44 +521,45 @@ vtkPolyDataOnionPeelFilter::Grow(vtkDataSet *input)
 } // Grow()
 
 
-//======================================================================
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::RequestData
 //
-// Method:   vtkPolyDataOnionPeelFilter::Execute
+//  Purpose:  
+//    vtk Required method. Updates state of the filter by growing
+//    onion peel layers as necessary and generating output grid. 
+//    Performs error checking on data set type.
 //
-// Purpose:  
-//   vtk Required method. Updates state of the filter by growing
-//   onion peel layers as necessary and generating output grid. 
-//   Performs error checking on data set type.
-// 
-// Arguments:  None
-// 
-// Returns:    None 
-// 
-// Assumptions and Comments:
-//   Assumes this filter's input data set is rectilinear, structured
-//   or unstructured grid only.  Check for this condition performed
-//   in Execute() method.
-// 
-//   Passes along all of the input points and point data, but on.y
-//   cells and cell data corresponding to requested layers.
+//  Arguments:  None
 //
-// Programmer: Kathleen S. Bonnell
-// Creation:   5 October 2000
+//  Returns:    None 
 //
-// Modifications:
+//  Assumptions and Comments:
+//    Assumes this filter's input data set is rectilinear, structured
+//    or unstructured grid only.  Check for this condition performed
+//    in RequestData() method.
 //
-//   Kathleen Bonnell, Tue Sep 25 14:32:46 PDT 2001
-//   Removed tests for modification, re-excute from scratch each time
-//   as is appropriate for the VisIt pipeline.
+//    Passes along all of the input points and point data, but on.y
+//    cells and cell data corresponding to requested layers.
 //
-//   Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
-//   Made Initialize return a bool indicating wheter the initialization
-//   was a success or not.  If not, don't process further. 
-// 
-//   Kathleen Bonnell, Wed Jan 19 15:54:38 PST 2005 
-//   Use different args for Initialize when seedId is for a node. 
+//  Programmer: Kathleen S. Bonnell
+//  Creation:   5 October 2000
 //
-//======================================================================
+//  Modifications:
+//    Kathleen Bonnell, Tue Sep 25 14:32:46 PDT 2001
+//    Removed tests for modification, re-excute from scratch each time
+//    as is appropriate for the VisIt pipeline.
+//
+//    Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
+//    Made Initialize return a bool indicating wheter the initialization
+//    was a success or not.  If not, don't process further. 
+//
+//    Kathleen Bonnell, Wed Jan 19 15:54:38 PST 2005 
+//    Use different args for Initialize when seedId is for a node. 
+//
+//    Eric Brugger, Wed Jan  9 12:05:05 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
 
 int
 vtkPolyDataOnionPeelFilter::RequestData(
@@ -560,26 +571,28 @@ vtkPolyDataOnionPeelFilter::RequestData(
     vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
     vtkInformation *outInfo = outputVector->GetInformationObject(0);
 
-    // get the input and output
-    vtkDataSet *input = vtkDataSet::SafeDownCast(
+    //
+    // Initialize some frequently used values.
+    //
+    input  = vtkDataSet::SafeDownCast(
         inInfo->Get(vtkDataObject::DATA_OBJECT()));
-    vtkPolyData *output = vtkPolyData::SafeDownCast(
+    output = vtkPolyData::SafeDownCast(
         outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
     vtkDebugMacro(<<"Generating PolyDataOnionPeelFilter Layers");
 
     bool success;
     if (this->SeedIdIsForCell)
-       success = this->Initialize(input, input->GetNumberOfCells());
+       success = this->Initialize();
     else 
-       success = this->Initialize(input, input->GetNumberOfPoints());
+       success = this->Initialize();
 
     if (!success)
     {
-        return 0;
+        return 1;
     }
-    // check for out-of-range error on RequestedLayer
 
+    // check for out-of-range error on RequestedLayer
     if (RequestedLayer > this->maxLayerNum) 
     {
         vtkWarningMacro(<<"Requested Layer greater than max layers possible."
@@ -589,49 +602,81 @@ vtkPolyDataOnionPeelFilter::RequestData(
         this->RequestedLayer  = this->maxLayerNum ;
     }
 
-    Grow(input);
+    Grow();
 
-    this->GenerateOutputGrid(input, output);
+    this->GenerateOutputGrid();
 
-} // Execute
+    return 1;
+} // RequestData
 
       
-//======================================================================
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::FillInputPortInformation
 //
-// Method:   vtkPolyDataOnionPeelFilter::GenerateOutputGrid
+//  Purpose:  
+//    Specifies that the input must be a vtkDataSet. 
 //
-// Purpose:  
-//   Creates the unstructured grid for output. 
-// 
-// Arguments:  None
-// 
-// Returns:    None 
-// 
-// Assumptions and Comments:
-//   Assumes this filter's input data set is rectilinear, structured
-//   or unstructured grid only.  Check for this condition performed
-//   in Execute() method.
-// 
-//   Passes along all of the input points and point data, but on.y
-//   cells and cell data corresponding to requested layers.
+//  Arguments:
+//    info    The input port information
 //
-// Programmer: Kathleen S. Bonnell
-// Creation:   5 October 2000
+//  Returns:
+//    1
 //
-// Modifications:
-//   Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
-//   Coding style update.
-//  
-//   Kathleen Bonnell, Tue Jun 24 14:19:49 PDT 2003 
-//   Allow for poly-data input, retrieve points via vtkVisItUtility::GetPoints. 
-//  
-//   Hank Childs, Thu Mar 10 09:48:47 PST 2005
-//   Fix memory leak.
+//  Assumptions and Comments:
 //
-//=======================================================================
+//  Programmer: Eric Brugger
+//  Creation:   Wed Jan  9 12:05:05 PST 2013
+//
+// ****************************************************************************
+
+int
+vtkPolyDataOnionPeelFilter::FillInputPortInformation(int, vtkInformation *info)
+{
+    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
+
+    return 1;
+} // FillInputPortInformation
+
+
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::GenerateOutputGrid
+//
+//  Purpose:  
+//    Creates the unstructured grid for output. 
+//
+//  Arguments:  None
+//
+//  Returns:    None 
+//
+//  Assumptions and Comments:
+//    Assumes this filter's input data set is rectilinear, structured
+//    or unstructured grid only.  Check for this condition performed
+//    in Execute() method.
+//
+//    Passes along all of the input points and point data, but on.y
+//    cells and cell data corresponding to requested layers.
+//
+//  Programmer: Kathleen S. Bonnell
+//  Creation:   5 October 2000
+//
+//  Modifications:
+//    Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
+//    Coding style update.
+//
+//    Kathleen Bonnell, Tue Jun 24 14:19:49 PDT 2003 
+//    Allow for poly-data input, retrieve points via
+//    vtkVisItUtility::GetPoints. 
+//
+//    Hank Childs, Thu Mar 10 09:48:47 PST 2005
+//    Fix memory leak.
+//
+//    Eric Brugger, Wed Jan  9 12:05:05 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
+
 void 
-vtkPolyDataOnionPeelFilter::GenerateOutputGrid(vtkDataSet *input,
-                                               vtkPolyData *output)
+vtkPolyDataOnionPeelFilter::GenerateOutputGrid()
 {
     vtkDebugMacro(<<"GenerateOutputGrid::");
 
@@ -640,7 +685,6 @@ vtkPolyDataOnionPeelFilter::GenerateOutputGrid(vtkDataSet *input,
     vtkPointData        *outPD      = output->GetPointData();
     vtkCellData         *outCD      = output->GetCellData();
     vtkIdList           *cellPts    = vtkIdList::New();
-    vtkPoints           *newGridPts = vtkPoints::New();
     int i, cellId, newCellId, totalCells;
 
     if (this->RequestedLayer < this->cellOffsets->GetNumberOfIds() -1)
@@ -675,35 +719,34 @@ vtkPolyDataOnionPeelFilter::GenerateOutputGrid(vtkDataSet *input,
 
     // free memory used locally
     cellPts->Delete();
-    newGridPts->Delete();
 
 } // GenerateOutputGrid
 
 
-//======================================================================
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::PrintSelf
 //
-// Method:   vtkPolyDataOnionPeelFilter::PrintSelf
-//
-// Purpose:  Prints pertinent information regarding the state of this class 
+//  Purpose:  Prints pertinent information regarding the state of this class 
 //           to the given output stream.
-// 
-// Arguments:
-//   os      The output stream to which the information is printed
-//   indent  The amount of spaces to indent.
-// 
-// Returns:  None 
-// 
-// Assumptions and Comments:
-//   Calls the superclass method first. 
-// 
-// Programmer: Kathleen S. Bonnell
-// Creation:   5 October 2000
 //
-// Modifications:
-//   Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
-//   Coding style update.
-//  
-//=======================================================================
+//  Arguments:
+//    os      The output stream to which the information is printed
+//    indent  The amount of spaces to indent.
+//
+//  Returns:  None 
+//
+//  Assumptions and Comments:
+//    Calls the superclass method first. 
+//
+//  Programmer: Kathleen S. Bonnell
+//  Creation:   5 October 2000
+//
+//  Modifications:
+//    Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
+//    Coding style update.
+//
+// ****************************************************************************
+
 void 
 vtkPolyDataOnionPeelFilter::PrintSelf(ostream& os, vtkIndent indent)
 {
@@ -716,39 +759,41 @@ vtkPolyDataOnionPeelFilter::PrintSelf(ostream& os, vtkIndent indent)
 }
 
 
-//======================================================================
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::FindCellNeighborsByNodeAdjacency
 //
-// Method:   vtkPolyDataOnionPeelFilter::FindCellNeighborsByNodeAdjacency
-//
-// Purpose:  Finds all cells in the input grid that share a node with
+//  Purpose: Finds all cells in the input grid that share a node with
 //           the given cell. 
-// 
-// 
-// Arguments:
-//   prevLayerIds       The unique id numbers of the cells for which 
-//                      we want to find neighbors 
-//   neighborCellIds    Pointer to list of cells in the onion peel layers 
-// 
-// Returns:             None 
-// 
-// Assumptions and Comments:
-//   upon entry to the method, neighborCellIds contains cell ids from 
-//   previously grown layers.  This method adds new (unique) neighbor 
-//   cell ids to the list.
 //
-//   It is assumed that cellId represents a valid cell
-// 
-// Programmer: Kathleen S. Bonnell
-// Creation:   5 October 2000
+//  Arguments:
+//    prevLayerIds       The unique id numbers of the cells for which 
+//                       we want to find neighbors 
+//    neighborCellIds    Pointer to list of cells in the onion peel layers 
 //
-// Modifications:
-//   Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
-//   Coding style update.
-//  
-//=======================================================================
+//  Returns:             None 
+//
+//  Assumptions and Comments:
+//    upon entry to the method, neighborCellIds contains cell ids from 
+//    previously grown layers.  This method adds new (unique) neighbor 
+//    cell ids to the list.
+//
+//    It is assumed that cellId represents a valid cell
+//
+//  Programmer: Kathleen S. Bonnell
+//  Creation:   5 October 2000
+//
+//  Modifications:
+//    Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
+//    Coding style update.
+//
+//    Eric Brugger, Wed Jan  9 12:05:05 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
+
 void 
-vtkPolyDataOnionPeelFilter::FindCellNeighborsByNodeAdjacency
-(vtkIdList * prevLayerIds, vtkIdList* neighborCellIds, vtkDataSet* input)
+vtkPolyDataOnionPeelFilter::FindCellNeighborsByNodeAdjacency(
+    vtkIdList *prevLayerIds, vtkIdList* neighborCellIds)
 {
     vtkIdList  *ids        = vtkIdList::New();
     vtkIdList  *neighbors  = vtkIdList::New();
@@ -776,47 +821,47 @@ vtkPolyDataOnionPeelFilter::FindCellNeighborsByNodeAdjacency
 }
 
 
-//======================================================================
+// ****************************************************************************
+//  Method:   vtkPolyDataOnionPeelFilter::FindCellNeighborsByFaceAdjacency
 //
-// Method:   vtkPolyDataOnionPeelFilter::FindCellNeighborsByFaceAdjacency
+//  Purpose:  Finds all cells in the input grid that share a face with
+//            the given cell.
 //
-// Purpose:  Finds all cells in the input grid that share a face with
-//           the given cell.
-// 
-// 
-// Arguments:
-//   cellId             The unique id number of the cell for which 
-//                      we want to find neighbors 
-//   neighborCellIds    Pointer to list of cells in the onion peel layers 
-// 
-// Returns:             None 
-// 
-// Assumptions and Comments:
-//   upon entry to the method, neighborCellIds contains cell ids from 
-//   previously grown layers.  This method adds new (unique) neighbor 
-//   cell ids to the list.
+//  Arguments:
+//    cellId             The unique id number of the cell for which 
+//                       we want to find neighbors 
+//    neighborCellIds    Pointer to list of cells in the onion peel layers 
 //
-//   It is assumed that cellId represents a valid cell
+//  Returns:             None 
 //
-//   This method does not consider cells below 3D when determining
-//   face neighbors.
-// 
-// Programmer: Kathleen S. Bonnell
-// Creation:   5 October 2000
+//  Assumptions and Comments:
+//    upon entry to the method, neighborCellIds contains cell ids from 
+//    previously grown layers.  This method adds new (unique) neighbor 
+//    cell ids to the list.
 //
-// Modifications:
+//    It is assumed that cellId represents a valid cell
 //
-//   Kathleen S. Bonnell, Mon Oct 30 10:37:56 PST 2000
-//   Added neighbor search via edges for 2D cells. 
+//    This method does not consider cells below 3D when determining
+//    face neighbors.
 //
-//   Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
-//   Coding style update.
-//  
-//=======================================================================
+//  Programmer: Kathleen S. Bonnell
+//  Creation:   5 October 2000
+//
+//  Modifications:
+//    Kathleen S. Bonnell, Mon Oct 30 10:37:56 PST 2000
+//    Added neighbor search via edges for 2D cells. 
+//
+//    Kathleen Bonnell, Thu Aug 15 17:48:38 PDT 2002  
+//    Coding style update.
+//
+//    Eric Brugger, Wed Jan  9 12:05:05 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
 
 void 
-vtkPolyDataOnionPeelFilter::FindCellNeighborsByFaceAdjacency
-(vtkIdList* prevLayerIds, vtkIdList* neighborCellIds, vtkDataSet* input)
+vtkPolyDataOnionPeelFilter::FindCellNeighborsByFaceAdjacency(
+    vtkIdList* prevLayerIds, vtkIdList* neighborCellIds)
 {
     vtkIdList  *neighbors = vtkIdList::New();
     vtkIdList  *facePts   = NULL;
@@ -827,7 +872,6 @@ vtkPolyDataOnionPeelFilter::FindCellNeighborsByFaceAdjacency
     int         nId;
     int         i;
     int         cellId;
-
   
     for (i = 0; i < prevLayerIds->GetNumberOfIds(); i++) 
     {
@@ -868,28 +912,27 @@ vtkPolyDataOnionPeelFilter::FindCellNeighborsByFaceAdjacency
 }
 
 
-//======================================================================
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::SetLogicalIndex
 //
-// Method:   vtkPolyDataOnionPeelFilter::SetLogicalIndex
+//  Purpose:  
+//    Set the logical index. 
 //
-// Purpose:  
-//   Set the logical index. 
-// 
-// Arguments:  
-//   i, j, k   The components of the logical Index.
-//   
-// 
-// Returns:    None 
+//  Arguments:  
+//    i, j, k   The components of the logical Index.
 //
-// Programmer: Kathleen Bonnell
-// Creation:   August 15, 2002 
+//  Returns:    None 
 //
-// Modifications:
-//  
-//=======================================================================
+//  Programmer: Kathleen Bonnell
+//  Creation:   August 15, 2002 
+//
+//  Modifications:
+//
+// ****************************************************************************
 
 void
-vtkPolyDataOnionPeelFilter::SetLogicalIndex(const int i, const int j, const int k)
+vtkPolyDataOnionPeelFilter::SetLogicalIndex(const int i, const int j,
+    const int k)
 {  
     if (!useLogicalIndex ||
         (this->logicalIndex[0] != i) || 
@@ -905,24 +948,23 @@ vtkPolyDataOnionPeelFilter::SetLogicalIndex(const int i, const int j, const int 
 }
 
 
-//======================================================================
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::SetSeedId
 //
-// Method:   vtkPolyDataOnionPeelFilter::SetSeedId
+//  Purpose:  
+//    Set the seed cell id. 
 //
-// Purpose:  
-//   Set the seed cell id. 
-// 
-// Arguments:  
-//   seed   The new seed cell id.
-//   
-// Returns:    None 
+//  Arguments:  
+//    seed   The new seed cell id.
 //
-// Programmer: Kathleen Bonnell
-// Creation:   August 15, 2002 
+//  Returns:    None 
 //
-// Modifications:
-//  
-//=======================================================================
+//  Programmer: Kathleen Bonnell
+//  Creation:   August 15, 2002 
+//
+//  Modifications:
+//
+// ****************************************************************************
 
 void
 vtkPolyDataOnionPeelFilter::SetSeedId(const int seed)
@@ -936,33 +978,34 @@ vtkPolyDataOnionPeelFilter::SetSeedId(const int seed)
 }
 
 
-//======================================================================
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::FindCellsCorrespondingToOriginal
 //
-// Method:   vtkPolyDataOnionPeelFilter::FindCellsCorrespondingToOriginal
+//  Purpose:  
+//    Finds all cells whose 'originalCell' designation matches the
+//    original id passed as arg. 
 //
-// Purpose:  
-//   Finds all cells whose 'originalCell' designation matches the
-//   original id passed as arg. 
-// 
-// Arguments:  
-//   orig      The original cell id. 
-//   group     A place to store the corresponding cells.
-//   
-// Returns:    None 
+//  Arguments:  
+//    orig      The original cell id. 
+//    group     A place to store the corresponding cells.
 //
-// Programmer: Kathleen Bonnell
-// Creation:   January 18, 2005 
+//  Returns:    None 
 //
-// Modifications:
-//   Kathleen Bonnell, Tue Jun 14 11:45:21 PDT 2005
-//   Correct 'n' for loop counting.
-//  
-//=======================================================================
+//  Programmer: Kathleen Bonnell
+//  Creation:   January 18, 2005 
+//
+//  Modifications:
+//    Kathleen Bonnell, Tue Jun 14 11:45:21 PDT 2005
+//    Correct 'n' for loop counting.
+//
+//    Eric Brugger, Wed Jan  9 12:05:05 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
 
 void
-vtkPolyDataOnionPeelFilter::FindCellsCorrespondingToOriginal(int orig,
-                                                             vtkIdList *group,
-                                                             vtkDataSet *input)
+vtkPolyDataOnionPeelFilter::FindCellsCorrespondingToOriginal(
+    int orig, vtkIdList *group)
 {
     vtkUnsignedIntArray *origCells = vtkUnsignedIntArray::SafeDownCast(
         input->GetCellData()->GetArray("avtOriginalCellNumbers"));
@@ -983,33 +1026,34 @@ vtkPolyDataOnionPeelFilter::FindCellsCorrespondingToOriginal(int orig,
 }
 
 
-//======================================================================
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::FindCellsCorrespondingToOriginal
 //
-// Method:   vtkPolyDataOnionPeelFilter::FindCellsCorrespondingToOriginal
+//  Purpose:  
+//    Finds all cells whose 'originalCell' designation matches the
+//    original ids passed as arg. 
 //
-// Purpose:  
-//   Finds all cells whose 'originalCell' designation matches the
-//   original ids passed as arg. 
-// 
-// Arguments:  
-//   origi     A list of original ids. 
-//   group     A place to store the corresponding cells.
-//   
-// Returns:    None 
+//  Arguments:  
+//    origs     A list of original ids. 
+//    group     A place to store the corresponding cells.
 //
-// Programmer: Kathleen Bonnell
-// Creation:   January 18, 2005 
+//  Returns:    None 
 //
-// Modifications:
-//   Kathleen Bonnell, Tue Jun 14 11:45:21 PDT 2005
-//   Correct 'n' for loop counting.
-//  
-//=======================================================================
+//  Programmer: Kathleen Bonnell
+//  Creation:   January 18, 2005 
+//
+//  Modifications:
+//    Kathleen Bonnell, Tue Jun 14 11:45:21 PDT 2005
+//    Correct 'n' for loop counting.
+//
+//    Eric Brugger, Wed Jan  9 12:05:05 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
 
 void
-vtkPolyDataOnionPeelFilter::FindCellsCorrespondingToOriginal(vtkIdList *origs,
-                                                             vtkIdList *group,
-                                                             vtkDataSet *input)
+vtkPolyDataOnionPeelFilter::FindCellsCorrespondingToOriginal(
+    vtkIdList *origs, vtkIdList *group)
 {
     vtkUnsignedIntArray *origCells = vtkUnsignedIntArray::SafeDownCast(
         input->GetCellData()->GetArray("avtOriginalCellNumbers"));
@@ -1029,33 +1073,35 @@ vtkPolyDataOnionPeelFilter::FindCellsCorrespondingToOriginal(vtkIdList *origs,
     }
 }
 
-//======================================================================
+
+// ****************************************************************************
+//  Method: vtkPolyDataOnionPeelFilter::FindNodesCorrespondingToOriginal
 //
-// Method:   vtkPolyDataOnionPeelFilter::FindNodesCorrespondingToOriginal
+//  Purpose:  
+//    Finds all nodes whose 'originalNode' designation matches the
+//    original id passed as arg. 
 //
-// Purpose:  
-//   Finds all nodes whose 'originalNode' designation matches the
-//   original id passed as arg. 
-// 
-// Arguments:  
-//   orig      The original node id. 
-//   group     A place to store the corresponding cells.
-//   
-// Returns:    None 
+//  Arguments:  
+//    orig      The original node id. 
+//    group     A place to store the corresponding cells.
 //
-// Programmer: Kathleen Bonnell
-// Creation:   January 19, 2005 
+//  Returns:    None 
 //
-// Modifications:
-//   Kathleen Bonnell, Tue Jun 14 11:45:21 PDT 2005
-//   Correct 'n' for loop counting.
-//  
-//=======================================================================
+//  Programmer: Kathleen Bonnell
+//  Creation:   January 19, 2005 
+//
+//  Modifications:
+//    Kathleen Bonnell, Tue Jun 14 11:45:21 PDT 2005
+//    Correct 'n' for loop counting.
+//
+//    Eric Brugger, Wed Jan  9 12:05:05 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+// ****************************************************************************
 
 void
-vtkPolyDataOnionPeelFilter::FindNodesCorrespondingToOriginal(int orig,
-                                                             vtkIdList *group,
-                                                             vtkDataSet *input)
+vtkPolyDataOnionPeelFilter::FindNodesCorrespondingToOriginal(
+    int orig, vtkIdList *group)
 {
     vtkIntArray *origNodes = vtkIntArray::SafeDownCast(
         input->GetPointData()->GetArray("avtOriginalNodeNumbers"));
@@ -1074,13 +1120,3 @@ vtkPolyDataOnionPeelFilter::FindNodesCorrespondingToOriginal(int orig,
         }
     }
 }
-
-//----------------------------------------------------------------------------
-int vtkPolyDataOnionPeelFilter::FillInputPortInformation(int vtkNotUsed(port),
-                                                         vtkInformation* info)
-{
-  info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
-  return 1;
-}
-
-

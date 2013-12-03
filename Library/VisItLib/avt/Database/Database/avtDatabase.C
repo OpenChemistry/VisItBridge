@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -481,6 +481,7 @@ avtDatabase::avtDatabase()
     invariantSIL      = NULL;
     fileFormat        = "<unknown>";
     ignoreExtents     = false;
+    isEnsemble        = false;
 }
 
 
@@ -778,6 +779,19 @@ avtDatabase::GetOutput(const char *var, int ts)
 //    Jeremy Meredith, Tue Jun  2 16:25:01 EDT 2009
 //    Added support for unit cell origin (previously assumed to be 0,0,0);
 //
+//    Tom Fogal, Fri Aug  6 16:53:50 MDT 2010
+//    Set level of detail info from the mesh meta data.
+//
+//    Hank Childs, Thu Aug 26 13:02:28 PDT 2010
+//    Change named of extents object.
+//
+//    Cyrus Harrison,Thu Feb  9 10:26:48 PST 2012
+//    Added logic to support presentGhostZoneTypes, which allows us to
+//    differentiate between ghost zones for boundaries & nesting.
+//
+//    Hank Childs, Tue Oct 23 14:43:37 PDT 2012
+//    Mark the zones and nodes as invalidated if selections were applied.
+//
 // ****************************************************************************
 
 void
@@ -799,7 +813,7 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
     atts.SetDynamicDomainDecomposition(md->GetFormatCanDoDomainDecomposition());
     string mesh = md->MeshForVar(var);
     const avtMeshMetaData *mmd = md->GetMesh(mesh);
-    bool haveSetTrueSpatialExtents = false;
+    bool haveSetOriginalSpatialExtents = false;
     atts.SetNumStates(md->GetNumStates());
     if (mmd != NULL)
     {
@@ -817,15 +831,30 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
         atts.SetYLabel(mmd->yLabel);
         atts.SetZLabel(mmd->zLabel);
         atts.SetContainsGhostZones(mmd->containsGhostZones);
+        atts.SetGhostZoneTypesPresent(mmd->presentGhostZoneTypes);
         atts.SetContainsExteriorBoundaryGhosts(
                              mmd->containsExteriorBoundaryGhosts);
         atts.SetContainsOriginalCells(mmd->containsOriginalCells);
         atts.SetContainsOriginalNodes(mmd->containsOriginalNodes);
         atts.SetContainsGlobalZoneIds(mmd->containsGlobalZoneIds);
         atts.SetContainsGlobalNodeIds(mmd->containsGlobalNodeIds);
+        validity.SetDisjointElements(mmd->disjointElements);
+        atts.SetLevelsOfDetail(mmd->LODs);
+
         vector<bool> tmp = selectionsApplied;
         atts.SetSelectionsApplied(tmp);
-        validity.SetDisjointElements(mmd->disjointElements);
+        bool oneSelectionApplied = false;
+        for (unsigned int i = 0 ; i < selectionsApplied.size() ; i++)
+            if (selectionsApplied[i])
+                oneSelectionApplied = true;
+        if (oneSelectionApplied)
+        {
+            // We need to set these as invalid, or else caching could kick in
+            // and we might end up using acceleration structures across
+            // pipeline executions that were no longer valid.
+            validity.InvalidateZones();
+            validity.InvalidateNodes();
+        }
 
         //
         // Note that we are using the spatial extents as both the spatial 
@@ -840,8 +869,8 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
                 extents[2*i]   = mmd->minSpatialExtents[i];
                 extents[2*i+1] = mmd->maxSpatialExtents[i];
             }
-            atts.GetTrueSpatialExtents()->Set(extents);
-            haveSetTrueSpatialExtents = true;
+            atts.GetOriginalSpatialExtents()->Set(extents);
+            haveSetOriginalSpatialExtents = true;
         }
         atts.SetMeshType(mmd->meshType);
         atts.SetMeshCoordType(mmd->meshCoordType);
@@ -858,13 +887,13 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
     //
     // If we haven't set spatial extents, try using a data tree
     //
-    if (haveSetTrueSpatialExtents == false)
+    if (haveSetOriginalSpatialExtents == false)
     {
         double extents[6];
         if (GetExtentsFromAuxiliaryData(spec, mesh.c_str(),
                 AUXILIARY_DATA_SPATIAL_EXTENTS, extents))
         {
-            atts.GetTrueSpatialExtents()->Set(extents);
+            atts.GetOriginalSpatialExtents()->Set(extents);
         }
     }
         
@@ -913,7 +942,7 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
                 extents[0] = smd->minDataExtents;
                 extents[1] = smd->maxDataExtents;
     
-                atts.GetTrueDataExtents(var_list[i])->Set(extents);
+                atts.GetOriginalDataExtents(var_list[i])->Set(extents);
             }
             else
             {
@@ -921,7 +950,7 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
                 if (GetExtentsFromAuxiliaryData(spec, var_list[i],
                         AUXILIARY_DATA_DATA_EXTENTS, extents))
                 {
-                    atts.GetTrueDataExtents(var_list[i])->Set(extents);
+                    atts.GetOriginalDataExtents(var_list[i])->Set(extents);
                 }
             }
         }
@@ -947,7 +976,7 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
                 double extents[6]; // 6 is probably too much, but better to be safe
                 extents[0] = vmd->minDataExtents;
                 extents[1] = vmd->maxDataExtents;
-                atts.GetTrueDataExtents(var_list[i])->Set(extents);
+                atts.GetOriginalDataExtents(var_list[i])->Set(extents);
             }
             else
             {
@@ -955,7 +984,7 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
                 if (GetExtentsFromAuxiliaryData(spec, var_list[i],
                         AUXILIARY_DATA_DATA_EXTENTS, extents))
                 {
-                    atts.GetTrueDataExtents(var_list[i])->Set(extents);
+                    atts.GetOriginalDataExtents(var_list[i])->Set(extents);
                 }
             }
         }
@@ -1009,8 +1038,8 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
             double extents[2];
             extents[0] = 0.;
             extents[1] = 1.;
-            atts.GetEffectiveDataExtents(var_list[i])->Set(extents);
-            atts.GetTrueDataExtents(var_list[i])->Set(extents);
+            atts.GetDesiredDataExtents(var_list[i])->Set(extents);
+            atts.GetOriginalDataExtents(var_list[i])->Set(extents);
         }
 
         const avtCurveMetaData *cmd = GetMetaData(ts)->GetCurve(var_list[i]);
@@ -1030,7 +1059,7 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
                 double extents[6]; // 6 is probably too much, but better to be safe
                 extents[0] = cmd->minDataExtents;
                 extents[1] = cmd->maxDataExtents;
-                atts.GetTrueDataExtents(var_list[i])->Set(extents);
+                atts.GetOriginalDataExtents(var_list[i])->Set(extents);
             }
             else
             {
@@ -1038,7 +1067,7 @@ avtDatabase::PopulateDataObjectInformation(avtDataObject_p &dob,
                 if (GetExtentsFromAuxiliaryData(spec, var_list[i],
                         AUXILIARY_DATA_DATA_EXTENTS, extents))
                 {
-                    atts.GetTrueDataExtents(var_list[i])->Set(extents);
+                    atts.GetOriginalDataExtents(var_list[i])->Set(extents);
                 }
             }
         }
@@ -1513,6 +1542,11 @@ avtDatabase::AddMeshQualityExpressions(avtDatabaseMetaData *md)
 //    Mark C. Miller, Thu Feb 12 11:33:59 PST 2009
 //    Removed std:: qualification on some STL classes due to use of using
 //    statements at top 
+//
+//    Kathleen Biagas, Wed Jul  3 14:25:43 PDT 2013
+//    Variable names may be compound (eg "mesh/ireg") so make sure they are
+//    enclosed in angle-brackets at the beginning of the created expression.
+//
 // ****************************************************************************
 
 void
@@ -1640,7 +1674,7 @@ avtDatabase::AddTimeDerivativeExpressions(avtDatabaseMetaData *md)
                                    + smd->meshName + "_lasttime";
                      new_expr.SetName(expr_name);
                      char buff[1024];
-                     SNPRINTF(buff, 1024, "(%s - conn_cmfe(<[-1]id:%s>, %s)) / (<%s> - <%s>)",
+                     SNPRINTF(buff, 1024, "(<%s> - conn_cmfe(<[-1]id:%s>, %s)) / (<%s> - <%s>)",
                          smd->name.c_str(), smd->name.c_str(), smd->meshName.c_str(),
                          time_expr_name.c_str(), last_time_expr_name.c_str());
                      new_expr.SetDefinition(buff);
@@ -1659,7 +1693,7 @@ avtDatabase::AddTimeDerivativeExpressions(avtDatabaseMetaData *md)
                                    + smd->meshName + "_lasttime";
                      new_expr.SetName(expr_name);
                      char buff[1024];
-                     SNPRINTF(buff, 1024, "%s - pos_cmfe(<[-1]id:%s>, %s, 0.) / (<%s> - <%s>)",
+                     SNPRINTF(buff, 1024, "<%s> - pos_cmfe(<[-1]id:%s>, %s, 0.) / (<%s> - <%s>)",
                                 smd->name.c_str(), smd->name.c_str(), smd->meshName.c_str(),
                           time_expr_name.c_str(), last_time_expr_name.c_str());
                      new_expr.SetDefinition(buff);
@@ -1687,7 +1721,7 @@ avtDatabase::AddTimeDerivativeExpressions(avtDatabaseMetaData *md)
                                    + smd->meshName + "_lasttime";
                      new_expr.SetName(expr_name);
                      char buff[1024];
-                     SNPRINTF(buff, 1024, "%s - conn_cmfe(<[-1]id:%s>, %s) / (<%s> - <%s>)",
+                     SNPRINTF(buff, 1024, "<%s> - conn_cmfe(<[-1]id:%s>, %s) / (<%s> - <%s>)",
                                 smd->name.c_str(), smd->name.c_str(), smd->meshName.c_str(),
                          time_expr_name.c_str(), last_time_expr_name.c_str());
                      new_expr.SetDefinition(buff);
@@ -1706,7 +1740,7 @@ avtDatabase::AddTimeDerivativeExpressions(avtDatabaseMetaData *md)
                                    + smd->meshName + "_lasttime";
                      new_expr.SetName(expr_name);
                      char buff[1024];
-                     SNPRINTF(buff, 1024, "%s - pos_cmfe(<[-1]id:%s>, %s, 0.) / (<%s> - <%s>)",
+                     SNPRINTF(buff, 1024, "<%s> - pos_cmfe(<[-1]id:%s>, %s, 0.) / (<%s> - <%s>)",
                                 smd->name.c_str(), smd->name.c_str(), smd->meshName.c_str(),
                          time_expr_name.c_str(), last_time_expr_name.c_str());
                      new_expr.SetDefinition(buff);
@@ -2245,6 +2279,10 @@ avtDatabase::NumStagesForFetch(avtDataRequest_p)
 //    Mark C. Miller, Thu Feb 12 11:33:59 PST 2009
 //    Removed std:: qualification on some STL classes due to use of using
 //    statements at top 
+//
+//    Kathleen Biagas, Mon Sep 24 18:32:43 MST 2012
+//    Check for ':' when determining if directory should be prepended.
+//
 // ****************************************************************************
 
 void
@@ -2284,8 +2322,8 @@ avtDatabase::GetFileListFromTextFile(const char *textfile,
         if (str_auto[0] != '\0' && str_auto[0] != '#')
         {
             ConvertSlashes(str_auto);
-
-            if (str_auto[0] == VISIT_SLASH_CHAR || str_auto[0] == '!')
+            if (str_auto[0] == VISIT_SLASH_CHAR || str_auto[0] == '!' ||
+                (str_auto_len > 2 && str_auto[1] == ':'))
             {
                 strcpy(str_with_dir, str_auto);
             }
@@ -2560,7 +2598,7 @@ avtDatabase::Query(PickAttributes *pa)
             pa->SetBzoneCoords(bzoneCoords);
             pa->SetPickPoint(ppt);
             pa->SetCellPoint(cpt);
-            if (pa->GetDisplayGlobalIds())
+            if (pa->GetShowGlobalIds())
             {
                 intVector gie;
                 int ge = -1;
@@ -2741,4 +2779,17 @@ avtDatabase::GetExtentsFromAuxiliaryData(avtDataRequest_p spec,
         extents[i] = tree_extents[i];
 
     return true;
+}
+
+
+void
+avtDatabase::SetIsEnsemble(bool v)
+{
+    isEnsemble = v;
+}
+
+bool
+avtDatabase::GetIsEnsemble()
+{
+    return isEnsemble;
 }

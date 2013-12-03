@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -45,6 +45,7 @@
 #include <visit-config.h>
 
 #include <string>
+#include <vector>
 
 #include <vtkFloatArray.h>
 #include <vtkRectilinearGrid.h>
@@ -58,7 +59,7 @@
 #include <avtStructuredDomainNesting.h>
 #include <avtVariableCache.h>
 #include <avtIntervalTree.h>
-
+#include <avtResolutionSelection.h>
 #include <InvalidVariableException.h>
 #include <InvalidFilesException.h>
 #include <Expression.h>
@@ -78,9 +79,11 @@
 // is explicitly upgraded to the 1.8 API, this symbol should be removed.
 #define H5_USE_16_API
 #include <hdf5.h>
+#include <visit-hdf5.h>
 #endif
 
 using std::string;
+using std::vector;
 
 void avtEnzoFileFormat::Grid::PrintRecursive(vector<Grid> &grids, int level)
 {
@@ -411,7 +414,7 @@ avtEnzoFileFormat::ReadHierachyFile()
 
             grids.push_back(g);
             grids[parent].childrenID.push_back(g.ID);
-            numGrids = grids.size()-1;
+            numGrids = (int)grids.size()-1;
         }
         else if (buff == "Pointer:")
         {
@@ -647,6 +650,7 @@ avtEnzoFileFormat::DetermineVariablesFromGridFile()
         //       1.6.3.  Since we're going for portability, just open the
         //       darn root group and use that instead.
         hid_t rootId = H5Gopen(fileId, "/");
+        hid_t rootId_tmp;
 
         // Make a pass over the contents of the root directory
         // looking for a group corresponding to our grid name, and
@@ -663,7 +667,9 @@ avtEnzoFileFormat::DetermineVariablesFromGridFile()
                 if (sscanf(name, "Grid%d", &gridindex) == 1 &&
                     gridindex == smallest_grid)
                 {
+                    rootId_tmp = rootId;
                     rootId = H5Gopen(rootId, name);
+                    H5Gclose(rootId_tmp);
                     break;
                 }
             }
@@ -1032,6 +1038,10 @@ avtEnzoFileFormat::FreeUpResources(void)
 //    Fixed obvious typo in particle velocity expression and made attempt
 //    (without test data in hand) to ensure expressions get specified
 //    correctly on 2D meshes.
+//
+//    Jean Favre, Wed Jul 27 09:29:46 PDT 2011
+//    Add support for resolution selection contract.
+//
 // ****************************************************************************
 
 void
@@ -1068,6 +1078,7 @@ avtEnzoFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
     mesh->groupPieceName = "level";
     vector<int> groupIds(numGrids);
     vector<string> blockPieceNames(numGrids);
+    int levels_of_detail = 0;
     for (int i = 1; i <= numGrids; i++)
     {
         char tmpName[64];
@@ -1075,7 +1086,10 @@ avtEnzoFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
 
         groupIds[i-1] = grids[i].level;
         blockPieceNames[i-1] = tmpName;
+        levels_of_detail = std::max(levels_of_detail, grids[i].level);
     }
+    mesh->LODs = levels_of_detail;
+    this->resolution = levels_of_detail; // current acceptable res = max res
     mesh->blockNames = blockPieceNames;
     mesh->numGroups = numLevels;
     mesh->groupIds = groupIds;
@@ -1430,6 +1444,8 @@ avtEnzoFileFormat::GetMesh(int domain, const char *meshname)
         // looking for a group corresponding to our grid name, and
         // open it if necessary.
         hid_t rootId = H5Gopen(fileId, "/");
+        hid_t rootId_tmp;
+
         hsize_t n_objs;
         H5Gget_num_objs(rootId, &n_objs);
         for (int var = 0 ; var < n_objs ; var++)
@@ -1442,7 +1458,9 @@ avtEnzoFileFormat::GetMesh(int domain, const char *meshname)
                 if (sscanf(name, "Grid%d", &gridindex) == 1 &&
                     gridindex == domain+1)
                 {
+                    rootId_tmp = rootId;
                     rootId = H5Gopen(rootId, name);
+                    H5Gclose(rootId_tmp);
                     break;
                 }
             }
@@ -1518,6 +1536,7 @@ avtEnzoFileFormat::GetMesh(int domain, const char *meshname)
         H5Dclose(var_id_y);
         if (dimension == 3)
             H5Dclose(var_id_z);
+        H5Sclose(spaceId);
 
         vtkUnstructuredGrid  *ugrid = vtkUnstructuredGrid::New(); 
         ugrid->SetPoints(points);
@@ -1861,6 +1880,8 @@ avtEnzoFileFormat::GetVar(int domain, const char *varname)
         // looking for a group corresponding to our grid name, and
         // open it if necessary.
         hid_t rootId = H5Gopen(fileId, "/");
+        hid_t rootId_tmp;
+
         hsize_t n_objs;
         H5Gget_num_objs(rootId, &n_objs);
         for (int var = 0 ; var < n_objs ; var++)
@@ -1873,7 +1894,9 @@ avtEnzoFileFormat::GetVar(int domain, const char *varname)
                 if (sscanf(name, "Grid%d", &gridindex) == 1 &&
                     gridindex == domain+1)
                 {
+                    rootId_tmp = rootId;
                     rootId = H5Gopen(rootId, name);
+                    H5Gclose(rootId_tmp);
                     break;
                 }
             }
@@ -1971,6 +1994,7 @@ avtEnzoFileFormat::GetVar(int domain, const char *varname)
 
         // Done with the variable; don't leak it
         H5Dclose(varId);
+        H5Sclose(spaceId);
 
         // For now, always close the file
         H5Gclose(rootId);
@@ -2027,6 +2051,7 @@ avtEnzoFileFormat::GetVectorVar(int domain, const char *varname)
 //    API change for avtIntervalTree.
 //
 // ****************************************************************************
+
 void *
 avtEnzoFileFormat::GetAuxiliaryData(const char *var, int dom, 
                                     const char * type, void *,
@@ -2055,3 +2080,31 @@ avtEnzoFileFormat::GetAuxiliaryData(const char *var, int dom,
     return ((void *) itree);
 }
 
+// ****************************************************************************
+//  Method:  avtEnzoFileFormat::RegisterDataSelections
+//
+//  Purpose:
+//      Tries to read requests for specific resolutions.
+//
+//  Programmer:  Jean Favre
+//  Creation:    July 27, 2011
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+void
+avtEnzoFileFormat::RegisterDataSelections(const std::vector<avtDataSelection_p>& sels,
+                                          std::vector<bool>* applied)
+{
+    for(size_t i=0; i < sels.size(); ++i)
+    {
+        if(strcmp(sels[i]->GetType(), "avtResolutionSelection") == 0)
+        {
+            const avtResolutionSelection* sel =
+                static_cast<const avtResolutionSelection*>(*sels[i]);
+            this->resolution = sel->resolution();
+            (*applied)[i] = true;
+        }
+    }
+}

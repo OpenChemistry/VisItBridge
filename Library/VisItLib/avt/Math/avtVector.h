@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -65,7 +65,7 @@
 //    Dave Pugmire, Mon Nov 17 12:05:04 EST 2008
 //    Added operators == != and methods dot, cross, length2 and length.
 //
-//    Kathleen Bonnell, Mon Apr 20 10:38:22 MST 2009
+//    Kathleen Bonnell, Mon Apr 20 10:38:22 MST 2009 
 //    Added MATH_API in front of operator<< for compilation on windows when
 //    other classes attempt to use the method.
 //
@@ -77,6 +77,9 @@
 //
 //    Dave Pugmire, Mon Feb 15 14:05:19 EST 2010
 //    Add perpendiculars method and unary - operator.
+//
+//    Dave Pugmire, Thu Jun 10 10:44:02 EDT 2010
+//    Add set() methods.
 //
 // ****************************************************************************
 class MATH_API avtVector
@@ -92,7 +95,7 @@ class MATH_API avtVector
     avtVector(const float*);
 
     // assignment operator
-    void       operator=(const avtVector&);
+    avtVector& operator=(const avtVector&);
 
     // vector addition/subtraction
     avtVector  operator+(const avtVector&) const;
@@ -122,6 +125,10 @@ class MATH_API avtVector
     // element access
     double& operator[](const size_t &i);
     const double& operator[](const size_t &i) const;
+    void  set(const double *v);
+    void  set(const float *v);
+    void  set(double, double, double);
+    void  set(float, float, float);
 
     // 2-norm
     double     norm() const;
@@ -143,37 +150,37 @@ class MATH_API avtVector
 #undef STUB_OSTR
 #undef STUB_STR
 
-inline
+inline 
 avtVector::avtVector()
     : x(0), y(0), z(0)
 {
 }
 
-inline
+inline 
 avtVector::avtVector(double x_,double y_)
     : x(x_), y(y_), z(0)
 {
 }
 
-inline
+inline 
 avtVector::avtVector(double x_,double y_,double z_)
     : x(x_), y(y_), z(z_)
 {
 }
 
-inline
+inline 
 avtVector::avtVector(const double *p)
     : x(p[0]), y(p[1]), z(p[2])
 {
 }
 
-inline
+inline 
 avtVector::avtVector(const float *p)
     : x(p[0]), y(p[1]), z(p[2])
 {
 }
 
-inline
+inline 
 avtVector::avtVector(const avtVector &r)
 {
     x=r.x;
@@ -181,12 +188,14 @@ avtVector::avtVector(const avtVector &r)
     z=r.z;
 }
 
-inline void
+inline avtVector&
 avtVector::operator=(const avtVector &r)
 {
     x=r.x;
     y=r.y;
     z=r.z;
+
+    return *this;
 }
 
 // vector addition/subtraction
@@ -393,6 +402,34 @@ inline avtVector lerp(const double &t, const avtVector &v0, const avtVector &v1)
                      one_minus_t*v0.y + t*v1.y,
                      one_minus_t*v0.z + t*v1.z);
     return result;
+}
+
+inline void avtVector::set(const double *v)
+{
+    x=v[0];
+    y=v[1];
+    z=v[2];
+}
+
+inline void avtVector::set(const float *v)
+{
+    x=v[0];
+    y=v[1];
+    z=v[2];
+}
+
+inline void avtVector::set(double v0, double v1, double v2)
+{
+    x = v0;
+    y = v1;
+    z = v2;
+}
+
+inline void avtVector::set(float v0, float v1, float v2)
+{
+    x = v0;
+    y = v1;
+    z = v2;
 }
 
 

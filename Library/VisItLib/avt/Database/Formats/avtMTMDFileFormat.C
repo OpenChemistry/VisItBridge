@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,6 +46,7 @@
 #include <avtDatabaseMetaData.h>
 #include <avtMTMDFileFormat.h>
 
+#include <DBYieldedNoDataException.h>
 #include <ImproperUseException.h>
 #include <InvalidFilesException.h>
 
@@ -63,12 +64,22 @@ using     std::vector;
 //  Programmer:  Hank Childs
 //  Creation:    April 4, 2003
 //
+//  Modifications:
+//
+//    Hank Childs, Sun May  9 18:47:06 CDT 2010
+//    Initialize time slice offset.
+//
+//    Hank Childs, Tue Apr 10 15:12:58 PDT 2012
+//    Initialize read all cycles and times.
+//
 // ****************************************************************************
 
 avtMTMDFileFormat::avtMTMDFileFormat(const char *name)
 {
     filename = new char[strlen(name)+1];
     strcpy(filename, name);
+    timeSliceOffset = 0;
+    readAllCyclesAndTimes = false;
 }
 
 
@@ -235,5 +246,30 @@ avtMTMDFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int ts)
             "Please contact the plugin developer. This error cannot be corrected "
             "without changes to code", GetType());
         EXCEPTION1(ImproperUseException, msg);
+    }
+}
+
+// ****************************************************************************
+//  Method: avtSTMDFileFormat::SetDatabaseMetaData
+//
+//  Programmer:  Mark C. Miller
+//  Creation:    28Oct10
+//
+//  Modifications:
+//    Mark C. Miller, Mon Nov  1 12:19:02 PDT 2010
+//    Remove strict mode test.
+//
+//    Mark C. Miller, Mon Nov  8 06:53:26 PST 2010
+//    Predicate on whether this is a simulation or not.
+// ****************************************************************************
+
+void
+avtMTMDFileFormat::SetDatabaseMetaData(avtDatabaseMetaData *md, int ts)
+{
+    metadata = md;
+    PopulateDatabaseMetaData(metadata, ts);
+    if ((!metadata->GetIsSimulation()) && metadata->Empty())
+    {
+        EXCEPTION1(DBYieldedNoDataException, filename);
     }
 }

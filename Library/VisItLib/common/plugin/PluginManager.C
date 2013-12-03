@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -523,8 +523,12 @@ PluginManager::GetPluginList(vector<pair<string,string> > &libs)
 
     // Add each file that is a library to the list.
     string ext(VISIT_PLUGIN_EXTENSION);
-    int extLen = ext.size();
-
+    int extLen = (int)ext.size();
+#ifdef _WIN32
+    int prefixLen = 1;
+#else
+    int prefixLen = 4;
+#endif
     vector< vector<pair<string,string> > > tmp;
     tmp.resize(files.size());
     for (size_t dir = 0 ; dir < files.size() ; dir++)
@@ -540,7 +544,7 @@ PluginManager::GetPluginList(vector<pair<string,string> > &libs)
 #define PLUGIN_MAX(A,B) (((A) < (B)) ? (B) : (A))
 
             // Ignore it if it does not end in the correct extension
-            if (filename.length() < PLUGIN_MAX(5,extLen) ||
+            if (filename.length() < PLUGIN_MAX((1 + prefixLen),extLen) ||
                 !(filename.substr(filename.length()-extLen,extLen) == ext))
             {
                 continue;
@@ -628,6 +632,13 @@ PluginManager::GetPluginList(vector<pair<string,string> > &libs)
 //    I added code to catch InvalidPluginException so an invalid libI cannot
 //    take down a program. Now, we just skip those plugins.
 //
+//    Kathleen Bonnell, Thu Feb  3 13:22:56 PST 2011
+//    Do the find for "_ser" or "_par" only on the portion of the plugin name 
+//    after the last slash.  Use VISIT_SLASH_CHAR instead of '/'.
+//
+//    Brad Whitlock, Tue Nov 22 20:04:23 PST 2011
+//    Adjust plugin names for Windows since they no longer have "lib" prefix.
+//
 // ****************************************************************************
 
 void
@@ -645,6 +656,13 @@ PluginManager::ReadPluginInfo()
     string ext(VISIT_PLUGIN_EXTENSION);
     vector<string> alreadyLoaded;
     vector<string> alreadyLoadedDir;
+#ifdef _WIN32
+    int prefixLen = 1;
+    string prefix;
+#else
+    int prefixLen = 4;
+    string prefix("lib");
+#endif
     for (size_t i=0; i<libs.size(); i++)
     {
         const string &dirname  = libs[i].first;
@@ -654,14 +672,19 @@ PluginManager::ReadPluginInfo()
             continue;
 
         // make sure there's a match for our library
-        string str;
+        string str(prefix);
         switch (category)
         {
-          case GUI:       str = string("libG") + filename.substr(4); break;
-          case Scripting: str = string("libS") + filename.substr(4); break;
-          case Viewer:    str = string("libV") + filename.substr(4); break;
-          case MDServer:  str = string("libM") + filename.substr(4); break;
-          case Engine:    if(filename.substr(0,8) == "libISimV")
+          case GUI:       str += string("G") + filename.substr(prefixLen); break;
+          case Scripting: str += string("S") + filename.substr(prefixLen); break;
+          case Viewer:    str += string("V") + filename.substr(prefixLen); break;
+          case MDServer:  str += string("M") + filename.substr(prefixLen); break;
+          case Engine:
+#ifdef _WIN32
+                          if(filename.substr(0,5) == "ISimV")
+#else
+                          if(filename.substr(0,8) == "libISimV")
+#endif
                           {
                               debug1 << "Skipping plugin " << filename
                                      << " because it is a simulation plugin."
@@ -669,8 +692,8 @@ PluginManager::ReadPluginInfo()
                               continue;
                           }
                           // Fall through to Simulation
-          case Simulation:str = string("libE") +
-                          filename.substr(4, filename.length() - 4 - ext.size())
+          case Simulation:str += string("E") +
+                          filename.substr(prefixLen, filename.length() - prefixLen - ext.size())
                           + (parallel ? string("_par") : string("_ser"))
                           + ext;
                           break;
@@ -751,15 +774,15 @@ PluginManager::ReadPluginInfo()
         {
             string pluginFile(pluginsWithWrongVersion[i]);
             string ext(VISIT_PLUGIN_EXTENSION);
-            int slashPos = pluginFile.rfind("/");
+            size_t slashPos = pluginFile.rfind(VISIT_SLASH_CHAR);
             string dirname = pluginFile.substr(0, slashPos);
-            int suffixLen = (pluginFile.find("_ser") != -1 ||
-                             pluginFile.find("_par") != -1) ? 4 : 0;
-            int len = pluginFile.size() - slashPos - suffixLen - 5 -
+            size_t suffixLen = (pluginFile.substr(slashPos).find("_ser") != string::npos ||
+                             pluginFile.substr(slashPos).find("_par") != string::npos) ? 4 : 0;
+            size_t len = pluginFile.size() - slashPos - suffixLen - (1 + prefixLen) -
                 managerName.size() - ext.size();
-            string pluginPrefix(pluginFile.substr(slashPos + 5, len));
+            string pluginPrefix(pluginFile.substr(slashPos + (1 + prefixLen), len));
             string pluginlib(pluginFile.substr(slashPos + 1, 
-                                             pluginFile.size() - (slashPos+1)));
+                                               pluginFile.size() - (slashPos+1)));
 
             pluginInitErrors += string("   the ")+pluginPrefix+
                                 " plugin in the directory "+dirname+"\n";
@@ -785,13 +808,13 @@ PluginManager::ReadPluginInfo()
         {
             string pluginFile(pluginsWithNoVersion[i]);
             string ext(VISIT_PLUGIN_EXTENSION);
-            int slashPos = pluginFile.rfind("/");
+            size_t slashPos = pluginFile.rfind(VISIT_SLASH_CHAR);
             string dirname = pluginFile.substr(0, slashPos);
-            int suffixLen = (pluginFile.find("_ser") != -1 ||
-                             pluginFile.find("_par") != -1) ? 4 : 0;
-            int len = pluginFile.size() - slashPos - suffixLen - 5 -
+            size_t suffixLen = (pluginFile.substr(slashPos).find("_ser") != string::npos ||
+                             pluginFile.substr(slashPos).find("_par") != string::npos) ? 4 : 0;
+            size_t len = pluginFile.size() - slashPos - suffixLen - (1 + prefixLen) -
                 managerName.size() - ext.size();
-            string pluginPrefix(pluginFile.substr(slashPos + 5, len));
+            string pluginPrefix(pluginFile.substr(slashPos + (1 + prefixLen), len));
 
             pluginInitErrors += string("   the ")+pluginPrefix+
                                 " plugin in the directory "+dirname+"\n";
@@ -915,7 +938,12 @@ PluginManager::ObtainPluginInfo(bool readInfo, PluginBroadcaster *broadcaster)
 bool
 PluginManager::IsGeneralPlugin(const string &pluginFile) const
 {
+#ifdef _WIN32
+     return (pluginFile.substr(0,1) == "I") && 
+            (pluginFile.rfind(VISIT_PLUGIN_EXTENSION) != std::string::npos);
+#else
      return (pluginFile.substr(0,4) == "libI");
+#endif
 }
 
 // ****************************************************************************
@@ -936,7 +964,7 @@ PluginManager::LoadPluginsNow()
 {
     for (size_t i=0; i<libfiles.size(); i++)
     {
-        LoadSinglePlugin(i);
+        LoadSinglePlugin((int)i);
     }
 }
 
@@ -1037,7 +1065,7 @@ PluginManager::LoadSinglePlugin(int index)
     ENDTRY
 
     // Success so far -- add the handle and the info to the list
-    int loadedindex = loadedhandles.size();
+    int loadedindex = (int)loadedhandles.size();
     loadedindexmap[ids[index]] = loadedindex;
     loadedhandles.push_back(handle);
     loadedids.push_back(ids[index]);
@@ -1096,8 +1124,7 @@ PluginManager::LoadPluginsOnDemand()
 
     // If we are loading plugins on demand, there is no
     // reason to leave any plugin disabled.
-    int nAllPlugins = ids.size();
-    for (int i=0; i<nAllPlugins; i++)
+    for (size_t i=0; i<ids.size(); i++)
     {
         EnablePlugin(ids[i]);
     }
@@ -1295,14 +1322,19 @@ PluginManager::GetPluginInitializationErrors()
 // Creation:   Wed Jun 17 16:26:31 PDT 2009
 //
 // Modifications:
-//   
+//   Brad Whitlock, Wed Jun 15 15:13:42 PDT 2011
+//   Print the path being added to the pluginDirs to the logs.
+//
 // ****************************************************************************
 
 void
 AddUniquePluginDir(stringVector &pluginDirs, const std::string &path)
 {
     if(std::find(pluginDirs.begin(), pluginDirs.end(), path) == pluginDirs.end())
+    {
+        debug1 << "Adding plugin search path: " << path << endl;
         pluginDirs.push_back(path);
+    }
 }
 
 // ****************************************************************************
@@ -1589,6 +1621,10 @@ PluginManager::PluginOpen(const string &pluginFile)
 //   Changed "/" to VISIT_SLASH_CHAR so code will work correctly on windows.
 //   Also changed symbol to symbolName in call to GetProcAddress.
 //   
+//    Kathleen Bonnell, Thu Feb  3 13:22:56 PST 2011
+//    Do the find for "_ser" or "_par" only on the portion of the plugin name 
+//    after the last slash. 
+//
 // ****************************************************************************
 
 void *
@@ -1609,13 +1645,18 @@ PluginManager::PluginSymbol(const string &symbol, bool noError)
     bool pluginVersion = (symbol == "VisItPluginVersion");
     if(pluginVersion || symbol.substr(0,3) == "Get")
     {
+#ifdef _WIN32
+        int prefixLen = 1;
+#else
+        int prefixLen = 4;
+#endif
         string ext(VISIT_PLUGIN_EXTENSION);
-        int slashPos = openPlugin.rfind(VISIT_SLASH_CHAR);
-        int suffixLen = (openPlugin.find("_ser") != -1 ||
-                         openPlugin.find("_par") != -1) ? 4 : 0;
-        int len = openPlugin.size() - slashPos - suffixLen - 5 -
+        size_t slashPos = openPlugin.rfind(VISIT_SLASH_CHAR);
+        size_t suffixLen = (openPlugin.substr(slashPos).find("_ser") != string::npos ||
+                         openPlugin.substr(slashPos).find("_par") != string::npos) ? 4 : 0;
+        size_t len = openPlugin.size() - slashPos - suffixLen - (1 + prefixLen) -
                   managerName.size() - ext.size();
-        string pluginPrefix(openPlugin.substr(slashPos + 5, len));
+        string pluginPrefix(openPlugin.substr(slashPos + (1 + prefixLen), len));
         //  debug4 << "PluginSymbol: prefix: " << pluginPrefix << endl;
         if(pluginVersion)
             symbolName = string(pluginPrefix + symbol);

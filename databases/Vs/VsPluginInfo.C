@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,10 +43,7 @@
 #include <VsPluginInfo.h>
 
 #include <visit-config.h>
-#include <hdf5.h>
-#include <visit-hdf5.h>
-
-extern "C" DBP_EXPORT const char *VsVisItPluginVersion = VISIT_VERSION;
+VISIT_PLUGIN_VERSION(Vs,DBP_EXPORT)
 
 // ****************************************************************************
 //  Function:  GetGeneralInfo
@@ -98,7 +95,7 @@ VsGeneralPluginInfo::GetName() const
 const char *
 VsGeneralPluginInfo::GetVersion() const
 {
-    return "2.1.0md";
+    return "3.0.0";
 }
 
 // ****************************************************************************
@@ -117,7 +114,7 @@ VsGeneralPluginInfo::GetVersion() const
 const char *
 VsGeneralPluginInfo::GetID() const
 {
-    return "Vs_2.1.0";
+    return "Vs_3.0.0";
 }
 // ****************************************************************************
 //  Method: VsGeneralPluginInfo::EnabledByDefault
@@ -169,10 +166,8 @@ std::vector<std::string>
 VsGeneralPluginInfo::GetDefaultFilePatterns() const
 {
     std::vector<std::string> defaultPatterns;
-#if HDF5_VERSION_GE(1,8,1)
     defaultPatterns.push_back("*.vsh5");
     defaultPatterns.push_back("*.h5");
-#endif
 
     return defaultPatterns;
 }

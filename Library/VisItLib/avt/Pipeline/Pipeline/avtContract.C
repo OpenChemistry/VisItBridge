@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,6 +42,8 @@
 
 #include <avtContract.h>
 
+#include <string.h>
+
 #include <avtWebpage.h>
 
 
@@ -59,6 +61,12 @@ static const char* bool2str(bool b) { return b ? "yes" : "no"; }
 //
 //  Modifications:
 //
+//    Dave Pugmire, Tue May 25 10:15:35 EDT 2010
+//    Add domain single domain replication to all processors.
+//
+//    Hank Childs, Thu Aug 26 11:08:02 PDT 2010
+//    Print out extents calculation members
+//
 // ****************************************************************************
 ostream& operator<<(ostream &os, const avtContract& c)
 {
@@ -66,11 +74,26 @@ ostream& operator<<(ostream &os, const avtContract& c)
        << "\tpipeline index: " << c.pipelineIndex << "\n"
        << "\tstreaming possible: " << bool2str(c.canDoStreaming) << "\n"
        << "\tstreaming: " << bool2str(c.doingOnDemandStreaming) << "\n"
+       << "\treplicateSingleDoms: " << bool2str(c.replicateSingleDomainOnAllProcessors) << "\n"
        << "\tload balancing: " << bool2str(c.useLoadBalancing) << "\n"
-       << "\tmesh optimizations:" << "\n"
+       << "\tcalculate mesh extents: " << bool2str(c.calculateMeshExtents) << "\n";
+   if (c.needExtentsForTheseVariables.size() == 0)
+   {
+       os << "\tcalculate extents for these variables: <none>\n";
+   }
+   else
+   {
+       os << "\tcalculate extents for these variables:";
+       for (int i = 0 ; i < c.needExtentsForTheseVariables.size() ; i++)
+           os << c.needExtentsForTheseVariables[i] << "; ";
+       os << "\n";
+   }
+
+   os  << "\tmesh optimizations:" << "\n"
        << "\t\tcurvilinear: " << bool2str(c.haveCurvilinearMeshOptimizations)
        << "\n\t\trectilinear: " << bool2str(c.haveRectilinearMeshOptimizations)
        << "\n\tfilters: " << c.nFilters << std::endl;
+  
     return os;
 }
 
@@ -104,6 +127,12 @@ ostream& operator<<(ostream &os, const avtContract& c)
 //    Hank Childs, Sun Mar  9 08:02:29 PST 2008
 //    Initialize doingOnDemandStreaming.
 //
+//    Dave Pugmire, Tue May 25 10:15:35 EDT 2010
+//    Add domain single domain replication to all processors.
+//
+//    Hank Childs, Thu Aug 26 11:08:02 PDT 2010
+//    Initialize extents information.
+//
 // ****************************************************************************
 
 avtContract::avtContract(avtDataRequest_p d, int pi)
@@ -116,6 +145,8 @@ avtContract::avtContract(avtDataRequest_p d, int pi)
     haveCurvilinearMeshOptimizations = false;
     haveRectilinearMeshOptimizations = false;
     doingOnDemandStreaming           = false;
+    replicateSingleDomainOnAllProcessors = false;
+    calculateMeshExtents = true;
 }
 
 
@@ -130,8 +161,7 @@ avtContract::avtContract(avtDataRequest_p d, int pi)
 //
 // ****************************************************************************
 
-avtContract::avtContract(
-                                                 avtContract_p ps)
+avtContract::avtContract(avtContract_p ps)
 {
     *this = **ps;
 }
@@ -208,6 +238,12 @@ avtContract::~avtContract()
 //    Hank Childs, Sun Mar  9 08:02:29 PST 2008
 //    Added doingOnDemandStreaming.
 //
+//    Dave Pugmire, Tue May 25 10:15:35 EDT 2010
+//    Add domain single domain replication to all processors.
+//
+//    Hank Childs, Thu Aug 26 11:08:02 PDT 2010
+//    Copy extents information.
+//
 // ****************************************************************************
 
 avtContract &
@@ -221,6 +257,9 @@ avtContract::operator=(const avtContract &ps)
     haveCurvilinearMeshOptimizations = ps.haveCurvilinearMeshOptimizations;
     haveRectilinearMeshOptimizations = ps.haveRectilinearMeshOptimizations;
     doingOnDemandStreaming = ps.doingOnDemandStreaming;
+    replicateSingleDomainOnAllProcessors = ps.replicateSingleDomainOnAllProcessors;
+    calculateMeshExtents = ps.calculateMeshExtents;
+    needExtentsForTheseVariables = ps.needExtentsForTheseVariables;
 
     return *this;
 }
@@ -248,6 +287,61 @@ avtContract::UseLoadBalancing(bool newVal)
 
 
 // ****************************************************************************
+//  Method: avtContract::ShouldCalculateVariableExtents
+//
+//  Purpose:
+//      Determine if we should calculate the extents of a given variable.
+//
+//  Programmer: Hank Childs
+//  Creation:   August 26, 2010
+//
+// ****************************************************************************
+
+bool
+avtContract::ShouldCalculateVariableExtents(const std::string &s)
+{
+    for (int i = 0 ; i < needExtentsForTheseVariables.size() ; i++)
+        if (needExtentsForTheseVariables[i] == s)
+            return true;
+    return false;
+}
+
+
+// ****************************************************************************
+//  Method: avtContract::SetCalculateVariableExtents
+//
+//  Purpose:
+//      Declares whether we should calculate the extents of a given variable.
+//
+//  Programmer: Hank Childs
+//  Creation:   August 26, 2010
+//
+// ****************************************************************************
+
+void
+avtContract::SetCalculateVariableExtents(const std::string &s, bool v)
+{
+    if (v)
+    {
+        bool alreadyHaveIt = false;
+        for (int i = 0 ; i < needExtentsForTheseVariables.size() ; i++)
+            if (needExtentsForTheseVariables[i] == s)
+                alreadyHaveIt = true;
+        if (!alreadyHaveIt)
+            needExtentsForTheseVariables.push_back(s);
+    }
+    else
+    {
+        std::vector<std::string> newList;
+        for (int i = 0 ; i < needExtentsForTheseVariables.size() ; i++)
+            if (needExtentsForTheseVariables[i] != s)
+                newList.push_back(needExtentsForTheseVariables[i]);
+        needExtentsForTheseVariables = newList;
+    }
+}
+
+
+// ****************************************************************************
 //  Method: avtContract::DebugDump
 //
 //  Purpose:
@@ -262,6 +356,9 @@ avtContract::UseLoadBalancing(bool newVal)
 //    Rename "dynamic" to "streaming", since we really care about whether we
 //    are streaming, not about whether we are doing dynamic load balancing.
 //    And the two are no longer synonymous.
+//
+//    Hank Childs, Thu Aug 26 11:08:02 PDT 2010
+//    Dump out extents info.
 //
 // ****************************************************************************
 
@@ -297,6 +394,22 @@ avtContract::DebugDump(avtWebpage *webpage)
                             YesOrNo(haveRectilinearMeshOptimizations));
     webpage->AddTableEntry2("Doing on demand streaming", 
                             YesOrNo(doingOnDemandStreaming));
+    webpage->AddTableEntry2("Replicating single domain on all processors",
+                            YesOrNo(replicateSingleDomainOnAllProcessors));
+    webpage->AddTableEntry2("Calculate extents of mesh",
+                            YesOrNo(calculateMeshExtents));
+    if (needExtentsForTheseVariables.size() == 0)
+        strcpy(str, "none");
+    else
+    {
+        strcpy(str, needExtentsForTheseVariables[0].c_str());
+        for (int i = 1 ; i < needExtentsForTheseVariables.size() ; i++)
+        {
+            strcpy(str+strlen(str), "; ");
+            strcpy(str+strlen(str), needExtentsForTheseVariables[i].c_str());
+        }
+    }
+    webpage->AddTableEntry2("Variables to calculate extents for", str);
     sprintf(str, "%d", nFilters);
     webpage->AddTableEntry2("Number of known filters", str);
     webpage->EndTable();

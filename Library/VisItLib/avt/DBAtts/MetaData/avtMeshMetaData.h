@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -90,10 +90,14 @@ public:
     virtual void SelectAll();
 
     // User-defined methods
-    avtMeshMetaData(const double *, std::string, int, int, int, int, int, int, avtMeshType);
+    avtMeshMetaData(const int *, const double *, std::string, int, int, int, int, int, int, avtMeshType);
     avtMeshMetaData(std::string, int, int, int, int, int, int, avtMeshType);
     void SetExtents(const double *);
     void UnsetExtents();
+    void SetBounds(const int *);
+    void UnsetBounds();
+    void SetNumberCells(const int);
+    void UnsetNumberCells();
     void Print(ostream &, int = 0) const;
     void SetAMRInfo(const std::string &levelName, const std::string &patchName, int origin,const std::vector<int> &patchesPerLevel);
 
@@ -106,6 +110,10 @@ public:
         ID_meshCoordType,
         ID_cellOrigin,
         ID_spatialDimension,
+        ID_hasLogicalBounds,
+        ID_logicalBounds,
+        ID_hasNumberCells,
+        ID_numberCells,
         ID_topologicalDimension,
         ID_xUnits,
         ID_yUnits,
@@ -126,6 +134,7 @@ public:
         ID_groupOrigin,
         ID_groupPieceName,
         ID_groupTitle,
+        ID_groupNames,
         ID_groupIds,
         ID_groupIdsBasedOnRange,
         ID_disjointElements,
@@ -143,6 +152,8 @@ public:
         ID_nodeOrigin,
         ID_containsExteriorBoundaryGhosts,
         ID_hideFromGUI,
+        ID_LODs,
+        ID_presentGhostZoneTypes,
         ID__LAST
     };
 
@@ -154,6 +165,10 @@ public:
     avtMeshCoordType     meshCoordType;
     int                  cellOrigin;
     int                  spatialDimension;
+    bool                 hasLogicalBounds;
+    int                  logicalBounds[3];
+    bool                 hasNumberCells;
+    int                  numberCells;
     int                  topologicalDimension;
     std::string          xUnits;
     std::string          yUnits;
@@ -174,6 +189,7 @@ public:
     int                  groupOrigin;
     std::string          groupPieceName;
     std::string          groupTitle;
+    stringVector         groupNames;
     intVector            groupIds;
     intVector            groupIdsBasedOnRange;
     bool                 disjointElements;
@@ -191,12 +207,14 @@ public:
     int                  nodeOrigin;
     bool                 containsExteriorBoundaryGhosts;
     bool                 hideFromGUI;
+    int                  LODs;
+    int                  presentGhostZoneTypes;
 
 private:
     // Static class format string for type map.
     static const char *TypeMapFormatString;
     static const private_tmfs_t TmfsStruct;
 };
-#define AVTMESHMETADATA_TMFS "ssbiiiiissssssbDDiisss*aiissi*i*bibbbbibFFbDibb"
+#define AVTMESHMETADATA_TMFS "ssbiiiibIbiissssssbDDiisss*aiisss*i*i*bibbbbibFFbDibbii"
 
 #endif

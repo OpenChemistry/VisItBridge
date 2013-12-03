@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,6 +43,7 @@
 #ifndef UTILITY_H
 #define UTILITY_H
 #include <utility_exports.h>
+#include <visitstream.h>
 #include <visit-config.h>
 #include <vectortypes.h>
 #include <map>
@@ -58,7 +59,8 @@ int  UTILITY_API  LongestCommonPrefixLength(const char * const *, int);
 int  UTILITY_API  LongestCommonSuffixLength(const char * const *, int);
 
 // LINUX ONLY
-void UTILITY_API  GetMemorySize(unsigned int &, unsigned int &);
+void UTILITY_API  GetMemorySize(unsigned long &, unsigned long &);
+void UTILITY_API  PrintCallStack(ostream &out, const char *file, int line);
 
 void UTILITY_API  WaitUntilFile(const char *);
 bool UTILITY_API  WildcardStringMatch(const char *p, const char *s);
@@ -80,15 +82,13 @@ void UTILITY_API PutOnSameXIntervals(int on1, const float *ox1,
 void UTILITY_API AverageYValsForDuplicateX(int n, const float *x, 
         const float *y, floatVector &X, floatVector &Y);
 
-
-#if defined(PANTHERHACK)
-// Broken on Panther
-#else
-bool        UTILITY_API ConvertArgsToTunneledValues(const std::map<int,int>&,
-                                                    std::vector<std::string>&);
-#endif
+bool UTILITY_API CheckHostValidity(const std::string &host);
+bool UTILITY_API ConvertArgsToTunneledValues(const std::map<int,int>&,
+                                             std::vector<std::string>&);
+bool UTILITY_API GetSSHClient(std::string &sshClient);
 
 inline char *C_strdup(char const * const);
+inline char *C_strndup(char const * const, size_t);
 inline char *CXX_strdup(char const * const);
 inline char *CXX_strndup(char const * const, size_t);
 inline void  InlineCopy(char *&, const char * const &, const int &);
@@ -126,6 +126,15 @@ C_strdup(char const * const c)
     return p;
 }
 
+inline char *
+C_strndup(char const * const c, size_t n)
+{
+    size_t len = (strlen(c) < n) ? strlen(c) : n;
+    char *p = (char *) malloc(len+1);
+    memcpy(p, c, len);
+    p[len] = '\0';
+    return p;
+}
 
 // ****************************************************************************
 //  Method: CXX_strdup
@@ -167,7 +176,7 @@ CXX_strdup(char const * const c)
 inline char *
 CXX_strndup(char const * const c, size_t n)
 {
-    int len = (strlen(c) < n) ? strlen(c) : n;
+    size_t len = (strlen(c) < n) ? strlen(c) : n;
     char *p = new char[len+1];
     memcpy(p, c, len);
     p[len] = '\0';

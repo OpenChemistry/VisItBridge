@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -101,6 +101,12 @@ typedef   void  (*ResetTimeoutCallback)(void *, int);
 //    Hank Childs, Tue Sep  5 10:51:08 PDT 2006
 //    Added ResetTimeout callback.
 //
+//    Hank Childs, Fri Dec 31 11:45:48 PST 2010
+//    Add a GetSafeMode callback.
+//
+//    Hank Childs, Tue Jan 18 07:38:18 PST 2011
+//    Add auxsessionkey support for UCHC folks.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtCallback
@@ -135,6 +141,11 @@ class PIPELINE_API avtCallback
     static bool                  GetSoftwareRendering(void)
                                      { return swRendering; };
 
+    static void                  SetMantaMode(bool b)
+                                     { useManta = b; }
+    static bool                  UseManta(void)
+                                     { return useManta; }
+
     static void                  RegisterGetDatabaseCallback(
                                                   GetDatabaseCallback, void *);
     static ref_ptr<avtDatabase>  GetDatabase(const std::string &, int,
@@ -153,6 +164,15 @@ class PIPELINE_API avtCallback
                                            ResetTimeoutCallback, void *);
     static void                  ResetTimeout(int);
 
+    static void                  EnableSafeMode(void) { safeMode = true; };
+    static bool                  GetSafeMode(void) { return safeMode; };
+
+    // This method is used to pass a string to database readers.
+    static std::string           GetAuxSessionKey(void) 
+                                                  { return auxSessionKey; };
+    static void                  SetAuxSessionKey(const std::string &k)
+                                                  { auxSessionKey = k; };
+
   protected:
     static WarningCallback       warningCallback;
     static void                 *warningCallbackArgs;
@@ -165,6 +185,10 @@ class PIPELINE_API avtCallback
 
     static bool                  nowinMode;
     static bool                  swRendering;
+    static bool                  useManta;
+    static bool                  safeMode;
+
+    static std::string           auxSessionKey;
 
     static UpdatePlotAttributesCallback
                                  updatePlotAttributesCallback;

@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -151,7 +151,6 @@ avtLookupTable::SetLUTColors(const unsigned char *colors, int nColors)
     logLUT->SetNumberOfTableValues(nColors);
     skewLUT->SetNumberOfTableValues(nColors);
 
-
     const unsigned char *cptr = colors;
     for(int i = 0; i < nColors; ++i)
     {
@@ -243,7 +242,7 @@ avtLookupTable::SetLUTColorsWithOpacity(const unsigned char *colors,
         double g = (double) cptr[1] * INV_255 ;
         double b = (double) cptr[2] * INV_255 ;
         double a = (double) cptr[3] * INV_255 ;
- 
+
         stdLUT->SetTableValue(i, r, g, b, a);
         logLUT->SetTableValue(i, r, g, b, a);
         skewLUT->SetTableValue(i, r, g, b, a);
@@ -314,64 +313,72 @@ avtLookupTable::GetNumberOfColors()
 //    Added ability to also set the LUT colors with opacities from the
 //    color table (if requested by the caller in the new argument).
 //
+//    Kathleen Bonnell, Mon Jan 17 17:38:40 MST 2011
+//    Added invert argument.
+//
 // ****************************************************************************
 
 bool
 avtLookupTable::SetColorTable(const char *ctName, bool validName,
-                              bool useOpacities)
+                              bool useOpacities,
+                              bool invert,
+                              double rampOpacity)
 {
-    bool retval = false;
-    bool useDefault = false;
     avtColorTables *ct = avtColorTables::Instance();
+    const unsigned char *c = NULL;
 
     // Figure out the circumstances in which we should use the default
     // color table.
-    if(ctName == NULL)
-        useDefault = true;
-    else if(std::string(ctName) == "Default")
-        useDefault = true;
-    else if(!ct->ColorTableExists(ctName))
+    if(ctName == NULL || std::string(ctName) == "Default")
     {
+      // Use the default continuous color table.
+      const char *dct = ct->GetDefaultContinuousColorTable().c_str();
+
+      // No continuous table so use the default discrete color table.
+      if(dct == 0)
+        dct = ct->GetDefaultDiscreteColorTable().c_str();
+
+      c = ct->GetColors(dct, invert);
+    }
+    else if (validName)
+    {
+      if(!ct->ColorTableExists(ctName))
+      {
         EXCEPTION1(InvalidColortableException, ctName);
+      }
+
+      // Use the specified color table. It was a valid color table.
+      c = ct->GetColors(ctName, invert);
     }
 
-    if(useDefault)
+    if(c != NULL)
     {
-        // Use the default color table.
-        const char *dct = ct->GetDefaultContinuousColorTable().c_str();
-        if(dct == 0)
-            dct = ct->GetDefaultDiscreteColorTable().c_str();
-        const unsigned char *c = ct->GetColors(dct);
-        const unsigned char *a = NULL;
-        if (useOpacities)
-            a = ct->GetAlphas(dct);
-        if(c != NULL)
-        {
-            // Set the colors into the lookup table.
-            retval = true;
-            if (a)
-                SetLUTColorsAndOpacity(c, a, ct->GetNumColors());
-            else
-                SetLUTColors(c, ct->GetNumColors());
-        }
-    }
-    else if (validName) 
-    {
-        // Use the specified color table. It was a valid color table.
-        const unsigned char *c = ct->GetColors(ctName);
-        const unsigned char *a = NULL;
-        if (useOpacities)
-            a = ct->GetAlphas(ctName);
-        if(c != NULL)
-        {
-            // Set the colors into the lookup table.
-            retval = true;
-            if (a)
-                SetLUTColorsAndOpacity(c, a, ct->GetNumColors());
-            else
-                SetLUTColors(c, ct->GetNumColors());
-        }
-    }
+      // Set the colors into the lookup table.
+      if (0 <= rampOpacity && rampOpacity <= 1.0)
+      {
+        // Change from 0->1.0 to 0->256
+        rampOpacity *= 256.0;
+        
+        unsigned char *a = (unsigned char *) malloc( ct->GetNumColors() );
+        
+        for( unsigned int i=0; i<ct->GetNumColors(); ++i )
+          a[i] = (unsigned char)
+            (rampOpacity * (double) i / (double) ct->GetNumColors() );
+        
+        SetLUTColorsAndOpacity(c, a, ct->GetNumColors());
+      }
+      else if (useOpacities)
+      {
+        const unsigned char *a = ct->GetAlphas(ctName);
+        SetLUTColorsAndOpacity(c, a, ct->GetNumColors());
+      }
+      else
+      {
+        SetLUTColors(c, ct->GetNumColors());
+      }
 
-    return retval;
+      return true;
+    }
+    else
+      return false;
 }

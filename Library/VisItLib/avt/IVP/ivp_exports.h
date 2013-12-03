@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -39,8 +39,8 @@
 #ifndef IVP_EXPORTS_H
 #define IVP_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
-#if defined(AVTIVP_EXPORTS) || defined(avtivp_EXPORTS)
+#if defined(_WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(AVTIVP_EXPORTS) || defined(avtivp_ser_EXPORTS) || defined(avtivp_par_EXPORTS)
 #define IVP_API __declspec(dllexport)
 #else
 #define IVP_API __declspec(dllimport)
@@ -54,7 +54,7 @@
 #pragma warning(disable:4786)
 #endif
 #else
-# if __GNUC__ >= 4 && (defined(AVTIVP_EXPORTS) || defined(avtivp_EXPORTS))
+# if __GNUC__ >= 4 && (defined(AVTIVP_EXPORTS) || defined(avtivp_ser_EXPORTS) || defined(avtivp_par_EXPORTS))
 #   define IVP_API __attribute__ ((visibility("default")))
 # else
 #   define IVP_API /* hidden by default */

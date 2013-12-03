@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -96,7 +96,7 @@ public:
 
 protected:
     bool ReadFile(const char *, int nLines);
-    void InterpretFormatString(char *line, int &fieldStart,
+    void InterpretFormatString(char *line, int &firstFieldWidth, int &fieldStart,
                                int &fieldWidth, int &expectedLineLength) const;
     void Interpret(const char *fmt, int &fieldWidth, int &linelen) const;
 

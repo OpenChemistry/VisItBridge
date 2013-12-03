@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -48,17 +48,17 @@
 #endif
 #include <float.h>
 
-#include <string>
-#include <iostream>
-#include <fstream>
-#include <algorithm>
 
 #include <vtkCellArray.h>
+#include <vtkIntArray.h>
 #include <vtkFloatArray.h>
 #include <vtkIdTypeArray.h>
 #include <vtkRectilinearGrid.h>
 #include <vtkUnsignedCharArray.h>
 #include <vtkUnstructuredGrid.h>
+#include <vtkFieldData.h>
+
+#include <DBOptionsAttributes.h>
 
 #include <avtDatabaseMetaData.h>
 #include <avtDatabase.h>
@@ -88,9 +88,8 @@
 
 #define USE_SIMPLE_BLOCK_NUMBERING 1
 
-using     std::string;
 #ifndef STREQUAL
-#if defined(_WIN32)
+#if defined(_WIN32) 
 #  define STREQUAL(a,b)              stricmp(a,b)
 #else
 #  define STREQUAL(a,b)              strcasecmp(a,b)
@@ -99,10 +98,22 @@ using     std::string;
 
 #include <boost/cstdint.hpp>
 
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
+
+using boost::int64_t;
+using std::map;
+using std::string;
+using std::vector;
+
 // ****************************************************************************
 // Notes on the format of each Nek variant--binary/ascii, 3D/2D, serial/parallel
 //
-// There's one data file per timestep for serial writes, several per timestep for
+// There's one data file per timestep for serial writes, several per timestep for 
 // parallel writes.  Usually it has the .fld extension.  And there's a text
 // metadata file whose format I made up, which has a template for the filenames,
 // first and number of timesteps, etc.
@@ -154,12 +165,12 @@ using     std::string;
 // #std 4  6  6  6   120  240  0.1500E+01  300  1  2XUPT
 // #std 4  6  6  6   120  240  0.1500E+01  300  1  2 XUPTS03
 // #std 4  6  6  6   120  240  0.1500E+01  300  1  2 U T123
-// This example means:  #std is for versioning, 4 bytes per sample (could be 8,
-//   for double precision), 6x6x6 blocks, 120 of 240 blocks are in this file,
-//   time=1.5, cycle=300, this output dir=1, num output dirs=2, XUPT123 are
-//   tags that this file has a mesh, velocity, pressure, temperature, and
+// This example means:  #std is for versioning, 4 bytes per sample (could be 8, 
+//   for double precision), 6x6x6 blocks, 120 of 240 blocks are in this file, 
+//   time=1.5, cycle=300, this output dir=1, num output dirs=2, XUPT123 are 
+//   tags that this file has a mesh, velocity, pressure, temperature, and 
 //   3 misc scalars.
-//
+// 
 // Next comes the 4-byte 6.54321 for endian determination.
 // Next comes one 4-byte integer per block in the file, which is the global id
 // of that block.
@@ -186,13 +197,13 @@ using     std::string;
 // ****************************************************************************
 // Example of a metadata input file
 //
-// filetemplate: example.fld%02d
+// filetemplate: example.fld%02d  
 // firsttimestep: 2                 # first dump here: example.fld02
 // numtimesteps: 3                  # number of dumps
 // type: binary                     # ascii or binary
 //
-//
-// filetemplate: example%02d.f%04d
+// 
+// filetemplate: example%02d.f%04d  
 // firsttimestep: 2                 # first dump here: example??.f0002
 // numtimesteps: 3                  # number of dumps
 // type: binary                     # ascii or binary
@@ -218,7 +229,7 @@ using     std::string;
 //
 //  Modifications:
 //    Dave Bremer, Tue Sep 11 15:45:51 PDT 2007
-//    Added a small mod to support variable-length headers
+//    Added a small mod to support variable-length headers 
 //    and absolute paths to data files in the file template.
 //
 //    Dave Bremer, Wed Nov  7 14:17:19 PST 2007
@@ -234,11 +245,11 @@ using     std::string;
 //    Added a small fix for the case in which there are more than 9 output dirs
 //
 //    Dave Bremer, Wed Feb  6 19:12:55 PST 2008
-//    Refactored the constructor, moving some functionality into other methods,
-//    and deferring some significant computation. I also rewrote the
+//    Refactored the constructor, moving some functionality into other methods, 
+//    and deferring some significant computation. I also rewrote the 
 //    constructor for the parallel case, to make one process read the data and
-//    broadcast it out, thinking it would help with performance.  It doesn't
-//    make much difference in practice, so the code could be changed to follow
+//    broadcast it out, thinking it would help with performance.  It doesn't 
+//    make much difference in practice, so the code could be changed to follow 
 //    the serial path in all cases.
 //
 //    Dave Bremer, Fri Jun  6 15:38:45 PDT 2008
@@ -259,9 +270,19 @@ using     std::string;
 //    Eric Brugger, Thu Nov 12 17:20:03 PST 2009
 //    Removed the data member version since it is no longer used.
 //
+//    Hank Childs, Sun Oct 28 17:56:17 PDT 2012
+//    Add database options.
+//
+//    Hank Childs, Fri Jan  4 14:33:11 PST 2013
+//    Add support for time periodicity.
+//
+//    Hank Childs, Mon Mar  4 18:35:27 PST 2013
+//    Initialize duplicateData member.
+//
 // ****************************************************************************
 
-avtNek5000FileFormat::avtNek5000FileFormat(const char *filename)
+avtNek5000FileFormat::avtNek5000FileFormat(const char *filename,
+                                           DBOptionsAttributes *atts)
     : avtMTMDFileFormat(filename)
 {
     int t0 = visitTimer->StartTimer();
@@ -273,6 +294,12 @@ avtNek5000FileFormat::avtNek5000FileFormat(const char *filename)
     bBinary = false;
     iNumOutputDirs = 0;
     bParFormat = false;
+    curTimestep = 0;
+    numberOfTimePeriods = 1;
+    gapBetweenTimePeriods = 0.0;
+
+    readOptionToGetAllTimes = atts->GetBool("Read all times and cycles");
+    duplicateData = atts->GetBool("Duplicate data for particle advection (slower for all other techniques)");
 
     iNumBlocks = 0;
     iBlockSize[0] = 1;
@@ -323,11 +350,11 @@ avtNek5000FileFormat::avtNek5000FileFormat(const char *filename)
 //    Added the bParFormat flag allowing the parallel format to be used
 //    by a serial code, in which there is only one output dir.
 //
-//    Kathleen Bonnell, Wed Jul 2 09:44:44 PDT 2008
+//    Kathleen Bonnell, Wed Jul 2 09:44:44 PDT 2008 
 //    Removed unreferenced variables.
 //
 //    Dave Bremer, Fri Aug  8 12:57:47 PDT 2008
-//    Brought in changes prompted by Stefan Kerkemeier, to check that a
+//    Brought in changes prompted by Stefan Kerkemeier, to check that a 
 //    file open succeeded, allow parsing of the S## style of scalar field
 //    tag within the serial file header, and read the number of output
 //    directories from the parallel file header, allowing users to skip
@@ -338,9 +365,16 @@ avtNek5000FileFormat::avtNek5000FileFormat(const char *filename)
 //    1.0".  They are still recognized so that they will not produce an error
 //    if present.
 //
+//    Jean Favre (seconded and committed by Hank Childs), Mon Feb 14 09:24:00 PST 2011 
+//    Fix problem with uninitialized variable in the case where the path is
+//    fully specified.
+//    
+//    Hank Childs, Fri Jan  4 14:33:11 PST 2013
+//    Add support for time periodicity.
+//
 // ****************************************************************************
 
-void
+void           
 avtNek5000FileFormat::ParseMetaDataFile(const char *filename)
 {
     string tag;
@@ -389,7 +423,7 @@ avtNek5000FileFormat::ParseMetaDataFile(const char *filename)
 
             int nStepsWithCoords;
             f >> nStepsWithCoords;
-
+            
             for (ii = 0 ; ii<nStepsWithCoords ; ii++)
             {
                 int step;
@@ -399,7 +433,7 @@ avtNek5000FileFormat::ParseMetaDataFile(const char *filename)
         else if (STREQUAL("type:", tag.c_str())==0)
         {
             //This tag can be deprecated, because the type can be determined
-            //from the header
+            //from the header 
             string t;
             f >> t;
             if (STREQUAL("binary", t.c_str())==0)
@@ -423,13 +457,21 @@ avtNek5000FileFormat::ParseMetaDataFile(const char *filename)
         }
         else if (STREQUAL("numoutputdirs:", tag.c_str())==0)
         {
-            //This tag can be deprecated, because the number of output dirs
+            //This tag can be deprecated, because the number of output dirs 
             //can be determined from the header, and the parallel nature of the
             //file can be inferred from the number of printf tokens in the template.
             //This reader scans the headers for the number of fld files
             f >> iNumOutputDirs;
             if (iNumOutputDirs > 1)
                 bParFormat = true;
+        }
+        else if (STREQUAL("timeperiods:", tag.c_str())==0)
+        {
+            f >> numberOfTimePeriods;
+        }
+        else if (STREQUAL("gapBetweenTimePeriods:", tag.c_str())==0)
+        {
+            f >> gapBetweenTimePeriods;
         }
         else if (STREQUAL("NEK3D", tag.c_str()) != 0)
         {
@@ -439,7 +481,7 @@ avtNek5000FileFormat::ParseMetaDataFile(const char *filename)
         {
             //This is an obsolete tag, ignore it, skipping the version number
             //as well.
-            std::string version;
+            string version;
             f >> version;
         }
         else
@@ -447,6 +489,17 @@ avtNek5000FileFormat::ParseMetaDataFile(const char *filename)
             SNPRINTF(buf, 2048, "Error parsing file.  Unknown tag %s", tag.c_str());
             EXCEPTION2(NonCompliantFileException, "Nek", buf);
         }
+    }
+
+    if (numberOfTimePeriods < 1)
+    {
+        EXCEPTION2(NonCompliantFileException, "Nek",
+            "The number of time periods must be 1 or more.");
+    }
+    if (numberOfTimePeriods > 1 && gapBetweenTimePeriods <= 0.0)
+    {
+        EXCEPTION2(NonCompliantFileException, "Nek",
+            "The gap between time periods must be non-zero.");
     }
 
     //Do a little consistency checking before moving on
@@ -457,11 +510,11 @@ avtNek5000FileFormat::ParseMetaDataFile(const char *filename)
     }
     f.close();
 
-    // make the file template, which is normally relative to the file being opened,
+    // make the file template, which is normally relative to the file being opened, 
     // into an absolute path
     if (fileTemplate[0] != '/')
     {
-        for (ii = strlen(filename)-1 ; ii >= 0 ; ii--)
+        for (ii = (int)strlen(filename)-1 ; ii >= 0 ; ii--)
         {
             if (filename[ii] == '/' || filename[ii] == '\\')
             {
@@ -469,16 +522,16 @@ avtNek5000FileFormat::ParseMetaDataFile(const char *filename)
                 break;
             }
         }
-    }
-    if (ii == -1)
-    {
+        if (ii == -1)
+        {
 #ifdef _WIN32
-        _getcwd(buf, 512);
+          _getcwd(buf, 512);
 #else
-        getcwd(buf, 512);
+          getcwd(buf, 512);
 #endif
-        strcat(buf, "/");
-        fileTemplate.insert(0, buf, strlen(buf));
+          strcat(buf, "/"); 
+          fileTemplate.insert(0, buf, strlen(buf));
+        }
     }
 
 #ifdef _WIN32
@@ -519,17 +572,17 @@ avtNek5000FileFormat::ParseMetaDataFile(const char *filename)
 //    Dave Bremer, Fri Jun 13 18:10:46 PDT 2008
 //    Small change to be more robust about finding the location of the field tags.
 //
-//    Kathleen Bonnell, Wed Jul 2 09:44:44 PDT 2008
+//    Kathleen Bonnell, Wed Jul 2 09:44:44 PDT 2008 
 //    Removed unreferenced variables.
 //
 //    Dave Bremer, Mon Aug 11 13:53:18 PDT 2008
-//    Brought in a change from Stefan Kerkemeier to determine if a file is
+//    Brought in a change from Stefan Kerkemeier to determine if a file is 
 //    binary by looking for the endian-ness tag.  Added my own change to field
-//    tag parsing, to parse the same way between serial and parallel binary
+//    tag parsing, to parse the same way between serial and parallel binary 
 //    files.
-//
+//   
 //    Hank Childs, Wed Jan 21 18:18:54 CST 2009
-//    Change argument to GetFileName, as it now takes the time slice
+//    Change argument to GetFileName, as it now takes the time slice 
 //    corresponding to the VisIt time index, not the Nek time index.
 //
 // ****************************************************************************
@@ -542,7 +595,7 @@ avtNek5000FileFormat::ParseNekFileHeader()
     //Now read the header out of one the files to get block and variable info
     char *blockfilename = new char[ fileTemplate.size() + 64 ];
 
-    GetFileName(0, 0, blockfilename, fileTemplate.size() + 64);
+    GetFileName(0, 0, blockfilename, (int)fileTemplate.size() + 64);
     ifstream  f(blockfilename);
 
     if (!f.is_open())
@@ -568,11 +621,11 @@ avtNek5000FileFormat::ParseNekFileHeader()
             ByteSwap32(&test, 1);
             if (test > 6.5 && test < 6.6)
                 bBinary = true;
-        }
+        } 
         f.seekg (0, ios::beg);
-    }
+    } 
 
-    //iHeaderSize no longer includes the size of the block index metadata, for the
+    //iHeaderSize no longer includes the size of the block index metadata, for the 
     //parallel format, since this now can vary per file.
     if (bBinary && bParFormat)
         iHeaderSize = 136;
@@ -588,10 +641,10 @@ avtNek5000FileFormat::ParseNekFileHeader()
         f >> iBlockSize[0];
         f >> iBlockSize[1];
         f >> iBlockSize[2];
-
+    
         f >> buf2;   //skip
         f >> buf2;   //skip
-
+    
         ParseFieldTags(f);
     }
     else
@@ -599,10 +652,10 @@ avtNek5000FileFormat::ParseNekFileHeader()
         //Here's are some examples of what I'm parsing:
         //#std 4  6  6  6   120  240  0.1500E+01  300  1  2XUPT
         //#std 4  6  6  6   120  240  0.1500E+01  300  1  2 U T123
-        //This example means:  #std is for versioning, 4 bytes per sample,
-        //  6x6x6 blocks, 120 of 240 blocks are in this file, time=1.5,
-        //  cycle=300, this output dir=1, num output dirs=2, XUPT123 are
-        //  tags that this file has a mesh, velocity, pressure, temperature,
+        //This example means:  #std is for versioning, 4 bytes per sample,  
+        //  6x6x6 blocks, 120 of 240 blocks are in this file, time=1.5, 
+        //  cycle=300, this output dir=1, num output dirs=2, XUPT123 are 
+        //  tags that this file has a mesh, velocity, pressure, temperature, 
         //  and 3 misc scalars.
         //
         //A new revision of the binary header changes the way tags are
@@ -613,7 +666,7 @@ avtNek5000FileFormat::ParseNekFileHeader()
         f >> tag;
         if (tag != "#std")
         {
-            EXCEPTION1(InvalidDBTypeException,
+            EXCEPTION1(InvalidDBTypeException, 
                 "Error reading the header.  Expected it to start with #std" );
         }
         f >> iPrecision;
@@ -624,14 +677,14 @@ avtNek5000FileFormat::ParseNekFileHeader()
         f >> iNumBlocks;
 
         //This bypasses some tricky and unnecessary parsing of data
-        //I already have.
+        //I already have.  
         //6.13.08  No longer works...
         //f.seekg(77, std::ios_base::beg);
         f >> buf2;  //time
         f >> buf2;  //cycle
         f >> buf2;  //directory num of this file
 
-        //I do this to skip the num directories token, because it may abut
+        //I do this to skip the num directories token, because it may abut 
         //the field tags without a whitespace separator.
         while (f.peek() == ' ')
             f.get();
@@ -650,14 +703,14 @@ avtNek5000FileFormat::ParseNekFileHeader()
 
     if (iBlockSize[2] == 1)
         iDim = 2;
-
+    
     if (bBinary)
     {
         // Determine endianness and whether we need to swap bytes.
-        // If this machine's endian matches the file's, the read will
+        // If this machine's endian matches the file's, the read will 
         // put 6.54321 into this float.
 
-        float test;
+        float test;  
         if (!bParFormat)
         {
             f.seekg( 80, std::ios_base::beg );
@@ -677,7 +730,7 @@ avtNek5000FileFormat::ParseNekFileHeader()
                 bSwapEndian = true;
             else
             {
-                EXCEPTION1(InvalidDBTypeException,
+                EXCEPTION1(InvalidDBTypeException, 
                     "Error reading file, while trying to determine endianness." );
             }
         }
@@ -776,7 +829,7 @@ void avtNek5000FileFormat::ParseFieldTags(ifstream &f)
                 f.get();
             char digit2 = f.get();
 
-            if (digit1 >= '0' && digit1 <= '9' &&
+            if (digit1 >= '0' && digit1 <= '9' && 
                 digit2 >= '0' && digit2 <= '9')
                 iNumSFields = (digit1-'0')*10 + (digit2-'0');
             else
@@ -789,7 +842,7 @@ void avtNek5000FileFormat::ParseFieldTags(ifstream &f)
     {
         EXCEPTION2(NonCompliantFileException, "Nek",
                    "The first time step in a Nek file must contain a mesh");
-
+        
     }
 }
 
@@ -798,7 +851,7 @@ void avtNek5000FileFormat::ParseFieldTags(ifstream &f)
 //  Method: avtNek5000FileFormat::ReadBlockLocations
 //
 //  Purpose:
-//      For the parallel binary format, there is a mapping from global block
+//      For the parallel binary format, there is a mapping from global block 
 //      index to filenumber/local offset, which is distributed through the
 //      files.  This method reads that information.
 //
@@ -819,12 +872,12 @@ void avtNek5000FileFormat::ParseFieldTags(ifstream &f)
 //
 //    Dave Bremer, Thu Jun 12 12:59:23 PDT 2008
 //    Support varying numbers of blocks per file in the parallel format.
-//
-//    Kathleen Bonnell, Wed Jul 2 09:44:44 PDT 2008
+// 
+//    Kathleen Bonnell, Wed Jul 2 09:44:44 PDT 2008 
 //    Removed unreferenced variables.
 //
 //    Hank Childs, Wed Jan 21 18:18:54 CST 2009
-//    Change argument to GetFileName, as it now takes the time slice
+//    Change argument to GetFileName, as it now takes the time slice 
 //    corresponding to the VisIt time index, not the Nek time index.
 //
 //    Hank Childs, Thu Jan 22 16:28:43 CST 2009
@@ -834,8 +887,8 @@ void avtNek5000FileFormat::ParseFieldTags(ifstream &f)
 void
 avtNek5000FileFormat::ReadBlockLocations()
 {
-    // In each parallel file, in the header, there's a table that maps
-    // each local block to a global id which starts at 1.  Here, I make
+    // In each parallel file, in the header, there's a table that maps 
+    // each local block to a global id which starts at 1.  Here, I make 
     // an inverse map, from a zero-based global id to a proc num and local
     // offset.
 
@@ -870,7 +923,7 @@ avtNek5000FileFormat::ReadBlockLocations()
     for (ii = iRank; ii < iNumOutputDirs; ii+=nProcs)
     {
         int t0 = visitTimer->StartTimer();
-        GetFileName(0, ii, blockfilename, fileTemplate.size() + 64);
+        GetFileName(0, ii, blockfilename, (int)fileTemplate.size() + 64);
         f.open(blockfilename);
         visitTimer->StopTimer(t0, "avtNek5000FileFormat constructor, time to open a file");
         if (!f.is_open())
@@ -893,12 +946,12 @@ avtNek5000FileFormat::ReadBlockLocations()
         {
             int iBlockID = tmpBlocks[jj]-1;
 
-            if ( iBlockID < 0  ||
+            if ( iBlockID < 0  ||  
                  iBlockID >= iNumBlocks ||
                  aBlockLocs[iBlockID*2]   != 0  ||
                  aBlockLocs[iBlockID*2+1] != 0 )
             {
-                EXCEPTION1(InvalidDBTypeException,
+                EXCEPTION1(InvalidDBTypeException, 
                             "Error reading parallel file block IDs.");
             }
             aBlockLocs[iBlockID*2  ] = ii;
@@ -911,7 +964,7 @@ avtNek5000FileFormat::ReadBlockLocations()
     badFile = UnifyMinimumValue(badFile);
     if (badFile < iNumBlocks)
     {
-        GetFileName(0, badFile, blockfilename, fileTemplate.size() + 64);
+        GetFileName(0, badFile, blockfilename, (int)fileTemplate.size() + 64);
         char msg[1024];
         SNPRINTF(msg, 1024, "Could not open file \"%s\" to read block "
                             "locations.", blockfilename);
@@ -924,7 +977,7 @@ avtNek5000FileFormat::ReadBlockLocations()
 #ifdef PARALLEL
     int *aTmpBlocksPerFile = new int[iNumOutputDirs];
 
-    MPI_Allreduce(aBlocksPerFile, aTmpBlocksPerFile, iNumOutputDirs,
+    MPI_Allreduce(aBlocksPerFile, aTmpBlocksPerFile, iNumOutputDirs, 
                   MPI_INT, MPI_BOR, VISIT_MPI_COMM);
     delete[] aBlocksPerFile;
     aBlocksPerFile = aTmpBlocksPerFile;
@@ -957,7 +1010,7 @@ avtNek5000FileFormat::ReadBlockLocations()
 #ifdef PARALLEL
     int *aTmpBlockLocs = new int[2*iNumBlocks];
 
-    MPI_Allreduce(aBlockLocs, aTmpBlockLocs, 2*iNumBlocks,
+    MPI_Allreduce(aBlockLocs, aTmpBlockLocs, 2*iNumBlocks, 
                   MPI_INT, MPI_BOR, VISIT_MPI_COMM);
     delete[] aBlockLocs;
     aBlockLocs = aTmpBlockLocs;
@@ -1005,13 +1058,13 @@ avtNek5000FileFormat::~avtNek5000FileFormat()
         aBlocksPerFile = NULL;
     }
 
-    std::map<PointerKey, float *, KeyCompare>::iterator it;
+    map<PointerKey, float *, KeyCompare>::iterator it;
     for (it = cachedData.begin() ; it != cachedData.end() ; it++)
         delete [] it->second;
-    std::map<int, avtIntervalTree *>::iterator it2;
+    map<int, avtIntervalTree *>::iterator it2;
     for (it2 = boundingBoxes.begin() ; it2 != boundingBoxes.end() ; it2++)
         delete it2->second;
-    std::map<PointerKey, avtIntervalTree *, KeyCompare>::iterator it3;
+    map<PointerKey, avtIntervalTree *, KeyCompare>::iterator it3;
     for (it3 = dataExtents.begin() ; it3 != dataExtents.end() ; it3++)
         delete it3->second;
 }
@@ -1026,11 +1079,19 @@ avtNek5000FileFormat::~avtNek5000FileFormat()
 //  Programmer: dbremer -- generated by xml2avt
 //  Creation:   Fri May 18 16:07:09 PST 2007
 //
+//  Modifications:
+//
+//    Hank Childs, Fri Jan  4 15:14:04 PST 2013
+//    Add support for time periodicity.
+//
 // ****************************************************************************
 
 int
 avtNek5000FileFormat::GetNTimesteps(void)
 {
+    if (numberOfTimePeriods > 1)
+        return iNumTimesteps*numberOfTimePeriods;
+
     return iNumTimesteps;
 }
 
@@ -1112,6 +1173,18 @@ avtNek5000FileFormat::FreeUpResources(void)
 //    Hank Childs, Tue Jan 20 15:45:02 CST 2009
 //    Add velocity_mag.
 //
+//    Hank Childs, Mon Feb 28 10:02:55 PST 2011
+//    Re-enable connectivity.
+//
+//    Hank Childs, Tue Apr 10 15:48:35 PDT 2012
+//    Read all times and cycles if that is part of the request.
+//
+//    Hank Childs, Sun Oct 28 18:32:18 PDT 2012
+//    Read times and cycles for mdserver.
+//
+//    Hank Childs, Mon Mar  4 18:35:27 PST 2013
+//    Add support for duplicating data.
+//
 // ****************************************************************************
 
 void
@@ -1120,11 +1193,12 @@ avtNek5000FileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int /*ti
     string meshname = "mesh";
     double *extents = NULL;
     AddMeshToMetaData(md, meshname, AVT_CURVILINEAR_MESH, extents, 1, 1, iDim, iDim);
-    md->SetFormatCanDoDomainDecomposition(true);
-
+    if (! duplicateData)
+        md->SetFormatCanDoDomainDecomposition(true);
+    
     if (bHasPressure)
         AddScalarVarToMetaData(md, "pressure", meshname, AVT_NODECENT);
-
+    
     if (bHasTemperature)
         AddScalarVarToMetaData(md, "temperature", meshname, AVT_NODECENT);
 
@@ -1147,18 +1221,38 @@ avtNek5000FileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int /*ti
         SNPRINTF(scalarVarName, 32, "s%d", ii+1);
         AddScalarVarToMetaData(md, scalarVarName, meshname, AVT_NODECENT);
     }
-/*
-    // HANK: need to find a solution for abutting elements.
     if (!avtDatabase::OnlyServeUpMetaData())
     {
         avtNekDomainBoundaries *db = new avtNekDomainBoundaries;
-        db->SetDomainInfo(iNumBlocks, iBlockSize);
+        bool multipleBlocks = true;
+        db->SetDomainInfo(iNumBlocks, iBlockSize, multipleBlocks);
 
         void_ref_ptr vr = void_ref_ptr(db, avtNekDomainBoundaries::Destruct);
         cache->CacheVoidRef("any_mesh",
                        AUXILIARY_DATA_DOMAIN_BOUNDARY_INFORMATION, -1, -1, vr);
     }
- */
+
+    bool doIt = false;
+    if (readAllCyclesAndTimes) // this is the control from the avtDatabase level
+                               // it is activated for pathlines
+        doIt = true;
+
+    // If we are on the metadata server and the read option is set, then read all
+    // times.
+    if (avtDatabase::OnlyServeUpMetaData())
+        if (readOptionToGetAllTimes)
+            doIt = true;
+
+    if (doIt)
+    {
+        int tmpstep = curTimestep;
+        for(int i = 0; i < iNumTimesteps; ++i)
+        {
+            curTimestep = i;
+            UpdateCyclesAndTimes();
+        }
+        curTimestep = tmpstep;
+    }
 }
 
 
@@ -1166,7 +1260,7 @@ avtNek5000FileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int /*ti
 //  Method: avtNek5000FileFormat::GetMesh
 //
 //  Purpose:
-//      Gets the mesh associated with this file.
+//      Gets the mesh associated with this file.  
 //      Applies some caching because the mesh is the same for all time slices.
 //
 //  Programmer: Hank Childs
@@ -1178,7 +1272,7 @@ avtNek5000FileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int /*ti
 //  Modifications:
 //
 //    Hank Childs, Thu Dec 18 07:35:16 PST 2008
-//    Change routine to assemble an unstructured mesh from the many curvilinear
+//    Change routine to assemble an unstructured mesh from the many curvilinear 
 //    grids being read in.
 //
 //    Hank Childs, Thu Jan  8 10:58:15 CST 2009
@@ -1192,7 +1286,7 @@ avtNek5000FileFormat::GetMesh(int /* timestate */, int domain, const char * /*me
     int  i;
 
     int t1 = visitTimer->StartTimer();
-    const int num_elements = myElementList.size();
+    const int num_elements = (int)myElementList.size();
     vector<float *> ptlist(num_elements);
     vector<bool> shouldDelete(num_elements, false);
     for (i = 0 ; i < num_elements ; i++)
@@ -1204,8 +1298,8 @@ avtNek5000FileFormat::GetMesh(int /* timestate */, int domain, const char * /*me
         key.var = "points";
         key.element = element;
         key.timestep = timestep;
-
-        std::map<PointerKey, float *, KeyCompare>::iterator it;
+    
+        map<PointerKey, float *, KeyCompare>::iterator it;
         it = cachedData.find(key);
         float *pts = NULL;
         if (it == cachedData.end())
@@ -1226,6 +1320,7 @@ avtNek5000FileFormat::GetMesh(int /* timestate */, int domain, const char * /*me
     int t2 = visitTimer->StartTimer();
     vtkUnstructuredGrid *ugrid = vtkUnstructuredGrid::New();
     vtkPoints *pts = vtkPoints::New();
+
     int pts_per_element = iBlockSize[0]*iBlockSize[1];
     if (iDim == 3)
         pts_per_element *= iBlockSize[2];
@@ -1308,6 +1403,18 @@ avtNek5000FileFormat::GetMesh(int /* timestate */, int domain, const char * /*me
     cellTypes->Delete();
     cellLocations->Delete();
     cells->Delete();
+
+    // Save the block size for use in the avtIVPNek5000Field.
+    vtkIntArray *sem = vtkIntArray::New();
+    sem->SetNumberOfComponents( 1 );
+    sem->SetNumberOfTuples(3);
+    sem->SetTuple1(0, iBlockSize[0]);
+    sem->SetTuple1(1, iBlockSize[1]);
+    sem->SetTuple1(2, iBlockSize[2]);
+    sem->SetName("Nek_SpectralElementData");
+    ugrid->GetFieldData()->AddArray(sem);
+    sem->Delete();
+
     visitTimer->StopTimer(t2, "Building unstructured mesh");
     return ugrid;
 }
@@ -1334,10 +1441,10 @@ avtNek5000FileFormat::GetMesh(int /* timestate */, int domain, const char * /*me
 //    Fixed fopen call on windows.
 //
 //    Dave Bremer, Tue Sep 11 15:45:51 PDT 2007
-//    Added a small mod to support variable-length headers
+//    Added a small mod to support variable-length headers 
 //
 //    Dave Bremer, Wed Nov  7 14:17:19 PST 2007
-//    Added support for 2D and ascii files, added a call to
+//    Added support for 2D and ascii files, added a call to 
 //    UpdateCyclesAndTimes(), which also figures out which
 //    files have a mesh.
 //
@@ -1347,9 +1454,9 @@ avtNek5000FileFormat::GetMesh(int /* timestate */, int domain, const char * /*me
 //    Dave Bremer, Thu Nov 15 16:44:42 PST 2007
 //    Small fix for ascii format in case windows-style CRLF is used.
 //
-//    Kathleen Bonnell, Wed Nov 28 09:43:34 PST 2007
+//    Kathleen Bonnell, Wed Nov 28 09:43:34 PST 2007 
 //    Added space in args list between 'const char *' and '/*meshname*/'.
-//
+// 
 //    Dave Bremer, Thu Mar 20 11:28:05 PDT 2008
 //    Use the GetFileName method.
 //
@@ -1393,8 +1500,8 @@ avtNek5000FileFormat::ReadPoints(int element, int timestep)
         if (bParFormat)
             iCurrMeshProc = aBlockLocs[element*2];
 
-        GetFileName(timestepToUseForMesh, iCurrMeshProc,
-                    meshfilename, fileTemplate.size() + 64);
+        GetFileName(timestepToUseForMesh, iCurrMeshProc, 
+                    meshfilename, (int)fileTemplate.size() + 64);
 
         if (curOpenMeshFile != meshfilename)
         {
@@ -1416,10 +1523,10 @@ avtNek5000FileFormat::ReadPoints(int element, int timestep)
         element = aBlockLocs[element*2 + 1];
 
     int nFloatsInDomain = 0, d1, d2, d3;
-    GetDomainSizeAndVarOffset(timestepToUseForMesh, NULL, nFloatsInDomain,
+    GetDomainSizeAndVarOffset(timestepToUseForMesh, NULL, nFloatsInDomain, 
                               d1, d2, d3);
 
-    boost::int64_t iRealHeaderSize = iHeaderSize + (bParFormat ? aBlocksPerFile[iCurrMeshProc]*sizeof(int) : 0);
+    int64_t iRealHeaderSize = iHeaderSize + (bParFormat ? aBlocksPerFile[iCurrMeshProc]*sizeof(int) : 0);
 
     if (bBinary)
     {
@@ -1430,11 +1537,11 @@ avtNek5000FileFormat::ReadPoints(int element, int timestep)
         if (iPrecision == 4)
         {
             float *tmppts = new float[nPts*iDim];
-            fseek(fdMesh, iRealHeaderSize + (boost::int64_t)nFloatsInDomain*sizeof(float)*element, SEEK_SET);
+            fseek(fdMesh, iRealHeaderSize + (int64_t)nFloatsInDomain*sizeof(float)*element, SEEK_SET);
             fread(tmppts, sizeof(float), nPts*iDim, fdMesh);
             if (bSwapEndian)
                 ByteSwap32(tmppts, nPts*iDim);
-
+    
             for (ii = 0 ; ii < nPts ; ii++)
             {
                 if (iDim == 3)
@@ -1455,11 +1562,11 @@ avtNek5000FileFormat::ReadPoints(int element, int timestep)
         else
         {
             double *tmppts = new double[nPts*iDim];
-            fseek(fdMesh, iRealHeaderSize + (boost::int64_t)nFloatsInDomain*sizeof(double)*element, SEEK_SET);
+            fseek(fdMesh, iRealHeaderSize + (int64_t)nFloatsInDomain*sizeof(double)*element, SEEK_SET);
             fread(tmppts, sizeof(double), nPts*iDim, fdMesh);
             if (bSwapEndian)
                 ByteSwap64(tmppts, nPts*iDim);
-
+    
             for (ii = 0 ; ii < nPts ; ii++)
             {
                 if (iDim == 3)
@@ -1483,9 +1590,9 @@ avtNek5000FileFormat::ReadPoints(int element, int timestep)
         float *pts_tmp = pts;
         for (ii = 0 ; ii < nPts ; ii++)
         {
-            fseek(fdMesh, (boost::int64_t)iAsciiMeshFileStart +
-                          (boost::int64_t)element*iAsciiMeshFileLineLen*nPts +
-                          (boost::int64_t)ii*iAsciiMeshFileLineLen, SEEK_SET);
+            fseek(fdMesh, (int64_t)iAsciiMeshFileStart + 
+                          (int64_t)element*iAsciiMeshFileLineLen*nPts + 
+                          (int64_t)ii*iAsciiMeshFileLineLen, SEEK_SET);
             if (iDim == 3)
             {
                 fscanf(fdMesh, " %f %f %f", pts_tmp, pts_tmp+1, pts_tmp+2);
@@ -1517,14 +1624,22 @@ avtNek5000FileFormat::ReadPoints(int element, int timestep)
 //    Hank Childs, Thu Jan  8 10:58:15 CST 2009
 //    Fix a memory leak of non-cachable elements.
 //
+//    Hank Childs, Fri Jan  4 15:34:47 PST 2013
+//    Add support for time periodicity.
+//
 // ****************************************************************************
 
 vtkDataArray *
 avtNek5000FileFormat::GetVar(int timestep, int domain, const char *varname)
 {
+    if (numberOfTimePeriods > 1)
+    {
+        timestep = timestep % iNumTimesteps;
+    }
+
     int t1 = visitTimer->StartTimer();
 
-    const int num_elements = myElementList.size();
+    const int num_elements = (int)myElementList.size();
     int pts_per_element = iBlockSize[0]*iBlockSize[1];
     if (iDim == 3)
         pts_per_element *= iBlockSize[2];
@@ -1543,8 +1658,8 @@ avtNek5000FileFormat::GetVar(int timestep, int domain, const char *varname)
         key.var = varname;
         key.element = element;
         key.timestep = timestep;
-
-        std::map<PointerKey, float *, KeyCompare>::iterator it;
+    
+        map<PointerKey, float *, KeyCompare>::iterator it;
         it = cachedData.find(key);
         float *v = NULL;
         bool shouldDelete = false;
@@ -1557,7 +1672,7 @@ avtNek5000FileFormat::GetVar(int timestep, int domain, const char *varname)
                 v = ReadVelocity(timestep, element);
                 float *v2 = new float[pts_per_element];
                 for (int j = 0 ; j < pts_per_element ; j++)
-                    v2[j] = sqrt(v[3*j]*v[3*j] + v[3*j+1]*v[3*j+1]
+                    v2[j] = sqrt(v[3*j]*v[3*j] + v[3*j+1]*v[3*j+1] 
                                  + v[3*j+2]*v[3*j+2]);
                 delete [] v;
                 v = v2;
@@ -1603,7 +1718,7 @@ avtNek5000FileFormat::GetVar(int timestep, int domain, const char *varname)
 //    Fixed fopen call on windows.
 //
 //    Dave Bremer, Tue Sep 11 15:45:51 PDT 2007
-//    Added a small mod to support variable-length headers
+//    Added a small mod to support variable-length headers 
 //
 //    Dave Bremer, Wed Nov  7 14:17:19 PST 2007
 //    Added support for 2D and ascii files
@@ -1628,7 +1743,7 @@ avtNek5000FileFormat::GetVar(int timestep, int domain, const char *varname)
 //    Renamed method to ReadVar
 //
 //    Hank Childs, Wed Jan 21 18:18:54 CST 2009
-//    Change argument to GetFileName, as it now takes the time slice
+//    Change argument to GetFileName, as it now takes the time slice 
 //    corresponding to the VisIt time index, not the Nek time index.
 //
 //    Hank Childs, Fri May  8 11:47:27 PDT 2009
@@ -1655,8 +1770,8 @@ avtNek5000FileFormat::ReadVar(int timestate, int element, const char *varname)
         if (bParFormat)
             iCurrVarProc = aBlockLocs[element*2];
 
-        GetFileName(timestate, iCurrVarProc,
-                    filename, fileTemplate.size() + 64);
+        GetFileName(timestate, iCurrVarProc, 
+                    filename, (int)fileTemplate.size() + 64);
 
         fdVar = fopen(filename, "rb");
         if (!fdVar)
@@ -1670,7 +1785,7 @@ avtNek5000FileFormat::ReadVar(int timestate, int element, const char *varname)
 
     int nFloatsInDomain = 0, iBinaryOffset = 0, iAsciiOffset = 0, iHasMesh = 0;
 
-    GetDomainSizeAndVarOffset(timestate, varname, nFloatsInDomain,
+    GetDomainSizeAndVarOffset(timestate, varname, nFloatsInDomain, 
                               iBinaryOffset, iAsciiOffset, iHasMesh);
 
     if (bParFormat)
@@ -1680,24 +1795,24 @@ avtNek5000FileFormat::ReadVar(int timestate, int element, const char *varname)
 
     if (bBinary)
     {
-        boost::int64_t filepos;
+        int64_t filepos;
         if (!bParFormat)
-            filepos = (boost::int64_t)iRealHeaderSize + ((boost::int64_t)nFloatsInDomain*element + iBinaryOffset)*sizeof(float);
+            filepos = (int64_t)iRealHeaderSize + ((int64_t)nFloatsInDomain*element + iBinaryOffset)*sizeof(float);
         else
         {
             // This assumes uvw for all fields comes after the mesh as [block0: 216u 216v 216w]...
             // then p or t as   [block0: 216p][block1: 216p][block2: 216p]...
             if (strcmp(varname+2, "velocity") == 0)
             {
-                filepos  = (boost::int64_t)iRealHeaderSize +                              //header
-                           (boost::int64_t)iHasMesh*aBlocksPerFile[iCurrVarProc]*nPts*iDim*iPrecision + //mesh
-                           (boost::int64_t)element*nPts*iDim*iPrecision +                  //start of block
-                           (boost::int64_t)(varname[0] - 'x')*nPts*iPrecision;            //position within block
+                filepos  = (int64_t)iRealHeaderSize +                              //header
+                           (int64_t)iHasMesh*aBlocksPerFile[iCurrVarProc]*nPts*iDim*iPrecision + //mesh
+                           (int64_t)element*nPts*iDim*iPrecision +                  //start of block
+                           (int64_t)(varname[0] - 'x')*nPts*iPrecision;            //position within block
             }
             else
-                filepos = (boost::int64_t)iRealHeaderSize +
-                          (boost::int64_t)aBlocksPerFile[iCurrVarProc]*iBinaryOffset*iPrecision + //the header, mesh, vel if present,
-                          (boost::int64_t)element*nPts*iPrecision;
+                filepos = (int64_t)iRealHeaderSize + 
+                          (int64_t)aBlocksPerFile[iCurrVarProc]*iBinaryOffset*iPrecision + //the header, mesh, vel if present,
+                          (int64_t)element*nPts*iPrecision;
         }
         if (iPrecision==4)
         {
@@ -1726,10 +1841,10 @@ avtNek5000FileFormat::ReadVar(int timestate, int element, const char *varname)
         float *var_tmp = var;
         for (ii = 0 ; ii < nPts ; ii++)
         {
-            fseek(fdVar, (boost::int64_t)iAsciiCurrFileStart +
-                         (boost::int64_t)element*iAsciiCurrFileLineLen*nPts +
-                         (boost::int64_t)ii*iAsciiCurrFileLineLen +
-                         (boost::int64_t)iAsciiOffset, SEEK_SET);
+            fseek(fdVar, (int64_t)iAsciiCurrFileStart + 
+                         (int64_t)element*iAsciiCurrFileLineLen*nPts + 
+                         (int64_t)ii*iAsciiCurrFileLineLen + 
+                         (int64_t)iAsciiOffset, SEEK_SET);
             fscanf(fdVar, " %f", var_tmp);
             var_tmp++;
         }
@@ -1757,17 +1872,25 @@ avtNek5000FileFormat::ReadVar(int timestate, int element, const char *varname)
 //    Hank Childs, Tue Jan 13 17:58:15 CST 2009
 //    Fix serious problems with this routine (must have been untested before).
 //
+//    Hank Childs, Fri Jan  4 15:34:47 PST 2013
+//    Add support for time periodicity.
+//
 // ****************************************************************************
 
 vtkDataArray *
 avtNek5000FileFormat::GetVectorVar(int timestep, int domain, const char *varname)
 {
+    if (numberOfTimePeriods > 1)
+    {
+        timestep = timestep % iNumTimesteps;
+    }
+
     if (strcmp(varname, "velocity") != 0)
         EXCEPTION1(InvalidVariableException, varname);
 
     int t1 = visitTimer->StartTimer();
 
-    const int num_elements = myElementList.size();
+    const int num_elements = (int)myElementList.size();
     int pts_per_element = iBlockSize[0]*iBlockSize[1];
     if (iDim == 3)
         pts_per_element *= iBlockSize[2];
@@ -1786,8 +1909,8 @@ avtNek5000FileFormat::GetVectorVar(int timestep, int domain, const char *varname
         key.var = varname;
         key.element = element;
         key.timestep = timestep;
-
-        std::map<PointerKey, float *, KeyCompare>::iterator it;
+    
+        map<PointerKey, float *, KeyCompare>::iterator it;
         it = cachedData.find(key);
         float *v = NULL;
         bool shouldDelete = false;
@@ -1835,7 +1958,7 @@ avtNek5000FileFormat::GetVectorVar(int timestep, int domain, const char *varname
 //    Fixed fopen call on windows.
 //
 //    Dave Bremer, Tue Sep 11 15:45:51 PDT 2007
-//    Added a small mod to support variable-length headers
+//    Added a small mod to support variable-length headers 
 //
 //    Dave Bremer, Wed Nov  7 14:17:19 PST 2007
 //    Added support for 2D and ascii files
@@ -1855,13 +1978,13 @@ avtNek5000FileFormat::GetVectorVar(int timestep, int domain, const char *varname
 //
 //    Dave Bremer, Thu Jun 12 12:59:23 PDT 2008
 //    Fix a bug reading files larger than 2Gb
-//
+//  
 //    Hank Childs, Mon Jan  5 12:27:50 CST 2009
 //    Renamed to ReadVelocity and changed method to only read the data and NOT
 //    set up the VTK data structure.
 //
 //    Hank Childs, Wed Jan 21 18:18:54 CST 2009
-//    Change argument to GetFileName, as it now takes the time slice
+//    Change argument to GetFileName, as it now takes the time slice 
 //    corresponding to the VisIt time index, not the Nek time index.
 //
 //    Hank Childs, Fri May  8 11:47:55 PDT 2009
@@ -1888,8 +2011,8 @@ avtNek5000FileFormat::ReadVelocity(int timestate, int element)
         if (bParFormat)
             iCurrVarProc = aBlockLocs[element*2];
 
-        GetFileName(timestate, iCurrVarProc,
-                    filename, fileTemplate.size() + 64);
+        GetFileName(timestate, iCurrVarProc, 
+                    filename, (int)fileTemplate.size() + 64);
 
         fdVar = fopen(filename, "rb");
         if (!fdVar)
@@ -1903,7 +2026,7 @@ avtNek5000FileFormat::ReadVelocity(int timestate, int element)
 
     int nFloatsInDomain = 0, iBinaryOffset = 0, iAsciiOffset = 0, dummy;
 
-    GetDomainSizeAndVarOffset(timestate, "velocity", nFloatsInDomain,
+    GetDomainSizeAndVarOffset(timestate, "velocity", nFloatsInDomain, 
                               iBinaryOffset, iAsciiOffset, dummy);
     if (bParFormat)
         element = aBlockLocs[element*2 + 1];
@@ -1912,14 +2035,14 @@ avtNek5000FileFormat::ReadVelocity(int timestate, int element)
 
     if (bBinary)
     {
-        boost::int64_t filepos;
+        int64_t filepos;
         if (!bParFormat)
-            filepos = (boost::int64_t)iRealHeaderSize + (boost::int64_t)(nFloatsInDomain*element + iBinaryOffset)*sizeof(float);
+            filepos = (int64_t)iRealHeaderSize + (int64_t)(nFloatsInDomain*element + iBinaryOffset)*sizeof(float);
         else
             //This assumes [block 0: 216u 216v 216w][block 1: 216u 216v 216w]...[block n: 216u 216v 216w]
-            filepos = (boost::int64_t)iRealHeaderSize +
-                      (boost::int64_t)aBlocksPerFile[iCurrVarProc]*iBinaryOffset*iPrecision + //the header and mesh if one exists
-                      (boost::int64_t)element*nPts*iDim*iPrecision;
+            filepos = (int64_t)iRealHeaderSize + 
+                      (int64_t)aBlocksPerFile[iCurrVarProc]*iBinaryOffset*iPrecision + //the header and mesh if one exists
+                      (int64_t)element*nPts*iDim*iPrecision;
         if (iPrecision == 4)
         {
             float *tmppts = new float[nPts*iDim];
@@ -1929,7 +2052,7 @@ avtNek5000FileFormat::ReadVelocity(int timestate, int element)
 
             if (bSwapEndian)
                 ByteSwap32(tmppts, nPts*iDim);
-
+    
             for (ii = 0 ; ii < nPts ; ii++)
             {
                 if (iDim == 3)
@@ -1955,7 +2078,7 @@ avtNek5000FileFormat::ReadVelocity(int timestate, int element)
 
             if (bSwapEndian)
                 ByteSwap64(tmppts, nPts*iDim);
-
+    
             for (ii = 0 ; ii < nPts ; ii++)
             {
                 if (iDim == 3)
@@ -1979,10 +2102,10 @@ avtNek5000FileFormat::ReadVelocity(int timestate, int element)
         float *var_tmp = var;
         for (ii = 0 ; ii < nPts ; ii++)
         {
-            fseek(fdVar, (boost::int64_t)iAsciiCurrFileStart +
-                         (boost::int64_t)element*iAsciiCurrFileLineLen*nPts +
-                         (boost::int64_t)ii*iAsciiCurrFileLineLen +
-                         (boost::int64_t)iAsciiOffset, SEEK_SET);
+            fseek(fdVar, (int64_t)iAsciiCurrFileStart + 
+                         (int64_t)element*iAsciiCurrFileLineLen*nPts + 
+                         (int64_t)ii*iAsciiCurrFileLineLen + 
+                         (int64_t)iAsciiOffset, SEEK_SET);
             if (iDim == 3)
             {
                 fscanf(fdVar, " %f %f %f", var_tmp, var_tmp+1, var_tmp+2);
@@ -2011,8 +2134,8 @@ avtNek5000FileFormat::ReadVelocity(int timestate, int element)
 //
 // ****************************************************************************
 
-void
-avtNek5000FileFormat::GetCycles(std::vector<int> &outCycles)
+void           
+avtNek5000FileFormat::GetCycles(vector<int> &outCycles)
 {
     UpdateCyclesAndTimes();
     outCycles = aCycles;
@@ -2028,13 +2151,38 @@ avtNek5000FileFormat::GetCycles(std::vector<int> &outCycles)
 //  Programmer: Dave Bremer
 //  Creation:   May 21, 2007
 //
+//  Modifications:
+//
+//    Hank Childs, Fri Jan  4 15:29:57 PST 2013
+//    Add support for time periodicity.
+//
 // ****************************************************************************
 
-void
-avtNek5000FileFormat::GetTimes(std::vector<double> &outTimes)
+void           
+avtNek5000FileFormat::GetTimes(vector<double> &outTimes)
 {
     UpdateCyclesAndTimes();
-    outTimes = aTimes;
+    if (numberOfTimePeriods > 1)
+    {
+        int nTimes = aTimes.size();
+        outTimes.resize(nTimes*numberOfTimePeriods);
+        for (int i = 0 ; i < numberOfTimePeriods ; i++)
+            for (int j = 0 ; j < nTimes ; j++)
+            {
+                int index = i*nTimes+j;
+                if (i == 0)
+                    outTimes[index] = aTimes[j];
+                else
+                {
+                    if (j == 0)
+                        outTimes[index] = outTimes[index-1] + gapBetweenTimePeriods;
+                    else
+                        outTimes[index] = outTimes[index-1] + (aTimes[j]-aTimes[j-1]);
+                }
+            }
+    }
+    else
+        outTimes = aTimes;
 }
 
 
@@ -2054,11 +2202,11 @@ avtNek5000FileFormat::GetTimes(std::vector<double> &outTimes)
 //
 //    Dave Bremer, Fri Aug  8 12:57:47 PDT 2008
 //    Brought in a change from Stefan Kerkemeier to infer that the
-//    parallel/binary format is in use if 2 or 3 printf tokens are in the
+//    parallel/binary format is in use if 2 or 3 printf tokens are in the 
 //    file template.
 //
 //    Hank Childs, Wed Jan 21 18:18:54 CST 2009
-//    Changed semantics of time slice argument ... it now the time slice
+//    Changed semantics of time slice argument ... it now the time slice 
 //    corresponding to the VisIt time index, not the Nek time index.
 //
 // ****************************************************************************
@@ -2076,7 +2224,7 @@ avtNek5000FileFormat::GetFileName(int rawTimestep, int pardir, char *outFileName
             nPrintfTokens++;
     }
 
-    if (nPrintfTokens > 1)
+    if (nPrintfTokens > 1) 
     {
         bBinary = true;
         bParFormat = true;
@@ -2101,7 +2249,7 @@ avtNek5000FileFormat::GetFileName(int rawTimestep, int pardir, char *outFileName
         len = SNPRINTF(outFileName, bufSize, fileTemplate.c_str(), pardir, pardir, timestep);
 
     if (len >= bufSize)
-        EXCEPTION1(ImproperUseException,
+        EXCEPTION1(ImproperUseException, 
             "An internal buffer was too small to hold a file name.");
 }
 
@@ -2110,7 +2258,7 @@ avtNek5000FileFormat::GetFileName(int rawTimestep, int pardir, char *outFileName
 //  Method: avtNek5000FileFormat::UpdateCyclesAndTimes
 //
 //  Purpose:
-//      Read the header for each timestep, and store the cycle number and
+//      Read the header for each timestep, and store the cycle number and 
 //      simulation time for each.
 //
 //  Programmer: Dave Bremer
@@ -2144,6 +2292,17 @@ avtNek5000FileFormat::GetFileName(int rawTimestep, int pardir, char *outFileName
 //    Add workaround for bug reported by Stefan Kerkemeier, where timestep
 //    0 is not getting reported correctly.
 //
+//    Hank Childs, Wed May 12 10:53:33 PDT 2010
+//    Adapt time setting for Nek files that are part of .visit files.
+//
+//    Hank Childs, Mon Jan 17 12:03:57 PST 2011
+//    Add support for case where there is non-parallel, binary Nek files
+//    with a new mesh at every time slice, and a bug where time and cycle
+//    get combined.
+//
+//    Hank Childs, Tue Sep 27 16:48:10 PDT 2011
+//    Add support for the case where the metadata hasn't been initialized yet.
+//
 // ****************************************************************************
 
 void
@@ -2161,10 +2320,13 @@ avtNek5000FileFormat::UpdateCyclesAndTimes()
     if (readTimeInfoFor[curTimestep] == true)
     {
         // avtMTMDFileFormatInterface tramples on this.  Fight back.
-        metadata->SetTime(curTimestep, aTimes[curTimestep]);
-        metadata->SetTimeIsAccurate(true, curTimestep);
-        metadata->SetCycle(curTimestep, aCycles[curTimestep]);
-        metadata->SetCycleIsAccurate(true, curTimestep);
+        if (metadata != NULL)
+        {
+            metadata->SetTime(curTimestep+timeSliceOffset, aTimes[curTimestep]);
+            metadata->SetTimeIsAccurate(true, curTimestep+timeSliceOffset);
+            metadata->SetCycle(curTimestep+timeSliceOffset, aCycles[curTimestep]);
+            metadata->SetCycleIsAccurate(true, curTimestep+timeSliceOffset);
+        }
 
         return;
     }
@@ -2179,25 +2341,28 @@ avtNek5000FileFormat::UpdateCyclesAndTimes()
     t = 0.0;
     c = 0;
 
-    GetFileName(curTimestep, 0, meshfilename, fileTemplate.size() + 64);
+    GetFileName(curTimestep, 0, meshfilename, (int)fileTemplate.size() + 64);
     f.open(meshfilename);
 
     if (!bParFormat)
     {
-        f >> dummy >> dummy >> dummy >> dummy >> t >> c >> v;  //skip #blocks and block size
+        string tString, cString;
+        f >> dummy >> dummy >> dummy >> dummy >> tString >> cString >> v;  //skip #blocks and block size
+        t = atof(tString.c_str());
+        c = atoi(cString.c_str());
     }
     else
     {
         f >> dummy >> dummy >> dummy >> dummy >> dummy >> dummy >> dummy;
         f >> t >> c >> dummy;
 
-        //I do this to skip the num directories token, because it may abut
+        //I do this to skip the num directories token, because it may abut 
         //the field tags without a whitespace separator.
         while (f.peek() == ' ')
             f.get();
         while (f.peek() >= '0' && f.peek() <= '9')
             f.get();
-
+            
         char tmpTags[32];
         f.read(tmpTags, 32);
         tmpTags[31] = '\0';
@@ -2207,20 +2372,22 @@ avtNek5000FileFormat::UpdateCyclesAndTimes()
     f.close();
 
     aTimes[curTimestep] = t;
-    metadata->SetTime(curTimestep, t);
-    metadata->SetTimeIsAccurate(true, curTimestep);
     aCycles[curTimestep] = c;
-    metadata->SetCycle(curTimestep, c);
-    metadata->SetCycleIsAccurate(true, curTimestep);
+    if (metadata != NULL)
+    {
+        metadata->SetTime(curTimestep+timeSliceOffset, t);
+        metadata->SetTimeIsAccurate(true, curTimestep+timeSliceOffset);
+        metadata->SetCycle(curTimestep+timeSliceOffset, c);
+        metadata->SetCycleIsAccurate(true, curTimestep+timeSliceOffset);
+    }
 
-    // If this file contains a mesh, the first variable codes after the
+    // If this file contains a mesh, the first variable codes after the 
     // cycle number will be X Y
-    if (v.find("X") != std::string::npos)
+    if (v.find("X") != string::npos)
         iTimestepsWithMesh[curTimestep] = true;
 
-    // Nek has a bug where the time and cycle sometimes run together
-    // (e.g. 2.52000E+0110110 for time 25.2, cycle 10110).  If that happens,
-    // then v will be Y
+    // Nek has a bug where the time and cycle sometimes run together (e.g. 2.52000E+0110110 for
+    // time 25.2, cycle 10110).  If that happens, then v will be Y
     if (v.find("Y") != string::npos)
         iTimestepsWithMesh[curTimestep] = true;
 
@@ -2244,7 +2411,7 @@ avtNek5000FileFormat::UpdateCyclesAndTimes()
 //    Return sizes and offsets needed if the data is in ascii format.
 //
 //    Dave Bremer, Thu Nov 15 16:44:42 PST 2007
-//    Moved some size computations to FindAsciiDataStart, to deal with
+//    Moved some size computations to FindAsciiDataStart, to deal with 
 //    windows-style CRLF
 //
 //    Hank Childs, Mon Jan 12 18:09:54 CST 2009
@@ -2253,13 +2420,12 @@ avtNek5000FileFormat::UpdateCyclesAndTimes()
 // ****************************************************************************
 
 void
-avtNek5000FileFormat::GetDomainSizeAndVarOffset(int iTimestep, const char *var,
-                                              int &outDomSizeInFloats,
+avtNek5000FileFormat::GetDomainSizeAndVarOffset(int iTimestep, const char *var, 
+                                              int &outDomSizeInFloats, 
                                               int &outVarOffsetBinary,
                                               int &outVarOffsetAscii,
                                               int &outTimestepHasMesh )
 {
-    int ii;
     outTimestepHasMesh = 0;
 
     UpdateCyclesAndTimes();   //Needs to call this to update iTimestepsWithMesh
@@ -2284,7 +2450,7 @@ avtNek5000FileFormat::GetDomainSizeAndVarOffset(int iTimestep, const char *var,
     if (var)
     {
         int iNumPrecedingFloats = 0;
-        if (STREQUAL(var, "velocity")==0  ||
+        if (STREQUAL(var, "velocity")==0  || 
             STREQUAL(var, "velocity_mag")==0 ||
             STREQUAL(var, "x_velocity")==0)
         {
@@ -2434,7 +2600,7 @@ avtNek5000FileFormat::FindAsciiDataStart(FILE *fd, int &outDataStart, int &outLi
 //
 //  Purpose:
 //      Get the auxiliary data.
-//
+// 
 //  Notes:
 //      Everything outside this plugin considers the data to be a single block.
 //      So we will return interval trees for a single block.  This is basically
@@ -2445,6 +2611,11 @@ avtNek5000FileFormat::FindAsciiDataStart(FILE *fd, int &outDataStart, int &outLi
 //  Programmer: Hank Childs
 //  Creation:   January 5, 2009
 //
+//  Modifications:
+//
+//    Hank Childs, Fri Jan  4 15:34:47 PST 2013
+//    Add support for time periodicity.
+//
 // ****************************************************************************
 
 void *
@@ -2452,6 +2623,11 @@ avtNek5000FileFormat::GetAuxiliaryData(const char *var, int timestep,
                                      int  /*domain*/, const char *type, void *,
                                      DestructorFunction &df)
 {
+    if (numberOfTimePeriods > 1)
+    {
+        timestep = timestep % iNumTimesteps;
+    }
+
     void *rv = NULL;
 
     if (strcmp(type, AUXILIARY_DATA_SPATIAL_EXTENTS) == 0)
@@ -2498,11 +2674,11 @@ avtNek5000FileFormat::GetAuxiliaryData(const char *var, int timestep,
 //  Method: avtNek5000FileFormat::GetBoundingBoxIntervalTree
 //
 //  Purpose:
-//      Return the interval tree containing the bounding boxes for each
+//      Return the interval tree containing the bounding boxes for each 
 //      element.
 //
 //  Notes:
-//     In the Nek5000 file, if there is meta-data, it is stored at the end of
+//     In the Nek5000 file, if there is meta-data, it is stored at the end of 
 //     the file as:
 //        [element 1 X min, max]
 //        [element 1 Y min, max]
@@ -2548,14 +2724,14 @@ avtNek5000FileFormat::GetAuxiliaryData(const char *var, int timestep,
 //    Hank Childs, Thu Dec 18 06:38:51 PST 2008
 //    Renamed method as this is now an internal routine and not part associated
 //    with the virtual method GetAuxiliaryData.
-//
+//    
 // ****************************************************************************
 
 avtIntervalTree *
 avtNek5000FileFormat::GetBoundingBoxIntervalTree(int timestep)
 {
     int t1 = visitTimer->StartTimer();
-    std::map<int,avtIntervalTree*>::const_iterator fit = boundingBoxes.find(timestep);
+    map<int,avtIntervalTree*>::const_iterator fit = boundingBoxes.find(timestep);
     if (fit != boundingBoxes.end())
         return fit->second;
 
@@ -2565,15 +2741,15 @@ avtNek5000FileFormat::GetBoundingBoxIntervalTree(int timestep)
     ReadBlockLocations();
 
     int nFloatsPerDomain = 0, d1, d2, d3;
-    GetDomainSizeAndVarOffset(timestep, NULL,
+    GetDomainSizeAndVarOffset(timestep, NULL, 
                               nFloatsPerDomain, d1, d2, d3 );
-
+    
     int iRank = 0, nProcs = 1;
 #ifdef PARALLEL
     MPI_Comm_rank(VISIT_MPI_COMM, &iRank);
     MPI_Comm_size(VISIT_MPI_COMM, &nProcs);
 #endif
-
+    
     ifstream f;
     int ii, jj;
 
@@ -2587,14 +2763,14 @@ avtNek5000FileFormat::GetBoundingBoxIntervalTree(int timestep)
 
     for (ii = iRank; ii < iNumOutputDirs; ii+=nProcs)
     {
-        boost::int64_t iFileSizeWithoutMetaData = 136
-                + sizeof(int)*aBlocksPerFile[ii]
-                + ((boost::int64_t)nFloatsPerDomain)*sizeof(float)*((boost::int64_t)aBlocksPerFile[ii]);
+        int64_t iFileSizeWithoutMetaData = 136 
+                + sizeof(int)*aBlocksPerFile[ii] 
+                + ((int64_t)nFloatsPerDomain)*sizeof(float)*((int64_t)aBlocksPerFile[ii]);
 
-        boost::int64_t iMDSize = (nFloatsPerDomain * 2 * sizeof(float) * aBlocksPerFile[ii]) /
+        int64_t iMDSize = (nFloatsPerDomain * 2 * sizeof(float) * aBlocksPerFile[ii]) / 
                     (iBlockSize[0]*iBlockSize[1]*iBlockSize[2]);
 
-        GetFileName(timestep, ii, blockfilename, fileTemplate.size() + 64);
+        GetFileName(timestep, ii, blockfilename, (int)fileTemplate.size() + 64);
         f.open(blockfilename);
         if (!f.is_open())
         {
@@ -2602,7 +2778,7 @@ avtNek5000FileFormat::GetBoundingBoxIntervalTree(int timestep)
             break;
         }
         f.seekg( 0, std::ios_base::end );
-        boost::int64_t iFileSize = f.tellg();
+        int64_t iFileSize = f.tellg();
         if (iFileSize < iFileSizeWithoutMetaData+iMDSize)
         {
             errorReadingData = 1;
@@ -2648,17 +2824,20 @@ avtNek5000FileFormat::GetBoundingBoxIntervalTree(int timestep)
 #ifdef PARALLEL
     //See if any proc had a read error.
     int  anyErrorReadingData = 0;
-    MPI_Allreduce(&errorReadingData, &anyErrorReadingData, 1,
+    MPI_Allreduce(&errorReadingData, &anyErrorReadingData, 1, 
                   MPI_INT, MPI_BOR, VISIT_MPI_COMM);
     errorReadingData = anyErrorReadingData;
 #endif
     if (errorReadingData)
+    {
+        delete[] bounds;
         return NULL;
+    }
 
 #ifdef PARALLEL
         float *mergedBounds = new float[iNumBlocks*6];
-
-        MPI_Allreduce(bounds, mergedBounds, iNumBlocks*6,
+    
+        MPI_Allreduce(bounds, mergedBounds, iNumBlocks*6, 
                       MPI_FLOAT, MPI_SUM, VISIT_MPI_COMM);
         delete[] bounds;
         bounds = mergedBounds;
@@ -2689,11 +2868,11 @@ avtNek5000FileFormat::GetBoundingBoxIntervalTree(int timestep)
 //  Method: avtNek5000FileFormat::GetDataExtentsIntervalTree
 //
 //  Purpose:
-//      Return the interval tree containing the data extents for each
+//      Return the interval tree containing the data extents for each 
 //      element.
 //
 //  Notes:
-//     In the Nek5000 file, if there is meta-data, it is stored at the end of
+//     In the Nek5000 file, if there is meta-data, it is stored at the end of 
 //     the file as:
 //        [element 1 X min, max]
 //        [element 1 Y min, max]
@@ -2725,7 +2904,7 @@ avtNek5000FileFormat::GetBoundingBoxIntervalTree(int timestep)
 //
 //  Programmer: Hank Childs
 //  Creation:   December 18, 2008
-//
+//    
 // ****************************************************************************
 
 avtIntervalTree *
@@ -2735,7 +2914,7 @@ avtNek5000FileFormat::GetDataExtentsIntervalTree(int timestep, const char *var)
     key.var = var;
     key.element = -1;
     key.timestep = timestep;
-    std::map<PointerKey,avtIntervalTree*, KeyCompare>::const_iterator fit = dataExtents.find(key);
+    map<PointerKey,avtIntervalTree*, KeyCompare>::const_iterator fit = dataExtents.find(key);
     if (fit != dataExtents.end())
         return fit->second;
 
@@ -2801,7 +2980,7 @@ avtNek5000FileFormat::GetDataExtentsIntervalTree(int timestep, const char *var)
         return NULL;
 
     int nFloatsPerDomain = 0, d1, d2, d3;
-    GetDomainSizeAndVarOffset(timestep, NULL,
+    GetDomainSizeAndVarOffset(timestep, NULL, 
                               nFloatsPerDomain, d1, d2, d3 );
 
     int iRank = 0, nProcs = 1;
@@ -2809,7 +2988,7 @@ avtNek5000FileFormat::GetDataExtentsIntervalTree(int timestep, const char *var)
     MPI_Comm_rank(VISIT_MPI_COMM, &iRank);
     MPI_Comm_size(VISIT_MPI_COMM, &nProcs);
 #endif
-
+    
     ifstream f;
     int ii, jj;
 
@@ -2823,15 +3002,15 @@ avtNek5000FileFormat::GetDataExtentsIntervalTree(int timestep, const char *var)
 
     for (ii = iRank; ii < iNumOutputDirs; ii+=nProcs)
     {
-        boost::int64_t iFileSizeWithoutMetaData = 136
-                + sizeof(int)*aBlocksPerFile[ii]
-                + ((boost::int64_t)nFloatsPerDomain)*sizeof(float)*((boost::int64_t)aBlocksPerFile[ii]);
+        int64_t iFileSizeWithoutMetaData = 136 
+                + sizeof(int)*aBlocksPerFile[ii] 
+                + ((int64_t)nFloatsPerDomain)*sizeof(float)*((int64_t)aBlocksPerFile[ii]);
 
-        boost::int64_t iBBSize = 2*iDim * sizeof(float) * aBlocksPerFile[ii];
-        boost::int64_t iDESize = 2 * sizeof(float) * aBlocksPerFile[ii] * numVars;
-        boost::int64_t iMDSize = iBBSize + iDESize;
+        int64_t iBBSize = 2*iDim * sizeof(float) * aBlocksPerFile[ii];
+        int64_t iDESize = 2 * sizeof(float) * aBlocksPerFile[ii] * numVars;
+        int64_t iMDSize = iBBSize + iDESize;
 
-        GetFileName(timestep, ii, blockfilename, fileTemplate.size() + 64);
+        GetFileName(timestep, ii, blockfilename, (int)fileTemplate.size() + 64);
         f.open(blockfilename);
         if (!f.is_open())
         {
@@ -2839,7 +3018,7 @@ avtNek5000FileFormat::GetDataExtentsIntervalTree(int timestep, const char *var)
             break;
         }
         f.seekg( 0, std::ios_base::end );
-        boost::int64_t iFileSize = f.tellg();
+        int64_t iFileSize = f.tellg();
         if (iFileSize != iFileSizeWithoutMetaData+iMDSize)
         {
             iBBSize = 0;
@@ -2872,13 +3051,13 @@ avtNek5000FileFormat::GetDataExtentsIntervalTree(int timestep, const char *var)
         {
             int varIndex = -1;
             if (doPressureVar)
-                varIndex = (bHasVelocity ? iDim : 0);
+                varIndex = (bHasVelocity ? iDim : 0); 
             else if (doTemperatureVar)
                 varIndex = (bHasVelocity ? iDim : 0) + (bHasPressure ? 1 : 0);
             else
-                varIndex = (bHasVelocity ? iDim : 0) + (bHasPressure ? 1 : 0) +
+                varIndex = (bHasVelocity ? iDim : 0) + (bHasPressure ? 1 : 0) + 
                        (bHasTemperature ? 1 : 0) + sComp;
-            boost::int64_t offsetForDE = varIndex*2*sizeof(float)*aBlocksPerFile[ii];
+            int64_t offsetForDE = varIndex*2*sizeof(float)*aBlocksPerFile[ii];
             f.seekg(iFileSizeWithoutMetaData+iBBSize+offsetForDE, std::ios_base::beg);
             f.read( (char *)(bounds + nPrecedingBlocks*2), aBlocksPerFile[ii]*2*sizeof(float) );
         }
@@ -2895,17 +3074,20 @@ avtNek5000FileFormat::GetDataExtentsIntervalTree(int timestep, const char *var)
 #ifdef PARALLEL
     //See if any proc had a read error.
     int  anyErrorReadingData = 0;
-    MPI_Allreduce(&errorReadingData, &anyErrorReadingData, 1,
+    MPI_Allreduce(&errorReadingData, &anyErrorReadingData, 1, 
                   MPI_INT, MPI_BOR, VISIT_MPI_COMM);
     errorReadingData = anyErrorReadingData;
 #endif
     if (errorReadingData)
+    {
+        delete[] bounds;
         return NULL;
+    }
 
 #ifdef PARALLEL
     float *mergedBounds = new float[iNumBlocks*2];
 
-    MPI_Allreduce(bounds, mergedBounds, iNumBlocks*2,
+    MPI_Allreduce(bounds, mergedBounds, iNumBlocks*2, 
                   MPI_FLOAT, MPI_SUM, VISIT_MPI_COMM);
     delete[] bounds;
     bounds = mergedBounds;
@@ -2946,12 +3128,18 @@ avtNek5000FileFormat::GetDataExtentsIntervalTree(int timestep, const char *var)
 //    Add support for the case where we are streaming data in parallel and
 //    we can't rely on other processors to help out.
 //
+//    Hank Childs, Tue Oct 23 14:53:01 PDT 2012
+//    Mark selections as applied.
+//
+//    Hank Childs, Mon Mar  4 18:35:27 PST 2013
+//    Add support for duplicating data.
+//
 // ****************************************************************************
 
 void
 avtNek5000FileFormat::RegisterDataSelections(
-                               const std::vector<avtDataSelection_p> &selList,
-                               std::vector<bool> *selectionsApplied)
+                               const vector<avtDataSelection_p> &selList,
+                               vector<bool> *selectionsApplied)
 {
     vector<vector<int> > domainsToUse(selList.size());
 
@@ -2973,7 +3161,7 @@ avtNek5000FileFormat::RegisterDataSelections(
             avtSpatialBoxSelection::InclusionMode imode =
                 sel->GetInclusionMode();
 
-            avtIntervalTree *itree =
+            avtIntervalTree *itree = 
                               GetBoundingBoxIntervalTree(timestepToUseForMesh);
             if (itree == NULL)
                 continue;
@@ -2981,6 +3169,7 @@ avtNek5000FileFormat::RegisterDataSelections(
             itree->GetElementsListFromRange(mins, maxs, domainsToUse[i]);
             if (domainsToUse[i].size() == 0)
                 noMatches = true;
+            (*selectionsApplied)[i] = true;
         }
         if (string(selList[i]->GetType()) == "Plane Selection")
         {
@@ -2989,7 +3178,7 @@ avtNek5000FileFormat::RegisterDataSelections(
             double normal[3], origin[3];
             sel->GetNormal(normal);
             sel->GetOrigin(origin);
-            avtIntervalTree *itree =
+            avtIntervalTree *itree = 
                               GetBoundingBoxIntervalTree(timestepToUseForMesh);
             if (itree == NULL)
                 continue;
@@ -2999,13 +3188,14 @@ avtNek5000FileFormat::RegisterDataSelections(
             itree->GetElementsList(normal, D, domainsToUse[i]);
             if (domainsToUse[i].size() == 0)
                 noMatches = true;
+            (*selectionsApplied)[i] = true;
         }
         if (string(selList[i]->GetType()) == "Point Selection")
         {
             avtPointSelection *sel = (avtPointSelection *) *(selList[i]);
 
             const double *pt = sel->GetPoint();
-            avtIntervalTree *itree =
+            avtIntervalTree *itree = 
                               GetBoundingBoxIntervalTree(timestepToUseForMesh);
             if (itree == NULL)
                 continue;
@@ -3013,22 +3203,23 @@ avtNek5000FileFormat::RegisterDataSelections(
             itree->GetElementsListFromRange(pt, pt, domainsToUse[i]);
             if (domainsToUse[i].size() == 0)
                 noMatches = true;
+            (*selectionsApplied)[i] = true;
         }
         if (string(selList[i]->GetType()) == "Isolevels Selection")
         {
             avtIsolevelsSelection *sel = (avtIsolevelsSelection*)*(selList[i]);
 
-            std::string var = sel->GetVariable();
-            std::vector<double> isolevels = sel->GetIsolevels();
+            string var = sel->GetVariable();
+            vector<double> isolevels = sel->GetIsolevels();
 
-            avtIntervalTree *itree =
-                              GetDataExtentsIntervalTree(curTimestep,
+            avtIntervalTree *itree = 
+                              GetDataExtentsIntervalTree(curTimestep, 
                                                          var.c_str());
             if (itree == NULL)
                 continue;
 
             double eqn[1] = { 1. };
-            std::vector<std::vector<int> > elemsForLevelJ(isolevels.size());
+            vector<vector<int> > elemsForLevelJ(isolevels.size());
             for (int j = 0 ; j < isolevels.size() ; j++)
             {
                 itree->GetElementsList(eqn, isolevels[j], elemsForLevelJ[j]);
@@ -3036,6 +3227,7 @@ avtNek5000FileFormat::RegisterDataSelections(
             CombineElementLists(elemsForLevelJ, domainsToUse[i], true);
             if (domainsToUse[i].size() == 0)
                 noMatches = true;
+            (*selectionsApplied)[i] = true;
         }
     }
     visitTimer->StopTimer(t1, "Getting element lists for each selection");
@@ -3074,7 +3266,7 @@ avtNek5000FileFormat::RegisterDataSelections(
     int one_extra_until = nelements % nprocs;
 
     int my_num_elements, my_start, my_end;
-    if (resultMustBeProducedOnlyOnThisProcessor)
+    if (resultMustBeProducedOnlyOnThisProcessor || duplicateData)
     {
         my_num_elements = nelements;
         my_start = 0;
@@ -3114,8 +3306,8 @@ avtNek5000FileFormat::RegisterDataSelections(
 
 void
 avtNek5000FileFormat::CombineElementLists(
-                      const std::vector<std::vector<int> > &lists,
-                      std::vector<int> &outlist, bool doUnion)
+                      const vector<vector<int> > &lists,
+                      vector<int> &outlist, bool doUnion)
 {
     int t1 = visitTimer->StartTimer();
 
@@ -3129,7 +3321,7 @@ avtNek5000FileFormat::CombineElementLists(
 
     if (doUnion)
     {
-        std::vector<bool> useElements(iNumBlocks, false);
+        vector<bool> useElements(iNumBlocks, false);
         for (i = 0 ; i < lists.size() ; i++)
         {
             for (j = 0 ; j < lists[i].size() ; j++)
@@ -3137,7 +3329,7 @@ avtNek5000FileFormat::CombineElementLists(
                 useElements[lists[i][j]] = true;
             }
         }
-
+        
         int numOn = 0;
         for (i = 0 ; i < iNumBlocks ; i++)
             if (useElements[i])
@@ -3150,7 +3342,7 @@ avtNek5000FileFormat::CombineElementLists(
     }
     else
     {
-        std::vector<int> numHits(iNumBlocks, 0);
+        vector<int> numHits(iNumBlocks, 0);
         int numSelections = 0;
         for (i = 0 ; i < lists.size() ; i++)
         {
@@ -3160,7 +3352,7 @@ avtNek5000FileFormat::CombineElementLists(
             for (j = 0 ; j < lists[i].size() ; j++)
                 numHits[lists[i][j]]++;
         }
-
+        
         int numOn = 0;
         for (i = 0 ; i < iNumBlocks ; i++)
             if (numHits[i] == numSelections)
@@ -3193,24 +3385,49 @@ avtNek5000FileFormat::CombineElementLists(
 //    Tom Fogal, Sat Feb  7 17:33:06 EST 2009
 //    Fix the iterator declaration.
 //
+//    Hank Childs, Tue Sep 27 16:32:55 PDT 2011
+//    Add support for meshes whose coordinates vary over time.
+//
+//    Hank Childs, Thu Mar  1 08:18:55 PST 2012
+//    Fix memory leak with time varying meshes.
+//
+//    Hank Childs, Fri Jan  4 15:34:47 PST 2013
+//    Add support for time periodicity.
+//
 // ****************************************************************************
 
 void
 avtNek5000FileFormat::ActivateTimestep(int ts)
 {
-    std::map<PointerKey, float *, KeyCompare>::iterator it;
-    std::map<PointerKey, float *, KeyCompare> new_cachedData;
+    if (numberOfTimePeriods > 1)
+    {
+        ts = ts % iNumTimesteps;
+    }
+
+    map<PointerKey, float *, KeyCompare>::iterator it;
+    map<PointerKey, float *, KeyCompare> new_cachedData;
     for (it = cachedData.begin() ; it != cachedData.end() ; it++)
     {
-        if (it->first.timestep != ts && it->first.var != "points")
+        bool deleteThis = false;
+        if (it->first.timestep != ts)
+        {
+            if (it->first.var == "points")
+                // The timestep for the mesh may come from another time slice
+                // (typically 0).  If that's the case, don't delete it.
+                deleteThis = (it->first.timestep != timestepToUseForMesh);
+            else
+                deleteThis = true;
+        }
+
+        if (deleteThis)
             delete [] it->second;
         else
             new_cachedData[it->first] = it->second;
     }
     cachedData = new_cachedData;
 
-    std::map<PointerKey, avtIntervalTree *, KeyCompare>::iterator it2;
-    std::map<PointerKey, avtIntervalTree *, KeyCompare> new_dataExtents;
+    map<PointerKey, avtIntervalTree *, KeyCompare>::iterator it2;
+    map<PointerKey, avtIntervalTree *, KeyCompare> new_dataExtents;
     for (it2 = dataExtents.begin() ; it2 != dataExtents.end() ; it2++)
     {
         if (it2->first.timestep != ts)
@@ -3221,7 +3438,13 @@ avtNek5000FileFormat::ActivateTimestep(int ts)
     dataExtents = new_dataExtents;
 
     curTimestep = ts;
-    timestepToUseForMesh = 0;
+    UpdateCyclesAndTimes();   //Needs to call this to update iTimestepsWithMesh
+    if (iTimestepsWithMesh[curTimestep] == true)
+    {
+        timestepToUseForMesh = curTimestep;
+    }
+    else
+        timestepToUseForMesh = 0;
 }
 
 

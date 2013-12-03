@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -53,6 +53,7 @@
 #include <BadDomainException.h>
 #include <ImproperUseException.h>
 #include <IntervalTreeNotCalculatedException.h>
+#include <TimingsManager.h>
 
 #include <vtkCellIntersections.h>
 #include <vtkVisItUtility.h>
@@ -67,7 +68,7 @@
 
 
 //
-// Types and globals (needed for qsort). 
+// Types and globals (needed for qsort/QuickSelect). 
 //
 
 typedef union
@@ -83,17 +84,20 @@ int globalNDims;
 // Static prototypes
 //
 
-static double    EquationsValueAtPoint(const double *, int, int, int, 
+static double   EquationsValueAtPoint(const double *, int, int, int, 
                                       const double *);
 static bool     Intersects(const double *, double, int, int, const double *);
-static bool     Intersects(double [3], double[3], int, int, const double *);
 static bool     AxiallySymmetricLineIntersection(const double *, const double*,
                                                  int, const double *);
-static int      QsortBoundsSorter(const void *arg1, const void *arg2);
+static int      CompareFloatInt(const FloatInt *arg1, const FloatInt *arg2);
 static bool     IntersectsWithRay(double [3], double[3], int, int, 
                                   const double *, double[3]);
 static bool     IntersectsWithLine(double [3], double[3], int, int, 
                                    const double *, double[3]);
+static inline bool LineIntersectsBox2D(double *, double, double,
+                                       double, double, int, int);
+static inline bool LineIntersectsBox(double *, double, double, double,
+                                     double, double, double, int, int, int);
 
 
 // ****************************************************************************
@@ -115,6 +119,9 @@ static bool     IntersectsWithLine(double [3], double[3], int, int,
 //    Add default bool arg -- specifies whether or not this tree
 //    will required collective communication. 
 //
+//    Hank Childs, Mon Sep 13 19:01:26 PDT 2010
+//    Initialize new data members for optimizing results.
+//
 // ****************************************************************************
 
 avtIntervalTree::avtIntervalTree(int els, int dims, bool rc)
@@ -123,6 +130,9 @@ avtIntervalTree::avtIntervalTree(int els, int dims, bool rc)
     nDims       = dims;
     hasBeenCalculated = false;
     requiresCommunication = rc;
+    accelerateSizeQueries = false;
+    optimizeForRepeatedQueries = false;
+    numElementsBeneathThisNode = NULL;
 
     //
     // A vector for one element should have the min and max for each dimension.
@@ -160,6 +170,11 @@ avtIntervalTree::avtIntervalTree(int els, int dims, bool rc)
 //  Programmer: Hank Childs
 //  Creation:   June 12, 2008
 //
+//  Modifications:
+//
+//    Hank Childs, Mon Sep 13 19:01:26 PDT 2010
+//    Copy over new data members for optimizing performance.
+//
 // ****************************************************************************
 
 avtIntervalTree::avtIntervalTree(const avtIntervalTree *it)
@@ -170,6 +185,10 @@ avtIntervalTree::avtIntervalTree(const avtIntervalTree *it)
     vectorSize = it->vectorSize;
     nodeExtents = new double[nNodes*vectorSize];
     nodeIDs     = new int[nNodes];
+    if (it->numElementsBeneathThisNode != NULL)
+        numElementsBeneathThisNode = new int[nNodes];
+    else
+        numElementsBeneathThisNode = NULL;
     for (int i = 0 ; i < nNodes ; i++)
     {
         for (int j = 0 ; j < vectorSize ; j++)
@@ -177,9 +196,13 @@ avtIntervalTree::avtIntervalTree(const avtIntervalTree *it)
             nodeExtents[i*vectorSize + j] = it->nodeExtents[i*vectorSize + j];
         }
         nodeIDs[i]  = it->nodeIDs[i];
+        if (numElementsBeneathThisNode)
+            numElementsBeneathThisNode[i] = it->numElementsBeneathThisNode[i];
     }
     hasBeenCalculated = it->hasBeenCalculated;
     requiresCommunication = it->requiresCommunication;
+    accelerateSizeQueries = it->accelerateSizeQueries;
+    optimizeForRepeatedQueries = it->optimizeForRepeatedQueries;
 }
 
 
@@ -201,6 +224,10 @@ avtIntervalTree::~avtIntervalTree()
     {
         delete [] nodeIDs;
     }
+    if (numElementsBeneathThisNode != NULL)
+    {
+        delete [] numElementsBeneathThisNode;
+    }
 }
 
 
@@ -220,6 +247,29 @@ avtIntervalTree::Destruct(void *i)
 {
     avtIntervalTree *itree = (avtIntervalTree *) i;
     delete itree;
+}
+
+
+// ****************************************************************************
+//  Method: avtIntervalTree::AccelerateSizeQueries
+//
+//  Purpose:
+//      Instructs this object to accelerate size queries ... when the method
+//      GetNumberOfElementsInRange is called, it can return the answer without
+//      descending so far in the tree.
+//
+//  Programmer: Hank Childs
+//  Creation:   September 13, 2010
+//
+// ****************************************************************************
+
+void
+avtIntervalTree::AccelerateSizeQueries(void)
+{
+    accelerateSizeQueries = true;
+    numElementsBeneathThisNode = new int[nNodes];
+    for (int i = 0 ; i < nNodes ; i++)
+        numElementsBeneathThisNode[i] = 0;
 }
 
 
@@ -265,7 +315,7 @@ avtIntervalTree::GetExtents(double *extents) const
 // ****************************************************************************
 
 void
-avtIntervalTree::AddElement(int element, double *d)
+avtIntervalTree::AddElement(int element, const double *d)
 {
     //
     // Sanity Check
@@ -364,6 +414,128 @@ avtIntervalTree::CollectInformation(void)
 
 
 // ****************************************************************************
+//  Function: SwapFloatInt
+//
+//  Purpose:
+//      Swaps two FloatInts.
+//
+//  Programmer: Hank Childs
+//  Creation:   September 13, 2010
+//
+// ****************************************************************************
+
+inline void
+SwapFloatInt(FloatInt *ptr, int idx1, int idx2)
+{
+    int              totalSize = 2*globalNDims+1;
+    static int       vecSize = 0;
+    static FloatInt *tmp = NULL;
+    if (tmp == NULL || vecSize != totalSize)
+    {
+        if (tmp != NULL)
+            delete [] tmp;
+        tmp = new FloatInt[totalSize];
+        vecSize = totalSize;
+    }
+    
+    memcpy(tmp, ptr+idx1*totalSize, sizeof(FloatInt)*totalSize);
+    memcpy(ptr+idx1*totalSize, ptr+idx2*totalSize, sizeof(FloatInt)*totalSize);
+    memcpy(ptr+idx2*totalSize, tmp, sizeof(FloatInt)*totalSize);
+}
+
+
+// ****************************************************************************
+//  Function: SortAroundPivot
+//
+//  Purpose:
+//      Sorts all members of a list around a pivot.
+//
+//  Programmer: Hank Childs
+//  Creation:   September 13, 2010
+//
+// ****************************************************************************
+
+static int
+SortAroundPivot(FloatInt *list, int size, int pivotindex)
+{
+    int totalSize = 2*globalNDims+1;
+    SwapFloatInt(list, pivotindex, size-1);
+    int storeindex = 0;
+    for (int i = 0 ; i < size-1 ; i++)
+    {
+        int idx1=totalSize*i;
+        int idx2=totalSize*(size-1);
+        if (CompareFloatInt(list+idx1, list+idx2) <= 0)
+        {
+            SwapFloatInt(list, storeindex, i);
+            storeindex++;
+        }
+    }
+    SwapFloatInt(list, size-1, storeindex);
+    return storeindex;
+}
+
+// ****************************************************************************
+//  Function: QuickSelect
+//
+//  Purpose:
+//      Applies the QuickSelect algorithm to a list.  The list is of size 'size'
+//      and it finds the 'k'th biggest element.  At the end, everything smaller
+//      than the 'k'th element is at smaller indices; everything greater than
+//      at bigger indices.
+//
+//  Programmer: Hank Childs
+//  Creation:   September 13, 2010
+//
+// ****************************************************************************
+
+static void
+QuickSelect(FloatInt *list, int size, int k)
+{
+    int totalSize = 2*globalNDims+1;
+    int pc1 = 0;
+    int pc2 = size-1;
+    int pc3 = (pc1+pc2)/2;
+    // To index into "list", we need to multiply each of our candidate
+    // indices by the size of an entry.
+    pc1 *= totalSize;
+    pc2 *= totalSize;
+    pc3 *= totalSize;
+    int pivotIndex = -1;
+    if ((CompareFloatInt(list+pc2,list+pc1) <= 0) &&
+        (CompareFloatInt(list+pc1,list+pc3) <= 0))
+        pivotIndex = pc1;
+    else if ((CompareFloatInt(list+pc3,list+pc1) <= 0) &&
+        (CompareFloatInt(list+pc1,list+pc2) <= 0))
+        pivotIndex = pc1;
+    else if ((CompareFloatInt(list+pc1,list+pc2) <= 0) &&
+        (CompareFloatInt(list+pc2,list+pc3) <= 0))
+        pivotIndex = pc2;
+    else if ((CompareFloatInt(list+pc3,list+pc2) <= 0) &&
+        (CompareFloatInt(list+pc2,list+pc1) <= 0))
+        pivotIndex = pc2;
+    else if ((CompareFloatInt(list+pc1,list+pc3) <= 0) &&
+        (CompareFloatInt(list+pc3,list+pc2) <= 0))
+        pivotIndex = pc3;
+    else
+        pivotIndex = pc3;
+    
+    // I guess we could leave this multiplied, but it seems better to return
+    // it to index form.
+    pivotIndex /= totalSize;
+
+    int numSmaller = SortAroundPivot(list, size, pivotIndex);
+    if (k == numSmaller)
+        return;
+
+    if (k < numSmaller)
+        QuickSelect(list, numSmaller, k);
+    else
+        QuickSelect(list+totalSize*(numSmaller+1), size-numSmaller-1, k-numSmaller-1);
+}
+
+
+// ****************************************************************************
 //  Method: avtIntervalTree::ConstructTree
 //
 //  Purpose:
@@ -377,11 +549,16 @@ avtIntervalTree::CollectInformation(void)
 //    Hank Childs, Mon Jun 27 09:01:01 PDT 2005
 //    Re-written to use qsort.
 //
+//    Hank Childs, Mon Sep 13 18:54:21 PDT 2010
+//    Re-written to use QuickSelect.
+//
 // ****************************************************************************
 
 void
 avtIntervalTree::ConstructTree(void)
 {
+    int t1 = visitTimer->StartTimer();
+
     int    i, j;
 
     //
@@ -431,17 +608,15 @@ avtIntervalTree::ConstructTree(void)
             for (int j = 0 ; j < vectorSize ; j++)
                 nodeExtents[currentNode*vectorSize + j] =
                                          bounds[currentOffset*totalSize + j].f;
+            if (accelerateSizeQueries)
+                numElementsBeneathThisNode[currentNode] = 1;
             continue;
         }
 
         globalCurrentDepth = currentDepth;
-        if (count % thresh == 0)
-        {
-            qsort(bounds + currentOffset*totalSize, currentSize,
-                  totalSize*sizeof(FloatInt), QsortBoundsSorter);
-        }
-
         leftSize = SplitSize(currentSize);
+        if (optimizeForRepeatedQueries)
+            QuickSelect(bounds + currentOffset*totalSize, currentSize, leftSize);
 
         offsetStack[stackCount]  = currentOffset;
         sizeStack  [stackCount]  = leftSize;
@@ -459,11 +634,12 @@ avtIntervalTree::ConstructTree(void)
     SetIntervals();
 
     delete [] bounds;
+    visitTimer->StopTimer(t1, "Constructing interval tree");
 }
 
 
 // ****************************************************************************
-//  Function: QsortBoundsSorter
+//  Function: CompareFloatInt
 //
 //  Purpose:
 //      Sorts a vector of bounds with respect to the dimension that
@@ -480,14 +656,15 @@ avtIntervalTree::ConstructTree(void)
 //
 //    Mark C. Miller, Wed Aug 23 08:53:58 PDT 2006
 //    Changed return values from true/false to 1, -1, 0
+//
+//    Hank Childs, Mon Sep 13 19:01:26 PDT 2010
+//    Rename method; we now use it for QuickSelect, not qsort.
+//
 // ****************************************************************************
 
 int
-QsortBoundsSorter(const void *arg1, const void *arg2)
+CompareFloatInt(const FloatInt *A, const FloatInt *B)
 {
-    FloatInt *A = (FloatInt *) arg1;
-    FloatInt *B = (FloatInt *) arg2;
-
     //
     // Walk through the mid-points of the extents, starting with the current
     // depth and moving forward.
@@ -500,9 +677,9 @@ QsortBoundsSorter(const void *arg1, const void *arg2)
         double B_mid = (B[(2*globalCurrentDepth + 2*i) % vectorSize].f
                        + B[(2*globalCurrentDepth+1 + 2*i) % vectorSize].f) / 2;
         if (A_mid < B_mid)
-            return 1;
-        else if (A_mid > B_mid)
             return -1;
+        else if (A_mid > B_mid)
+            return +1;
     }
 
     //
@@ -524,6 +701,11 @@ QsortBoundsSorter(const void *arg1, const void *arg2)
 //  Programmer: Hank Childs
 //  Creation:   August 8, 2000
 //
+//  Modifications:
+//
+//    Hank Childs, Mon Sep 13 19:01:26 PDT 2010
+//    Set up the acceleration arrays if requested.
+//
 // ****************************************************************************
 
 void
@@ -543,6 +725,10 @@ avtIntervalTree::SetIntervals()
                       MAX(nodeExtents[(i-1)*vectorSize + 2*k + 1],
                           nodeExtents[i*vectorSize + 2*k + 1]);
         }
+        if (accelerateSizeQueries)
+            numElementsBeneathThisNode[parent] = 
+                  numElementsBeneathThisNode[i-1]+
+                  numElementsBeneathThisNode[i];
     }
 }
 
@@ -749,6 +935,97 @@ avtIntervalTree::GetElementsListFromRange(const double *min_vec,
             }
         }
     }
+}
+
+
+// ****************************************************************************
+//  Method: avtIntervalTree::GetNumberOfElementsInRange
+//
+//  Purpose:
+//      Takes in a range and determines how manuy elements have values
+//      that are within the range.
+//
+//  Arguments:
+//      params        The coefficients of the linear equation.
+//      solution      The right hand side (solution) of the linear equation.
+//
+//  Programmer: Hank Childs
+//  Creation:   August 22, 2010
+//
+// ****************************************************************************
+ 
+int
+avtIntervalTree::GetNumberOfElementsInRange(const double *min_vec,
+                                            const double *max_vec) const
+{
+    int numMatches = 0;
+
+    if (hasBeenCalculated == false)
+    {
+        EXCEPTION0(IntervalTreeNotCalculatedException);
+    }
+
+    int nodeStack[100]; // Only need log amount
+    int nodeStackSize = 0;
+ 
+    //
+    // Populate the stack by putting on the root element.  This element contains
+    // all the other element in its extents.
+    //
+    nodeStack[0] = 0;
+    nodeStackSize++;
+ 
+    while (nodeStackSize > 0)
+    {
+        nodeStackSize--;
+        int stackIndex = nodeStack[nodeStackSize];
+        bool inBlock = true;
+        bool fullyInBlock = true;
+        for (int i = 0 ; i < nDims ; i++)
+        {
+            double min_extent = min_vec[i];
+            double max_extent = max_vec[i];
+            double min_node   = nodeExtents[stackIndex*nDims*2 + 2*i];
+            double max_node   = nodeExtents[stackIndex*nDims*2 + 2*i+1];
+            if (min_node > max_extent)
+                inBlock = false;
+            if (max_node < min_extent)
+                inBlock = false;
+            if (min_node < min_extent)
+                fullyInBlock = false;
+            if (max_node > max_extent)
+                fullyInBlock = false;
+            if (!inBlock)
+                break;
+        }
+        if (inBlock)
+        {
+            if (fullyInBlock && accelerateSizeQueries)
+            {
+                numMatches += numElementsBeneathThisNode[stackIndex];
+            }
+            else if (nodeIDs[stackIndex] < 0)
+            {
+                //
+                // The equation has a solution contained by the current extents.
+                // But this is not a leaf, so put children on stack
+                //
+                nodeStack[nodeStackSize] = 2 * stackIndex + 1;
+                nodeStackSize++;
+                nodeStack[nodeStackSize] = 2 * stackIndex + 2;
+                nodeStackSize++;
+            }
+            else
+            {
+                //
+                // Leaf node, put in list
+                //
+                numMatches++;
+            }
+        }
+    }
+
+    return numMatches;
 }
 
 
@@ -1340,48 +1617,6 @@ avtIntervalTree::GetElementExtents(int elementIndex, double *extents) const
 
 
 // ****************************************************************************
-//  Function: Intersects
-//
-//  Purpose:
-//      Determine if the range of values for the current node is intersected 
-//      by the line designated by origin and rayDir. 
-//
-//  Arguments:
-//      origin       The origin of the ray. 
-//      rayDir       The xyz components of the ray direction.
-//      block        The block in the nodeExtents that should be checked for an
-//                   intersection.
-//      nDims        The number of dimensions of the var.
-//      nodeExtents  The extents at each node.
-//
-//  Returns:    true if there is an intersection, false otherwise.
-//
-//  Programmer: Kathleen Bonnell
-//  Creation:   December 19, 2003 
-//
-// ****************************************************************************
-
-bool
-Intersects(double origin[3], double rayDir[3], int block, int nDims,
-           const double *nodeExtents)
-{
-    double bnds[6] = { 0., 0., 0., 0., 0., 0.};
-    double coord[3] = { 0., 0., 0.};
-
-    for (int i = 0; i < nDims; i++)
-    {
-        bnds[2*i] = nodeExtents[block*nDims*2 + 2*i];
-        bnds[2*i+1] = nodeExtents[block*nDims*2 + 2*i + 1];
-    }
-
-    if (vtkCellIntersections::IntersectBox(bnds, origin, rayDir, coord))
-        return true;
-    else 
-        return false;
-}
-
-
-// ****************************************************************************
 //  Method: avtIntervalTree::GetElementsList
 //
 //  Purpose:
@@ -1404,6 +1639,9 @@ Intersects(double origin[3], double rayDir[3], int block, int nDims,
 //    Mark C. Miller, Mon Oct 18 14:36:49 PDT 2004
 //    Added code to throw an exception of the tree hasn't been calculated
 //
+//    Eric Brugger, Mon Jul 12 14:11:51 PDT 2010
+//    I replaced the code that caluculates line box intersections.
+//
 // ****************************************************************************
 
 void
@@ -1417,6 +1655,19 @@ avtIntervalTree::GetElementsList(double origin[3], double rayDir[3],
 
     list.clear();
 
+    //
+    // Pre-calculate some values used by the line box intersection routine.
+    //
+    double invDirX = 1 / rayDir[0];
+    double invDirY = 1 / rayDir[1];
+    double invDirZ = 1 / rayDir[2];
+    int signX = invDirX < 0;
+    int signY = invDirY < 0;
+    int signZ = invDirZ < 0;
+    double originX = origin[0];
+    double originY = origin[1];
+    double originZ = origin[2];
+
     int nodeStack[100]; // Only need log amount
     int nodeStackSize = 0;
 
@@ -1427,31 +1678,71 @@ avtIntervalTree::GetElementsList(double origin[3], double rayDir[3],
     nodeStack[0] = 0;
     nodeStackSize++;
 
-    while (nodeStackSize > 0)
+    if (nDims < 3)
     {
-        nodeStackSize--;
-        int stackIndex = nodeStack[nodeStackSize];
-        if ( Intersects(origin, rayDir, stackIndex, nDims, nodeExtents) )
+        double bounds[4] = {0, 0, 0, 0};
+        while (nodeStackSize > 0)
         {
-            //
-            // The equation has a solution contained by the current extents.
-            //
-            if (nodeIDs[stackIndex] < 0)
+            nodeStackSize--;
+            int stackIndex = nodeStack[nodeStackSize];
+            for (int i = 0; i < nDims*2; i++)
+                bounds[i] = nodeExtents[(stackIndex*nDims*2)+i];
+            if (LineIntersectsBox2D(bounds, invDirX, invDirY,
+                originX, originY, signX, signY))
             {
                 //
-                // This is not a leaf, so put children on stack
+                // The line intersects the current extents.
                 //
-                nodeStack[nodeStackSize] = 2 * stackIndex + 1;
-                nodeStackSize++;
-                nodeStack[nodeStackSize] = 2 * stackIndex + 2;
-                nodeStackSize++;
+                if (nodeIDs[stackIndex] < 0)
+                {
+                    //
+                    // This is not a leaf, so put children on stack
+                    //
+                    nodeStack[nodeStackSize] = 2 * stackIndex + 1;
+                    nodeStackSize++;
+                    nodeStack[nodeStackSize] = 2 * stackIndex + 2;
+                    nodeStackSize++;
+                }
+                else
+                {
+                    //
+                    // Leaf node, put in list
+                    //
+                    list.push_back(nodeIDs[stackIndex]);
+                }
             }
-            else
+        }
+    }
+    else
+    {
+        while (nodeStackSize > 0)
+        {
+            nodeStackSize--;
+            int stackIndex = nodeStack[nodeStackSize];
+            double *bounds = nodeExtents + (stackIndex*nDims*2);
+            if (LineIntersectsBox(bounds, invDirX, invDirY, invDirZ,
+                originX, originY, originZ, signX, signY, signZ))
             {
                 //
-                // Leaf node, put in list
+                // The line intersects the current extents.
                 //
-                list.push_back(nodeIDs[stackIndex]);
+                if (nodeIDs[stackIndex] < 0)
+                {
+                    //
+                    // This is not a leaf, so put children on stack
+                    //
+                    nodeStack[nodeStackSize] = 2 * stackIndex + 1;
+                    nodeStackSize++;
+                    nodeStack[nodeStackSize] = 2 * stackIndex + 2;
+                    nodeStackSize++;
+                }
+                else
+                {
+                    //
+                    // Leaf node, put in list
+                    //
+                    list.push_back(nodeIDs[stackIndex]);
+                }
             }
         }
     }
@@ -1729,4 +2020,72 @@ IntersectsWithLine(double pt1[3], double pt2[3], int block,  int nDims,
     }
     else 
         return false;
+}
+
+
+// ****************************************************************************
+//  Function: LineIntersectsBox2D
+//
+//  Purpose:
+//      Used to determine if a line intersects an axis aligned 2D box.
+//
+//  Returns:    true if line intersects the box, false otherwise.
+//
+//  Programmer: Eric Brugger
+//  Creation:   July 12, 2010 
+//
+// ****************************************************************************
+
+bool
+LineIntersectsBox2D(double *bounds, double invDirX, double invDirY,
+    double originX, double originY, int signX, int signY)
+{
+    double tmin, tmax, tymin, tymax;
+
+    tmin  = (bounds[signX]   - originX) * invDirX;
+    tmax  = (bounds[1-signX] - originX) * invDirX;
+    tymin = (bounds[signY+2]   - originY) * invDirY;
+    tymax = (bounds[1-signY+2] - originY) * invDirY;
+    if ( (tmin > tymax) || (tymin > tmax) )
+        return false;
+    return true;
+}
+
+
+// ****************************************************************************
+//  Function: LineIntersectsBox
+//
+//  Purpose:
+//      Used to determine if a line intersects an axis aligned box.
+//
+//  Returns:    true if line intersects the box, false otherwise.
+//
+//  Programmer: Eric Brugger
+//  Creation:   July 12, 2010 
+//
+// ****************************************************************************
+
+bool
+LineIntersectsBox(double *bounds,
+    double invDirX, double invDirY, double invDirZ,
+    double originX, double originY, double originZ,
+    int signX, int signY, int signZ)
+{
+    double tmin, tmax, tymin, tymax, tzmin, tzmax;
+
+    tmin  = (bounds[signX]   - originX) * invDirX;
+    tmax  = (bounds[1-signX] - originX) * invDirX;
+    tymin = (bounds[signY+2]   - originY) * invDirY;
+    tymax = (bounds[1-signY+2] - originY) * invDirY;
+    if ( (tmin > tymax) || (tymin > tmax) )
+        return false;
+    if (tymin > tmin)
+        tmin = tymin;
+    if (tymax < tmax)
+        tmax = tymax;
+    tzmin = (bounds[signZ+4]   - originZ) * invDirZ;
+    tzmax = (bounds[1-signZ+4] - originZ) * invDirZ;
+    if ( (tmin > tzmax) || (tzmin > tmax) )
+        return false;
+    return true;
 }

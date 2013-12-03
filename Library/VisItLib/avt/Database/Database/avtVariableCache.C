@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -41,6 +41,9 @@
 // ************************************************************************* //
 
 #include <vtkDataSet.h>
+#include <vtkDataObject.h>
+#include <vtkInformation.h>
+#include <vtkInformationDoubleVectorKey.h>
 
 #include <avtFacelist.h>
 #include <avtMaterial.h>
@@ -48,6 +51,7 @@
 
 #include <ImproperUseException.h>
 #include <TimingsManager.h>
+#include "avtExecutionManager.h"
 
 using std::string;
 using std::vector;
@@ -64,6 +68,11 @@ const char *avtVariableCache::ARRAYS_NAME = "ARRAYS";
 const char *avtVariableCache::DATASET_NAME = "DATASET";
 const char *avtVariableCache::DATA_SPECIFICATION = "DATA_SPECIFICATION";
 bool        avtVariableCache::vtkDebugMode = false;
+
+vtkInformationKeyRestrictedMacro(avtVariableCache, OFFSET_3, DoubleVector, 3);
+vtkInformationKeyRestrictedMacro(avtVariableCache, OFFSET_3_COMPONENT_0, DoubleVector, 3);
+vtkInformationKeyRestrictedMacro(avtVariableCache, OFFSET_3_COMPONENT_1, DoubleVector, 3);
+vtkInformationKeyRestrictedMacro(avtVariableCache, OFFSET_3_COMPONENT_2, DoubleVector, 3);
 
 // ****************************************************************************
 //  Method: avtVariableCache::DestructVTKObject 
@@ -244,6 +253,10 @@ avtVariableCache::GetVTKObject(const char *var, const char *type, int timestep,
 //    Mark C. Miller, Sun Dec  3 12:20:11 PST 2006
 //    Added RemoveObjectPointerPair to ensure we don't have a pair with obj
 //    already recorded
+//
+//    David Camp, Mon May 20 07:45:08 PDT 2013
+//    Added code to lock the push of the cache var. This is only done in 
+//    thread mode.
 // ****************************************************************************
 
 void
@@ -266,7 +279,9 @@ avtVariableCache::CacheVTKObject(const char *name, const char *type,
     if (v == NULL)
     {
         v = new OneVar(name, type);
+        VisitMutexLock( "avtVariableCache::vtkVars" );
         vtkVars.push_back(v);
+        VisitMutexUnlock( "avtVariableCache::vtkVars" );
     }
 
     RemoveObjectPointerPair(obj);
@@ -657,6 +672,9 @@ avtVariableCache::GetVoidRef(const char *var, const char *type, int timestep,
 //  Programmer: Hank Childs
 //  Creation:   May 22, 2001
 //
+//    David Camp, Mon May 20 07:45:08 PDT 2013
+//    Added code to lock the push of the cache var. This is only done in
+//    thread mode.
 // ****************************************************************************
 
 void
@@ -678,7 +696,9 @@ avtVariableCache::CacheVoidRef(const char *name, const char *type,
     if (v == NULL)
     {
         v = new OneVar(name, type);
+        VisitMutexLock( "avtVariableCache::voidRefVars" );
         voidRefVars.push_back(v);
+        VisitMutexUnlock( "avtVariableCache::voidRefVars" );
     }
 
     avtCachedVoidRef *cvr = new avtCachedVoidRef(vr);
@@ -747,6 +767,54 @@ avtVariableCache::ClearTimestep(int ts)
         voidRefVars[i]->ClearTimestep(ts);
     }
     visitTimer->StopTimer(t1, "Clearing time step");
+}
+
+// ****************************************************************************
+//  Method: avtVariableCache::ClearVariablesWithString
+//
+//  Purpose:
+//      Clears out all variables that start with a string.
+//
+//  Arguments:
+//      str     The string to clear.
+//
+//  Programmer: Hank Childs
+//  Creation:   January 11, 2011
+//
+// ****************************************************************************
+
+void
+avtVariableCache::ClearVariablesWithString(const std::string &str)
+{
+    const char *substr = str.c_str();
+    int len = strlen(substr);
+    int t1 = visitTimer->StartTimer();
+    // clear out objectPointerMap items *before* vtkVars and voidRefVars
+    std::vector<vtkObject*> itemsToRemove;
+    std::map<vtkObject*,ObjectDomainPair>::iterator it;
+    for (it = objectPointerMap.begin(); it != objectPointerMap.end(); it++)
+    {
+        int objts = -1;
+        const char *name;
+        GetVTKObjectKey(&name, 0, &objts, it->second.domain, 0, it->second.obj);
+        if (strncmp(name, substr, len) == 0)
+        {
+            itemsToRemove.push_back(it->first);
+        }
+    }
+    for (size_t i = 0 ; i < itemsToRemove.size() ; i++)
+    {
+        objectPointerMap.erase(itemsToRemove[i]);
+    }
+    for (size_t i = 0 ; i < vtkVars.size() ; i++)
+    {
+        vtkVars[i]->ClearVariablesWithString(str);
+    }
+    for (size_t i = 0 ; i < voidRefVars.size() ; i++)
+    {
+        voidRefVars[i]->ClearVariablesWithString(str);
+    }
+    visitTimer->StopTimer(t1, "Clearing expr vars from DB cache");
 }
 
 // ****************************************************************************
@@ -878,6 +946,7 @@ avtVariableCache::OneTimestep::~OneTimestep()
         }
         delete [] domains[i];
     }
+    delete [] domains;
 }
 
 // ****************************************************************************
@@ -1091,6 +1160,9 @@ avtVariableCache::OneMat::~OneMat()
 //  Programmer: Hank Childs
 //  Creation:   October 5, 2001
 //
+//    David Camp, Mon May 20 07:45:08 PDT 2013
+//    Added code to lock the push of the cache var. This is only done in
+//    thread mode.
 // ****************************************************************************
 
 void
@@ -1112,7 +1184,9 @@ avtVariableCache::OneMat::CacheItem(int timestep, int domain,
     if (t == NULL)
     {
         t = new OneTimestep(timestep);
+        VisitMutexLock( "avtVariableCache::OneMat::timesteps" );
         timesteps.push_back(t);
+        VisitMutexUnlock( "avtVariableCache::OneMat::timesteps" );
     }
 
     t->CacheItem(domain, im);
@@ -1355,6 +1429,34 @@ avtVariableCache::OneVar::ClearTimestep(int ts)
     for (size_t i = 0 ; i < materials.size() ; i++)
     {
         materials[i]->ClearTimestep(ts);
+    }
+}
+
+
+// ****************************************************************************
+//  Method: OneVar::ClearVariablesWithString
+//
+//  Purpose:
+//      Clears out all containers that contain a string.
+//
+//  Arguments:
+//      str     The string to clear out.
+//
+//  Programmer: Hank Childs
+//  Creation:   January 11, 2011
+//
+// ****************************************************************************
+
+void
+avtVariableCache::OneVar::ClearVariablesWithString(const std::string &str)
+{
+    const char *substr = str.c_str();
+    int len = strlen(substr);
+    if (strncmp(var, substr, len) == 0)
+    {
+        for (size_t i = 0 ; i < materials.size() ; i++)
+            delete materials[i];
+        materials.clear();
     }
 }
 

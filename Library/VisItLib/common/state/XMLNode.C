@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -304,7 +304,7 @@ XMLNode *
 XMLNode::TakeChild(int index)
 {
     if(index < 0 || index >= children.size())
-        return false;
+        return 0;
         
     XMLNode *child = children[index];
     children.erase(children.begin()+index);
@@ -390,7 +390,7 @@ XMLNode::ToString(const string &indent) const
             << EscapeString(itr->second) << "\"";
     }
     oss << ">";
-    int nchildren = children.size();
+    size_t nchildren = children.size();
     if(nchildren == 0) // assume text node
     {
        // keep text nodes on a single line.
@@ -406,7 +406,7 @@ XMLNode::ToString(const string &indent) const
             oss << child_indent << "<text>" << EscapeString(text) 
                 << "</text>" <<endl;
         
-        for(int i=0;i<nchildren;i++)
+        for(size_t i=0;i<nchildren;i++)
             oss << children[i]->ToString(child_indent);
         oss << indent << "</" << esc_name << ">" << endl;
     }
@@ -507,8 +507,8 @@ bool
 XMLNode::Check(const string&str,istream &iss)
 {
     // see of first part of the string buffer == the input string
-    int i=0;
-    int str_len = str.size();
+    size_t i=0;
+    size_t str_len = str.size();
     stack<unsigned char> buff;
     while( !iss.eof() && i < str_len && str[i]==iss.peek())
     {
@@ -539,8 +539,8 @@ void
 XMLNode::Eat(const string &str,istream &iss)
 {
     // eat string from stream
-    int i=0;
-    int str_len = str.size();
+    size_t i=0;
+    size_t str_len = str.size();
     while(!iss.eof() && i < str_len && str[i]==iss.peek())
     {
         iss.get();
@@ -662,6 +662,10 @@ XMLNode::GrabEntityValue(istream &iss)
 //  Programmer:  Cyrus Harrison
 //  Creation:    December 17, 2007
 //
+//  Modifications:
+//    Kathleen Biagas, Mon Jul 18 18:49:26 PDT 2011
+//    Changed "&quote" to "&quot".
+//
 // ****************************************************************************
 
 string
@@ -675,8 +679,8 @@ XMLNode::EscapeString(const string &val)
     // " $quot;
     
     string res="";
-    int ssize = val.size();
-    for(int i=0;i<ssize;i++)
+    size_t ssize = val.size();
+    for(size_t i=0;i<ssize;i++)
     {
         if(val[i] == '<')
         {res += string("&lt;");}
@@ -687,7 +691,7 @@ XMLNode::EscapeString(const string &val)
         else if(val[i] == '\'')
         {res += string("&apos;");}
         else if(val[i] == '"')
-        {res += string("&quote;");}
+        {res += string("&quot;");}
         else
         {res.push_back(val[i]);} 
     }

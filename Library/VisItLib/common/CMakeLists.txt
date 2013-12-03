@@ -50,9 +50,11 @@ comm/ExistingRemoteProcess.C
 comm/FConvert.C
 comm/FileConnection.C
 comm/IConvert.C
+comm/LaunchService.C
 comm/LConvert.C
 comm/ParentProcess.C
 comm/RemoteProcess.C
+comm/SocketBridge.C
 comm/SocketConnection.C
 comm/TypeRepresentation.C)
 IF(WIN32)
@@ -61,6 +63,7 @@ ENDIF(WIN32)
 
 SET(EXCEPTION_SOURCES
 Exceptions/Database/BadPermissionException.C
+Exceptions/Database/DBYieldedNoDataException.C
 Exceptions/Database/FileDoesNotExistException.C
 Exceptions/Database/InvalidDBTypeException.C
 Exceptions/Database/InvalidFilesException.C
@@ -69,6 +72,7 @@ Exceptions/Database/InvalidTimeStepException.C
 Exceptions/Database/InvalidVariableException.C
 Exceptions/Database/InvalidZoneTypeException.C
 Exceptions/Database/NonCompliantFileException.C
+Exceptions/Database/NonCompliantException.C
 Exceptions/Database/PointerNotInCacheException.C
 Exceptions/Database/SiloException.C
 Exceptions/Pipeline/AbortException.C
@@ -183,7 +187,7 @@ state/ColorTableAttributes.C
 state/ColorTableManager.C
 state/CompactSILRestrictionAttributes.C
 state/ConfigManager.C
-state/ConstructDDFAttributes.C
+state/ConstructDataBinningAttributes.C
 state/ContourOpAttributes.C
 state/DatabaseAttributes.C
 state/DatabaseCorrelation.C
@@ -192,6 +196,7 @@ state/DataNode.C
 state/DBOptionsAttributes.C
 state/DBPluginInfoAttributes.C
 state/EngineList.C
+state/EngineProperties.C
 state/ExportDBAttributes.C
 state/Expression.C
 state/ExpressionList.C
@@ -206,8 +211,10 @@ state/MachineProfile.C
 state/HostProfileList.C
 state/InteractorAttributes.C
 state/InternalResampleAttributes.C
+state/JSONNode.C
 state/KeepAliveRPC.C
 state/KeyframeAttributes.C
+state/LaunchRPC.C
 state/LightAttributes.C
 state/LightList.C
 state/Line.C
@@ -238,7 +245,13 @@ state/QueryList.C
 state/QueryOverTimeAttributes.C
 state/QuitRPC.C
 state/RenderingAttributes.C
+state/SaveSubWindowAttributes.C
+state/SaveSubWindowsAttributes.C
 state/SaveWindowAttributes.C
+state/SelectionList.C
+state/SelectionProperties.C
+state/SelectionSummary.C
+state/SelectionVariableSummary.C
 state/SILArrayAttributes.C
 state/SILAttributes.C
 state/SILMatrixAttributes.C
@@ -246,6 +259,7 @@ state/SILRestrictionAttributes.C
 state/SimilarityTransformAttributes.C
 state/SimpleObserver.C
 state/SimulationCommand.C
+state/SimulationUIValues.C
 state/SingleAttributeConfigManager.C
 state/SphereAttributes.C
 state/StatusAttributes.C
@@ -253,12 +267,16 @@ state/Subject.C
 state/SurfaceFilterAttributes.C
 state/SyncAttributes.C
 state/TimeFormat.C
+state/ThresholdOpAttributes.C
 state/Variant.C
 state/View2DAttributes.C
 state/View3DAttributes.C
 state/ViewAttributes.C
 state/ViewAxisArrayAttributes.C
 state/ViewCurveAttributes.C
+state/ViewerClientAttributes.C
+state/ViewerClientInformation.C
+state/ViewerClientInformationElement.C
 state/VisItRPC.C
 state/VisualCueInfo.C
 state/VisualCueList.C

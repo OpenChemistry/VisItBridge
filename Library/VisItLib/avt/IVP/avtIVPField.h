@@ -1,8 +1,8 @@
-/*****************************************************************************
+ /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -46,8 +46,6 @@
 #include <stdexcept>
 #include <avtVector.h>
 #include <ivp_exports.h>
-#include <string>
-
 
 // ****************************************************************************
 //  Class: avtIVPField
@@ -56,10 +54,10 @@
 //      avtIVPField is a base class for all manners of vector fields. 
 //      Deriving from it should allow an adaptation of many different vector 
 //      field types for the use of streamlines/IVP solutions by wrapping 
-//      existing interpolation facilities. If the queried point is invalid, 
-//      avtIVPField can throw an exception that will pass through avtIVPSolver.
+//      existing interpolation facilities.
 //
-//      The IVP right-hand side is made accessible to an IVP solver by means of //      the avtIVPField class, allowing the IVP solver to query points of the 
+//      The IVP right-hand side is made accessible to an IVP solver by means of 
+//      the avtIVPField class, allowing the IVP solver to query points of the 
 //      given vector field. 
 //
 //  Programmer: Christoph Garth
@@ -73,44 +71,91 @@
 //   Dave Pugmire, Mon Jun 8 2009, 11:44:01 EDT 2009
 //   Added ComputeScalarVariable, HasGhostZones and GetExtents methods.
 //
-//    Dave Pugmire, Tue Dec  1 11:50:18 EST 2009
-//    Switch from avtVec to avtVector.
+//   Dave Pugmire, Tue Dec  1 11:50:18 EST 2009
+//   Switch from avtVec to avtVector.
 //
 //   Dave Pugmire, Tue Dec 29 14:37:53 EST 2009
 //   Generalize the compute scalar variable.
+//
+//   Christoph Garth, July 13 16:49:12 PDT 2010
+//   Compute scalars by index instead of by name.
+//
+//   Hank Childs, Sun Dec  5 10:18:13 PST 2010
+//   Add a boolean for whether or not the velocity field is instantaneous.
+//
+//   Dave Pugmire, Fri Jun  1 10:03:14 EDT 2012
+//   Add Classification enum for IsInside() method.
+//
+//   Dave Pugmire, Wed Jun 13 17:18:24 EDT 2012
+//   Added avtIVPField::Result.
 //
 // ****************************************************************************
 
 class IVP_API avtIVPField
 {
   public:
-    class Undefined: public std::exception
+    enum Result
     {
-      public:
-        const char* what() const throw()
-        {
-            return "field undefined";
-        }
+        OK = 0,
+        OUTSIDE_SPATIAL,
+        OUTSIDE_TEMPORAL,
+        OUTSIDE_BOTH,
+        FAIL,
     };
 
-                         avtIVPField() {};
+                         avtIVPField() : order(1) {}
+    virtual             ~avtIVPField() {}
 
-    virtual avtVector    operator()(const double& t, 
-                                    const avtVector& x) const = 0;
+    virtual Result       operator()(const double& t, 
+                                    const avtVector& x,
+                                    avtVector& retV) const = 0;
+
+    virtual Result       operator()(const double& t, 
+                                    const avtVector& x, 
+                                    const avtVector& v,
+                                    avtVector& retV) const = 0;
+
+    virtual avtVector    ConvertToCartesian(const avtVector& pt) const = 0;
+    virtual avtVector    ConvertToCylindrical(const avtVector& pt) const = 0;
+
     virtual double       ComputeVorticity(const double& t, 
                                           const avtVector& x ) const = 0;
-    virtual double       ComputeScalarVariable(const std::string &var,
+    virtual double       ComputeScalarVariable(unsigned char index,
                                                const double& t,
                                                const avtVector& x) const = 0;
 
-    virtual bool         IsInside(const double& t, 
-                                  const avtVector& x) const = 0;
-    virtual unsigned int GetDimension() const = 0;
-    virtual bool         GetValidTimeRange(double range[]) const = 0;
-    virtual bool         HasGhostZones() const = 0;
-    virtual void         GetExtents(double *extents) const = 0;
+    virtual void         SetScalarVariable(unsigned char index, 
+                                           const std::string& name ) = 0;
+
+    virtual Result       IsInside(const double &t, const avtVector &x) const = 0;
+
+    virtual void         GetTimeRange( double range[2] ) const = 0;
+    virtual void         GetExtents( double  extents[6] ) const = 0;
+    virtual bool         VelocityIsInstantaneous(void) { return true; }
+
+    virtual void         SetOrder( unsigned int val ) { order = val; }
+    virtual unsigned int GetOrder() { return order; }
+
+ protected:
+    unsigned int order;
 };
 
+// ostream operators for avtICStatus
+inline std::ostream& operator<<(std::ostream& out, 
+                                avtIVPField::Result res)
+{
+    if (res == avtIVPField::OK)
+        out<<"OK";
+    else if (res == avtIVPField::OUTSIDE_SPATIAL)
+        out<<"OUTSIDE_SPATIAL";
+    else if (res == avtIVPField::OUTSIDE_TEMPORAL)
+        out<<"OUTSIDE_TEMPORAL";
+    else if (res == avtIVPField::OUTSIDE_BOTH)
+        out<<"OUTSIDE_BOTH";
+    else if (res == avtIVPField::FAIL)
+        out<<"FAIL"<<endl;
+    return out;
+}
+
+
 #endif
-
-

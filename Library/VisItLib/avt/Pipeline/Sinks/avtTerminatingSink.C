@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -210,7 +210,7 @@ avtTerminatingSink::Execute(avtContract_p contract)
 
             if (DebugStream::Level3())
             {
-                unsigned int size = 0, rss = 0;
+                unsigned long size = 0, rss = 0;
                 GetMemorySize(size, rss);
                 if (size > 0 && rss > 0)
                 {
@@ -242,7 +242,7 @@ avtTerminatingSink::Execute(avtContract_p contract)
 
                 if (DebugStream::Level3())
                 {
-                    unsigned int size = 0, rss = 0;
+                    unsigned long size = 0, rss = 0;
                     GetMemorySize(size, rss);
                     if (size > 0 && rss > 0)
                     {

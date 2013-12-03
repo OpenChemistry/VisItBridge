@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -57,12 +57,12 @@
 #include <avtDataSelection.h>
 #include <avtTypes.h>
 
-class vtkDataSet;
-class vtkDataArray;
 
 class     avtDatabaseMetaData;
 class     avtIOInformation;
 class     avtVariableCache;
+class vtkDataSet;
+class vtkDataArray;
 
 
 // ****************************************************************************
@@ -88,7 +88,7 @@ class     avtVariableCache;
 //    Hank Childs, Sat Sep 20 09:04:49 PDT 2003
 //    Added support for tensors.
 //
-//    Mark C. Miller, 30Sep03, Added support for time varying sil/metadata
+//    Mark C. Miller, 30Sep03, Added support for time varying sil/metadata 
 //
 //    Mark C. Miller, Mon Feb  9 16:10:16 PST 2004
 //    Added method, ActivateTimestep
@@ -105,9 +105,9 @@ class     avtVariableCache;
 //    Added const members for invalid cycles/times. Changed class to use
 //    these symbols instead of -INT_MAX and -DBL_MAX
 //
-//    Kathleen Bonnell, Wed Jul 13 18:28:51 PDT 2005
+//    Kathleen Bonnell, Wed Jul 13 18:28:51 PDT 2005 
 //    Added bool to AddScalarVarToMetaData, in order to specify whether
-//    the var should be treated as ascii (default -- false).
+//    the var should be treated as ascii (default -- false). 
 //
 //    Mark C. Miller, Thu Jun 14 10:26:37 PDT 2007
 //    Moved implementations of GuessCycle/GuessTime to .C file. Added
@@ -126,6 +126,13 @@ class     avtVariableCache;
 //
 //    Jeremy Meredith, Fri Jan  8 16:15:02 EST 2010
 //    Added ability to turn on stricter file format error checking.
+//
+//    Hank Childs, Wed Dec 22 14:55:05 PST 2010
+//    Add a data member to indicate whether or not we are doing streaming.
+//
+//    Hank Childs, Tue Dec 20 13:18:43 CST 2011
+//    Add method for mangling names used for caching when selections are
+//    present.
 //
 // ****************************************************************************
 
@@ -158,9 +165,11 @@ class DATABASE_API avtFileFormat
     virtual void          TurnMaterialSelectionOn(const char *);
 
     virtual bool          CanCacheVariable(const char *) { return true; };
+    virtual std::string   CreateCacheNameIncludingSelections(std::string s)
+                                  { return s; };
 
-    bool                  CanDoStreaming(void)
-                              { return canDoStreaming; };
+    void                  DoingStreaming(bool v) { doingStreaming = v; };
+    bool                  CanDoStreaming(void) { return canDoStreaming; };
 
     virtual void          RegisterVariableList(const char *,
                                           const std::vector<CharStrRef> &) {;};
@@ -222,13 +231,19 @@ class DATABASE_API avtFileFormat
     avtVariableCache     *cache;
     avtDatabaseMetaData  *metadata;
     bool                  doMaterialSelection;
-    bool                  canDoStreaming;
     bool                  closingFile;
     char                 *materialName;
     std::vector<int>      fileIndicesForDescriptorManager;
     bool                  strictMode;
 
-    // This data member is for file formats that do their
+    // reflects the ability of the format to operate in a streaming setting
+    // this is an output to the database & pipeline
+    bool                  canDoStreaming;
+    // reflects whether or not the pipeline is doing streaming.
+    // this is an input from the database & pipeline
+    bool                  doingStreaming;
+
+    // This data member is for file formats that do their 
     // own domain decomposition.
     bool                  resultMustBeProducedOnlyOnThisProcessor;
 
@@ -264,7 +279,7 @@ class DATABASE_API avtFileFormat
 
     void       AddMeshToMetaData(avtDatabaseMetaData *, std::string,
                                  avtMeshType, const double * = NULL, int = 1,
-                                 int = 0, int = 3, int = 3);
+                                 int = 0, int = 3, int = 3, const int * = NULL);
     void       AddScalarVarToMetaData(avtDatabaseMetaData *, std::string,
                                       std::string, avtCentering,
                                       const double * = NULL,

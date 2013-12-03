@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,6 +43,7 @@
 #include <avtparaDISOptions.h>
 
 #include <DBOptionsAttributes.h>
+#include <DebugStream.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -100,10 +101,11 @@ GetparaDISReadOptions(void)
     int debug=0;
     cp = getenv("PARADIS_VERBOSITY"); 
     if (cp) debug=atoi(cp); 
+    debug1 << "paradis debug set to " << debug << endl;
     rv->SetInt(PARADIS_VERBOSITY, debug);
     
     cp = getenv("PARADIS_DEBUG_FILE");
-    if (!cp) cp ="paradis_debug_output.log";
+    if (!cp) cp = (char*)"paradis_debug_output.log";
     rv->SetString(PARADIS_DEBUG_FILE, cp);
     
     debug = 0; 

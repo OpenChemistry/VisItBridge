@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -58,6 +58,7 @@
 
 #include <cstring>
 #include <snprintf.h>
+#include <float.h>
 
 using     std::string;
 using     std::vector;
@@ -71,7 +72,6 @@ using     std::sort;
 //  Creation:   March 24, 2001
 //
 //  Modifications:
-//
 //    Hank Childs, Tue Sep  4 13:39:02 PDT 2001
 //    Removed unneeded fields.  Made all extents use avtExtents.
 //
@@ -79,7 +79,7 @@ using     std::sort;
 //    Initialize more data members.
 //
 //    Kathleen Bonnell, Tue Oct  2 15:25:23 PDT 2001 
-//    Initialize current extents. 
+//    Initialize actual extents. 
 //
 //    Hank Childs, Fri Dec 21 07:18:33 PST 2001
 //    Initialize varname.
@@ -168,17 +168,35 @@ using     std::sort;
 //    Jeremy Meredith, Tue Jun  2 16:25:01 EDT 2009
 //    Added support for unit cell origin (previously assumed to be 0,0,0);
 //
+//    Hank Childs, Sun Sep 19 10:47:12 PDT 2010
+//    Add support for data replication.
+//
+//    Hank Childs, Tue Jan 11 08:41:22 PST 2011
+//    Add support for time index.
+//
+//    Kathleen Biagas, Thu Sep 29 06:08:06 PDT 2011
+//    Add constructMultipleCurves.
+//
+//    Eric Brugger, Thu Oct 27 10:29:42 PDT 2011
+//    Add GetMultiresExtents and GetMultiresCellSize to support adding
+//    a multi resolution display capability for AMR data.
+//
+//    Cyrus Harrison,Thu Feb  9 10:26:48 PST 2012
+//    Added logic to support presentGhostZoneTypes, which allows us to
+//    differentiate between ghost zones for boundaries & nesting.
+//
 // ****************************************************************************
 
 avtDataAttributes::avtDataAttributes() : plotInfoAtts()
 {
-    trueSpatial               = NULL;
-    cumulativeTrueSpatial     = NULL;
-    currentSpatial            = NULL;
-    effectiveSpatial          = NULL;
-    cumulativeCurrentSpatial  = NULL;
+    originalSpatial              = NULL;
+    thisProcsOriginalSpatial     = NULL;
+    actualSpatial                = NULL;
+    desiredSpatial               = NULL;
+    thisProcsActualSpatial       = NULL;
+    multiresExtents              = NULL;
 
-    canUseCumulativeAsTrueOrCurrent = false;
+    canUseThisProcsAsOriginalOrActual = false;
 
     activeVariable         = -1;
     cellOrigin             = 0;
@@ -192,6 +210,7 @@ avtDataAttributes::avtDataAttributes() : plotInfoAtts()
     cycleIsAccurate        = false;
     dtime                  = 0.;
     timeIsAccurate         = false;
+    timeIndex              = 0;
     
     dynamicDomainDecomposition = false;
 
@@ -203,6 +222,7 @@ avtDataAttributes::avtDataAttributes() : plotInfoAtts()
     filename               = "<unknown>";
     fullDBName             = "<unknown>";
     containsGhostZones     = AVT_MAYBE_GHOSTS;
+    presentGhostZoneTypes  = AVT_NO_GHOST_ZONES;
     containsExteriorBoundaryGhosts = false;
     containsOriginalCells  = false;
     containsOriginalNodes  = false;
@@ -223,6 +243,7 @@ avtDataAttributes::avtDataAttributes() : plotInfoAtts()
     adaptsToAnyWindowMode = false;
 
     numStates = 1;
+    dataIsReplicatedOnAllProcessors = false;
     mirOccurred = false;
     canUseOrigZones = true;
     origElementsRequiredForPick = false;
@@ -233,7 +254,7 @@ avtDataAttributes::avtDataAttributes() : plotInfoAtts()
     {
         for (int j=0; j<3; j++)
         {
-            unitCellVectors[i*3+j] = (i==j) ? 1.0 : 0.0;
+            unitCellVectors[i*3+j] = (i==j) ? 1.f : 0.f;
         }
     }
     unitCellOrigin[0] = unitCellOrigin[1] = unitCellOrigin[2] = 0.0;
@@ -245,6 +266,10 @@ avtDataAttributes::avtDataAttributes() : plotInfoAtts()
         }
     }
     rectilinearGridHasTransform = false;
+
+    multiresCellSize = DBL_MAX;
+
+    constructMultipleCurves = false;
 }
 
 
@@ -255,7 +280,6 @@ avtDataAttributes::avtDataAttributes() : plotInfoAtts()
 //  Creation:   March 24, 2001
 //      
 //  Modifications:
-//
 //    Hank Childs, Mon Feb 23 09:18:58 PST 2004
 //    Moved all code in the former destructor to DestructSelf.  Also moved
 //    appropriate comments.
@@ -275,12 +299,11 @@ avtDataAttributes::~avtDataAttributes()
 //  Creation:   February 23, 2004
 //      
 //  Modifications:
-//
 //    Hank Childs, Tue Sep  4 13:39:02 PDT 2001
 //    Reflected use of avtExtents.
 //
 //    Kathleen Bonnell, Tue Oct  2 15:25:23 PDT 2001 
-//    Delete current extents. 
+//    Delete actual extents. 
 //
 //    Kathleen Bonnell, Thu Apr 10 10:31:54 PDT 2003  
 //    Delete transform.
@@ -300,70 +323,76 @@ avtDataAttributes::~avtDataAttributes()
 //    Brad Whitlock, Wed Jan  7 14:04:25 PST 2009
 //    plotInfoAtts is no longer a pointer so no special treatment is needed.
 //
+//    Eric Brugger, Thu Oct 27 10:29:42 PDT 2011
+//    Add GetMultiresExtents and GetMultiresCellSize to support adding
+//    a multi resolution display capability for AMR data.
+//
 // ****************************************************************************
 
 void
 avtDataAttributes::DestructSelf(void)
 {
     spatialDimension = -1;
-    if (trueSpatial != NULL)
+    if (originalSpatial != NULL)
     {
-        delete trueSpatial;
-        trueSpatial = NULL;
+        delete originalSpatial;
+        originalSpatial = NULL;
     }
-    if (cumulativeTrueSpatial != NULL)
+    if (thisProcsOriginalSpatial != NULL)
     {
-        delete cumulativeTrueSpatial;
-        cumulativeTrueSpatial = NULL;
+        delete thisProcsOriginalSpatial;
+        thisProcsOriginalSpatial = NULL;
     }
-    if (effectiveSpatial != NULL)
+    if (desiredSpatial != NULL)
     {
-        delete effectiveSpatial;
-        effectiveSpatial = NULL;
+        delete desiredSpatial;
+        desiredSpatial = NULL;
     }
-    if (currentSpatial != NULL)
+    if (actualSpatial != NULL)
     {
-        delete currentSpatial;
-        currentSpatial = NULL;
+        delete actualSpatial;
+        actualSpatial = NULL;
     }
-    if (cumulativeCurrentSpatial != NULL)
+    if (thisProcsActualSpatial != NULL)
     {
-        delete cumulativeCurrentSpatial;
-        cumulativeCurrentSpatial = NULL;
+        delete thisProcsActualSpatial;
+        thisProcsActualSpatial = NULL;
     }
 
     for (int i = 0 ; i < variables.size() ; i++)
     {
-        if (variables[i].trueData != NULL)
+        if (variables[i]->originalData != NULL)
         {
-            delete variables[i].trueData;
-            variables[i].trueData = NULL;
+            delete variables[i]->originalData;
+            variables[i]->originalData = NULL;
         }
-        if (variables[i].cumulativeTrueData != NULL)
+        if (variables[i]->thisProcsOriginalData != NULL)
         {
-            delete variables[i].cumulativeTrueData;
-            variables[i].cumulativeTrueData = NULL;
+            delete variables[i]->thisProcsOriginalData;
+            variables[i]->thisProcsOriginalData = NULL;
         }
-        if (variables[i].effectiveData != NULL)
+        if (variables[i]->desiredData != NULL)
         {
-            delete variables[i].effectiveData;
-            variables[i].effectiveData = NULL;
+            delete variables[i]->desiredData;
+            variables[i]->desiredData = NULL;
         }
-        if (variables[i].currentData != NULL)
+        if (variables[i]->actualData != NULL)
         {
-            delete variables[i].currentData;
-            variables[i].currentData = NULL;
+            delete variables[i]->actualData;
+            variables[i]->actualData = NULL;
         }
-        if (variables[i].cumulativeCurrentData != NULL)
+        if (variables[i]->thisProcsActualData != NULL)
         {
-            delete variables[i].cumulativeCurrentData;
-            variables[i].cumulativeCurrentData = NULL;
+            delete variables[i]->thisProcsActualData;
+            variables[i]->thisProcsActualData = NULL;
         }
-        if (variables[i].componentExtents != NULL)
+        if (variables[i]->componentExtents != NULL)
         {
-            delete variables[i].componentExtents;
-            variables[i].componentExtents = NULL;
+            delete variables[i]->componentExtents;
+            variables[i]->componentExtents = NULL;
         }
+        delete variables[i];
+        variables[i] = NULL;
     }
     variables.clear();
 
@@ -376,6 +405,12 @@ avtDataAttributes::DestructSelf(void)
     {
         delete transform;
         transform = NULL;
+    }
+
+    if (multiresExtents != NULL)
+    {
+        delete multiresExtents;
+        multiresExtents = NULL;
     }
 }
 
@@ -467,13 +502,30 @@ avtDataAttributes::DestructSelf(void)
 //    Added component extents for array variables.
 //
 //    Eric Brugger, Tue Dec  9 16:19:10 PST 2008
-//    Added the AxisParallel window mode.
+//    Added the ParallelAxes window mode.
 //
 //    Hank Childs, Tue Jan 20 12:03:05 CST 2009
 //    Added dynamicDomainDecomposition.
 //
 //    Jeremy Meredith, Tue Jun  2 16:25:01 EDT 2009
 //    Added support for unit cell origin (previously assumed to be 0,0,0);
+//
+//    Hank Childs, Sun Sep 19 10:47:12 PDT 2010
+//    Add support for data replication.
+//
+//    Hank Childs, Tue Jan 11 08:41:22 PST 2011
+//    Add support for time index.
+//
+//    Eric Brugger, Thu Oct 27 10:29:42 PDT 2011
+//    Add GetMultiresExtents and GetMultiresCellSize to support adding
+//    a multi resolution display capability for AMR data.
+//
+//    Cyrus Harrison, Tue Feb  7 11:15:20 PST 2012
+//    Add print for presentGhostZoneTypes.
+//
+//    Eric Brugger, Mon Nov  5 15:10:17 PST 2012
+//    I added the ability to display the parallel axes either horizontally
+//    or vertically.
 //
 // ****************************************************************************
 
@@ -494,6 +546,7 @@ avtDataAttributes::Print(ostream &out)
         out << "Cycle is not known. Suspected to be " << cycle << endl;
     else
         out << "Cycle = " << cycle << endl;
+    out << "Time index = " << timeIndex << endl;
 
     if (dynamicDomainDecomposition)
         out << "The data set is being decomposed in parallel dynamically" 
@@ -528,6 +581,19 @@ avtDataAttributes::Print(ostream &out)
         out << "There maybe ghost zones in this dataset." << endl;
         break;
     }
+
+    if(presentGhostZoneTypes == AVT_NO_GHOST_ZONES)
+    {
+        out << "There are present ghost zone types set." << endl;
+    }
+    else
+    {
+        if(presentGhostZoneTypes & AVT_BOUNDARY_GHOST_ZONES)
+            out << "Ghost zones for domain boundaries are present." << endl;
+        if(presentGhostZoneTypes & AVT_NESTING_GHOST_ZONES)
+            out << "Ghost zones for domain nesting are present." << endl;
+    }
+
     if (containsExteriorBoundaryGhosts)
         out << "There are ghost zones on the exterior of the boundary." <<endl;
 
@@ -543,10 +609,10 @@ avtDataAttributes::Print(ostream &out)
     if (transform != NULL)
         out << transform << endl;
 
-    if (canUseCumulativeAsTrueOrCurrent)
-        out << "The cumulative extents can be used as true or current" << endl;
+    if (canUseThisProcsAsOriginalOrActual)
+        out << "The thisProcs extents can be used as original or actual" << endl;
     else
-        out << "The cumulative extents can not be used as true or current" 
+        out << "The thisProcs extents can not be used as original or actual" 
             << endl;
 
     switch (windowMode)
@@ -563,8 +629,11 @@ avtDataAttributes::Print(ostream &out)
       case WINMODE_AXISARRAY:
         out << "The window mode is axis-array" << endl;
         break;
-      case WINMODE_AXISPARALLEL:
-        out << "The window mode is axis-parallel" << endl;
+      case WINMODE_PARALLELAXES:
+        out << "The window mode is parallel-axes" << endl;
+        break;
+      case WINMODE_VERTPARALLELAXES:
+        out << "The window mode is vertical-parallel-axes" << endl;
         break;
       case WINMODE_NONE:
         out << "The window mode is none" << endl;
@@ -595,38 +664,38 @@ avtDataAttributes::Print(ostream &out)
     out << "The Y-labels are " << yLabel.c_str() << endl;
     out << "The Z-labels are " << zLabel.c_str() << endl;
 
-    if (trueSpatial != NULL)
+    if (originalSpatial != NULL)
     {
-        out << "True spatial = " << endl;
-        trueSpatial->Print(out);
+        out << "Original spatial = " << endl;
+        originalSpatial->Print(out);
     }
-    if (cumulativeTrueSpatial != NULL)
+    if (thisProcsOriginalSpatial != NULL)
     {
-        out << "Cumulative true spatial = " << endl;
-        cumulativeTrueSpatial->Print(out);
+        out << "ThisProcs original spatial = " << endl;
+        thisProcsOriginalSpatial->Print(out);
     }
-    if (effectiveSpatial != NULL)
+    if (desiredSpatial != NULL)
     {
-        out << "Effective spatial = " << endl;
-        effectiveSpatial->Print(out);
+        out << "Desired spatial = " << endl;
+        desiredSpatial->Print(out);
     }
-    if (currentSpatial != NULL)
+    if (actualSpatial != NULL)
     {
-        out << "Current spatial = " << endl;
-        currentSpatial->Print(out);
+        out << "Actual spatial = " << endl;
+        actualSpatial->Print(out);
     }
-    if (cumulativeCurrentSpatial != NULL)
+    if (thisProcsActualSpatial != NULL)
     {
-        out << "Cumulative current spatial = " << endl;
-        cumulativeCurrentSpatial->Print(out);
+        out << "ThisProcs actual spatial = " << endl;
+        thisProcsActualSpatial->Print(out);
     }
 
     int i;
     for (i = 0 ; i < variables.size() ; i++)
     {
-        out << "Variable = " << variables[i].varname.c_str() << endl;
+        out << "Variable = " << variables[i]->varname.c_str() << endl;
         out << "Variable type = ";
-        switch (variables[i].vartype)
+        switch (variables[i]->vartype)
         {
           case AVT_MESH:
             out << "mesh";
@@ -664,32 +733,32 @@ avtDataAttributes::Print(ostream &out)
             break;
         }
         out << endl;
-        if (variables[i].subnames.size() != 0)
+        if (variables[i]->subnames.size() != 0)
         {
             out << "Variable subnames = " << endl;
-            for (int j = 0 ; j < variables[i].subnames.size() ; j++)
+            for (int j = 0 ; j < variables[i]->subnames.size() ; j++)
             {
-                out << variables[i].subnames[j].c_str();
-                if (j < variables[i].subnames.size()-1)
+                out << variables[i]->subnames[j].c_str();
+                if (j < variables[i]->subnames.size()-1)
                     out << ", ";
             }
             out << endl;
         }
-        if (variables[i].binRange.size() != 0)
+        if (variables[i]->binRange.size() != 0)
         {
             out << "Bin ranges = " << endl;
-            for (int j = 0 ; j < variables[i].binRange.size() ; j++)
+            for (int j = 0 ; j < variables[i]->binRange.size() ; j++)
             {
-                out << variables[i].binRange[j];
-                if (j < variables[i].binRange.size()-1)
+                out << variables[i]->binRange[j];
+                if (j < variables[i]->binRange.size()-1)
                     out << ", ";
             }
             out << endl;
         }
-        if(variables[i].varunits != "")
-            out << "Units = " << variables[i].varunits.c_str() << endl;
-        out << "Dimension = " << variables[i].dimension << endl;
-        switch (variables[i].centering)
+        if(variables[i]->varunits != "")
+            out << "Units = " << variables[i]->varunits.c_str() << endl;
+        out << "Dimension = " << variables[i]->dimension << endl;
+        switch (variables[i]->centering)
         {
           case AVT_NODECENT:
             out << "Centering is nodal." << endl;
@@ -705,40 +774,40 @@ avtDataAttributes::Print(ostream &out)
             out << "Centering is unknown." << endl;
             break;
         }
-        if (variables[i].treatAsASCII)
+        if (variables[i]->treatAsASCII)
             out << "Treat as ASCII." << endl;
 
-        out << "Used for axis " << variables[i].useForAxis << endl;
+        out << "Used for axis " << variables[i]->useForAxis << endl;
 
-        if (variables[i].trueData != NULL)
+        if (variables[i]->originalData != NULL)
         {
-            out << "True data = " << endl;
-            variables[i].trueData->Print(out);
+            out << "Original data = " << endl;
+            variables[i]->originalData->Print(out);
         }
-        if (variables[i].cumulativeTrueData != NULL)
+        if (variables[i]->thisProcsOriginalData != NULL)
         {
-            out << "Cumulative true data = " << endl;
-            variables[i].cumulativeTrueData->Print(out);
+            out << "ThisProcs original data = " << endl;
+            variables[i]->thisProcsOriginalData->Print(out);
         }
-        if (variables[i].effectiveData != NULL)
+        if (variables[i]->desiredData != NULL)
         {
-            out << "Effective data = " << endl;
-            variables[i].effectiveData->Print(out);
+            out << "Desired data = " << endl;
+            variables[i]->desiredData->Print(out);
         }
-        if (variables[i].currentData != NULL)
+        if (variables[i]->actualData != NULL)
         {
-            out << "Current data = " << endl;
-            variables[i].currentData->Print(out);
+            out << "Actual data = " << endl;
+            variables[i]->actualData->Print(out);
         }
-        if (variables[i].cumulativeCurrentData != NULL)
+        if (variables[i]->thisProcsActualData != NULL)
         {
-            out << "Cumulative current data = " << endl;
-            variables[i].cumulativeCurrentData->Print(out);
+            out << "ThisProcs actual data = " << endl;
+            variables[i]->thisProcsActualData->Print(out);
         }
-        if (variables[i].componentExtents != NULL)
+        if (variables[i]->componentExtents != NULL)
         {
             out << "Component extents = " << endl;
-            variables[i].componentExtents->Print(out);
+            variables[i]->componentExtents->Print(out);
         }
     }
 
@@ -748,6 +817,8 @@ avtDataAttributes::Print(ostream &out)
     out << endl;
 
     out << "Num states: " << numStates << endl;
+    if (dataIsReplicatedOnAllProcessors)
+        out << "The data set has been replicated on all processors." << endl;
     if (mirOccurred)
         out << "Material Interace Reconstruction occurred. " << endl;
     if (canUseOrigZones)
@@ -832,6 +903,13 @@ avtDataAttributes::Print(ostream &out)
         }
     }
 
+    if (multiresExtents != NULL)
+    {
+        out << "Multires extents = " << endl;
+        multiresExtents->Print(out);
+    }
+    out << "Multires cell size = " << multiresCellSize << endl;
+
     out << "PlotInfoAttributes: ";
     plotInfoAtts.PrintSelf(out);
     out << endl;
@@ -851,7 +929,6 @@ avtDataAttributes::Print(ostream &out)
 //  Creation:   March 24, 2001
 //
 //  Modifications:
-//
 //    Hank Childs, Tue Sep  4 13:39:02 PDT 2001
 //    Reflected use of avtExtents.
 //
@@ -859,7 +936,7 @@ avtDataAttributes::Print(ostream &out)
 //    Copy over labels. 
 //
 //    Kathleen Bonnell, Tue Oct  2 15:25:23 PDT 2001 
-//    Copy over current extents. 
+//    Copy over actual extents. 
 //
 //    Hank Childs, Fri Dec 21 07:18:33 PST 2001
 //    Copy over varname.
@@ -972,6 +1049,23 @@ avtDataAttributes::Print(ostream &out)
 //    Jeremy Meredith, Tue Jun  2 16:25:01 EDT 2009
 //    Added support for unit cell origin (previously assumed to be 0,0,0);
 //
+//    Hank Childs, Sun Sep 19 10:47:12 PDT 2010
+//    Add support for data replication.
+//
+//    Hank Childs, Tue Jan 11 08:41:22 PST 2011
+//    Add support for time index.
+//
+//    Kathleen Biagas, Thu Sep 29 06:08:06 PDT 2011
+//    Add constructMultipleCurves.
+//
+//    Eric Brugger, Thu Oct 27 10:29:42 PDT 2011
+//    Add GetMultiresExtents and GetMultiresCellSize to support adding
+//    a multi resolution display capability for AMR data.
+//
+//    Cyrus Harrison,Thu Feb  9 10:26:48 PST 2012
+//    Added logic to support presentGhostZoneTypes, which allows us to
+//    differentiate between ghost zones for boundaries & nesting.
+//
 // ****************************************************************************
 
 void
@@ -1002,6 +1096,7 @@ avtDataAttributes::Copy(const avtDataAttributes &di)
     {
         timeIsAccurate = false;
     }
+    SetTimeIndex(di.timeIndex);
    
     SetDynamicDomainDecomposition(di.dynamicDomainDecomposition);
     SetMeshname(di.GetMeshname());
@@ -1014,38 +1109,39 @@ avtDataAttributes::Copy(const avtDataAttributes &di)
     SetYLabel(di.GetYLabel());
     SetZLabel(di.GetZLabel());
 
-    *(trueSpatial)               = *(di.trueSpatial);
-    *(cumulativeTrueSpatial)     = *(di.cumulativeTrueSpatial);
-    *(effectiveSpatial)          = *(di.effectiveSpatial);
-    *(currentSpatial)            = *(di.currentSpatial);
-    *(cumulativeCurrentSpatial)  = *(di.cumulativeCurrentSpatial);
+    *(originalSpatial)               = *(di.originalSpatial);
+    *(thisProcsOriginalSpatial)     = *(di.thisProcsOriginalSpatial);
+    *(desiredSpatial)          = *(di.desiredSpatial);
+    *(actualSpatial)            = *(di.actualSpatial);
+    *(thisProcsActualSpatial)  = *(di.thisProcsActualSpatial);
 
-    canUseCumulativeAsTrueOrCurrent = di.canUseCumulativeAsTrueOrCurrent;
+    canUseThisProcsAsOriginalOrActual = di.canUseThisProcsAsOriginalOrActual;
     for (int i = 0 ; i < di.variables.size() ; i++)
     {
-        const char *vname = di.variables[i].varname.c_str();
-        AddVariable(vname, di.variables[i].varunits);
-        SetVariableType(di.variables[i].vartype, vname);
-        SetVariableSubnames(di.variables[i].subnames, vname);
-        SetVariableBinRanges(di.variables[i].binRange, vname);
-        SetVariableDimension(di.variables[i].dimension, vname);
-        SetCentering(di.variables[i].centering, vname);
-        SetTreatAsASCII(di.variables[i].treatAsASCII, vname);
-        SetUseForAxis(di.variables[i].useForAxis, vname);
-        *(variables[i].trueData)              = *(di.variables[i].trueData);
-        *(variables[i].cumulativeTrueData)    = 
-                                      *(di.variables[i].cumulativeTrueData);
-        *(variables[i].effectiveData)         =
-                                      *(di.variables[i].effectiveData);
-        *(variables[i].currentData)           = *(di.variables[i].currentData);
-        *(variables[i].cumulativeCurrentData) = 
-                                      *(di.variables[i].cumulativeCurrentData);
-        *(variables[i].componentExtents) = *(di.variables[i].componentExtents);
+        const char *vname = di.variables[i]->varname.c_str();
+        AddVariable(vname, di.variables[i]->varunits);
+        SetVariableType(di.variables[i]->vartype, vname);
+        SetVariableSubnames(di.variables[i]->subnames, vname);
+        SetVariableBinRanges(di.variables[i]->binRange, vname);
+        SetVariableDimension(di.variables[i]->dimension, vname);
+        SetCentering(di.variables[i]->centering, vname);
+        SetTreatAsASCII(di.variables[i]->treatAsASCII, vname);
+        SetUseForAxis(di.variables[i]->useForAxis, vname);
+        *(variables[i]->originalData)              = *(di.variables[i]->originalData);
+        *(variables[i]->thisProcsOriginalData)    = 
+                                      *(di.variables[i]->thisProcsOriginalData);
+        *(variables[i]->desiredData)         =
+                                      *(di.variables[i]->desiredData);
+        *(variables[i]->actualData)           = *(di.variables[i]->actualData);
+        *(variables[i]->thisProcsActualData) = 
+                                      *(di.variables[i]->thisProcsActualData);
+        *(variables[i]->componentExtents) = *(di.variables[i]->componentExtents);
     }
     activeVariable = di.activeVariable;
 
     labels = di.labels;
     SetContainsGhostZones(di.GetContainsGhostZones());
+    SetGhostZoneTypesPresent(di.GetGhostZoneTypesPresent());
     SetContainsExteriorBoundaryGhosts(di.GetContainsExteriorBoundaryGhosts());
     SetContainsOriginalCells(di.GetContainsOriginalCells());
     SetContainsOriginalNodes(di.GetContainsOriginalNodes());
@@ -1060,6 +1156,7 @@ avtDataAttributes::Copy(const avtDataAttributes &di)
     adaptsToAnyWindowMode = di.adaptsToAnyWindowMode;
     selectionsApplied = di.selectionsApplied;
     numStates = di.numStates;
+    dataIsReplicatedOnAllProcessors = di.dataIsReplicatedOnAllProcessors;
     mirOccurred = di.mirOccurred;
     canUseOrigZones = di.canUseOrigZones;
     origElementsRequiredForPick = di.origElementsRequiredForPick;
@@ -1074,6 +1171,10 @@ avtDataAttributes::Copy(const avtDataAttributes &di)
     for (int k=0; k<16; k++)
         rectilinearGridTransform[k] = di.rectilinearGridTransform[k];
     plotInfoAtts = di.plotInfoAtts;
+    levelsOfDetail = di.levelsOfDetail;
+    *(multiresExtents) = *(di.multiresExtents);
+    multiresCellSize = di.multiresCellSize;
+    constructMultipleCurves = di.constructMultipleCurves;
 }
 
 
@@ -1090,7 +1191,6 @@ avtDataAttributes::Copy(const avtDataAttributes &di)
 //  Creation:   March 25, 2001
 //
 //  Modifications:
-//
 //    Hank Childs, Tue Sep  4 13:39:02 PDT 2001
 //    Reflected use of avtExtents.
 //
@@ -1098,7 +1198,7 @@ avtDataAttributes::Copy(const avtDataAttributes &di)
 //    Call MergeLabels method. 
 //
 //    Kathleen Bonnell, Tue Oct  2 15:25:23 PDT 2001 
-//    Merge current extents. 
+//    Merge actual extents. 
 //
 //    Hank Childs, Fri Mar  8 16:39:30 PST 2002
 //    Merge cycle and dtime.
@@ -1207,6 +1307,23 @@ avtDataAttributes::Copy(const avtDataAttributes &di)
 //    Brad Whitlock, Wed Jan  7 14:06:31 PST 2009
 //    I changed how plotInfoAtts is handled.
 //
+//    Hank Childs, Sun Sep 19 10:47:12 PDT 2010
+//    Add support for data replication.
+//
+//    Hank Childs, Tue Jan 11 08:41:22 PST 2011
+//    Add support for time index.
+//
+//    Kathleen Biagas, Thu Sep 29 06:08:06 PDT 2011
+//    Add constructMultipleCurves.
+//
+//    Eric Brugger, Thu Oct 27 10:29:42 PDT 2011
+//    Add GetMultiresExtents and GetMultiresCellSize to support adding
+//    a multi resolution display capability for AMR data.
+//
+//    Cyrus Harrison,Thu Feb  9 10:26:48 PST 2012
+//    Added logic to support presentGhostZoneTypes, which allows us to
+//    differentiate between ghost zones for boundaries & nesting.
+//
 // ****************************************************************************
 
 void
@@ -1245,53 +1362,53 @@ avtDataAttributes::Merge(const avtDataAttributes &da,
     }
     for (i = 0 ; i < variables.size() ; i++)
     {
-        if (variables[i].varname != da.variables[i].varname)
+        if (variables[i]->varname != da.variables[i]->varname)
         {
             EXCEPTION0(InvalidMergeException);
         }
-        if (variables[i].vartype != da.variables[i].vartype)
+        if (variables[i]->vartype != da.variables[i]->vartype)
         {
-            EXCEPTION2(InvalidMergeException, variables[i].vartype,
-                       da.variables[i].vartype);
+            EXCEPTION2(InvalidMergeException, variables[i]->vartype,
+                       da.variables[i]->vartype);
         }
-        if (variables[i].centering != da.variables[i].centering)
+        if (variables[i]->centering != da.variables[i]->centering)
         {
-            EXCEPTION2(InvalidMergeException, variables[i].centering,
-                       da.variables[i].centering);
+            EXCEPTION2(InvalidMergeException, variables[i]->centering,
+                       da.variables[i]->centering);
         }
-        if (variables[i].treatAsASCII != da.variables[i].treatAsASCII)
-        {
-            EXCEPTION0(InvalidMergeException);
-        }
-        if (variables[i].useForAxis != da.variables[i].useForAxis)
+        if (variables[i]->treatAsASCII != da.variables[i]->treatAsASCII)
         {
             EXCEPTION0(InvalidMergeException);
         }
-        if (variables[i].dimension != da.variables[i].dimension)
+        if (variables[i]->useForAxis != da.variables[i]->useForAxis)
         {
-            EXCEPTION2(InvalidMergeException, variables[i].dimension,
-                       da.variables[i].dimension);
+            EXCEPTION0(InvalidMergeException);
         }
-        if (variables[i].subnames.size() != da.variables[i].subnames.size())
+        if (variables[i]->dimension != da.variables[i]->dimension)
+        {
+            EXCEPTION2(InvalidMergeException, variables[i]->dimension,
+                       da.variables[i]->dimension);
+        }
+        if (variables[i]->subnames.size() != da.variables[i]->subnames.size())
         {
             EXCEPTION2(InvalidMergeException, 
-                       (int) variables[i].subnames.size(),
-                       (int) da.variables[i].subnames.size());
+                       (int) variables[i]->subnames.size(),
+                       (int) da.variables[i]->subnames.size());
         }
-        for (int j = 0 ; j < variables[i].subnames.size() ; j++)
-            if (variables[i].subnames[j] != da.variables[i].subnames[j])
+        for (int j = 0 ; j < variables[i]->subnames.size() ; j++)
+            if (variables[i]->subnames[j] != da.variables[i]->subnames[j])
             {
                 EXCEPTION0(InvalidMergeException);
                 EXCEPTION0(InvalidMergeException);
             }
-        if (variables[i].binRange.size() != da.variables[i].binRange.size())
+        if (variables[i]->binRange.size() != da.variables[i]->binRange.size())
         {
             EXCEPTION2(InvalidMergeException, 
-                       (int) variables[i].binRange.size(),
-                       (int) da.variables[i].binRange.size());
+                       (int) variables[i]->binRange.size(),
+                       (int) da.variables[i]->binRange.size());
         }
-        for (int j = 0 ; j < variables[i].binRange.size() ; j++)
-            if (variables[i].binRange[j] != da.variables[i].binRange[j])
+        for (int j = 0 ; j < variables[i]->binRange.size() ; j++)
+            if (variables[i]->binRange[j] != da.variables[i]->binRange[j])
             {
                 EXCEPTION0(InvalidMergeException);
             }
@@ -1336,6 +1453,10 @@ avtDataAttributes::Merge(const avtDataAttributes &da,
     {
         EXCEPTION2(InvalidMergeException, dtime, da.dtime);
     }
+    if (timeIndex != da.timeIndex)
+    {
+        EXCEPTION2(InvalidMergeException, timeIndex, da.timeIndex);
+    }
     if (windowMode != da.windowMode)
     {
         EXCEPTION2(InvalidMergeException, windowMode, da.windowMode);
@@ -1348,6 +1469,10 @@ avtDataAttributes::Merge(const avtDataAttributes &da,
     if (numStates != da.numStates)
     {
         EXCEPTION2(InvalidMergeException, numStates, da.numStates);
+    }
+    if (dataIsReplicatedOnAllProcessors != da.dataIsReplicatedOnAllProcessors)
+    {
+        EXCEPTION2(InvalidMergeException, dataIsReplicatedOnAllProcessors, da.dataIsReplicatedOnAllProcessors);
     }
 
     if (selectionsApplied.size() != da.selectionsApplied.size())
@@ -1403,6 +1528,11 @@ avtDataAttributes::Merge(const avtDataAttributes &da,
         SetContainsGhostZones(da.GetContainsGhostZones());
     }
 
+    if(!GetGhostZoneTypesPresent())
+    {
+        SetGhostZoneTypesPresent(da.GetGhostZoneTypesPresent());
+    }
+
     if (!GetContainsExteriorBoundaryGhosts())
     {
         SetContainsExteriorBoundaryGhosts(
@@ -1431,25 +1561,25 @@ avtDataAttributes::Merge(const avtDataAttributes &da,
     }
 
 
-    canUseCumulativeAsTrueOrCurrent &= da.canUseCumulativeAsTrueOrCurrent;
+    canUseThisProcsAsOriginalOrActual &= da.canUseThisProcsAsOriginalOrActual;
 
-    trueSpatial->Merge(*(da.trueSpatial));
-    cumulativeTrueSpatial->Merge(*(da.cumulativeTrueSpatial));
-    effectiveSpatial->Merge(*(da.effectiveSpatial));
-    currentSpatial->Merge(*(da.currentSpatial));
-    cumulativeCurrentSpatial->Merge(*(da.cumulativeCurrentSpatial));
+    originalSpatial->Merge(*(da.originalSpatial));
+    thisProcsOriginalSpatial->Merge(*(da.thisProcsOriginalSpatial));
+    desiredSpatial->Merge(*(da.desiredSpatial));
+    actualSpatial->Merge(*(da.actualSpatial));
+    thisProcsActualSpatial->Merge(*(da.thisProcsActualSpatial));
 
     for (i = 0 ; i < variables.size() ; i++)
     {
-        variables[i].trueData->Merge(*(da.variables[i].trueData));
-        variables[i].cumulativeTrueData->Merge(
-                                        *(da.variables[i].cumulativeTrueData));
-        variables[i].effectiveData->Merge(*(da.variables[i].effectiveData));
-        variables[i].currentData->Merge(*(da.variables[i].currentData));
-        variables[i].cumulativeCurrentData->Merge(
-                                     *(da.variables[i].cumulativeCurrentData));
-        variables[i].componentExtents->Merge(
-                                        *(da.variables[i].componentExtents));
+        variables[i]->originalData->Merge(*(da.variables[i]->originalData));
+        variables[i]->thisProcsOriginalData->Merge(
+                                        *(da.variables[i]->thisProcsOriginalData));
+        variables[i]->desiredData->Merge(*(da.variables[i]->desiredData));
+        variables[i]->actualData->Merge(*(da.variables[i]->actualData));
+        variables[i]->thisProcsActualData->Merge(
+                                     *(da.variables[i]->thisProcsActualData));
+        variables[i]->componentExtents->Merge(
+                                        *(da.variables[i]->componentExtents));
     }
 
     MergeLabels(da.labels);
@@ -1460,7 +1590,9 @@ avtDataAttributes::Merge(const avtDataAttributes &da,
     mirOccurred |= da.mirOccurred;
     canUseOrigZones &= da.canUseOrigZones;
     origElementsRequiredForPick |= da.origElementsRequiredForPick;
+    multiresExtents->Merge(*(da.multiresExtents));
     plotInfoAtts.Merge(da.plotInfoAtts);
+    constructMultipleCurves &= da.constructMultipleCurves;
 
     // there's no good answer for unitCellVectors or rectilinearGridTransform
 }
@@ -1482,25 +1614,24 @@ avtDataAttributes::Merge(const avtDataAttributes &da,
 //  Creation:    September 4, 2001
 //
 //  Modifications:
-//
 //    Hank Childs, Tue Nov 13 12:18:16 PST 2001
-//    Don't use effective spatial extents.
+//    Don't use desired spatial extents.
 //
 // ****************************************************************************
 
 bool
 avtDataAttributes::GetSpatialExtents(double *buff)
 {
-    if (trueSpatial->HasExtents())
+    if (originalSpatial->HasExtents())
     {
-        trueSpatial->CopyTo(buff);
+        originalSpatial->CopyTo(buff);
         return true;
     }
 
-    if (canUseCumulativeAsTrueOrCurrent &&
-        cumulativeTrueSpatial->HasExtents())
+    if (canUseThisProcsAsOriginalOrActual &&
+        thisProcsOriginalSpatial->HasExtents())
     {
-        cumulativeTrueSpatial->CopyTo(buff);
+        thisProcsOriginalSpatial->CopyTo(buff);
         return true;
     }
 
@@ -1527,33 +1658,33 @@ avtDataAttributes::GetSpatialExtents(double *buff)
 bool
 avtDataAttributes::GetAnySpatialExtents(double *buff)
 {
-    if (trueSpatial->HasExtents())
+    if (originalSpatial->HasExtents())
     {
-        trueSpatial->CopyTo(buff);
+        originalSpatial->CopyTo(buff);
         return true;
     }
 
-    if (cumulativeTrueSpatial->HasExtents())
+    if (thisProcsOriginalSpatial->HasExtents())
     {
-        cumulativeTrueSpatial->CopyTo(buff);
+        thisProcsOriginalSpatial->CopyTo(buff);
         return true;
     }
 
-    if (currentSpatial->HasExtents())
+    if (actualSpatial->HasExtents())
     {
-        currentSpatial->CopyTo(buff);
+        actualSpatial->CopyTo(buff);
         return true;
     }
 
-    if (cumulativeCurrentSpatial->HasExtents())
+    if (thisProcsActualSpatial->HasExtents())
     {
-        cumulativeCurrentSpatial->CopyTo(buff);
+        thisProcsActualSpatial->CopyTo(buff);
         return true;
     }
 
-    if (effectiveSpatial->HasExtents())
+    if (desiredSpatial->HasExtents())
     {
-        effectiveSpatial->CopyTo(buff);
+        desiredSpatial->CopyTo(buff);
         return true;
     }
 
@@ -1576,9 +1707,8 @@ avtDataAttributes::GetAnySpatialExtents(double *buff)
 //  Creation:    September 4, 2001
 //
 //  Modifications:
-//
 //    Hank Childs, Tue Nov 13 12:18:16 PST 2001
-//    Don't use effective data extents.
+//    Don't use desired data extents.
 //
 //    Hank Childs, Mon Feb 23 14:19:15 PST 2004
 //    Account for multiple variables.
@@ -1592,16 +1722,16 @@ avtDataAttributes::GetDataExtents(double *buff, const char *varname)
     if (index < 0)
         return false;
 
-    if (variables[index].trueData->HasExtents())
+    if (variables[index]->originalData->HasExtents())
     {
-        variables[index].trueData->CopyTo(buff);
+        variables[index]->originalData->CopyTo(buff);
         return true;
     }
 
-    if (canUseCumulativeAsTrueOrCurrent &&
-        variables[index].cumulativeTrueData->HasExtents())
+    if (canUseThisProcsAsOriginalOrActual &&
+        variables[index]->thisProcsOriginalData->HasExtents())
     {
-        variables[index].cumulativeTrueData->CopyTo(buff);
+        variables[index]->thisProcsOriginalData->CopyTo(buff);
         return true;
     }
 
@@ -1610,10 +1740,10 @@ avtDataAttributes::GetDataExtents(double *buff, const char *varname)
 
 
 // ****************************************************************************
-//  Method: avtDataAttributes::GetTrueDataExtents
+//  Method: avtDataAttributes::GetOriginalDataExtents
 //
 //  Purpose:
-//      Gets the true data extents for the data object.  Hides the logic 
+//      Gets the original data extents for the data object.  Hides the logic 
 //      regarding which set of extents should be used first, etc.
 //
 //  Arguments:
@@ -1636,7 +1766,7 @@ avtDataAttributes::GetDataExtents(double *buff, const char *varname)
 // ****************************************************************************
 
 avtExtents *
-avtDataAttributes::GetTrueDataExtents(const char *varname)
+avtDataAttributes::GetOriginalDataExtents(const char *varname)
 {
     int index = VariableNameToIndex(varname);
     if (index < 0)
@@ -1652,15 +1782,15 @@ avtDataAttributes::GetTrueDataExtents(const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].trueData;
+    return variables[index]->originalData;
 }
 
 
 // ****************************************************************************
-//  Method: avtDataAttributes::GetCumulativeTrueDataExtents
+//  Method: avtDataAttributes::GetThisProcsOriginalDataExtents
 //
 //  Purpose:
-//      Gets the cumulative true data extents for the data object.
+//      Gets the thisProcs original data extents for the data object.
 //
 //  Arguments:
 //      varname  The variable to get the extents for.  If this argument is
@@ -1682,7 +1812,7 @@ avtDataAttributes::GetTrueDataExtents(const char *varname)
 // ****************************************************************************
 
 avtExtents *
-avtDataAttributes::GetCumulativeTrueDataExtents(const char *varname)
+avtDataAttributes::GetThisProcsOriginalDataExtents(const char *varname)
 {
     int index = VariableNameToIndex(varname);
     if (index < 0)
@@ -1698,7 +1828,7 @@ avtDataAttributes::GetCumulativeTrueDataExtents(const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].cumulativeTrueData;
+    return variables[index]->thisProcsOriginalData;
 }
 
 
@@ -1739,15 +1869,15 @@ avtDataAttributes::GetVariableComponentExtents(const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].componentExtents;
+    return variables[index]->componentExtents;
 }
 
 
 // ****************************************************************************
-//  Method: avtDataAttributes::GetEffectiveDataExtents
+//  Method: avtDataAttributes::GetDesiredDataExtents
 //
 //  Purpose:
-//      Gets the effective data extents for the data object.
+//      Gets the desired data extents for the data object.
 //
 //  Arguments:
 //      varname  The variable to get the extents for.  If this argument is
@@ -1769,7 +1899,7 @@ avtDataAttributes::GetVariableComponentExtents(const char *varname)
 // ****************************************************************************
 
 avtExtents *
-avtDataAttributes::GetEffectiveDataExtents(const char *varname)
+avtDataAttributes::GetDesiredDataExtents(const char *varname)
 {
     int index = VariableNameToIndex(varname);
     if (index < 0)
@@ -1785,15 +1915,15 @@ avtDataAttributes::GetEffectiveDataExtents(const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].effectiveData;
+    return variables[index]->desiredData;
 }
 
 
 // ****************************************************************************
-//  Method: avtDataAttributes::GetCurrentDataExtents
+//  Method: avtDataAttributes::GetActualDataExtents
 //
 //  Purpose:
-//      Gets the current data extents for the data object.
+//      Gets the actual data extents for the data object.
 //
 //  Arguments:
 //      varname  The variable to get the extents for.  If this argument is
@@ -1815,7 +1945,7 @@ avtDataAttributes::GetEffectiveDataExtents(const char *varname)
 // ****************************************************************************
 
 avtExtents *
-avtDataAttributes::GetCurrentDataExtents(const char *varname)
+avtDataAttributes::GetActualDataExtents(const char *varname)
 {
     int index = VariableNameToIndex(varname);
     if (index < 0)
@@ -1831,15 +1961,15 @@ avtDataAttributes::GetCurrentDataExtents(const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].currentData;
+    return variables[index]->actualData;
 }
 
 
 // ****************************************************************************
-//  Method: avtDataAttributes::GetCumulativeCurrentDataExtents
+//  Method: avtDataAttributes::GetThisProcsActualDataExtents
 //
 //  Purpose:
-//      Gets the cumulative current data extents for the data object.
+//      Gets the thisProcs actual data extents for the data object.
 //
 //  Arguments:
 //      varname  The variable to get the extents for.  If this argument is
@@ -1861,7 +1991,7 @@ avtDataAttributes::GetCurrentDataExtents(const char *varname)
 // ****************************************************************************
 
 avtExtents *
-avtDataAttributes::GetCumulativeCurrentDataExtents(const char *varname)
+avtDataAttributes::GetThisProcsActualDataExtents(const char *varname)
 {
     int index = VariableNameToIndex(varname);
     if (index < 0)
@@ -1877,7 +2007,7 @@ avtDataAttributes::GetCumulativeCurrentDataExtents(const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].cumulativeCurrentData;
+    return variables[index]->thisProcsActualData;
 }
 
 
@@ -1915,9 +2045,12 @@ avtDataAttributes::SetTopologicalDimension(int td)
 //  Creation:   September 4, 2001
 //
 //  Modifications:
-//
 //    Kathleen Bonnell, Wed Oct  3 10:57:13 PDT 2001
-//    Add currentSpatial, cumulativeCurrentSpatial.
+//    Add actualSpatial, thisProcsActualSpatial.
+//
+//    Eric Brugger, Thu Oct 27 10:29:42 PDT 2011
+//    Add GetMultiresExtents and GetMultiresCellSize to support adding
+//    a multi resolution display capability for AMR data.
 //
 // ****************************************************************************
 
@@ -1931,35 +2064,41 @@ avtDataAttributes::SetSpatialDimension(int td)
 
     spatialDimension = td;
 
-    if (trueSpatial != NULL)
+    if (originalSpatial != NULL)
     {
-        delete trueSpatial;
+        delete originalSpatial;
     }
-    trueSpatial = new avtExtents(spatialDimension);
+    originalSpatial = new avtExtents(spatialDimension);
 
-    if (cumulativeTrueSpatial != NULL)
+    if (thisProcsOriginalSpatial != NULL)
     {
-        delete cumulativeTrueSpatial;
+        delete thisProcsOriginalSpatial;
     }
-    cumulativeTrueSpatial = new avtExtents(spatialDimension);
+    thisProcsOriginalSpatial = new avtExtents(spatialDimension);
 
-    if (effectiveSpatial != NULL)
+    if (desiredSpatial != NULL)
     {
-        delete effectiveSpatial;
+        delete desiredSpatial;
     }
-    effectiveSpatial = new avtExtents(spatialDimension);
+    desiredSpatial = new avtExtents(spatialDimension);
 
-    if (currentSpatial != NULL)
+    if (actualSpatial != NULL)
     {
-        delete currentSpatial;
+        delete actualSpatial;
     }
-    currentSpatial = new avtExtents(spatialDimension);
+    actualSpatial = new avtExtents(spatialDimension);
 
-    if (cumulativeCurrentSpatial != NULL)
+    if (thisProcsActualSpatial != NULL)
     {
-        delete cumulativeCurrentSpatial;
+        delete thisProcsActualSpatial;
     }
-    cumulativeCurrentSpatial = new avtExtents(spatialDimension);
+    thisProcsActualSpatial = new avtExtents(spatialDimension);
+
+    if (multiresExtents != NULL)
+    {
+        delete multiresExtents;
+    }
+    multiresExtents = new avtExtents(spatialDimension);
 }
 
 
@@ -1976,9 +2115,8 @@ avtDataAttributes::SetSpatialDimension(int td)
 //  Creation:   September 4, 2001
 //
 //  Modifications:
-//
 //    Kathleen Bonnell, Wed Oct  3 10:57:13 PDT 2001
-//    Add currentData, cumulativeCurrentData.
+//    Add actualData, thisProcsActualData.
 //
 //    Hank Childs, Mon Feb 23 14:19:15 PST 2004
 //    Account for multiple variables.
@@ -2014,48 +2152,48 @@ avtDataAttributes::SetVariableDimension(int vd, const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    if (vd == variables[index].dimension)
+    if (vd == variables[index]->dimension)
     {
         return;
     }
 
-    variables[index].dimension  = vd;
+    variables[index]->dimension  = vd;
 
-    if (variables[index].trueData != NULL)
+    if (variables[index]->originalData != NULL)
     {
-        delete variables[index].trueData;
+        delete variables[index]->originalData;
     }
-    variables[index].trueData = new avtExtents(1);
+    variables[index]->originalData = new avtExtents(1);
 
-    if (variables[index].cumulativeTrueData != NULL)
+    if (variables[index]->thisProcsOriginalData != NULL)
     {
-        delete variables[index].cumulativeTrueData;
+        delete variables[index]->thisProcsOriginalData;
     }
-    variables[index].cumulativeTrueData = new avtExtents(1);
+    variables[index]->thisProcsOriginalData = new avtExtents(1);
 
-    if (variables[index].effectiveData != NULL)
+    if (variables[index]->desiredData != NULL)
     {
-        delete variables[index].effectiveData;
+        delete variables[index]->desiredData;
     }
-    variables[index].effectiveData =new avtExtents(1);
+    variables[index]->desiredData =new avtExtents(1);
 
-    if (variables[index].currentData != NULL)
+    if (variables[index]->actualData != NULL)
     {
-        delete variables[index].currentData;
+        delete variables[index]->actualData;
     }
-    variables[index].currentData = new avtExtents(1);
+    variables[index]->actualData = new avtExtents(1);
 
-    if (variables[index].cumulativeCurrentData != NULL)
+    if (variables[index]->thisProcsActualData != NULL)
     {
-        delete variables[index].cumulativeCurrentData;
+        delete variables[index]->thisProcsActualData;
     }
-    variables[index].cumulativeCurrentData = new avtExtents(1);
+    variables[index]->thisProcsActualData = new avtExtents(1);
 
-    if (variables[index].componentExtents != NULL)
+    if (variables[index]->componentExtents != NULL)
     {
-        delete variables[index].componentExtents;
+        delete variables[index]->componentExtents;
     }
-    variables[index].componentExtents = new avtExtents(vd);
+    variables[index]->componentExtents = new avtExtents(vd);
 }
 
 
@@ -2094,7 +2232,7 @@ avtDataAttributes::GetVariableDimension(const char *varname) const
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].dimension;
+    return variables[index]->dimension;
 }
 
 
@@ -2111,7 +2249,6 @@ avtDataAttributes::GetVariableDimension(const char *varname) const
 //  Creation:      March 19, 2001
 //
 //  Modifications:
-//
 //    Hank Childs, Mon Feb 23 14:19:15 PST 2004
 //    Account for multiple variables.
 //
@@ -2139,7 +2276,7 @@ avtDataAttributes::SetCentering(avtCentering cen, const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    variables[index].centering = cen;
+    variables[index]->centering = cen;
 }
 
 
@@ -2177,7 +2314,7 @@ avtDataAttributes::GetCentering(const char *varname) const
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].centering;
+    return variables[index]->centering;
 }
 
 
@@ -2212,7 +2349,7 @@ avtDataAttributes::SetVariableType(avtVarType vt, const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    variables[index].vartype = vt;
+    variables[index]->vartype = vt;
 }
 
 
@@ -2244,7 +2381,7 @@ avtDataAttributes::GetVariableType(const char *varname) const
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].vartype;
+    return variables[index]->vartype;
 }
 
 
@@ -2280,7 +2417,7 @@ avtDataAttributes::SetVariableSubnames(const std::vector<std::string> &sn,
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    variables[index].subnames = sn;
+    variables[index]->subnames = sn;
 }
 
 
@@ -2312,7 +2449,7 @@ avtDataAttributes::GetVariableSubnames(const char *varname) const
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].subnames;
+    return variables[index]->subnames;
 }
 
 
@@ -2348,7 +2485,7 @@ avtDataAttributes::SetVariableBinRanges(const std::vector<double> &bn,
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    variables[index].binRange = bn;
+    variables[index]->binRange = bn;
 }
 
 
@@ -2380,7 +2517,7 @@ avtDataAttributes::GetVariableBinRanges(const char *varname) const
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].binRange;
+    return variables[index]->binRange;
 }
 
 
@@ -2451,6 +2588,43 @@ avtDataAttributes::SetGroupOrigin(int origin)
     groupOrigin = origin;
 }
 
+// ****************************************************************************
+//  Method: avtDataAttributes::ClearGhostTypesPresent
+//
+//  Purpose:
+//      Resets presentGhostTypes to AVT_NO_GHOST_ZONES.
+//
+//
+//  Programmer:    Cyrus Harrison
+//  Creation:      Tue Feb  7 09:19:29 PST 2012
+//
+// ****************************************************************************
+void
+avtDataAttributes::ClearGhostTypesPresent()
+{
+    presentGhostZoneTypes = AVT_NO_GHOST_ZONES;
+}
+
+
+// ****************************************************************************
+//  Method: avtDataAttributes::AddGhostZoneTypePresent
+//
+//  Purpose:
+//      Adds to the types of ghost zones that are present.
+//
+//  Arguments:
+//      v     The ghost zone type value.
+//
+//  Programmer:    Cyrus Harrison
+//  Creation:      Tue Feb  7 09:19:29 PST 2012
+//
+// ****************************************************************************
+void
+avtDataAttributes::AddGhostZoneTypePresent(avtGhostsZonesPresent v)
+{
+    // or the bit mask
+    presentGhostZoneTypes = presentGhostZoneTypes | v;
+}
 
 // ****************************************************************************
 //  Method: avtDataAttributes::SetCycle
@@ -2491,6 +2665,24 @@ avtDataAttributes::SetTime(double d)
 
 
 // ****************************************************************************
+//  Method: avtDataAttributes::SetTimeIndex
+//
+//  Purpose:
+//      Sets the time index.
+//
+//  Programmer: Hank Childs
+//  Creation:   January 11, 2011
+//
+// ****************************************************************************
+
+void
+avtDataAttributes::SetTimeIndex(int v)
+{
+    timeIndex = v;
+}
+
+
+// ****************************************************************************
 //  Method: avtDataAttributes::SetDynamicDomainDecomposition
 //
 //  Purpose:
@@ -2524,7 +2716,6 @@ avtDataAttributes::SetDynamicDomainDecomposition(bool ddd)
 //  Creation:  March 25, 2001
 //
 //  Modifications:
-//
 //    Hank Childs, Sat May 26 10:06:58 PDT 2001
 //    Made use of avtDataObjectString::Append instead of string::append to
 //    prevent bottleneck.
@@ -2539,7 +2730,7 @@ avtDataAttributes::SetDynamicDomainDecomposition(bool ddd)
 //    Call WriteLabels method. 
 //
 //    Kathleen Bonnell, Tue Oct  2 15:25:23 PDT 2001 
-//    Write current extents. 
+//    Write actual extents. 
 //
 //    Hank Childs, Fri Mar  8 17:02:10 PST 2002
 //    Write the cycle, time, and filename.
@@ -2654,6 +2845,19 @@ avtDataAttributes::SetDynamicDomainDecomposition(bool ddd)
 //    Jeremy Meredith, Tue Jun  2 16:25:01 EDT 2009
 //    Added support for unit cell origin (previously assumed to be 0,0,0);
 //
+//    Hank Childs, Sun Sep 19 10:47:12 PDT 2010
+//    Add support for data replication.
+//
+//    Hank Childs, Tue Jan 11 08:41:22 PST 2011
+//    Add support for time index.
+//
+//    Kathleen Biagas, Thu Sep 29 06:08:06 PDT 2011
+//    Add constructMultipleCurves.
+//
+//    Eric Brugger, Thu Oct 27 10:29:42 PDT 2011
+//    Add GetMultiresExtents and GetMultiresCellSize to support adding
+//    a multi resolution display capability for AMR data.
+//
 // ****************************************************************************
 
 void
@@ -2663,7 +2867,7 @@ avtDataAttributes::Write(avtDataObjectString &str,
     int   i, j;
 
     int varSize = 7;
-    int numVals = 32 + varSize*variables.size();
+    int numVals = 35 + static_cast<int>(varSize*variables.size());
     int *vals = new int[numVals];
     i = 0;
     vals[i++] = topologicalDimension;
@@ -2675,6 +2879,7 @@ avtDataAttributes::Write(avtDataObjectString &str,
     vals[i++] = cycle;
     vals[i++] = (cycleIsAccurate ? 1 : 0);
     vals[i++] = (timeIsAccurate ? 1 : 0);
+    vals[i++] = timeIndex;
     vals[i++] = (dynamicDomainDecomposition ? 1 : 0);
     vals[i++] = (int) containsGhostZones;
     vals[i++] = (int) containsExteriorBoundaryGhosts;
@@ -2685,10 +2890,11 @@ avtDataAttributes::Write(avtDataObjectString &str,
     vals[i++] = (containsGlobalNodeIds ? 1 : 0);
     vals[i++] = (canUseInvTransform ? 1 : 0);
     vals[i++] = (canUseTransform ? 1 : 0);
-    vals[i++] = (canUseCumulativeAsTrueOrCurrent ? 1 : 0);
+    vals[i++] = (canUseThisProcsAsOriginalOrActual ? 1 : 0);
     vals[i++] = windowMode;
     vals[i++] = (adaptsToAnyWindowMode ? 1 : 0);
     vals[i++] = numStates;
+    vals[i++] = (dataIsReplicatedOnAllProcessors ? 1 : 0);
     vals[i++] = mirOccurred;
     vals[i++] = canUseOrigZones;
     vals[i++] = origElementsRequiredForPick;
@@ -2696,99 +2902,100 @@ avtDataAttributes::Write(avtDataObjectString &str,
     vals[i++] = meshType;
     vals[i++] = (nodesAreCritical ? 1 : 0);
     vals[i++] = (rectilinearGridHasTransform ? 1 : 0);
+    vals[i++] = (constructMultipleCurves ? 1 : 0);
     vals[i++] = activeVariable;
-    vals[i++] = variables.size();
+    vals[i++] = static_cast<int>(variables.size());
     int basei = i;
     for (i = 0 ; i < variables.size() ; i++)
     {
-        vals[basei+varSize*i]   = variables[i].dimension;
-        vals[basei+varSize*i+1] = variables[i].centering;
-        vals[basei+varSize*i+2] = (variables[i].treatAsASCII ? 1 : 0);
-        vals[basei+varSize*i+3] = variables[i].vartype;
-        vals[basei+varSize*i+4] = variables[i].subnames.size();
-        vals[basei+varSize*i+5] = variables[i].binRange.size();
-        vals[basei+varSize*i+6] = variables[i].useForAxis;
+        vals[basei+varSize*i]   = variables[i]->dimension;
+        vals[basei+varSize*i+1] = variables[i]->centering;
+        vals[basei+varSize*i+2] = (variables[i]->treatAsASCII ? 1 : 0);
+        vals[basei+varSize*i+3] = variables[i]->vartype;
+        vals[basei+varSize*i+4] = static_cast<int>(variables[i]->subnames.size());
+        vals[basei+varSize*i+5] = static_cast<int>(variables[i]->binRange.size());
+        vals[basei+varSize*i+6] = variables[i]->useForAxis;
     }
     wrtr->WriteInt(str, vals, numVals);
     wrtr->WriteDouble(str, dtime);
 
-    trueSpatial->Write(str, wrtr);
-    cumulativeTrueSpatial->Write(str, wrtr);
-    effectiveSpatial->Write(str, wrtr);
-    currentSpatial->Write(str, wrtr);
-    cumulativeCurrentSpatial->Write(str, wrtr);
+    originalSpatial->Write(str, wrtr);
+    thisProcsOriginalSpatial->Write(str, wrtr);
+    desiredSpatial->Write(str, wrtr);
+    actualSpatial->Write(str, wrtr);
+    thisProcsActualSpatial->Write(str, wrtr);
 
     for (i = 0 ; i < variables.size() ; i++)
     {
         // Write the variable name
-        wrtr->WriteInt(str, variables[i].varname.size());
-        str.Append((char *) variables[i].varname.c_str(),
-                   variables[i].varname.size(),
+        wrtr->WriteInt(str, static_cast<int>(variables[i]->varname.size()));
+        str.Append((char *) variables[i]->varname.c_str(),
+                   static_cast<int>(variables[i]->varname.size()),
                    avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
 
         // Write the units name.
-        int unitlen = variables[i].varunits.size();
+        int unitlen = static_cast<int>(variables[i]->varunits.size());
         wrtr->WriteInt(str, unitlen);
         if(unitlen > 0)
         {
-            str.Append((char *) variables[i].varunits.c_str(), unitlen,
+            str.Append((char *) variables[i]->varunits.c_str(), unitlen,
                      avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
         }
 
         // Write the subnames (if any).  Number of subnames already
         // communicated in mass "int" writing phase.
-        for (j = 0 ; j < variables[i].subnames.size() ; j++)
+        for (j = 0 ; j < variables[i]->subnames.size() ; j++)
         {
-            wrtr->WriteInt(str, variables[i].subnames[j].size());
-            str.Append((char *) variables[i].subnames[j].c_str(),
-                     variables[i].subnames[j].size(),
+            wrtr->WriteInt(str, static_cast<int>(variables[i]->subnames[j].size()));
+            str.Append((char *) variables[i]->subnames[j].c_str(),
+                     static_cast<int>(variables[i]->subnames[j].size()),
                      avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
         }
         // Write the binRanges (if any).  Number of binRanges already
         // communicated in mass "int" writing phase.
-        if (variables[i].binRange.size() > 0)
+        if (variables[i]->binRange.size() > 0)
         {
-            wrtr->WriteDouble(str, &(variables[i].binRange[0]), 
-                              variables[i].binRange.size());
+            wrtr->WriteDouble(str, &(variables[i]->binRange[0]), 
+                              static_cast<int>(variables[i]->binRange.size()));
         }
-        variables[i].trueData->Write(str, wrtr);
-        variables[i].cumulativeTrueData->Write(str, wrtr);
-        variables[i].effectiveData->Write(str, wrtr);
-        variables[i].currentData->Write(str, wrtr);
-        variables[i].cumulativeCurrentData->Write(str, wrtr);
-        variables[i].componentExtents->Write(str, wrtr);
+        variables[i]->originalData->Write(str, wrtr);
+        variables[i]->thisProcsOriginalData->Write(str, wrtr);
+        variables[i]->desiredData->Write(str, wrtr);
+        variables[i]->actualData->Write(str, wrtr);
+        variables[i]->thisProcsActualData->Write(str, wrtr);
+        variables[i]->componentExtents->Write(str, wrtr);
     }
 
-    wrtr->WriteInt(str, meshname.size());
-    str.Append((char *) meshname.c_str(), meshname.size(),
+    wrtr->WriteInt(str, (int)meshname.size());
+    str.Append((char *) meshname.c_str(), (int)meshname.size(),
                   avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
 
-    wrtr->WriteInt(str, filename.size());
-    str.Append((char *) filename.c_str(), filename.size(),
+    wrtr->WriteInt(str, (int)filename.size());
+    str.Append((char *) filename.c_str(), (int)filename.size(),
                   avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
 
-    wrtr->WriteInt(str, fullDBName.size());
-    str.Append((char *) fullDBName.c_str(), fullDBName.size(),
+    wrtr->WriteInt(str, (int)fullDBName.size());
+    str.Append((char *) fullDBName.c_str(), (int)fullDBName.size(),
                   avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
 
-    wrtr->WriteInt(str, xUnits.size());
-    str.Append((char *) xUnits.c_str(), xUnits.size(),
+    wrtr->WriteInt(str, (int)xUnits.size());
+    str.Append((char *) xUnits.c_str(), (int)xUnits.size(),
                   avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
-    wrtr->WriteInt(str, yUnits.size());
-    str.Append((char *) yUnits.c_str(), yUnits.size(),
+    wrtr->WriteInt(str, (int)yUnits.size());
+    str.Append((char *) yUnits.c_str(), (int)yUnits.size(),
                   avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
-    wrtr->WriteInt(str, zUnits.size());
-    str.Append((char *) zUnits.c_str(), zUnits.size(),
+    wrtr->WriteInt(str, (int)zUnits.size());
+    str.Append((char *) zUnits.c_str(), (int)zUnits.size(),
                   avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
 
-    wrtr->WriteInt(str, xLabel.size());
-    str.Append((char *) xLabel.c_str(), xLabel.size(),
+    wrtr->WriteInt(str, (int)xLabel.size());
+    str.Append((char *) xLabel.c_str(), (int)xLabel.size(),
                   avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
-    wrtr->WriteInt(str, yLabel.size());
-    str.Append((char *) yLabel.c_str(), yLabel.size(),
+    wrtr->WriteInt(str, (int)yLabel.size());
+    str.Append((char *) yLabel.c_str(), (int)yLabel.size(),
                   avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
-    wrtr->WriteInt(str, zLabel.size());
-    str.Append((char *) zLabel.c_str(), zLabel.size(),
+    wrtr->WriteInt(str, (int)zLabel.size());
+    str.Append((char *) zLabel.c_str(), (int)zLabel.size(),
                   avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
 
     for (i = 0; i < 9 ; i++)
@@ -2800,13 +3007,16 @@ avtDataAttributes::Write(avtDataObjectString &str,
     for (i = 0; i < 16 ; i++)
         wrtr->WriteDouble(str, rectilinearGridTransform[i]);
 
-    wrtr->WriteInt(str, selectionsApplied.size());
-    for (i = 0; i < selectionsApplied.size(); i++)
-        wrtr->WriteInt(str, selectionsApplied[i] ? 1 : 0);
+    wrtr->WriteInt(str, (int)selectionsApplied.size());
+    for (size_t k = 0; k < selectionsApplied.size(); k++)
+        wrtr->WriteInt(str, selectionsApplied[k] ? 1 : 0);
 
     WriteLabels(str, wrtr);
     WriteInvTransform(str, wrtr);
     WriteTransform(str, wrtr);
+
+    multiresExtents->Write(str, wrtr);
+    wrtr->WriteDouble(str, multiresCellSize);
 
     WritePlotInfoAtts(str, wrtr);
 
@@ -2829,12 +3039,11 @@ avtDataAttributes::Write(avtDataObjectString &str,
 //  Creation:  March 25, 2001
 //
 //  Modifications:
-//
 //    Kathleen Bonnell, Thu Sep 20 14:24 PDT 2001 
 //    Call ReadLabels method. 
 //
 //    Kathleen Bonnell, Tue Oct  2 15:25:23 PDT 2001 
-//    Read current extents. 
+//    Read actual extents. 
 //
 //    Hank Childs, Fri Mar  8 17:02:10 PST 2002
 //    Read the cycle, time, and filename.
@@ -2950,6 +3159,19 @@ avtDataAttributes::Write(avtDataObjectString &str,
 //    Jeremy Meredith, Tue Jun  2 16:25:01 EDT 2009
 //    Added support for unit cell origin (previously assumed to be 0,0,0);
 //
+//    Hank Childs, Sun Sep 19 10:47:12 PDT 2010
+//    Add support for data replication.
+//
+//    Hank Childs, Tue Jan 11 08:41:22 PST 2011
+//    Add support for time index.
+//
+//    Kathleen Biagas, Thu Sep 29 06:08:06 PDT 2011
+//    Add constructMultipleCurves.
+//
+//    Eric Brugger, Thu Oct 27 10:29:42 PDT 2011
+//    Add GetMultiresExtents and GetMultiresCellSize to support adding
+//    a multi resolution display capability for AMR data.
+//
 // ****************************************************************************
 
 int
@@ -2998,6 +3220,10 @@ avtDataAttributes::Read(char *input)
 
     memcpy(&tmp, input, sizeof(int));
     input += sizeof(int); size += sizeof(int);
+    timeIndex = tmp;
+
+    memcpy(&tmp, input, sizeof(int));
+    input += sizeof(int); size += sizeof(int);
     dynamicDomainDecomposition = (tmp != 0 ? true : false);
 
     memcpy(&tmp, input, sizeof(int));
@@ -3038,7 +3264,7 @@ avtDataAttributes::Read(char *input)
 
     memcpy(&tmp, input, sizeof(int));
     input += sizeof(int); size += sizeof(int);
-    SetCanUseCumulativeAsTrueOrCurrent(tmp != 0 ? true : false);
+    SetCanUseThisProcsAsOriginalOrActual(tmp != 0 ? true : false);
 
     memcpy(&tmp, input, sizeof(int));
     input += sizeof(int); size += sizeof(int);
@@ -3051,6 +3277,10 @@ avtDataAttributes::Read(char *input)
     memcpy(&tmp, input, sizeof(int));
     input += sizeof(int); size += sizeof(int);
     numStates = tmp;
+
+    memcpy(&tmp, input, sizeof(int));
+    input += sizeof(int); size += sizeof(int);
+    dataIsReplicatedOnAllProcessors = (tmp != 0 ? true : false);
 
     memcpy(&tmp, input, sizeof(int));
     input += sizeof(int); size += sizeof(int);
@@ -3079,6 +3309,10 @@ avtDataAttributes::Read(char *input)
     memcpy(&tmp, input, sizeof(int));
     input += sizeof(int); size += sizeof(int);
     rectilinearGridHasTransform = (tmp != 0 ? true : false);
+
+    memcpy(&tmp, input, sizeof(int));
+    input += sizeof(int); size += sizeof(int);
+    constructMultipleCurves = (tmp != 0 ? true : false);
 
     memcpy(&tmp, input, sizeof(int));
     input += sizeof(int); size += sizeof(int);
@@ -3131,15 +3365,15 @@ avtDataAttributes::Read(char *input)
     dtime = dtmp;
 
     int s;
-    s = trueSpatial->Read(input);
+    s = originalSpatial->Read(input);
     input += s; size += s;
-    s = cumulativeTrueSpatial->Read(input);
+    s = thisProcsOriginalSpatial->Read(input);
     input += s; size += s;
-    s = effectiveSpatial->Read(input);
+    s = desiredSpatial->Read(input);
     input += s; size += s;
-    s = currentSpatial->Read(input);
+    s = actualSpatial->Read(input);
     input += s; size += s;
-    s = cumulativeCurrentSpatial->Read(input);
+    s = thisProcsActualSpatial->Read(input);
     input += s; size += s;
 
     for (i = 0 ; i < numVars ; i++)
@@ -3205,17 +3439,17 @@ avtDataAttributes::Read(char *input)
         SetUseForAxis(useForAxis[i], varname.c_str());
         SetVariableType(vartypes[i], varname.c_str());
  
-        s = variables[i].trueData->Read(input);
+        s = variables[i]->originalData->Read(input);
         input += s; size += s;
-        s = variables[i].cumulativeTrueData->Read(input);
+        s = variables[i]->thisProcsOriginalData->Read(input);
         input += s; size += s;
-        s = variables[i].effectiveData->Read(input);
+        s = variables[i]->desiredData->Read(input);
         input += s; size += s;
-        s = variables[i].currentData->Read(input);
+        s = variables[i]->actualData->Read(input);
         input += s; size += s;
-        s = variables[i].cumulativeCurrentData->Read(input);
+        s = variables[i]->thisProcsActualData->Read(input);
         input += s; size += s;
-        s = variables[i].componentExtents->Read(input);
+        s = variables[i]->componentExtents->Read(input);
         input += s; size += s;
     }
     delete [] varDims;
@@ -3334,6 +3568,12 @@ avtDataAttributes::Read(char *input)
     input += s; 
     size  += s;
 
+    s = multiresExtents->Read(input);
+    input += s; size += s;
+
+    memcpy(&multiresCellSize, input, sizeof(double));
+    input += sizeof(double); size += sizeof(double);
+
     s = ReadPlotInfoAtts(input); 
     input += s; 
     size  += s;
@@ -3355,7 +3595,6 @@ avtDataAttributes::Read(char *input)
 //  Creation:  September 19, 2001 
 //
 //  Modifications:
-//
 //    Hank Childs, Thu Mar 18 20:20:48 PST 2004
 //    Re-wrote to avoid a quadratic performance.
 //
@@ -3428,11 +3667,11 @@ void
 avtDataAttributes::WriteLabels(avtDataObjectString &str,
                                 const avtDataObjectWriter *wrtr)
 {
-    wrtr->WriteInt(str, labels.size());
-    for (int i = 0; i < labels.size(); i++)
+    wrtr->WriteInt(str, (int)labels.size());
+    for (size_t i = 0; i < labels.size(); i++)
     {
-       wrtr->WriteInt(str, labels[i].size());
-       str.Append((char *) labels[i].c_str(), labels[i].size(),
+       wrtr->WriteInt(str, (int)labels[i].size());
+       str.Append((char *) labels[i].c_str(), (int)labels[i].size(),
                   avtDataObjectString::DATA_OBJECT_STRING_SHOULD_MAKE_COPY);
     }
 }
@@ -3533,10 +3772,10 @@ avtDataAttributes::GetLabels(vector<string> &l)
 
 
 // ****************************************************************************
-//  Method: avtDataAttributes::GetCurrentDataExtents
+//  Method: avtDataAttributes::GetActualDataExtents
 //
 //  Purpose:
-//      Gets the current data extents for the data object.  Hides the logic 
+//      Gets the actual data extents for the data object.  Hides the logic 
 //      regarding which set of extents should be used first, etc.
 //
 //  Arguments:
@@ -3548,11 +3787,9 @@ avtDataAttributes::GetLabels(vector<string> &l)
 //  Creation:    October 2, 2001
 //
 //  Modifications:
-//
 //    Hank Childs, Mon Feb 23 08:59:42 PST 2004
 //    Allow for multiple variables.
 //
-//  Modifications:
 //    Kathleen Bonnell, Wed Mar 31 08:03:47 PST 2004
 //    Added a reason to the exception.
 //
@@ -3562,7 +3799,7 @@ avtDataAttributes::GetLabels(vector<string> &l)
 // ****************************************************************************
 
 bool
-avtDataAttributes::GetCurrentDataExtents(double *buff, const char *varname)
+avtDataAttributes::GetActualDataExtents(double *buff, const char *varname)
 {
     int index = VariableNameToIndex(varname);
     if (index < 0)
@@ -3578,16 +3815,16 @@ avtDataAttributes::GetCurrentDataExtents(double *buff, const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    if (variables[index].currentData->HasExtents())
+    if (variables[index]->actualData->HasExtents())
     {
-        variables[index].currentData->CopyTo(buff);
+        variables[index]->actualData->CopyTo(buff);
         return true;
     }
 
-    if (canUseCumulativeAsTrueOrCurrent &&
-        variables[index].cumulativeCurrentData->HasExtents())
+    if (canUseThisProcsAsOriginalOrActual &&
+        variables[index]->thisProcsActualData->HasExtents())
     {
-        variables[index].cumulativeCurrentData->CopyTo(buff);
+        variables[index]->thisProcsActualData->CopyTo(buff);
         return true;
     }
 
@@ -3596,10 +3833,10 @@ avtDataAttributes::GetCurrentDataExtents(double *buff, const char *varname)
 
 
 // ****************************************************************************
-//  Method: avtDataAttributes::GetCurrentSpatialExtents
+//  Method: avtDataAttributes::GetActualSpatialExtents
 //
 //  Purpose:
-//      Gets the current spatial extents for the data object.  Hides the logic 
+//      Gets the actual spatial extents for the data object.  Hides the logic 
 //      regarding which set of extents should be used first, etc.
 //
 //  Arguments:
@@ -3613,18 +3850,18 @@ avtDataAttributes::GetCurrentDataExtents(double *buff, const char *varname)
 // ****************************************************************************
 
 bool
-avtDataAttributes::GetCurrentSpatialExtents(double *buff)
+avtDataAttributes::GetActualSpatialExtents(double *buff)
 {
-    if (currentSpatial->HasExtents())
+    if (actualSpatial->HasExtents())
     {
-        currentSpatial->CopyTo(buff);
+        actualSpatial->CopyTo(buff);
         return true;
     }
 
-    if (canUseCumulativeAsTrueOrCurrent &&
-        cumulativeCurrentSpatial->HasExtents())
+    if (canUseThisProcsAsOriginalOrActual &&
+        thisProcsActualSpatial->HasExtents())
     {
-        cumulativeCurrentSpatial->CopyTo(buff);
+        thisProcsActualSpatial->CopyTo(buff);
         return true;
     }
 
@@ -3657,7 +3894,7 @@ avtDataAttributes::GetVariableName(void) const
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[activeVariable].varname;
+    return variables[activeVariable]->varname;
 }
 
 
@@ -3675,12 +3912,12 @@ avtDataAttributes::GetVariableName(void) const
 const std::string &
 avtDataAttributes::GetVariableName(int index) const
 {
-    if (index < 0 || index >= variables.size())
+    if (index < 0 || index >= (int)variables.size())
     {
-        EXCEPTION2(BadIndexException, index, variables.size());
+        EXCEPTION2(BadIndexException, index, (int)variables.size());
     }
 
-    return variables[index].varname;
+    return variables[index]->varname;
 }
 
 // ****************************************************************************
@@ -3712,17 +3949,17 @@ avtDataAttributes::GetVariableUnits(const char *varname) const
             EXCEPTION1(ImproperUseException, reason);
         }
 
-        return variables[activeVariable].varunits;
+        return variables[activeVariable]->varunits;
     }
     else
     {
         int index = VariableNameToIndex(varname);
-        if (index < 0 || index >= variables.size())
+        if (index < 0 || index >= (int)variables.size())
         {
-            EXCEPTION2(BadIndexException, index, variables.size());
+            EXCEPTION2(BadIndexException, index, (int)variables.size());
         }
 
-        return variables[index].varunits;
+        return variables[index]->varunits;
     }
 }
 
@@ -3749,12 +3986,12 @@ avtDataAttributes::GetVariableUnits(const char *varname) const
 const std::string &
 avtDataAttributes::GetVariableUnits(int index) const
 {
-    if (index < 0 || index >= variables.size())
+    if (index < 0 || index >= (int)variables.size())
     {
-        EXCEPTION2(BadIndexException, index, variables.size());
+        EXCEPTION2(BadIndexException, index, (int)variables.size());
     }
 
-    return variables[index].varunits;
+    return variables[index]->varunits;
 }
 
 
@@ -3792,7 +4029,7 @@ avtDataAttributes::SetActiveVariable(const char *v)
 {
     for (int i = 0 ; i < variables.size() ; i++)
     {
-        if (variables[i].varname == v)
+        if (variables[i]->varname == v)
         {
             activeVariable = i;
             break;
@@ -3837,9 +4074,10 @@ avtDataAttributes::AddVariable(const std::string &s)
 void
 avtDataAttributes::AddVariable(const std::string &s, const std::string &units)
 {
-    for (int i = 0 ; i < variables.size() ; i++)
+    int size = variables.size();
+    for (int i = 0 ; i < size ; i++)
     {
-        if (variables[i].varname == s)
+        if (variables[i]->varname == s)
         {
             //
             // We already have this variable -- just return.
@@ -3848,20 +4086,7 @@ avtDataAttributes::AddVariable(const std::string &s, const std::string &units)
         }
     }
 
-    VarInfo new_var;
-    new_var.varname = s;
-    new_var.varunits = units;
-    new_var.dimension = -1;
-    new_var.centering = AVT_UNKNOWN_CENT;
-    new_var.vartype = AVT_UNKNOWN_TYPE;
-    new_var.treatAsASCII = false;
-    new_var.trueData = NULL;
-    new_var.cumulativeTrueData = NULL;
-    new_var.effectiveData = NULL;
-    new_var.currentData = NULL;
-    new_var.cumulativeCurrentData = NULL;
-    new_var.useForAxis = -1;
-    new_var.componentExtents = NULL;
+    VarInfo *new_var = new VarInfo(s, units);
     variables.push_back(new_var);
 }
 
@@ -3887,7 +4112,7 @@ avtDataAttributes::ValidVariable(const std::string &vname) const
 {
     for (int i = 0 ; i < variables.size() ; i++)
     {
-        if (variables[i].varname == vname)
+        if (variables[i]->varname == vname)
         {
             return true;
         }
@@ -3934,20 +4159,23 @@ avtDataAttributes::ValidActiveVariable(void) const
 void
 avtDataAttributes::RemoveVariable(const std::string &s)
 {
-    vector<VarInfo> new_vars;
+    vector<VarInfo *> new_vars;
 
     bool haveActiveVar = false;
     string activeVar;
     if (activeVariable >= 0)
     {
         haveActiveVar = true;
-        activeVar = variables[activeVariable].varname;
+        activeVar = variables[activeVariable]->varname;
     }
 
-    for (int i = 0 ; i < variables.size() ; i++)
+    int size = variables.size();
+    for (int i = 0 ; i < size ; i++)
     {
-        if (variables[i].varname != s)
+        if (variables[i]->varname != s)
             new_vars.push_back(variables[i]);
+        else
+            delete variables[i];
     }
     variables = new_vars;
 
@@ -3979,7 +4207,7 @@ avtDataAttributes::VariableNameToIndex(const char *vname) const
 
     for (int i = 0 ; i < variables.size() ; i++)
     {
-        if (variables[i].varname == vname)
+        if (variables[i]->varname == vname)
             return i;
     }
 
@@ -4370,7 +4598,7 @@ void
 avtDataAttributes::ClearAllUseForAxis()
 {
     for (int i=0; i<variables.size(); i++)
-        variables[i].useForAxis = -1;
+        variables[i]->useForAxis = -1;
 }
 
 
@@ -4408,7 +4636,7 @@ avtDataAttributes::SetUseForAxis(const int ufa, const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    variables[index].useForAxis = ufa;
+    variables[index]->useForAxis = ufa;
 }
 
 
@@ -4443,7 +4671,7 @@ avtDataAttributes::GetUseForAxis(const char *varname) const
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].useForAxis;
+    return variables[index]->useForAxis;
 }
 
 
@@ -4460,7 +4688,6 @@ avtDataAttributes::GetUseForAxis(const char *varname) const
 //  Creation:      July 21, 2004 
 //
 //  Modifications:
-//
 //    Hank Childs, Wed Dec  1 15:29:56 PST 2004
 //    Make sure varname is non-NULL, or we'll crash.
 //
@@ -4483,7 +4710,7 @@ avtDataAttributes::SetTreatAsASCII(const bool ascii, const char *varname)
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    variables[index].treatAsASCII = ascii;
+    variables[index]->treatAsASCII = ascii;
 }
 
 
@@ -4498,7 +4725,6 @@ avtDataAttributes::SetTreatAsASCII(const bool ascii, const char *varname)
 //  Creation:   July 21, 2004 
 //
 //  Modifications:
-//
 //    Hank Childs, Wed Dec  1 15:29:56 PST 2004
 //    Make sure varname is non-NULL, or we'll crash.
 //
@@ -4521,7 +4747,7 @@ avtDataAttributes::GetTreatAsASCII(const char *varname) const
         EXCEPTION1(ImproperUseException, reason);
     }
 
-    return variables[index].treatAsASCII;
+    return variables[index]->treatAsASCII;
 }
 
 // ****************************************************************************
@@ -4601,39 +4827,39 @@ avtDataAttributes::TransformSpatialExtents(avtDataAttributes &outAtts,
     double in[6], out[6]; // 6 is biggest possible -- not necessarily using
                           // all 6 -- up to callback function to decide.
 
-    if (GetTrueSpatialExtents()->HasExtents())
+    if (GetOriginalSpatialExtents()->HasExtents())
     {
-        GetTrueSpatialExtents()->CopyTo(in);
+        GetOriginalSpatialExtents()->CopyTo(in);
         ProjectExtentsCallback(in, out, args);
-        outAtts.GetTrueSpatialExtents()->Set(out);
+        outAtts.GetOriginalSpatialExtents()->Set(out);
     }
 
-    if (GetCumulativeTrueSpatialExtents()->HasExtents())
+    if (GetThisProcsOriginalSpatialExtents()->HasExtents())
     {
-        GetCumulativeTrueSpatialExtents()->CopyTo(in);
+        GetThisProcsOriginalSpatialExtents()->CopyTo(in);
         ProjectExtentsCallback(in, out, args);
-        outAtts.GetCumulativeTrueSpatialExtents()->Set(out);
+        outAtts.GetThisProcsOriginalSpatialExtents()->Set(out);
     }
 
-    if (GetEffectiveSpatialExtents()->HasExtents())
+    if (GetDesiredSpatialExtents()->HasExtents())
     {
-        GetEffectiveSpatialExtents()->CopyTo(in);
+        GetDesiredSpatialExtents()->CopyTo(in);
         ProjectExtentsCallback(in, out, args);
-        outAtts.GetEffectiveSpatialExtents()->Set(out);
+        outAtts.GetDesiredSpatialExtents()->Set(out);
     }
 
-    if (GetCurrentSpatialExtents()->HasExtents())
+    if (GetActualSpatialExtents()->HasExtents())
     {
-        GetCurrentSpatialExtents()->CopyTo(in);
+        GetActualSpatialExtents()->CopyTo(in);
         ProjectExtentsCallback(in, out, args);
-        outAtts.GetCurrentSpatialExtents()->Set(out);
+        outAtts.GetActualSpatialExtents()->Set(out);
     }
 
-    if (GetCumulativeCurrentSpatialExtents()->HasExtents())
+    if (GetThisProcsActualSpatialExtents()->HasExtents())
     {
-        GetCumulativeCurrentSpatialExtents()->CopyTo(in);
+        GetThisProcsActualSpatialExtents()->CopyTo(in);
         ProjectExtentsCallback(in, out, args);
-        outAtts.GetCumulativeCurrentSpatialExtents()->Set(out);
+        outAtts.GetThisProcsActualSpatialExtents()->Set(out);
     }
 }
 
@@ -4775,6 +5001,20 @@ avtDataAttributes::AddPlotInformation(const std::string &key,
 //    Hank Childs, Tue Dec 15 15:50:42 PST 2009
 //    Added dumping of labels.
 //
+//    Hank Childs, Sun Sep 19 10:47:12 PDT 2010
+//    Add support for data replication.
+//
+//    Hank Childs, Tue Jan 11 08:41:22 PST 2011
+//    Add support for time index.
+//
+//    Eric Brugger, Thu Oct 27 10:29:42 PDT 2011
+//    Add GetMultiresExtents and GetMultiresCellSize to support adding
+//    a multi resolution display capability for AMR data.
+//
+//    Cyrus Harrison,Thu Feb  9 10:26:48 PST 2012
+//    Added logic to support presentGhostZoneTypes, which allows us to
+//    differentiate between ghost zones for boundaries & nesting.
+//
 // ****************************************************************************
 
 static const char *
@@ -4850,6 +5090,20 @@ avtDataAttributes::DebugDump(avtWebpage *webpage)
         break;
     }
     webpage->AddTableEntry2("Ghosts", str);
+
+    if(presentGhostZoneTypes == AVT_NO_GHOST_ZONES)
+    {
+        webpage->AddTableEntry2("Ghost Zones Present:", "None");
+    }
+    else
+    {
+        webpage->AddTableEntry2("Ghost Zones Present:", "");
+        if(presentGhostZoneTypes & AVT_BOUNDARY_GHOST_ZONES)
+            webpage->AddTableEntry2("", "Ghost zones for domain boundaries.");
+        if(presentGhostZoneTypes & AVT_NESTING_GHOST_ZONES)
+            webpage->AddTableEntry2("", "Ghost zones for domain nesting.");
+    }
+
     webpage->AddTableEntry2("Contains exterior boundary ghosts?",
                             YesOrNo(containsExteriorBoundaryGhosts));
     webpage->EndTable();
@@ -4879,6 +5133,12 @@ avtDataAttributes::DebugDump(avtWebpage *webpage)
                             YesOrNo(origElementsRequiredForPick));
     webpage->AddTableEntry2("Is the file format reader doing domain decomposition?",
                             YesOrNo(dynamicDomainDecomposition));
+    SNPRINTF(str, 4096, "%d", levelsOfDetail);
+    webpage->AddTableEntry2("Levels of detail", str);
+    ExtentsToString(multiresExtents, str, 4096);
+    webpage->AddTableEntry2("Multires extents", str);
+    SNPRINTF(str, 4096, "%g", multiresCellSize);
+    webpage->AddTableEntry2("Multires cell size", str);
     switch (meshCoordType)
     {
       case AVT_XY:
@@ -4948,6 +5208,8 @@ avtDataAttributes::DebugDump(avtWebpage *webpage)
     webpage->AddTableEntry2("Mesh name", meshname.c_str());
     SNPRINTF(str, 4096, "%d", numStates);
     webpage->AddTableEntry2("Number of time slices?", str);
+    webpage->AddTableEntry2("Data is replicated on all processors?",
+                            YesOrNo(dataIsReplicatedOnAllProcessors));
     if (timeIsAccurate)
         SNPRINTF(str, 4096, "%f", dtime);
     else
@@ -4958,23 +5220,25 @@ avtDataAttributes::DebugDump(avtWebpage *webpage)
     else
         SNPRINTF(str, 4096, "%d (guess)", cycle);
     webpage->AddTableEntry2("Cycle", str);
+    SNPRINTF(str, 4096, "%d", timeIndex);
+    webpage->AddTableEntry2("Time index", str);
     webpage->EndTable();
 
     webpage->AddSubheading("Spatial extents attributes");
     webpage->StartTable();
     webpage->AddTableHeader2("Field", "Value");
-    ExtentsToString(trueSpatial, str, 4096);
-    webpage->AddTableEntry2("True spatial extents", str);
-    ExtentsToString(cumulativeTrueSpatial, str, 4096);
-    webpage->AddTableEntry2("Cumulative true spatial extents", str);
-    ExtentsToString(effectiveSpatial, str, 4096);
-    webpage->AddTableEntry2("Effective spatial extents", str);
-    ExtentsToString(currentSpatial, str, 4096);
-    webpage->AddTableEntry2("Current spatial extents", str);
-    ExtentsToString(cumulativeCurrentSpatial, str, 4096);
-    webpage->AddTableEntry2("Cumulative current spatial extents", str);
-    webpage->AddTableEntry2("Can use the cumulative extents are true or current extents?", 
-                            YesOrNo(canUseCumulativeAsTrueOrCurrent));
+    ExtentsToString(originalSpatial, str, 4096);
+    webpage->AddTableEntry2("Original spatial extents", str);
+    ExtentsToString(thisProcsOriginalSpatial, str, 4096);
+    webpage->AddTableEntry2("ThisProcs original spatial extents", str);
+    ExtentsToString(desiredSpatial, str, 4096);
+    webpage->AddTableEntry2("Desired spatial extents", str);
+    ExtentsToString(actualSpatial, str, 4096);
+    webpage->AddTableEntry2("Actual spatial extents", str);
+    ExtentsToString(thisProcsActualSpatial, str, 4096);
+    webpage->AddTableEntry2("ThisProcs actual spatial extents", str);
+    webpage->AddTableEntry2("Can use the thisProcs extents are original or actual extents?", 
+                            YesOrNo(canUseThisProcsAsOriginalOrActual));
     webpage->EndTable();
 
     webpage->AddSubheading("Variable attributes");
@@ -4984,14 +5248,14 @@ avtDataAttributes::DebugDump(avtWebpage *webpage)
         webpage->AddTableHeader3("Variable", "Field", "Value");
         for (int i = 0 ; i < variables.size() ; i++)
         {
-            webpage->AddTableEntry3(variables[i].varname.c_str(), NULL, NULL);
+            webpage->AddTableEntry3(variables[i]->varname.c_str(), NULL, NULL);
             webpage->AddTableEntry3(NULL, "ActiveVar", YesOrNo(i == activeVariable));
             webpage->AddTableEntry3(NULL, "Type", 
-                                   avtVarTypeToString(variables[i].vartype).c_str());
-            webpage->AddTableEntry3(NULL, "Units", variables[i].varunits.c_str());
-            SNPRINTF(str, 4096, "%d", variables[i].dimension);
+                                   avtVarTypeToString(variables[i]->vartype).c_str());
+            webpage->AddTableEntry3(NULL, "Units", variables[i]->varunits.c_str());
+            SNPRINTF(str, 4096, "%d", variables[i]->dimension);
             webpage->AddTableEntry3(NULL, "Dimension", str);
-            switch (variables[i].centering)
+            switch (variables[i]->centering)
             {
               case AVT_NODECENT:
                 strcpy(str, "nodal");
@@ -5005,26 +5269,26 @@ avtDataAttributes::DebugDump(avtWebpage *webpage)
             }
             webpage->AddTableEntry3(NULL, "Centering", str);
             webpage->AddTableEntry3(NULL, "Treat variable as ASCII characters?",
-                                    YesOrNo(variables[i].treatAsASCII));
-            SNPRINTF(str, 4096, "%d", variables[i].useForAxis);
+                                    YesOrNo(variables[i]->treatAsASCII));
+            SNPRINTF(str, 4096, "%d", variables[i]->useForAxis);
             webpage->AddTableEntry3(NULL, "Use for axis", str);
-            ExtentsToString(variables[i].cumulativeTrueData, str, 4096);
-            webpage->AddTableEntry3(NULL, "Cumulative true data extents", str);
-            ExtentsToString(variables[i].effectiveData, str, 4096);
-            webpage->AddTableEntry3(NULL, "Effective data extents", str);
-            ExtentsToString(variables[i].currentData, str, 4096);
-            webpage->AddTableEntry3(NULL, "Current data extents", str);
-            ExtentsToString(variables[i].cumulativeCurrentData, str, 4096);
-            webpage->AddTableEntry3(NULL, "Cumulative current data extents", str);
-            ExtentsToString(variables[i].componentExtents, str, 4096);
+            ExtentsToString(variables[i]->thisProcsOriginalData, str, 4096);
+            webpage->AddTableEntry3(NULL, "ThisProcs original data extents", str);
+            ExtentsToString(variables[i]->desiredData, str, 4096);
+            webpage->AddTableEntry3(NULL, "Desired data extents", str);
+            ExtentsToString(variables[i]->actualData, str, 4096);
+            webpage->AddTableEntry3(NULL, "Actual data extents", str);
+            ExtentsToString(variables[i]->thisProcsActualData, str, 4096);
+            webpage->AddTableEntry3(NULL, "ThisProcs actual data extents", str);
+            ExtentsToString(variables[i]->componentExtents, str, 4096);
             webpage->AddTableEntry3(NULL, "Component extents", str);
-            if (variables[i].subnames.size() != 0)
+            if (variables[i]->subnames.size() != 0)
             {
-                for (int j = 0 ; j < variables[i].subnames.size() ; j++)
+                for (int j = 0 ; j < variables[i]->subnames.size() ; j++)
                 {
                     SNPRINTF(str, 4096, "Variable subname[%d]", j);
                     webpage->AddTableEntry3(NULL, str,
-                                            variables[i].subnames[j].c_str());
+                                            variables[i]->subnames[j].c_str());
                 }
             }
         }
@@ -5036,4 +5300,74 @@ avtDataAttributes::DebugDump(avtWebpage *webpage)
     }
 }
 
+// ****************************************************************************
+//  Method: avtDataAttributes::VarInfo::VarInfo
+//
+//  Purpose:
+//    Init memory
+//
+//  Programmer: David Camp
+//  Creation:   August 27, 2010
+//
+// ****************************************************************************
+avtDataAttributes::VarInfo::VarInfo(const std::string &s, const std::string &units)
+{
+    varname = s;
+    vartype = AVT_UNKNOWN_TYPE;
+    varunits = units;
+    dimension = -1;
+    centering = AVT_UNKNOWN_CENT;
+    treatAsASCII = false;
+    originalData = NULL;
+    thisProcsOriginalData = NULL;
+    desiredData = NULL;
+    actualData = NULL;
+    thisProcsActualData = NULL;
+    useForAxis = -1;
+    componentExtents = NULL;
+}
+
+// ****************************************************************************
+//  Method: avtDataAttributes::VarInfo::~VarInfo
+//
+//  Purpose:
+//    Delete memory
+//
+//  Programmer: David Camp
+//  Creation:   August 27, 2010
+//
+// ****************************************************************************
+avtDataAttributes::VarInfo::~VarInfo()
+{
+    if( originalData )
+    {
+        delete originalData;
+        originalData = NULL;
+    }
+    if( thisProcsOriginalData )
+    {
+        delete thisProcsOriginalData;
+        thisProcsOriginalData = NULL;
+    }
+    if( desiredData )
+    {
+        delete desiredData;
+        desiredData = NULL;
+    }
+    if( actualData )
+    {
+        delete actualData;
+        actualData = NULL;
+    }
+    if( thisProcsActualData )
+    {
+        delete thisProcsActualData;
+        thisProcsActualData = NULL;
+    }
+    if( componentExtents )
+    {
+        delete componentExtents;
+        componentExtents = NULL;
+    }
+}
 

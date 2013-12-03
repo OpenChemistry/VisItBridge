@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -38,11 +38,13 @@
 
 #ifndef VTK_VISIT_SPLITTER_H
 #define VTK_VISIT_SPLITTER_H
-
 #include <visit_vtk_exports.h>
-#include <FixedLengthBitField.h>
-#include <vector>
+
 #include "vtkUnstructuredGridAlgorithm.h"
+
+#include <FixedLengthBitField.h>
+
+#include <vector>
 
 class vtkImplicitFunction;
 class vtkUnstructuredGrid;
@@ -61,11 +63,14 @@ class vtkUnstructuredGrid;
 //  Creation:    February 24, 2010
 //
 //  Modifications:
+//    Eric Brugger, Wed Jul 25 10:09:42 PDT 2012
+//    Increase the number of boundaries that can be handled by the mulit-pass
+//    CSG discretization from 128 to 512.
 //
 // ****************************************************************************
 
-class VISIT_VTK_API vtkVisItSplitter
-    : public vtkUnstructuredGridAlgorithm
+class VISIT_VTK_API vtkVisItSplitter :
+    public vtkUnstructuredGridAlgorithm
 {
   public:
     vtkTypeMacro(vtkVisItSplitter,vtkUnstructuredGridAlgorithm);
@@ -78,42 +83,52 @@ class VISIT_VTK_API vtkVisItSplitter
     virtual void SetClipScalars(vtkDataArray *, float);
     virtual void SetInsideOut(bool);
     virtual void SetUseZeroCrossings(bool);
-    virtual void SetOldTagBitField(std::vector<FixedLengthBitField<16> >*);
-    virtual void SetNewTagBitField(std::vector<FixedLengthBitField<16> > *);
+    virtual void SetOldTagBitField(std::vector<FixedLengthBitField<64> >*);
+    virtual void SetNewTagBitField(std::vector<FixedLengthBitField<64> > *);
     virtual void SetNewTagBit(int);
 
-    void SetCellList(vtkIdType *, int);
+    void SetCellList(const vtkIdType *, vtkIdType);
     virtual void SetUpClipFunction(int) { ; };
 
+    struct FilterState
+    {
+        FilterState();
+       ~FilterState();
+        void SetCellList(const vtkIdType *, vtkIdType);
+        void SetClipFunction(vtkImplicitFunction *func);
+        void SetClipScalars(vtkDataArray *, double);
+
+        const vtkIdType     *CellList;
+        vtkIdType            CellListSize;
+  
+        vtkImplicitFunction *clipFunction;
+        vtkDataArray        *scalarArrayAsVTK;
+        double               scalarCutoff;
+
+        bool                 removeWholeCells;
+        bool                 insideOut;
+        bool                 useZeroCrossings;
+
+        int                  newTagBit;
+        std::vector<FixedLengthBitField<64> > *newTags;
+        std::vector<FixedLengthBitField<64> > *oldTags;
+    };
 
   protected:
     vtkVisItSplitter();
     ~vtkVisItSplitter();
 
-    int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-    int FillInputPortInformation(int, vtkInformation *);
+    virtual int RequestData(vtkInformation *,
+                            vtkInformationVector **,
+                            vtkInformationVector *);
+    virtual int FillInputPortInformation(int port, vtkInformation *info);
 
-    vtkIdType *CellList;
-    int  CellListSize;
   private:
-    bool   removeWholeCells;
-    bool   insideOut;
-    vtkImplicitFunction *clipFunction;
-    bool   iOwnData;
-    float *scalarArray;
-    vtkDataArray *scalarArrayAsVTK;
-    float  scalarCutoff;
-    bool   scalarFlip;
-    bool   useZeroCrossings;
-    std::vector<FixedLengthBitField<16> > *oldTags;
-    std::vector<FixedLengthBitField<16> > *newTags;
-    int    newTagBit;
+     // Contains the state for the filter.
+    FilterState state;
 
     vtkVisItSplitter(const vtkVisItSplitter&);  // Not implemented.
     void operator=(const vtkVisItSplitter&);  // Not implemented.
 };
 
-
 #endif
-
-

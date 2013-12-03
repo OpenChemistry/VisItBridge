@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -69,6 +69,9 @@ class vtkDoubleArray;
 //    Jeremy Meredith, Tue Jul 15 15:41:07 EDT 2008
 //    Added support for automatic domain decomposition.
 //
+//    Jeremy Meredith, Thu Oct 18 11:02:04 EDT 2012
+//    Added support for atoms in the CHGCAR file.
+//
 // ****************************************************************************
 
 class avtCHGCARFileFormat : public avtMTSDFileFormat
@@ -93,7 +96,8 @@ class avtCHGCARFileFormat : public avtMTSDFileFormat
   protected:
     virtual void           PopulateDatabaseMetaData(avtDatabaseMetaData *);
 
-    std::vector<istream::pos_type>   file_positions;
+    std::vector<istream::pos_type>   charge_file_positions;
+    std::vector<istream::pos_type>   atom_file_positions;
 
     int globalZDims[3];
     int globalNDims[3];
@@ -109,17 +113,27 @@ class avtCHGCARFileFormat : public avtMTSDFileFormat
     ifstream in;
     std::string filename;
     bool metadata_read;
+    int  atoms_read;
     int  values_read;
     int  values_per_line;
     vtkDoubleArray *values;
     int ntimesteps;
     int natoms;
 
+    std::vector<float> ax;
+    std::vector<float> ay;
+    std::vector<float> az;
+    std::vector<int>   as; // spoecies
+
+    std::vector<int> species_counts;
+    std::vector<int> element_map;
+
     void OpenFileAtBeginning();
     void ReadAllMetaData();
     void ReadValues(int);
     void AddGhostCellInfo(vtkDataSet *ds);
     void DoDomainDecomposition();
+    void ReadAtomsForTimestep(int);
 };
 
 

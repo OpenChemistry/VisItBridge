@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -65,6 +65,7 @@ FileConnection::FileConnection(const char *filename, bool writeMode_) :
         fileStream = fopen(filename, "wb");
 
         // Write out the type information for this end
+        Write(srcFormat.Format);
         Write(srcFormat.IntFormat);
         Write(srcFormat.LongFormat);
         Write(srcFormat.FloatFormat);
@@ -77,6 +78,7 @@ FileConnection::FileConnection(const char *filename, bool writeMode_) :
         fileStream = fopen(filename, "rb");
 
         // Read the type information for the other end
+        Read(&destFormat.Format);
         Read(&destFormat.IntFormat);
         Read(&destFormat.LongFormat);
         Read(&destFormat.FloatFormat);

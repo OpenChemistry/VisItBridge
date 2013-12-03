@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -42,6 +42,7 @@
 #include <AttributeSubject.h>
 
 
+
 // ****************************************************************************
 // Class: ColorAttribute
 //
@@ -61,13 +62,23 @@ class STATE_API ColorAttribute : public AttributeSubject
 {
 public:
 
+    // These constructors are for objects of this class
     ColorAttribute();
     ColorAttribute(const ColorAttribute &obj);
+protected:
+    // These constructors are for objects derived from this class
+    ColorAttribute(private_tmfs_t tmfs);
+    ColorAttribute(const ColorAttribute &obj, private_tmfs_t tmfs);
+public:
     virtual ~ColorAttribute();
 
     virtual ColorAttribute& operator = (const ColorAttribute &obj);
     virtual bool operator == (const ColorAttribute &obj) const;
     virtual bool operator != (const ColorAttribute &obj) const;
+private:
+    void Init();
+    void Copy(const ColorAttribute &obj);
+public:
 
     virtual const std::string TypeName() const;
     virtual bool CopyAttributes(const AttributeGroup *);
@@ -114,10 +125,12 @@ public:
     const char *GetByName() const;
     static bool RgbStrToRgb(const char *const s, unsigned char rgb[3]);
     static void RgbToRgbStr(unsigned char rgb[3], char *s);
+    static ColorAttribute Blend(const ColorAttribute &a, const ColorAttribute &b, double t);
 
     // IDs that can be used to identify fields in case statements
     enum {
-        ID_color = 0
+        ID_color = 0,
+        ID__LAST
     };
 
 private:
@@ -125,6 +138,8 @@ private:
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
+    static const private_tmfs_t TmfsStruct;
 };
+#define COLORATTRIBUTE_TMFS "U"
 
 #endif

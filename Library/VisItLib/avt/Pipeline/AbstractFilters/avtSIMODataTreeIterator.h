@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -106,21 +106,24 @@ class PIPELINE_API avtSIMODataTreeIterator : virtual public
     int                      totalNodes;
 
     virtual void             Execute(void);
-    virtual avtDataTree_p    Execute(avtDataTree_p);
+    virtual void             Execute(avtDataTree_p inDT, avtDataTree_p &outDT);
     virtual avtDataTree_p    ExecuteDataTree(vtkDataSet *,int,std::string) = 0;
 
-    void                     OverrideTrueSpatialExtents(void)
-                                 { overrideTrueSpatialExtents = true; };
-    void                     OverrideTrueDataExtents(void)
-                                 { overrideTrueDataExtents = true; };
+    virtual bool             ThreadSafe(void) { return(true); };
+    void                     FinishExecute(void);
+
+    void                     OverrideOriginalSpatialExtents(void)
+                                 { overrideOriginalSpatialExtents = true; };
+    void                     OverrideOriginalDataExtents(void)
+                                 { overrideOriginalDataExtents = true; };
 
   private:
-    bool                     overrideTrueSpatialExtents;
-    bool                     overrideTrueDataExtents;
-    avtExtents              *trueSpatialExtents;
-    avtExtents              *trueDataExtents;
+    bool                     overrideOriginalSpatialExtents;
+    bool                     overrideOriginalDataExtents;
 
     void                     UpdateExtents(avtDataTree_p);
+
+    static void              ExecuteDataTreeOnThread(void *cbdata);
 };
 
 

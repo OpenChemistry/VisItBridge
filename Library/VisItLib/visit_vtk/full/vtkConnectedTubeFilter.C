@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -50,7 +50,6 @@
 #include <vtkPolyData.h>
 #include <vtkPolyLine.h>
 #include <vtkTubeFilter.h>
-
 // ----------------------------------------------------------------------------
 //                            class PointSequence
 // ----------------------------------------------------------------------------
@@ -97,10 +96,12 @@ vtkConnectedTubeFilter::PointSequence::~PointSequence()
 //  Creation:    November  1, 2002
 //
 //  Modifications:
-//
 //    Hank Childs (for Jeremy Meredith), Mon Apr  7 11:46:51 PDT 2003
 //    Increased size of cellindex.
 //
+//
+//  Jean Favre, Tue May  7 16:38:37 CEST 2013
+//  Used vtkIdType where needed
 // ****************************************************************************
 void
 vtkConnectedTubeFilter::PointSequence::Init(int maxlen)
@@ -111,8 +112,8 @@ vtkConnectedTubeFilter::PointSequence::Init(int maxlen)
         delete[] cellindex;
 
     length = 0;
-    index  = new int[maxlen];
-    cellindex = new int[maxlen];
+    index  = new vtkIdType[maxlen];
+    cellindex = new vtkIdType[maxlen];
 }
 
 // ****************************************************************************
@@ -124,9 +125,11 @@ vtkConnectedTubeFilter::PointSequence::Init(int maxlen)
 //  Programmer:  Jeremy Meredith
 //  Creation:    November  1, 2002
 //
+//  Jean Favre, Tue May  7 16:38:37 CEST 2013
+//  Used vtkIdType where needed
 // ****************************************************************************
 void
-vtkConnectedTubeFilter::PointSequence::Add(int i, int ci)
+vtkConnectedTubeFilter::PointSequence::Add(vtkIdType i, vtkIdType ci)
 {
     index[length]     = i;
     cellindex[length] = ci;
@@ -146,7 +149,6 @@ vtkConnectedTubeFilter::PointSequence::Add(int i, int ci)
 //  Creation:    November  1, 2002
 //
 //  Modifications:
-//
 //    Rich Cook and Hank Childs, Thu Oct  2 16:32:55 PDT 2008
 //    Initialized data member used for supporting loops.
 //
@@ -191,22 +193,24 @@ vtkConnectedTubeFilter::PointSequenceList::~PointSequenceList()
 //  Method:  PointSequenceList::Build
 //
 //  Purpose:
-//    Extract the
+//    Extract the 
 //
 //  Programmer:  Jeremy Meredith
 //  Creation:    November  1, 2002
 //
+//  Jean Favre, Tue May  7 16:38:37 CEST 2013
+//  Used vtkIdType where needed
 // ****************************************************************************
-bool
+bool 
 vtkConnectedTubeFilter::PointSequenceList::Build(vtkPoints *points,
                                                  vtkCellArray *lines)
 {
-    pts             = (float*)(points->GetVoidPointer(0));
+    pts             = points;
     len             = points->GetNumberOfPoints();
-    numneighbors    = new int[len];
-    connectivity[0] = new int[len];
-    connectivity[1] = new int[len];
-    cellindex       = new int[len];
+    numneighbors    = new vtkIdType[len];
+    connectivity[0] = new vtkIdType[len];
+    connectivity[1] = new vtkIdType[len];
+    cellindex       = new vtkIdType[len];
 
     vtkIdType *cells = lines->GetPointer();
 
@@ -227,8 +231,8 @@ vtkConnectedTubeFilter::PointSequenceList::Build(vtkPoints *points,
         }
 
         // Get the begin and end index for this segment
-        int a = cells[i*3 + 1];
-        int b = cells[i*3 + 2];
+        vtkIdType a = cells[i*3 + 1];
+        vtkIdType b = cells[i*3 + 2];
 
         // If we have two neighbors already, this is a T intersection
         if (numneighbors[a] >= 2 || numneighbors[b] >= 2)
@@ -257,7 +261,6 @@ vtkConnectedTubeFilter::PointSequenceList::Build(vtkPoints *points,
 //  Creation:    November  1, 2002
 //
 //  Modifications:
-//
 //    Rich Cook and Hank Childs, Thu Oct  2 16:32:55 PDT 2008
 //    Initialized data member used for supporting loops.
 //
@@ -297,6 +300,11 @@ vtkConnectedTubeFilter::PointSequenceList::InitTraversal()
 //    that have 2 neighbors.  Previously it would have considered points
 //    with no neighbors, which caused it to reference uninitialized memory.
 //
+//    Jean Favre, Tue May  7 16:38:37 CEST 2013
+//    I modified the calls to GetPoint() to use the other variant of the call
+//    with two arguments. The previous version would never succeed in the test
+//    to remove sequential identical points.
+//    Used vtkIdType where needed
 // ****************************************************************************
 bool
 vtkConnectedTubeFilter::PointSequenceList::GetNextSequence(PointSequence &seq)
@@ -308,33 +316,37 @@ vtkConnectedTubeFilter::PointSequenceList::GetNextSequence(PointSequence &seq)
         if (((lookforloops && numneighbors[index] == 2) ||
               numneighbors[index] == 1) && !visited[index])
         {
-            int current = index;
-            int previous = -1;
+            vtkIdType current = index;
+            vtkIdType previous = -1;
             seq.Init(len);
             seq.Add(current, cellindex[current]);
             visited[current] = true;
             while (true)
             {
-                int n1       = connectivity[0][current];
-                int n2       = connectivity[1][current];
-                int next     = (n1 == previous) ? n2 : n1;
+                vtkIdType n1       = connectivity[0][current];
+                vtkIdType n2       = connectivity[1][current];
+                vtkIdType next     = (n1 == previous) ? n2 : n1;
                 previous = current;
                 current = next;
 
-
+ 
                 // we must skip any sequential identical points:
                 // 1) they are useless, and 2) they mess up calculations
-                if (pts[previous*3+0] != pts[current*3+0] ||
-                    pts[previous*3+1] != pts[current*3+1] ||
-                    pts[previous*3+2] != pts[current*3+2])
+                double prePt[3];
+                double curPt[3];
+                pts->GetPoint(previous, prePt);
+                pts->GetPoint(current, curPt);
+                if (prePt[0] != curPt[0] ||
+                    prePt[1] != curPt[1] ||
+                    prePt[2] != curPt[2])
                 {
                     seq.Add(current, cellindex[current]);
                 }
 
                 // check for a loop (AFTER adding the node again...)
-                if (lookforloops && visited[current])
+                if (lookforloops && visited[current]) 
                 {
-                    break;
+                    break; 
                 }
                 visited[current] = true;
 
@@ -357,10 +369,10 @@ vtkConnectedTubeFilter::PointSequenceList::GetNextSequence(PointSequence &seq)
         }
     }
 
-    if (index == len && !lookforloops)
+    if (index == len && !lookforloops) 
     {
-        lookforloops = true;
-        index=0;
+        lookforloops = true; 
+        index=0; 
         return GetNextSequence(seq);
     }
 
@@ -416,17 +428,20 @@ vtkConnectedTubeFilter::~vtkConnectedTubeFilter()
 //  Programmer:  Jeremy Meredith
 //  Creation:    November  1, 2002
 //
+//  Modifications:
+//    Eric Brugger, Wed Jan  9 11:31:17 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
 // ****************************************************************************
-bool vtkConnectedTubeFilter::BuildConnectivityArrays()
+bool vtkConnectedTubeFilter::BuildConnectivityArrays(vtkPolyData *input)
 {
-    vtkPolyData  *input   = this->GetPolyDataInput(0);
     vtkPoints    *inPts   = NULL;
     vtkCellArray *inLines = NULL;
     int numPts;
     int numCells;
     vtkDebugMacro(<<"Building tube connectivity arrays");
 
-    if (!(inPts=input->GetPoints())               ||
+    if (!(inPts=input->GetPoints())               || 
         (numPts = inPts->GetNumberOfPoints()) < 1 ||
         !(inLines = input->GetLines())            ||
         (numCells = inLines->GetNumberOfCells()) < 1)
@@ -450,7 +465,7 @@ bool vtkConnectedTubeFilter::BuildConnectivityArrays()
 }
 
 // ****************************************************************************
-//  Method:  vtkConnectedTubeFilter::Execute
+//  Method:  vtkConnectedTubeFilter::RequestData
 //
 //  Purpose:
 //    Normal vtk filter execution.
@@ -459,7 +474,6 @@ bool vtkConnectedTubeFilter::BuildConnectivityArrays()
 //  Creation:    November  1, 2002
 //
 //  Modifications:
-//
 //    Hank Childs, Mon Apr  7 10:02:31 PDT 2003
 //    Allocate memory for points, because VTK does not do that for you.
 //
@@ -468,20 +482,40 @@ bool vtkConnectedTubeFilter::BuildConnectivityArrays()
 //    degenerate polys between 360 and 0 degrees) by partitioning into
 //    npts-1 sides, instead of npts sides.  Fixed that.
 //
+//    Kathleen Biagas, Thu Sep 6 11:15:29 MST 2012
+//    Preserve coordinate data type.
+//
+//    Eric Brugger, Wed Jan  9 11:31:17 PST 2013
+//    Modified to inherit from vtkPolyDataAlgorithm.
+//
+//    Jean Favre, Tue May  7 16:38:37 CEST 2013
+//    I modified the calls to GetPoint() to use the other variant of the call
+//    with two arguments. The previous version would fail getting the right values.
+//    Used vtkIdType where needed
+//
+//    Jean Favre, Tue May 28 13:28:41 CEST 2013
+//    I added a quaternion interpolation to smoothly interpolate the direction vectors
+//    used to construct the tube. This eliminates abrupt twists along the tube
+//
 // ****************************************************************************
-int vtkConnectedTubeFilter::RequestData(vtkInformation* vtkNotUsed(request),
-                                        vtkInformationVector** inputVector,
-                                        vtkInformationVector* outputVector)
+int vtkConnectedTubeFilter::RequestData(
+    vtkInformation *vtkNotUsed(request),
+    vtkInformationVector **inputVector,
+    vtkInformationVector *outputVector)
 {
-    // Get all the appropriate input arrays
-    vtkInformation* inInfo = inputVector[0]->GetInformationObject(0);
+    // get the info objects
+    vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
     vtkInformation *outInfo = outputVector->GetInformationObject(0);
 
-    vtkPolyData  *input   = vtkPolyData::SafeDownCast(
-      inInfo->Get(vtkDataObject::DATA_OBJECT()));
+    //
+    // Initialize some frequently used values.
+    //
+    vtkPolyData  *input = vtkPolyData::SafeDownCast(
+        inInfo->Get(vtkDataObject::DATA_OBJECT()));
     vtkPolyData *output = vtkPolyData::SafeDownCast(
         outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
+    // Get all the appropriate input arrays
     vtkPoints    *inPts   = NULL;
     vtkCellArray *inLines = NULL;
     vtkCellData  *inCD    = input->GetCellData();
@@ -495,28 +529,26 @@ int vtkConnectedTubeFilter::RequestData(vtkInformation* vtkNotUsed(request),
     {
         vtkErrorMacro(<< ": Connectivity was not built yet; need to call "
                          "vtkConnectedTubeFilter::BuildConnectivityArrays()\n");
-        return 0;
+        return 1;
     }
 
-    if (!(inPts=input->GetPoints())               ||
+    if (!(inPts=input->GetPoints())               || 
         (numPts = inPts->GetNumberOfPoints()) < 1 ||
         !(inLines = input->GetLines())            ||
         (numCells = inLines->GetNumberOfCells()) < 1)
     {
         vtkDebugMacro(<< ": No input data!\n");
-        return 0;
+        return 1;
     }
-
-    float *pts = (float*)(inPts->GetVoidPointer(0));
 
     // Set up the output arrays
     int maxNewCells  = numCells * (NumberOfSides + 2);
     int maxNewPoints = numCells * NumberOfSides * 2;
-    vtkPoints     *newPts     = vtkPoints::New();
+    vtkPoints     *newPts     = vtkPoints::New(inPts->GetDataType());
     newPts->Allocate(maxNewPoints);
     vtkCellArray  *newCells   = vtkCellArray::New();
     newCells->Allocate(maxNewCells, 4*maxNewCells + 2*NumberOfSides);
-    vtkFloatArray *newNormals = NULL;
+    vtkDataArray *newNormals = NULL;
 
     vtkPointData  *newPD      = NULL;
     newPD = output->GetPointData();
@@ -526,10 +558,10 @@ int vtkConnectedTubeFilter::RequestData(vtkInformation* vtkNotUsed(request),
     vtkCellData   *newCD      = NULL;
     newCD = output->GetCellData();
     newCD->CopyAllocate(inCD, maxNewCells);
-
+    
     if (CreateNormals)
     {
-        newNormals = vtkFloatArray::New();
+        newNormals = inPts->GetData()->NewInstance();
         newNormals->SetNumberOfComponents(3);
         newNormals->SetName("Normals");
         newPD->SetNormals(newNormals);
@@ -551,46 +583,93 @@ int vtkConnectedTubeFilter::RequestData(vtkInformation* vtkNotUsed(request),
             bool lastPoint  = (i==seq.length-1);
 
             // Get the current, previous, and next indices
-            int ix  = seq.index[i];
-            int ix1 = (firstPoint ?  seq.index[i] : seq.index[i-1]);
-            int ix2 = (lastPoint  ?  seq.index[i] : seq.index[i+1]);
+            vtkIdType ix  = seq.index[i];
+            vtkIdType ix1 = (firstPoint ?  seq.index[i] : seq.index[i-1]);
+            vtkIdType ix2 = (lastPoint  ?  seq.index[i] : seq.index[i+1]);
 
             // Use a centered difference approximation for direction
-            float dir[3] = {pts[ix2*3+0] - pts[ix1*3+0],
-                            pts[ix2*3+1] - pts[ix1*3+1],
-                            pts[ix2*3+2] - pts[ix1*3+2]};
+            double v0[3], v1[3], v2[3], dir[3], pt[3];
+            double prev_dir[3], prev_v1[3], prev_v2[3];
+            inPts->GetPoint(ix2, v2);
+            inPts->GetPoint(ix1, v1);
+            vtkMath::Subtract(v2, v1, dir);
 
             // If our centered difference was zero, do a forward
             // difference instead.  We ensured no sequential points
             // are identical, so this can't fail.
             if (dir[0]==0 && dir[1]==0 && dir[2]==0)
             {
-                dir[0] = pts[ix2*3+0] - pts[ix*3+0];
-                dir[1] = pts[ix2*3+1] - pts[ix*3+1];
-                dir[2] = pts[ix2*3+2] - pts[ix*3+2];
+               inPts->GetPoint(ix, v0);
+               vtkMath::Subtract(v2, v0, dir);
             }
-
-            // Get a couple vectors orthogonal to our direction
-            float v1[3], v2[3];
-            vtkMath::Perpendiculars(dir, v1,v2, 0.0);
-            vtkMath::Normalize(v1);
+            //inNormals->GetTuple(i, v1);
+            vtkMath::Cross(dir, v1, v2);
             vtkMath::Normalize(v2);
 
-            // Hang on to the first point index we create; we need it
+            if(firstPoint)
+            {
+              // Get a couple vectors orthogonal to our direction
+              //double v1[3], v2[3];
+              vtkMath::Perpendiculars(dir, v1,v2, 0.0);
+              vtkMath::Normalize(v1);
+              vtkMath::Normalize(v2);
+            }
+            else
+            {
+              // we can't just get two new orthogonal vectors each time because of abrupt changes
+              // We will construct the matrix which xforms the "previous dir" vector
+              // into this new dir vector, and then use this rigid body motion to
+              // xform v1 and v2 from the previous point
+              double Xform[3][3];
+              double vec[3];
+              vtkMath::Cross(prev_dir, dir, vec);
+              double costheta = vtkMath::Dot(prev_dir, dir);
+              double sintheta = vtkMath::Norm(vec);
+              double theta = atan2(sintheta, costheta);
+              if (sintheta != 0)
+                {
+                vec[0] /= sintheta;
+                vec[1] /= sintheta;
+                vec[2] /= sintheta;
+                }
+              // convert to quaternion
+              costheta = cos(0.5*theta);
+              sintheta = sin(0.5*theta);
+              double quat[4];
+              quat[0] = costheta;
+              quat[1] = vec[0]*sintheta;
+              quat[2] = vec[1]*sintheta;
+              quat[3] = vec[2]*sintheta;
+              // convert to matrix
+              vtkMath::QuaternionToMatrix3x3(quat, Xform); // Xform will xform prev_dir into dir
+              // now use it
+              vtkMath::Multiply3x3 (Xform, prev_v1, v1);
+              vtkMath::Multiply3x3 (Xform, prev_v2, v2);
+              vtkMath::Normalize(v1);
+              vtkMath::Normalize(v2);
+            }
+
+            prev_dir[0] = dir[0]; prev_dir[1] = dir[1]; prev_dir[2] = dir[2];
+            prev_v1[0]  = v1[0];  prev_v1[1]  = v1[1];  prev_v1[2]  = v1[2];
+            prev_v2[0]  = v2[0];  prev_v2[1]  = v2[1];  prev_v2[2]  = v2[2];
+
+            // Hang on to the first point index we create; we need it 
             // to create the cells
             vtkIdType firstIndex = newPts->GetNumberOfPoints();
-
+    
+            //double *pt = inPts->GetPoint(ix);
+            inPts->GetPoint(ix, pt);
             for (int j = 0 ; j < NumberOfSides ; j++)
             {
-                float q = (j * 2. * vtkMath::Pi()) / float(NumberOfSides);
-                float sq = sin(q);
-                float cq = cos(q);
-                float normal[3] = { v1[0]*cq + v2[0]*sq,
+                double q = (j * 2. * vtkMath::Pi()) / double(NumberOfSides);
+                double sq = sin(q);
+                double cq = cos(q);
+                double normal[3] = { v1[0]*cq + v2[0]*sq,
                                     v1[1]*cq + v2[1]*sq,
                                     v1[2]*cq + v2[2]*sq};
-                float x = pts[ix*3+0] + Radius * normal[0];
-                float y = pts[ix*3+1] + Radius * normal[1];
-                float z = pts[ix*3+2] + Radius * normal[2];
+                double x = pt[0] + Radius * normal[0];
+                double y = pt[1] + Radius * normal[1];
+                double z = pt[2] + Radius * normal[2];
                 vtkIdType id = newPts->InsertNextPoint(x,y,z);
                 if (CreateNormals)
                     newNormals->InsertNextTuple(normal);
@@ -647,6 +726,7 @@ int vtkConnectedTubeFilter::RequestData(vtkInformation* vtkNotUsed(request),
     // don't forget the sequence list; we're done with it
     delete pseqlist;
     pseqlist = NULL;
+
     return 1;
 }
 
@@ -666,7 +746,7 @@ void vtkConnectedTubeFilter::PrintSelf(ostream& os, vtkIndent indent)
 
     os << indent << "Radius: " << this->Radius << "\n";
     os << indent << "Number Of Sides: " << this->NumberOfSides << "\n";
-    os << indent << "Create Normals: "
+    os << indent << "Create Normals: " 
        << (this->CreateNormals ? "On\n" : "Off\n");
     os << indent << "Capping: " << this->Capping << endl;
 }

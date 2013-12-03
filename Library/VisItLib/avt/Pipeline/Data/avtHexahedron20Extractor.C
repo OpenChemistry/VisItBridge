@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -273,7 +273,7 @@ void
 avtHexahedron20Extractor::LinearHexExtract(const avtHexahedron20 &hex)
 {
     avtHexahedron p_hex; // the parameter hex
-    float pts[27][3]; // all the local points
+    double pts[27][3]; // all the local points
     int i, j, k;
 
     // Now we must set the s,t,u parameter for each corner.
@@ -289,22 +289,22 @@ avtHexahedron20Extractor::LinearHexExtract(const avtHexahedron20 &hex)
     // For the face centers we take the average of the edge points
     //
     for (i = 0 ; i < 3 ; i++)
-        pts[20][i] = 0.25*(pts[8][i] + pts[17][i] + pts[12][i] + pts[16][i]);
+        pts[20][i] = 0.25f*(pts[8][i] + pts[17][i] + pts[12][i] + pts[16][i]);
 
     for (i = 0 ; i < 3 ; i++)
-        pts[21][i] = 0.25*(pts[9][i] + pts[18][i] + pts[13][i] + pts[17][i]);
+        pts[21][i] = 0.25f*(pts[9][i] + pts[18][i] + pts[13][i] + pts[17][i]);
  
     for (i = 0 ; i < 3 ; i++)
-        pts[22][i] = 0.25*(pts[10][i] + pts[19][i] + pts[14][i] + pts[18][i]);
+        pts[22][i] = 0.25f*(pts[10][i] + pts[19][i] + pts[14][i] + pts[18][i]);
    
     for (i = 0 ; i < 3 ; i++)
-        pts[23][i] = 0.25*(pts[11][i] + pts[16][i] + pts[15][i] + pts[19][i]);
+        pts[23][i] = 0.25f*(pts[11][i] + pts[16][i] + pts[15][i] + pts[19][i]);
  
     for (i = 0 ; i < 3 ; i++)
-        pts[24][i] = 0.25*(pts[8][i] + pts[9][i] + pts[10][i] + pts[11][i]);
+        pts[24][i] = 0.25f*(pts[8][i] + pts[9][i] + pts[10][i] + pts[11][i]);
  
     for (i = 0 ; i < 3 ; i++)
-        pts[25][i] = 0.25*(pts[12][i] + pts[13][i] + pts[14][i] + pts[15][i]);
+        pts[25][i] = 0.25f*(pts[12][i] + pts[13][i] + pts[14][i] + pts[15][i]);
  
   
     // For the volumetric center we take the average of the face points  
@@ -375,11 +375,11 @@ avtHexahedron20Extractor::QuadraticHexExtract(const avtHexahedron20 &hex)
 
 void  
 avtHexahedron20Extractor::StoreRay(int x, int y, int frontZ, int backZ,
-                                   const float (*samples)[AVT_VARIABLE_LIMIT])
+                                   const double (*samples)[AVT_VARIABLE_LIMIT])
 {
     // The temporary ray we will fill up with samples
-    float (*tmp)[AVT_VARIABLE_LIMIT] = new float [backZ-frontZ+1][AVT_VARIABLE_LIMIT];
-    float weight;
+    double (*tmp)[AVT_VARIABLE_LIMIT] = new double [backZ-frontZ+1][AVT_VARIABLE_LIMIT];
+    double weight;
     int index;
   
     // For all samples in the ray
@@ -437,9 +437,9 @@ avtHexahedron20Extractor::StoreRay(int x, int y, int frontZ, int backZ,
 //
 // ****************************************************************************
 
-float
-avtHexahedron20Extractor::TriLinearWeight(int v_index, float s, float t, 
-                                          float u)
+double
+avtHexahedron20Extractor::TriLinearWeight(int v_index, double s, double t, 
+                                          double u)
 {
     return 0.125*(  (1+sControlPointParam[v_index][0]*s)
                   * (1+sControlPointParam[v_index][1]*t)
@@ -460,9 +460,9 @@ avtHexahedron20Extractor::TriLinearWeight(int v_index, float s, float t,
 //
 // ****************************************************************************
 
-float
-avtHexahedron20Extractor::QuadraticWeight(int v_index, float s, float t, 
-                                          float u)
+double
+avtHexahedron20Extractor::QuadraticWeight(int v_index, double s, double t, 
+                                          double u)
 {
     if (v_index < 8) 
     {
@@ -507,11 +507,11 @@ avtHexahedron20Extractor::QuadraticWeight(int v_index, float s, float t,
 //
 // ****************************************************************************
 
-float 
-avtHexahedron20Extractor::ClosestParametricNeighbor(float s, float t, float u)
+double 
+avtHexahedron20Extractor::ClosestParametricNeighbor(double s, double t, double u)
 {
-    float min = 10;
-    float tmp;
+    double min = 10;
+    double tmp;
     int min_index = -1;
   
     for (int i=0;i<20;i++) 
