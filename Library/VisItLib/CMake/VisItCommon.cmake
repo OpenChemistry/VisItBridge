@@ -1,5 +1,5 @@
 #Setup the version since some files need this
-set(VISIT_VERSION "2.0.0")
+set(VISIT_VERSION "2.7.0")
 
 if (COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
@@ -38,6 +38,8 @@ endif()
 set(VISIT_SOURCE_DIR ${VisItBridgePlugin_SOURCE_DIR})
 set(VISIT_BINARY_DIR ${VisItBridgePlugin_BINARY_DIR})
 set(VISIT_CMAKE_DIR ${VISIT_SOURCE_DIR}/CMake )
+set(AVT_ALGORITHMS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/AvtAlgorithms)
+
 
 #include the visit cmake directory on the cmake search path
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${VISIT_CMAKE_DIR})
@@ -144,14 +146,14 @@ FUNCTION(ADD_VISIT_READER NAME VERSION)
   string(SUBSTRING ${ARG_VISIT_READER_TYPE} 0 2 READER_WRAPPER_TYPE)
 
   configure_file(
-    ${VISIT_CMAKE_DIR}/VisItExport.h.in
+    ${AVT_ALGORITHMS_SOURCE_DIR}/VisItExport.h.in
     ${VISIT_DATABASE_BINARY_DIR}/${PLUGIN_NAME}Export.h @ONLY)
 
   configure_file(
-      ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}.h.in
+      ${AVT_ALGORITHMS_SOURCE_DIR}/VisIt${READER_WRAPPER_TYPE}.h.in
       ${VISIT_DATABASE_BINARY_DIR}/${PLUGIN_NAME}.h @ONLY)
   configure_file(
-      ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}.cxx.in
+      ${AVT_ALGORITHMS_SOURCE_DIR}/VisIt${READER_WRAPPER_TYPE}.cxx.in
       ${VISIT_DATABASE_BINARY_DIR}/${PLUGIN_NAME}.cxx @ONLY)
 
   set(reader_sources
@@ -232,15 +234,15 @@ FUNCTION(ADD_VISIT_INTERFACE_READER NAME VERSION)
         ${VISIT_DATABASE_BINARY_DIR}/${PLUGIN_NAME}${ARG_VISIT_INTERFACE_FILE}.h @ONLY)
 
       configure_file(
-        ${VISIT_CMAKE_DIR}/VisItExport.h.in
+        ${AVT_ALGORITHMS_SOURCE_DIR}/VisItExport.h.in
         ${VISIT_DATABASE_BINARY_DIR}/${PLUGIN_NAME}Export.h @ONLY)
 
       configure_file(
-        ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}.h.in
+        ${AVT_ALGORITHMS_SOURCE_DIR}/VisIt${READER_WRAPPER_TYPE}.h.in
         ${VISIT_DATABASE_BINARY_DIR}/${PLUGIN_NAME}.h @ONLY)
 
       configure_file(
-        ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}.cxx.in
+        ${AVT_ALGORITHMS_SOURCE_DIR}/VisIt${READER_WRAPPER_TYPE}.cxx.in
         ${VISIT_DATABASE_BINARY_DIR}/${PLUGIN_NAME}.cxx @ONLY)
 
       set(reader_sources
@@ -316,18 +318,18 @@ set(LIBRARY_NAME ${NAME})
 #need to generate the VTK class wrapper
 string(SUBSTRING ${ARG_VISIT_READER_TYPE} 0 2 READER_WRAPPER_TYPE)
 configure_file(
-    ${VISIT_CMAKE_DIR}/VisItExport.h.in
+    ${AVT_ALGORITHMS_SOURCE_DIR}/VisItExport.h.in
     ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}Export.h @ONLY)
 configure_file(
-    ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}.h.in
+    ${AVT_ALGORITHMS_SOURCE_DIR}/VisIt${READER_WRAPPER_TYPE}.h.in
     ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}.h @ONLY)
 configure_file(
-    ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}.cxx.in
+    ${AVT_ALGORITHMS_SOURCE_DIR}/VisIt${READER_WRAPPER_TYPE}.cxx.in
     ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}.cxx @ONLY)
 
 #generate server manager xml file
 configure_file(
-  ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}SM.xml.in
+  ${AVT_ALGORITHMS_SOURCE_DIR}/VisIt${READER_WRAPPER_TYPE}SM.xml.in
   ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}SM.xml @ONLY)
 
 set(reader_sources
@@ -414,27 +416,27 @@ foreach( index RANGE ${NUM_READERS})
 
     #configure the declspec header
     configure_file(
-        ${VISIT_CMAKE_DIR}/VisItExport.h.in
+        ${AVT_ALGORITHMS_SOURCE_DIR}/VisItExport.h.in
         ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}Export.h @ONLY)
 
     #configure the header and implementation
     configure_file(
-        ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}.h.in
+        ${AVT_ALGORITHMS_SOURCE_DIR}/VisIt${READER_WRAPPER_TYPE}.h.in
         ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}.h @ONLY)
     configure_file(
-        ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}.cxx.in
+        ${AVT_ALGORITHMS_SOURCE_DIR}/VisIt${READER_WRAPPER_TYPE}.cxx.in
         ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}.cxx @ONLY)
 
 
 
     #generate server manager xml file
     configure_file(
-      ${VISIT_CMAKE_DIR}/VisIt${READER_WRAPPER_TYPE}SM.xml.in
+      ${AVT_ALGORITHMS_SOURCE_DIR}/VisIt${READER_WRAPPER_TYPE}SM.xml.in
       ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}SM.xml @ONLY)
 
     #generate reader xml
     configure_file(
-      ${VISIT_CMAKE_DIR}/VisItGUI.xml.in
+      ${AVT_ALGORITHMS_SOURCE_DIR}/VisItGUI.xml.in
       ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_NAME}GUI.xml @ONLY)
 
     LIST(APPEND INTERFACE_SOURCES

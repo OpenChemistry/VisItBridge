@@ -179,8 +179,6 @@ set_source_files_properties(
 
 set(vtkIOVisItBridge_INCLUDE_DIRS "${vtkIOVisItBridge_INCLUDE_DIRS};${CMAKE_CURRENT_SOURCE_DIR}/AvtAlgorithms")
 vtk_module_library(vtkIOVisItBridge ${Module_SRCS} ${VISIT_DB_SOURCES})
-# for OpenFOAM
-target_link_libraries(vtkIOVisItBridge LINK_PRIVATE vtksys)
 
 if(VISIT_PARALLEL)
    target_link_libraries(vtkIOVisItBridge
@@ -194,7 +192,7 @@ else(VISIT_PARALLEL)
           visit_vtk vtkIOImage vtkRenderingOpenGL)
 endif(VISIT_PARALLEL)
 
-target_link_libraries(vtkIOVisItBridge LINK_PRIVATE vtkNetCDF)
+target_link_libraries(vtkIOVisItBridge LINK_PRIVATE vtkNetCDF vtksys)
 
 if(PARAVIEW_HDF5_LIBRARIES)
   target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${PARAVIEW_HDF5_LIBRARIES})
