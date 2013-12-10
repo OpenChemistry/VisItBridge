@@ -61,6 +61,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 using std::istringstream;
 using std::string;
@@ -133,10 +134,7 @@ avtLAMMPSDumpFileFormat::GetNTimesteps(void)
 void
 avtLAMMPSDumpFileFormat::FreeUpResources(void)
 {
-    for (int i=0; i<vars.size(); i++)
-        vars[i].clear();
-    vars.clear();
-    varNames.clear();
+    atomVars.Clear();
 }
 
 
@@ -206,7 +204,7 @@ avtLAMMPSDumpFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int t
 
     avtMeshMetaData *mmd_bbox = new avtMeshMetaData("unitCell", 1, 0,0,0,
                                                     3, 1,
-                                                    AVT_UNSTRUCTURED_MESH);
+                                                    AVT_POINT_MESH);
     for (int i=0; i<9; i++)
         mmd_bbox->unitCellVectors[i] = 0;
     mmd_bbox->unitCellVectors[0] = xMax - xMin;
@@ -231,13 +229,22 @@ avtLAMMPSDumpFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int t
     mmd->unitCellOrigin[2] = zMin;
     md->Add(mmd);
 
-    AddScalarVarToMetaData(md, "species", "mesh", AVT_NODECENT);
-    for (int v=0; v<nVars; v++)
-    {
-        if (v == idIndex || v == speciesIndex)
-            continue;
-        AddScalarVarToMetaData(md, varNames[v], "mesh", AVT_NODECENT);
-    }
+    if(atomVars.HasIds())
+        {
+        AddScalarVarToMetaData(md, "id", "mesh", AVT_NODECENT);
+        }
+
+    if(atomVars.HasTypes())
+        {
+        AddScalarVarToMetaData(md, "species", "mesh", AVT_NODECENT);
+        }
+
+    for(AtomInfo::name_iterator v = atomVars.GetVariableNamesBegin();
+        v != atomVars.GetVariableNamesEnd();
+        ++v)
+        {
+        AddScalarVarToMetaData(md, *v, "mesh", AVT_NODECENT);
+        }
 
     md->SetCycles(cycles);
     md->SetCyclesAreAccurate(true);
@@ -302,35 +309,35 @@ avtLAMMPSDumpFileFormat::GetMesh(int timestep, const char *name)
                 z = zMax;
             pts->SetPoint(j, x,y,z);
         }
- 
+
         vtkCellArray *lines = vtkCellArray::New();
         pd->SetLines(lines);
-        lines->Delete();
         for (int k = 0 ; k < 12 ; k++)
         {
             lines->InsertNextCell(2);
             lines->InsertCellPoint(voxVerticesFromEdges[k][0]);
             lines->InsertCellPoint(voxVerticesFromEdges[k][1]);
         }
-
+        lines->FastDelete();
         return pd;
     }
 
     if (meshname != "mesh")
+    {
         return NULL;
+    }
+
 
 
     vtkPolyData *pd  = vtkPolyData::New();
     vtkPoints   *pts = vtkPoints::New();
 
     pts->SetNumberOfPoints(nAtoms[timestep]);
-    pd->SetPoints(pts);
-    pts->Delete();
-    for (int j = 0 ; j < nAtoms[timestep] ; j++)
+    for (vtkIdType j = 0 ; j < nAtoms[timestep] ; j++)
     {
-        double x = vars[xIndex][j];
-        double y = vars[yIndex][j];
-        double z = vars[zIndex][j];
+        double x = atomVars[xIndex][j];
+        double y = atomVars[yIndex][j];
+        double z = atomVars[zIndex][j];
         if (xScaled)
             x = xMin + (xMax-xMin) * x;
         if (yScaled)
@@ -339,15 +346,29 @@ avtLAMMPSDumpFileFormat::GetMesh(int timestep, const char *name)
             z = zMin + (zMax-zMin) * z;
         pts->SetPoint(j, x, y, z);
     }
- 
-    vtkCellArray *verts = vtkCellArray::New();
-    pd->SetVerts(verts);
-    verts->Delete();
-    for (int k = 0 ; k < nAtoms[timestep] ; k++)
+    pd->SetPoints(pts);
+    pts->FastDelete();
+
+
+    const vtkIdType numCells = nAtoms[timestep];
+    const vtkIdType arrayLen = numCells * 2; //since these are verts
+    vtkIdTypeArray* rawCellArray = vtkIdTypeArray::New();
+    rawCellArray->SetNumberOfValues(arrayLen);
+
+    vtkIdType pointId=0;
+    for (vtkIdType k = 0 ; k < arrayLen ; k+=2,++pointId)
     {
-        verts->InsertNextCell(1);
-        verts->InsertCellPoint(k);
+        rawCellArray->SetValue(k,1);
+        rawCellArray->SetValue(k+1,pointId);
     }
+
+    vtkCellArray *verts = vtkCellArray::New();
+    verts->SetCells(numCells,rawCellArray);
+    pd->SetVerts(verts);
+
+    rawCellArray->FastDelete();
+    verts->FastDelete();
+
 
 
     return pd;
@@ -387,25 +408,23 @@ avtLAMMPSDumpFileFormat::GetVar(int timestep, const char *varname)
     // element is a built-in variable
     if (string(varname) == "species")
     {
-        vtkFloatArray *scalars = vtkFloatArray::New();
-        scalars->SetNumberOfTuples(nAtoms[timestep]);
-        float *ptr = (float *) scalars->GetVoidPointer(0);
-        for (int i=0; i<nAtoms[timestep]; i++)
-        {
-            ptr[i] = speciesVar[i];
-        }
-        return scalars;
+        vtkIntArray *species = vtkIntArray::New();
+        species->SetNumberOfTuples(nAtoms[timestep]);
+        int *ptr = (int *) species->GetVoidPointer(0);
+        std::copy(atomVars.GetTypes().begin(), atomVars.GetTypes().end(),ptr);
+        return species;
+    }
+    else if (string(varname) == "id")
+    {
+        vtkIntArray *ids = vtkIntArray::New();
+        ids->SetNumberOfTuples(nAtoms[timestep]);
+        int *ptr = (int *) ids->GetVoidPointer(0);
+        std::copy(atomVars.GetIds().begin(), atomVars.GetIds().end(),ptr);
+        return ids;
     }
 
-    int varIndex = -1;
-    for (int v=0; v<nVars; v++)
-    {
-        if (varNames[v] == varname)
-        {
-            varIndex = v;
-            break;
-        }
-    }
+
+    int varIndex = atomVars.GetVarIndex(varname);
 
     if (varIndex == -1)
     {
@@ -416,10 +435,7 @@ avtLAMMPSDumpFileFormat::GetVar(int timestep, const char *varname)
     vtkFloatArray *scalars = vtkFloatArray::New();
     scalars->SetNumberOfTuples(nAtoms[timestep]);
     float *ptr = (float *) scalars->GetVoidPointer(0);
-    for (int i=0; i<nAtoms[timestep]; i++)
-    {
-        ptr[i] = vars[varIndex][i];
-    }
+    std::copy(atomVars[varIndex].begin(),atomVars[varIndex].end(),ptr);
     return scalars;
 }
 
@@ -485,42 +501,44 @@ avtLAMMPSDumpFileFormat::ReadTimeStep(int timestep)
     OpenFileAtBeginning();
     in.seekg(file_positions[timestep]);
 
-    speciesVar.resize(nAtoms[timestep]);
-    for (int v=0; v<vars.size(); v++)
-    {
-        // id and species are ints; don't bother with the float arrays for them
-        if (v == idIndex || v == speciesIndex)
-            continue;
-        vars[v].resize(nAtoms[timestep]);
-    }
+    atomVars.SetNumberOfAtoms(nAtoms[timestep]);
 
-    std::vector<double> tmpVars(nVars);
-    int tmpID, tmpSpecies;
-
+    int tmpID=0, tmpSpecies=0;
     char buff[1000];
     // read all the atoms
+    // the atoms aren't in ascending id order. Instead
+    // they are just N atoms with unique ids that can be any positive value
+    // for now we drop the ids completely
+
     for (int a=0; a<nAtoms[timestep]; a++)
     {
         in.getline(buff,1000);
         istringstream sin(buff);
-        for (int v=0; v<nVars; v++)
-        {
-            if (v==speciesIndex)
-                sin >> tmpSpecies;
-            else if (v==idIndex)
-                sin >> tmpID;
-            else
-                sin >> tmpVars[v];
-        }
-        --tmpID;  // 1-origin; we need 0-origin
 
-        for (int v=0; v<nVars; v++)
+        int lineIndex=0;
+        int atomVarIndex=0;
+        while(sin.good())
         {
-            if (v == idIndex || v == speciesIndex)
-                continue;
-            vars[v][tmpID] = tmpVars[v];
+        if (lineIndex==speciesIndex)
+            {
+            sin >> tmpSpecies;
+            atomVars.SetType(a,tmpSpecies-1);
+            }
+        else if (lineIndex == idIndex)
+            {
+            //skip the id
+            //they arent consecutive or all below the number
+            //of atoms + 1
+            sin >> tmpID;
+            atomVars.SetId(a,tmpID);
+            }
+        else
+            {
+            sin >> atomVars[atomVarIndex][a];
+            ++atomVarIndex;
+            }
+        ++lineIndex;
         }
-        speciesVar[tmpID] = tmpSpecies - 1;
     }
 }
 
@@ -567,7 +585,6 @@ avtLAMMPSDumpFileFormat::ReadAllMetaData()
     char buff[1000];
 
     nTimeSteps = 0;
-    nVars = -1;
 
     while (in)
     {
@@ -607,54 +624,57 @@ avtLAMMPSDumpFileFormat::ReadAllMetaData()
         {
             istream::pos_type current_pos = in.tellg();
             file_positions.push_back(current_pos);
-            if (nVars == -1)
+            if (atomVars.GetNumberOfVariables() == 0)
             {
                 istringstream sin(&buff[11]);
                 string varName;
                 xScaled = yScaled = zScaled = false;
+                int variableIndex = 0;
+                int lineIndex = 0;
                 while (sin >> varName)
                 {
                     if (varName == "id")
-                        idIndex = (int)varNames.size();
+                        idIndex = lineIndex;
                     else if (varName == "type")
-                        speciesIndex = (int)varNames.size();
-                    else if (varName == "x" || varName == "xs" || 
+                        speciesIndex = lineIndex;
+                    else if (varName == "x" || varName == "xs" ||
                                varName == "xu" || varName == "xsu" )
-                        xIndex = (int)varNames.size();
+                        xIndex = variableIndex++;
                     else if (varName == "y" || varName == "ys" ||
                                varName == "yu" || varName == "ysu" )
-                        yIndex = (int)varNames.size();
+                        yIndex = variableIndex++;
                     else if (varName == "z" || varName == "zs" ||
                                varName == "zu" || varName == "zsu" )
-                        zIndex = (int)varNames.size();
+                        zIndex = variableIndex++;
 
-                    if (varName == "xs" || "xsu")
+                    if (varName == "xs" || varName == "xsu")
                         xScaled = true;
-                    if (varName == "ys" || "ysu")
+                    if (varName == "ys" || varName == "ysu")
                         yScaled = true;
-                    if (varName == "zs" || "zsu")
+                    if (varName == "zs" || varName == "zsu")
                         zScaled = true;
 
-                    varNames.push_back(varName);
+                    atomVars.AddVariable(varName);
+                    ++lineIndex;
 
                 }
-                nVars = (int)varNames.size();
-                if (nVars == 0)
+                if (atomVars.GetNumberOfVariables() == 0)
                 {
                     // OLD FORMAT: Assume "id type x y z"
-                    varNames.push_back("id");
-                    varNames.push_back("type");
-                    varNames.push_back("x");
-                    varNames.push_back("y");
-                    varNames.push_back("z");
+                    atomVars.AddVariable("id");
+                    atomVars.AddVariable("type");
+                    atomVars.AddVariable("x");
+                    atomVars.AddVariable("y");
+                    atomVars.AddVariable("z");
                     idIndex = 0;
                     speciesIndex = 1;
-                    xIndex = 2; xScaled = false;
-                    yIndex = 3; yScaled = false;
-                    zIndex = 4; zScaled = false;
-                    nVars = (int)varNames.size();
+
+                    //these indices are in the atomVars, id and species
+                    //are line based indices
+                    xIndex = 0; xScaled = false;
+                    yIndex = 1; yScaled = false;
+                    zIndex = 2; zScaled = false;
                 }
-                vars.resize(nVars);
             }
         }
     }

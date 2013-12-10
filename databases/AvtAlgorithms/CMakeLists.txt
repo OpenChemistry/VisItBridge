@@ -1,14 +1,9 @@
 set(Kit_SRCS
-vtkAvtFileFormatAlgorithm.h
-vtkAvtFileFormatAlgorithm.cxx
-vtkAvtMTSDFileFormatAlgorithm.h
-vtkAvtMTSDFileFormatAlgorithm.cxx
-vtkAvtMTMDFileFormatAlgorithm.h
-vtkAvtMTMDFileFormatAlgorithm.cxx
-vtkAvtSTSDFileFormatAlgorithm.h
-vtkAvtSTSDFileFormatAlgorithm.cxx
-vtkAvtSTMDFileFormatAlgorithm.h
-vtkAvtSTMDFileFormatAlgorithm.cxx
+  vtkAvtFileFormatAlgorithm.cxx
+  vtkAvtMTSDFileFormatAlgorithm.cxx
+  vtkAvtMTMDFileFormatAlgorithm.cxx
+  vtkAvtSTSDFileFormatAlgorithm.cxx
+  vtkAvtSTMDFileFormatAlgorithm.cxx
 )
 
 set(FullPath_SRCS)

@@ -956,5 +956,3 @@ void vtkAvtFileFormatAlgorithm::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os, indent);
    os << indent << "Output Type: " << this->OutputType << "\n";
 }
-
-

@@ -30,8 +30,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================*/
 
-#ifndef _vtkVisItReader_h
-#define _vtkVisItReader_h
+#ifndef _vtkAvtFileFormatAlgorithm_h
+#define _vtkAvtFileFormatAlgorithm_h
 
 #include "vtkIOVisItBridgeModule.h" //for export macro
 
@@ -74,7 +74,7 @@ public:
   static vtkAvtFileFormatAlgorithm *New();
   vtkTypeMacro(vtkAvtFileFormatAlgorithm,vtkCompositeDataSetAlgorithm);
   void PrintSelf(ostream& os, vtkIndent indent);
-  
+
   // Description:
   // Get the number of point or cell arrays available in the input.
   int GetNumberOfPointArrays();
@@ -147,7 +147,7 @@ protected:
   // see algorithm for more info
   virtual int FillOutputPortInformation(int port, vtkInformation* info);
 
-  //methods that setup selection arrays that the client will interact with  
+  //methods that setup selection arrays that the client will interact with
   void SetupDataArraySelections();
   void SetupMeshSelections();
   void SetupMaterialSelections();
@@ -155,8 +155,8 @@ protected:
   //method to setup the proper block bounds for the data.
   //this method is needed to support dynamic block loading
   //for certain streaming pipelines
-  virtual void SetupBlockBoundsInformation(vtkInformation *outInfo);  
-  
+  virtual void SetupBlockBoundsInformation(vtkInformation *outInfo);
+
   //method setups the number of timesteps that the file has
   void SetupTemporalInformation(vtkInformation *outInfo);
 
