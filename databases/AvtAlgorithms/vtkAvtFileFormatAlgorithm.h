@@ -33,10 +33,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _vtkAvtFileFormatAlgorithm_h
 #define _vtkAvtFileFormatAlgorithm_h
 
+#include <vector>
 #include "vtkIOVisItBridgeModule.h" //for export macro
-
 #include "vtkCompositeDataSetAlgorithm.h"
 #include "vtkStdString.h"
+
 
 class vtkDataArraySelection;
 class vtkDataSet;
@@ -190,8 +191,8 @@ protected:
   // The observer to modify this object when the array selections are
   // modified.
   vtkCallbackCommand* SelectionObserver;
-
   int OutputType;
+  std::vector<bool> SelectionResults;
 
 //BTX
   avtFileFormat *AvtFile;

@@ -556,10 +556,9 @@ void vtkAvtFileFormatAlgorithm::CreateAVTDataSelections()
 
   std::vector<avtDataSelection_p> selections;
   selections.push_back(selectWholeMesh);
+  this->SelectionResults.resize (selections.size ());
 
-  std::vector<bool> selectionResults(selections.size());
-
-  this->AvtFile->RegisterDataSelections(selections,&selectionResults);
+  this->AvtFile->RegisterDataSelections(selections,&this->SelectionResults);
 }
 
 //-----------------------------------------------------------------------------
