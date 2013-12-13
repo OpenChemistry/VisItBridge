@@ -11,7 +11,7 @@
 #include "VsSchema.h"
 #include "VsMesh.h"
 #include "VsUtils.h"
-#include <hdf5.h>
+#include <vtk_hdf5.h>
 #include <map>
 #include "VsH5Attribute.h"
 

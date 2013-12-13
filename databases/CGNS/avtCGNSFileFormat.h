@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2012, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -44,16 +44,16 @@
 #define AVT_CGNS_FILE_FORMAT_H
 
 #include <avtMTMDFileFormat.h>
+#include <cgnslib.h>
+#if CGNS_VERSION <= 3000
+#define cgsize_t int
+#else
+#include <cgnstypes.h>
+#endif
 #include <vector>
 #include <vectortypes.h>
 #include <map>
-#include <cgnslib.h> // needed to check cgns version number.
 
-#if CGNS_VERSION < 3000
-// define cgns types. For CGNS_VERSION >= 3000, cgsize_t is defined in
-// cgnstypes.h that is imported by cgnslib.h
-#define cgsize_t int
-#endif
 // ****************************************************************************
 //  Class: avtCGNSFileFormat
 //
@@ -84,7 +84,7 @@ public:
     // information to information about block connectivity.
     //
     // virtual void      *GetAuxiliaryData(const char *var, const char *type,
-    //                                     int timestep, int domain,void *args,
+    //                                     int timestep, int domain,void *args, 
     //                                     DestructorFunction &);
     //
 
@@ -94,11 +94,11 @@ public:
     //
     virtual void           GetCycles(std::vector<int> &);
     virtual void           GetTimes(std::vector<double> &);
-
+    
     virtual int            GetNTimesteps(void);
 
     virtual const char    *GetType(void)   { return "CGNS"; };
-    virtual void           FreeUpResources(void);
+    virtual void           FreeUpResources(void); 
 
     virtual vtkDataSet    *GetMesh(int, int, const char *);
     virtual vtkDataArray  *GetVar(int, int, const char *);
@@ -141,12 +141,12 @@ protected:
     void                   AddReferenceStateExpressions(avtDatabaseMetaData *md,
                                      int base, int nBases, const std::string &baseName,
                                      const std::string &meshName);
-    void                   AddVectorExpressions(avtDatabaseMetaData *md,
+    void                   AddVectorExpressions(avtDatabaseMetaData *md, 
                                bool *haveVelocity, bool *haveMomentum, int nBases,
                                const std::string &baseName);
-    void                   AddVectorExpression(avtDatabaseMetaData *md,
-                               bool *haveComponent, int nBases,
-                               const std::string &baseName,
+    void                   AddVectorExpression(avtDatabaseMetaData *md, 
+                               bool *haveComponent, int nBases, 
+                               const std::string &baseName, 
                                const std::string &vecName);
     bool                   GetVariablesForBase(int base, BaseInformation &baseInfo);
     bool                   BaseContainsUnits(int base);

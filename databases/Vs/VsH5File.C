@@ -8,7 +8,7 @@
 #include "VsH5File.h"
 #include "VsLog.h"
 #include "VsFilter.h"
-#include "hdf5.h"
+#include <vtk_hdf5.h>
 #include "visit-hdf5.h"
 #include "VsH5Dataset.h"
 #include "VsH5Group.h"

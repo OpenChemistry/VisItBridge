@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -45,19 +45,16 @@
 
 #include <avtDataSelection.h>
 #include <avtSTMDFileFormat.h>
-
-#include <string>
-#include <vector>
-#include <map>
-#include <set>
+#include <void_ref_ptr.h>
 
 #include <silo.h>
 
-#include <void_ref_ptr.h>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
 
-using std::string;
-using std::vector;
-using std::map;
+#include <avtSiloMBObjectCache.h>
 
 class     vtkUnstructuredGrid;
 
@@ -74,7 +71,7 @@ typedef struct _GroupInfo
     bool                haveGroups;
     int                 ndomains;
     int                 numgroups;
-    vector<int>    ids;
+    std::vector<int>    ids;
 } GroupInfo;
 
 
@@ -192,7 +189,7 @@ typedef struct _GroupInfo
 //    Mark C. Miller, Wed Feb  6 12:27:09 PST 2008
 //    Added topDir data member for case where entire time series is in 
 //    a single silo file.
-//    
+//
 //    Mark C. Miller, Mon Apr 14 15:41:21 PDT 2008
 //    Added 'using' statements (above) and removed all 'std::' where
 //    appropriate. Added GetNodelistVars, AddNodelistEnumerations
@@ -251,6 +248,35 @@ typedef struct _GroupInfo
 //    Added haveAmrGroupInfo, which is used to prevent collsion of amr
 //    levels info with connectivity group info.
 //
+//    Mark C. Miller, Mon Mar 29 17:30:10 PDT 2010
+//    Added siloDriver so we know what driver succeeded in openig the file.
+//
+//    Eric Brugger, Thu May 27 15:54:50 PDT 2010
+//    I added RemapFacelistForPolyhedronZones.
+//
+//    Cyrus Harrison, Mon Jun 14 15:45:46 PDT 2010
+//    Added metadataIsTimeVaryingChecked & CheckForTimeVaryingMetadata().
+//
+//    Mark C. Miller, Sun Aug 29 23:19:50 PDT 2010
+//    Added method to expand (material) subsetted ucd variables.
+//
+//    Cyrus Harrison,
+//    Limited support for Silo nameschemes, use new multi block cache data
+//    structures.
+//
+//    Mark C. Miller, Mon Jul  9 21:24:45 PDT 2012
+//    Added method to handle nodelists vars from MRG Trees. Adjusted interfaces
+//    that read UCD mesh and arb. connectivity to support repeating calls for
+//    different segments of a zonelist.
+//
+//    Mark C. Miller, Tue Jul 10 20:11:42 PDT 2012
+//    Removed RemapFacelistForPolyhedronZones since it did not use any class
+//    members and could therefore be defined as a static function in the .C
+//    file.
+//
+//    Cyrus Harrison, Wed Mar 13 09:55:42 PDT 2013
+//    Added useLocalDomainBoundries.
+//
 // ****************************************************************************
 
 class avtSiloFileFormat : public avtSTMDFileFormat
@@ -258,10 +284,10 @@ class avtSiloFileFormat : public avtSTMDFileFormat
   public:
                           avtSiloFileFormat(const char *, DBOptionsAttributes*);
     virtual              ~avtSiloFileFormat();
-    
+
     virtual void          FreeUpResources(void);
     virtual const char   *GetType(void) { return "Silo File Format"; };
-    
+
     virtual void         *GetAuxiliaryData(const char *var, int,
                                            const char *type, void *args,
                                            DestructorFunction &);
@@ -289,7 +315,8 @@ class avtSiloFileFormat : public avtSTMDFileFormat
     enum AANTriState {Always=0, Auto, Never};
     DBfile              **dbfiles;
     int                   tocIndex;
-    int                   dontForceSingle; // used primarily for testing
+    int                   forceSingle;
+    int                   siloDriver;
     AANTriState           ignoreSpatialExtentsAAN;
     AANTriState           ignoreDataExtentsAAN;
     bool                  ignoreSpatialExtents;
@@ -298,46 +325,43 @@ class avtSiloFileFormat : public avtSTMDFileFormat
     bool                  readGlobalInfo;
     bool                  connectivityIsTimeVarying;
     bool                  metadataIsTimeVarying;
+    bool                  metadataIsTimeVaryingChecked;
     bool                  hasDisjointElements;
-    string                codeNameGuess;
+    std::string           codeNameGuess;
 
-    std::set<string>      domainDirs;
+    std::set<std::string> domainDirs;
 
     // The following fields are for determining multimeshes for multivars
-    vector<string>                  firstSubMesh;
-    vector<string>                  firstSubMeshVarName;
-    vector<vector<string> >         allSubMeshDirs;
-    vector<string>                  actualMeshName;
-    vector<int>                     blocksForMesh;
-    map<string,vector<int> >        blocksForMultivar;
+    std::vector<std::string>             firstSubMesh;
+    std::vector<std::string>             firstSubMeshVarName;
+    std::vector<std::vector<std::string> > allSubMeshDirs;
+    std::vector<std::string>             actualMeshName;
+    std::vector<int>                     blocksForMesh;
+    std::map<std::string,std::vector<int> >   blocksForMultivar;
 
-    vector<DBmultimesh *>           multimeshes;
-    vector<string>                  multimesh_name;
-    vector<DBmultivar *>            multivars;
-    vector<string>                  multivar_name;
-    vector<DBmultimat *>            multimats;
-    vector<string>                  multimat_name;
-    vector<DBmultimatspecies *>     multimatspecies;
-    vector<string>                  multimatspec_name;
+    avtSiloMBObjectCache multimeshCache;
+    avtSiloMBObjectCache multivarCache;
+    avtSiloMBObjectCache multimatCache;
+    avtSiloMBObjectCache multispecCache;
 
-    map<string, string>             multivarToMultimeshMap;
+    std::map<std::string, std::string>   multivarToMultimeshMap;
 
     GroupInfo                       groupInfo;
     bool                            haveAmrGroupInfo;
+    bool                            useLocalDomainBoundries;
 
-    map<string, map<int, vector<int>* > >      arbMeshCellReMap;
-    map<string, map<int, vector<int>* > >      arbMeshNodeReMap;
+    std::map<std::string, std::map<int, std::vector<int>* > > arbMeshCellReMap;
+    std::map<std::string, std::map<int, std::vector<int>* > > arbMeshNodeReMap;
 
-    vector<avtDataSelection_p>      selList;
-    vector<bool>                   *selsApplied;
+    std::vector<avtDataSelection_p>      selList;
+    std::vector<bool>                   *selsApplied;
 
-    string                          topDir;
+    std::string                          topDir;
 
     // to support block structured nodelist convention
-    map<int, vector<int> >          nlBlockToWindowsMap;
-    vector<vector<int> >            pascalsTriangleMap;
+    std::map<int, std::vector<int> > nlBlockToWindowsMap;
     int                             numNodeLists;
-    int                             maxAnnotIntLists;
+    int                             numAnnotIntLists;
 
     DBfile               *GetFile(int);
     DBfile               *OpenFile(int, bool skipGlobalInfo = false);
@@ -367,15 +391,20 @@ class avtSiloFileFormat : public avtSTMDFileFormat
     void                  BroadcastGlobalInfo(avtDatabaseMetaData*);
     void                  StoreMultimeshInfo(const char *const dirname,
                                              const char *const name_w_dir,
-                                             int meshnum, const DBmultimesh *const mm);
+                                             int meshnum,
+                                             avtSiloMultiMeshCacheEntry *obj);
     void                  AddCSGMultimesh(const char *const dirname,
                                           const char *const multimesh_name,
                                           avtDatabaseMetaData *md,
-                                          const DBmultimesh *const mm, DBfile *dbfile);
+                                          avtSiloMultiMeshCacheEntry *mm_ent,
+                                          DBfile *dbfile);
 
     vtkDataArray         *GetNodelistsVar(int);
-    vtkDataArray         *GetAnnotIntNodelistsVar(int, string);
+    vtkDataArray         *GetAnnotIntNodelistsVar(int, std::string);
+    vtkDataArray         *GetMrgTreeNodelistsVar(int, std::string);
     vtkDataArray         *GetQuadVar(DBfile *, const char *, const char *,int);
+    void                  ExpandUcdvar(DBucdvar *uv, const char *vname, const char *tvn,
+                              int domain);
     vtkDataArray         *GetUcdVar(DBfile *, const char *, const char *, int);
     vtkDataArray         *GetPointVar(DBfile *, const char *);
     vtkDataArray         *GetCsgVar(DBfile *, const char *);
@@ -391,11 +420,12 @@ class avtSiloFileFormat : public avtSTMDFileFormat
     vtkDataSet           *CreateCurvilinearMesh(DBquadmesh *);
     vtkDataSet           *CreateRectilinearMesh(DBquadmesh *);
     vtkDataSet           *GetCSGMesh(DBfile *, const char *, int);
-    vtkDataSet           *GetPointMesh(DBfile *, const char *);
+    vtkDataSet           *GetPointMesh(DBfile *, const char *, int);
     vtkDataSet           *GetQuadMesh(DBfile *, const char *, int);
     vtkDataSet           *GetCurve(DBfile *, const char *);
     vtkDataSet           *GetUnstructuredMesh(DBfile *, const char *,
                                               int, const char *);
+
 #ifdef SILO_VERSION_GE
 #if SILO_VERSION_GE(4,7,1)
     void                  HandleGlobalZoneIds(const char *, int, void*, int, int);
@@ -406,10 +436,9 @@ class avtSiloFileFormat : public avtSTMDFileFormat
     void                  HandleGlobalZoneIds(const char *, int, int*, int);
 #endif
     void                  ReadInConnectivity(vtkUnstructuredGrid *,
-                                             DBzonelist *, int,
-                                             const char *,int);
+                              DBucdmesh *um, const char *, int);
     void                  ReadInArbConnectivity(const char *, vtkUnstructuredGrid*,
-                                                DBucdmesh*,int);
+                                                DBucdmesh*,int,int=0);
     avtMeshType           FindDecomposedMeshType(DBfile *dbfile);
     void                  GetConnectivityAndGroupInformation(DBfile *, bool = false);
     void                  GetConnectivityAndGroupInformationFromFile(DBfile *,
@@ -424,59 +453,72 @@ class avtSiloFileFormat : public avtSTMDFileFormat
 
     void                  GetMultivarToMultimeshMap(DBfile *);
 
-    avtFacelist          *CalcExternalFacelist(DBfile *, char *);
-    avtMaterial          *CalcMaterial(DBfile *, char *, const char *, int dom);
-    avtSpecies           *CalcSpecies(DBfile *, char *);
+    avtFacelist          *CalcExternalFacelist(DBfile *, const char *);
+    avtMaterial          *CalcMaterial(DBfile *, const char *, const char *, int dom);
+    avtSpecies           *CalcSpecies(DBfile *, const char *);
     vtkDataArray         *GetGlobalNodeIds(int, const char *);
     vtkDataArray         *GetGlobalZoneIds(int, const char *);
-    
+
     avtIntervalTree      *GetSpatialExtents(const char *);
     avtIntervalTree      *GetDataExtents(const char *);
 
     void                  GetQuadGhostZones(DBquadmesh *, vtkDataSet *);
     void                  VerifyQuadmesh(DBquadmesh *, const char *);
-    void                  DetermineFileAndDirectory(char *, DBfile *&, const char *, char *&,
-                              bool *alloc=0);
-    void                  DetermineFilenameAndDirectory(char *, const char *,
-                              char *, char *&, bool *alloc=0);
+
+    void                  DetermineFileAndDirectory(const char *input,
+                                                    const char *mesh_dirname,
+                                                    DBfile *&dbfile_out,
+                                                    std::string &location_out);
+
+    void                  DetermineFilenameAndDirectory(const char *input,
+                                                        const char *mesh_dirname,
+                                                        std::string &filename_out,
+                                                        std::string &location_out);
+
     void                  GetRelativeVarName(const char *,const char *,char *);
     char                 *AllocAndDetermineMeshnameForUcdmesh(int, const char *);
 
-    string                DetermineMultiMeshForSubVariable(DBfile*,const char*,
-                                                      char**,int, const char*);
-    int                   GetMeshtype(DBfile *, char *);
-    void                  GetMeshname(DBfile *, char *, char *);
+    std::string           DetermineMultiMeshForSubVariable(DBfile *dbfile,
+                                                           const char *name,
+                                                           avtSiloMBObjectCacheEntry *obj,
+                                                           const char *curdir);
+    int                   GetMeshtype(DBfile *, const char *);
+    void                  GetMeshname(DBfile *, const char *, char *);
     void                 *GetComponent(DBfile *, char *, const char *);
 
     void                  GetTimeVaryingInformation(DBfile *,
                               avtDatabaseMetaData *md = NULL);
     void                  GetVectorDefvars(const char *);
-    void                  RegisterDomainDirs(const char * const *, int,
-                                             const char*);
+    void                  RegisterDomainDirs(avtSiloMBObjectCacheEntry *obj,
+                                             const char *dirname);
     bool                  ShouldGoToDir(const char *);
     void                  ReadGlobalInformation(DBfile *);
 
     void                  AddNodelistEnumerations(DBfile *dbfile, avtDatabaseMetaData *md,
-                              string meshname);
+                              std::string meshname);
 
     void                  GetMeshHelper(int *domain, const char *m, DBmultimesh **mm, int *type,
-                              DBfile **_domain_file, char **_directory_mesh,
-                              bool *_allocated_directory_mesh);
+                              DBfile **_domain_file, std::string &directory_mesh_out);
     void                  AddAnnotIntNodelistEnumerations(DBfile *dbfile, avtDatabaseMetaData *md,
-                              string meshname, DBmultimesh *mm);
+                              std::string meshname, avtSiloMultiMeshCacheEntry *obj);
 
-    DBmultimesh          *GetMultimesh(const char *path, const char *name);
-    DBmultimesh          *QueryMultimesh(const char *path, const char *name);
-    void                  RemoveMultimesh(DBmultimesh *mm);
-    DBmultivar           *GetMultivar(const char *path, const char *name);
-    DBmultivar           *QueryMultivar(const char *path, const char *name);
-    void                  RemoveMultivar(DBmultivar *mv);
-    DBmultimat           *GetMultimat(const char *path, const char *name);
-    DBmultimat           *QueryMultimat(const char *path, const char *name);
-    void                  RemoveMultimat(DBmultimat *mm);
-    DBmultimatspecies    *GetMultimatspec(const char *path, const char *name);
-    DBmultimatspecies    *QueryMultimatspec(const char *path, const char *name);
-    void                  RemoveMultimatspec(DBmultimatspecies *ms);
+    void GetMultiMesh(const char *path, const char *name,
+        avtSiloMultiMeshCacheEntry **mm_ent, bool *valid_var=0);
+    avtSiloMultiMeshCacheEntry *QueryMultiMesh(const char *path, const char *name);
+
+    void GetMultiVar(const char *path, const char *name,
+        avtSiloMultiVarCacheEntry **mv_ent, bool *valid_var=0);
+    avtSiloMultiVarCacheEntry  *QueryMultiVar(const char *path, const char *name);
+
+    void GetMultiMat(const char *path, const char *name,
+        avtSiloMultiMatCacheEntry **mm_ent, bool *valid_var=0);
+    avtSiloMultiMatCacheEntry  *QueryMultiMat(const char *path, const char *name);
+
+    void GetMultiSpec(const char *path, const char *name,
+        avtSiloMultiSpecCacheEntry **ms_ent, bool *valid_var=0);
+    avtSiloMultiSpecCacheEntry *QueryMultiSpec(const char *path, const char *name);
+
+    void                        CheckForTimeVaryingMetadata(DBfile *toc);
 };
 
 

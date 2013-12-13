@@ -12,7 +12,7 @@
  *
  * Copyright &copy; 2008 by Tech-X Corporation
  */
-#include <hdf5.h>
+#include <vtk_hdf5.h>
 #include <visit-hdf5.h>
 #if HDF5_VERSION_GE(1, 8, 1)
 
@@ -25,7 +25,7 @@
 
 // metadata
 #include "VsH5File.h"
-#include <hdf5.h>
+#include <vtk_hdf5.h>
 
 class VsRegistry;
 

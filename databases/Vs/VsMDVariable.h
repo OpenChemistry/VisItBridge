@@ -17,7 +17,7 @@
 #include "VsRegistryObject.h"
 
 #include <string>
-#include <hdf5.h>
+#include <vtk_hdf5.h>
 #include <vector>
 #include <map>
 

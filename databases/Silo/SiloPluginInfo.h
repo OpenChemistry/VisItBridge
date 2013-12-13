@@ -1,8 +1,8 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2010, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
-* LLNL-CODE-400124
+* LLNL-CODE-442911
 * All rights reserved.
 *
 * This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -84,6 +84,7 @@ class SiloCommonPluginInfo : public virtual CommonDatabasePluginInfo, public vir
                                                     int nList, int nBlock);
     virtual DBOptionsAttributes *GetReadOptions() const;
     virtual DBOptionsAttributes *GetWriteOptions() const;
+    virtual void                 SetReadOptions(DBOptionsAttributes *);
 };
 
 class SiloMDServerPluginInfo : public virtual MDServerDatabasePluginInfo, public virtual SiloCommonPluginInfo

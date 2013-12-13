@@ -11,7 +11,7 @@
 #ifndef VSVARIABLE_H_
 #define VSVARIABLE_H_
 
-#include <hdf5.h>
+#include <vtk_hdf5.h>
 #include "VsRegistryObject.h"
 
 #include <string>

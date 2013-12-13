@@ -7,7 +7,7 @@
 
 #include "VsH5Attribute.h"
 #include "VsLog.h"
-#include <hdf5.h>
+#include <vtk_hdf5.h>
   
 VsH5Attribute::VsH5Attribute(VsH5Object* parentObject, std::string attName, hid_t id):
   VsH5Object(parentObject->registry, parentObject, attName, id) {

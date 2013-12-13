@@ -14,7 +14,7 @@
 #include <string>
 #include "VsH5Group.h"
 #include "VsH5Object.h"
-#include <hdf5.h>
+#include <vtk_hdf5.h>
 
 class VsH5File : public VsH5Object {
 public:

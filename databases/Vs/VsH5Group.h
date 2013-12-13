@@ -19,7 +19,7 @@
 #include <map>
 
 #include "VsH5Object.h"
-#include <hdf5.h>
+#include <vtk_hdf5.h>
 
 class VsH5Attribute;
 class VsH5Dataset;

@@ -23,7 +23,7 @@
 #include <VsH5Dataset.h>
 //#include <VsH5Reader.h>
 #include <avtSTMDFileFormat.h>
-#include <hdf5.h>
+#include <vtk_hdf5.h>
 #include <visit-hdf5.h>
 
 #include <string>

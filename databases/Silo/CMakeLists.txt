@@ -1,17 +1,14 @@
-
-
 SET(SOURCES
 avtSiloWriter.C
 avtSiloFileFormat.C
-avtSiloFileFormat.h
+avtSiloMBObjectCache.C
 avtSiloOptions.C
-avtSiloOptions.h
 SiloPluginInfo.C
-SiloPluginInfo.h
 SiloCommonPluginInfo.C
 SiloEnginePluginInfo.C
 SiloMDServerPluginInfo.C
 )
+
 if(HAVE_LIBSILO)
   ADD_VISIT_READER(VisItSiloReader "1.0"
     VISIT_READER_TYPE "STMD"
@@ -20,4 +17,3 @@ if(HAVE_LIBSILO)
     SERVER_SOURCES ${SOURCES}
     )
 endif(HAVE_LIBSILO)
-

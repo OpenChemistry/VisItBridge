@@ -9,7 +9,7 @@
 #ifndef VELODYNE_READER_HPP
 #define VELODYNE_READER_HPP
 
-#include <hdf5.h>
+#include <vtk_hdf5.h>
 
 #include <set>
 #include <string>

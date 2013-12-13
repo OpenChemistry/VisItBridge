@@ -1,4 +1,4 @@
-#include <hdf5.h>
+#include <vtk_hdf5.h>
 #include <visit-hdf5.h>
 #if HDF5_VERSION_GE(1,8,1)
 /**

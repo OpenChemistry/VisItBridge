@@ -1,7 +1,6 @@
 
 SET(SOURCES
 avtCGNSFileFormat.C
-avtCGNSFileFormat.h
 )
 
 #cgns
