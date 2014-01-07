@@ -584,9 +584,9 @@ vtkVisItPolyDataNormals::ExecutePointWithSplitting(vtkPolyData *input,
         if (length == 0) continue;
 
         // Store the normalized version separately
-        float nnormal[3] = {nx/length,
-                            ny/length,
-                            nz/length};
+        float nnormal[3] = {static_cast<float>(nx/length),
+                            static_cast<float>(ny/length),
+                            static_cast<float>(nz/length)};
 
         // Loop over all points of the cell, deciding if we need
         // to split it or can merge with an old one.  Use the feature

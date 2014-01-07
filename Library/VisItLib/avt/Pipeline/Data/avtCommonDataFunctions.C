@@ -165,7 +165,14 @@ CGetSpatialExtents(avtDataRepresentation &data, void *info, bool &success)
                 {
                     for (int k=0; k<=1; k++)
                     {
-                        float pt_in[4]={bnds[0*2+i],bnds[1*2+j],bnds[2*2+k],1};
+                        float pt_in[4]=
+                            {
+                            static_cast<float>(bnds[0*2+i]),
+                            static_cast<float>(bnds[1*2+j]),
+                            static_cast<float>(bnds[2*2+k]),
+                            1
+                            };
+
                         float pt[4];
                         vtkMatrix4x4::MultiplyPoint(xform, pt_in, pt);
                         for (int axis=0; axis<3; axis++)

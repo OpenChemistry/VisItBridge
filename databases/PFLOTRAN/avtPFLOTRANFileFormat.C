@@ -745,8 +745,16 @@ avtPFLOTRANFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData * md,
             else
             {
                 hid_t slabSpace = H5Scopy(dsSpace);
-                hsize_t start[] = {domainGlobalStart[0],domainGlobalStart[1],domainGlobalStart[2]};
-                hsize_t count[] = {domainGlobalCount[0]-1,domainGlobalCount[1]-1,domainGlobalCount[2]-1};
+                hsize_t start[] = {
+                    static_cast<hsize_t>(domainGlobalStart[0]),
+                    static_cast<hsize_t>(domainGlobalStart[1]),
+                    static_cast<hsize_t>(domainGlobalStart[2])};
+
+                hsize_t count[] = {
+                    static_cast<hsize_t>(domainGlobalCount[0]-1),
+                    static_cast<hsize_t>(domainGlobalCount[1]-1),
+                    static_cast<hsize_t>(domainGlobalCount[2]-1)};
+
                 if (oldFileNeedingCoordFixup)
                 {
                     for (int dim=0; dim<3; dim++)
@@ -970,8 +978,8 @@ avtPFLOTRANFileFormat::GetMesh(int, int domain, const char *)
 
             hid_t arraySpace = H5Dget_space(dimID[dim]);
             hid_t slabSpace = H5Scopy(arraySpace);
-            hsize_t start[] = {domainGlobalStart[dim]};
-            hsize_t count[] = {domainGlobalCount[dim]};
+            hsize_t start[] = {static_cast<hsize_t>(domainGlobalStart[dim])};
+            hsize_t count[] = {static_cast<hsize_t>(domainGlobalCount[dim])};
             H5Sselect_hyperslab(slabSpace, H5S_SELECT_SET, start,NULL,count,NULL);
 
             hid_t memSpace = H5Screate_simple(1,count,NULL);
@@ -1155,8 +1163,16 @@ avtPFLOTRANFileFormat::GetVar(int timestate, int, const char *varname)
         }
 
         hid_t slabSpace = H5Scopy(dsSpace);
-        hsize_t start[] = {domainGlobalStart[0],domainGlobalStart[1],domainGlobalStart[2]};
-        hsize_t count[] = {domainGlobalCount[0]-1,domainGlobalCount[1]-1,domainGlobalCount[2]-1};
+        hsize_t start[] = {
+                    static_cast<hsize_t>(domainGlobalStart[0]),
+                    static_cast<hsize_t>(domainGlobalStart[1]),
+                    static_cast<hsize_t>(domainGlobalStart[2])};
+
+        hsize_t count[] = {
+                    static_cast<hsize_t>(domainGlobalCount[0]-1),
+                    static_cast<hsize_t>(domainGlobalCount[1]-1),
+                    static_cast<hsize_t>(domainGlobalCount[2]-1)};
+
         if (oldFileNeedingCoordFixup)
         {
             for (int dim=0; dim<3; dim++)
@@ -1349,8 +1365,16 @@ avtPFLOTRANFileFormat::GetVectorVar(int timestate, int domain,
             }
 
             hid_t slabSpace = H5Scopy(dsSpace);
-            hsize_t start[] = {domainGlobalStart[0],domainGlobalStart[1],domainGlobalStart[2]};
-            hsize_t count[] = {domainGlobalCount[0]-1,domainGlobalCount[1]-1,domainGlobalCount[2]-1};
+            hsize_t start[] = {
+                    static_cast<hsize_t>(domainGlobalStart[0]),
+                    static_cast<hsize_t>(domainGlobalStart[1]),
+                    static_cast<hsize_t>(domainGlobalStart[2])};
+
+            hsize_t count[] = {
+                    static_cast<hsize_t>(domainGlobalCount[0]-1),
+                    static_cast<hsize_t>(domainGlobalCount[1]-1),
+                    static_cast<hsize_t>(domainGlobalCount[2]-1)};
+
             if (oldFileNeedingCoordFixup)
             {
                 for (int dim=0; dim<3; dim++)
@@ -1499,8 +1523,15 @@ void      *avtPFLOTRANFileFormat::GetAuxiliaryData(const char *var, int timestep
         else
         {
             hid_t slabSpace = H5Scopy(dsSpace);
-            hsize_t start[] = {domainGlobalStart[0],domainGlobalStart[1],domainGlobalStart[2]};
-            hsize_t count[] = {domainGlobalCount[0]-1,domainGlobalCount[1]-1,domainGlobalCount[2]-1};
+            hsize_t start[] = {
+                    static_cast<hsize_t>(domainGlobalStart[0]),
+                    static_cast<hsize_t>(domainGlobalStart[1]),
+                    static_cast<hsize_t>(domainGlobalStart[2])};
+
+            hsize_t count[] = {
+                    static_cast<hsize_t>(domainGlobalCount[0]-1),
+                    static_cast<hsize_t>(domainGlobalCount[1]-1),
+                    static_cast<hsize_t>(domainGlobalCount[2]-1)};
             if (oldFileNeedingCoordFixup)
             {
                 for (int dim=0; dim<3; dim++)
