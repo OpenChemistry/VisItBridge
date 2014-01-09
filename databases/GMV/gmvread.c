@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-    
+
 #define RDATA_INIT
 #include "gmvread.h"
 #include "gmvrayread.h"
@@ -59,9 +59,9 @@ static long numnodes, numcells, lncells, numcellsin, numfaces, lnfaces,
 static int numsurf, lnsurf, numsurfin, numtracers, numunits;
 
 static short amrflag_in, structflag_in, fromfileflag, fromfileskip = 0;
-static short nodes_read = 0, cells_read = 0, faces_read = 0, 
-             surface_read = 0, iend = 0, swapbytes_on = 0, skipflag = 0, 
-             reading_fromfile = 0, vfaceflag = 0, node_inp_type, 
+static short nodes_read = 0, cells_read = 0, faces_read = 0,
+             surface_read = 0, iend = 0, swapbytes_on = 0, skipflag = 0,
+             reading_fromfile = 0, vfaceflag = 0, node_inp_type,
              printon = 0;
 
 static int curr_keyword, ftypeGlobal, ftype_sav, readkeyword, ff_keyword = -1;
@@ -140,7 +140,7 @@ int gmvread_checkfile(char *filnam)
        free( filnam );
        filnam = (char*)malloc(len *sizeof(char));
        strcpy(filnam, temp);
-       free(temp);       
+       free(temp);
       }
    else if( file_path == NULL && slash != NULL)
       {
@@ -165,7 +165,7 @@ int gmvread_checkfile(char *filnam)
        SNPRINTF(gmv_data.errormsg,22 + errormsgvarlen,"GMV cannot open file %s",filnam);
        return 1;
       }
-    
+
    /*  Read header. */
    binread(magic,charsize, CHAR, (long)MAXKEYWORDLENGTH, gmvchk);
    if (strncmp(magic,"gmvinput",8) != 0)
@@ -273,7 +273,7 @@ int gmvread_open(char *filnam)
    char* slash;
 
    int chk_gmvend(FILE *gmvinGlobal);
-    
+
    /* check for the path - if include open and save if not append */
 #ifdef _WIN32
    slash = strrchr( filnam,  '\\' );
@@ -315,7 +315,7 @@ int gmvread_open(char *filnam)
        SNPRINTF(gmv_data.errormsg,22 + errormsgvarlen,"GMV cannot open file %s",filnam);
        return 1;
       }
-    
+
    /*  Read header. */
    binread(magic,charsize, CHAR, (long)MAXKEYWORDLENGTH, gmvinGlobal);
    if (strncmp(magic,"gmvinput",8) != 0)
@@ -464,7 +464,7 @@ int gmvread_open(char *filnam)
          *(input_dir + MIN(ilast+1, MAXFILENAMELENGTH-1)) = (char)0;
         }
      }
-   
+
    return 0;
 }
 
@@ -478,7 +478,7 @@ int gmvread_open_fromfileskip(char *filnam)
   int ierr;
 
    fromfileskip = 1;
-   
+
    ierr = gmvread_open(filnam);
    return ierr;
 }
@@ -492,8 +492,8 @@ void gmvread_close()
        gmvinGlobal = NULL;
      }
    fromfileskip = 0;
-   nodes_read = 0;  cells_read = 0;  faces_read = 0; 
-   surface_read = 0;  iend = 0;  swapbytes_on = 0;  skipflag = 0; 
+   nodes_read = 0;  cells_read = 0;  faces_read = 0;
+   surface_read = 0;  iend = 0;  swapbytes_on = 0;  skipflag = 0;
    reading_fromfile = 0;  vfaceflag = 0;
 }
 
@@ -528,7 +528,7 @@ void gmvread_data()
    gmv_data.ndoubledata1 = 0;
    gmv_data.ndoubledata2 = 0;
    gmv_data.ndoubledata3 = 0;
-   FREE(gmv_data.doubledata1);  
+   FREE(gmv_data.doubledata1);
    FREE(gmv_data.doubledata2);
    FREE(gmv_data.doubledata3);
    gmv_data.nlongdata1 = 0;
@@ -547,7 +547,7 @@ void gmvread_data()
         {
          case(CELLS):
             readcells(gmvinGlobal,ftypeGlobal);
-            break;   
+            break;
          case(FACES):
             readfaces(gmvinGlobal,ftypeGlobal);
             break;
@@ -726,7 +726,7 @@ void gmvread_data()
             if (fromfileflag == 1) break;
             readnodes(gmvinGlobal,ftypeGlobal);
             readkeyword = 1;
-            break;   
+            break;
          case(CELLS):
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(CELLS) < 0)
@@ -738,7 +738,7 @@ void gmvread_data()
             readcells(gmvinGlobal,ftypeGlobal);
             if (amrflag_in == 0 && structflag_in == 0)
                readkeyword = 0;
-            break;   
+            break;
          case(FACES):
             /* SB: Modification due to disabled exit statement on fromfile error */
             if (fromfilecheck(FACES) < 0)
@@ -1012,7 +1012,7 @@ void gmvread_data()
          gmvinGlobal = NULL;
        }
 
-   if (readkeyword == 1 && reading_fromfile && curr_keyword == ff_keyword) 
+   if (readkeyword == 1 && reading_fromfile && curr_keyword == ff_keyword)
       endfromfile();
 
    if (readkeyword == 2)
@@ -1190,18 +1190,19 @@ int rdcellkeyword(FILE* gmvin, int ftype, char* keystring)
       *(ckeyword+MAXKEYWORDLENGTH)=(char)0;
      }
    if (ftype == ASCII) fscanf(gmvin,"%s",ckeyword);
- 
+
    return
      strncmp(ckeyword,keystring,strlen(keystring));
 }
 
+//forward declare checkfromfile since fromfilecheck uses it.
+int checkfromfile();
 
 int fromfilecheck(int fkeyword)
 {
   long pos_after_keyword;
   int base_ftype;
-  int checkfromfile();
-  FILE *basefile;  
+  FILE *basefile;
 
    basefile = gmvinGlobal;
    base_ftype = ftypeGlobal;
@@ -1232,7 +1233,7 @@ int fromfilecheck(int fkeyword)
         }
 
      }
- 
+
    return 0;
 }
 
@@ -1324,11 +1325,11 @@ int checkfromfile()
 
       /*  Check nodes, cells, faces and surface    */
       /*  and read numbers for the other keywords.  */
-      if ((curr_keyword == NODES && nodes_read == 0) || 
+      if ((curr_keyword == NODES && nodes_read == 0) ||
           (curr_keyword == CELLS && cells_read == 0) ||
-          (curr_keyword == FACES && faces_read == 0) || 
-          (curr_keyword == VFACES && faces_read == 0) || 
-          (curr_keyword == XFACES && faces_read == 0) || 
+          (curr_keyword == FACES && faces_read == 0) ||
+          (curr_keyword == VFACES && faces_read == 0) ||
+          (curr_keyword == XFACES && faces_read == 0) ||
           (curr_keyword == SURFACE && surface_read == 0))
         {
          gmvin_sav = gmvinGlobal;
@@ -1413,11 +1414,11 @@ void readnodes(FILE* gmvin, int ftype)
    else
      {
       if (ftype == IEEEI8R4 || ftype == IEEEI8R8)
-        {         
+        {
          binread(&lnodes,longlongsize,LONGLONG,(long)1,gmvin);
         }
       else
-        {         
+        {
          binread(&i,intsize,INT,(long)1,gmvin);
          iswap = i;
          swapbytes(&iswap, intsize, 1);
@@ -1435,12 +1436,12 @@ void readnodes(FILE* gmvin, int ftype)
          lnodes = iswap;
      }
    /* Is more than the bottom half of the word full? */
-   else if (ftype != ASCII && lnodes > 0xffff) 
+   else if (ftype != ASCII && lnodes > 0xffff)
      {
       tmplnodes = lnodes;
       if (ftype == IEEEI8R4 || ftype == IEEEI8R8)
          swapbytes(&tmplnodes, longlongsize, 1);
-      else 
+      else
          tmplnodes = iswap;
       if (tmplnodes == -2)
         {
@@ -1448,12 +1449,12 @@ void readnodes(FILE* gmvin, int ftype)
          lnodes = tmplnodes;
          swapbytes_on = 1;
         }
-      else 
+      else
         {
-   
+
          /*  Unstructured grid, seek to "cells" keyword and see     */
          /*  if it is where we expect it. If so, not byte swapped.  */
-         
+
          pos_after_lnodes = ftell(gmvin);
          if (ftype == IEEEI4R8 || ftype == IEEEI8R8)
             exp_cell_pos = 3 * lnodes * doublesize;
@@ -1476,7 +1477,7 @@ void readnodes(FILE* gmvin, int ftype)
             swapbytes_on = 1;
             if (ftype == IEEEI8R4 || ftype == IEEEI8R8)
                swapbytes(&lnodes, longlongsize, 1);
-            else 
+            else
                lnodes = iswap;
            }
 
@@ -1487,7 +1488,7 @@ void readnodes(FILE* gmvin, int ftype)
    else if (ftype != ASCII && lnodes == -1)
      {
       /* Special case, -1 is still -1 if byte swapped */
-         
+
       pos_after_lnodes = ftell(gmvin);
 
       binread(&lnxv,intsize,INT,(long)1,gmvin);
@@ -1513,9 +1514,9 @@ void readnodes(FILE* gmvin, int ftype)
 
          swapbytes_on = 1;
         }
- 
+
       /* Go back to the previous position */
- 
+
       fseek(gmvin, pos_after_lnodes, SEEK_SET);
      }
 
@@ -1535,7 +1536,7 @@ void readnodes(FILE* gmvin, int ftype)
          binread(&lnzv,intsize,INT,(long)1,gmvin);
          ioerrtst(gmvin);
         }
-      if (ftype == ASCII) 
+      if (ftype == ASCII)
         {
          fscanf(gmvin,"%d%d%d",&lnxv,&lnyv,&lnzv);
          ioerrtst(gmvin);
@@ -1559,12 +1560,12 @@ void readnodes(FILE* gmvin, int ftype)
          binread(&lnzv,intsize,INT,(long)1,gmvin);
          ioerrtst(gmvin);
         }
-      if (ftype == ASCII) 
+      if (ftype == ASCII)
         {
          fscanf(gmvin,"%d%d%d",&lnxv,&lnyv,&lnzv);
          ioerrtst(gmvin);
         }
-   
+
       lxic = (double *)malloc((3)*sizeof(double));
       lyic = (double *)malloc((3)*sizeof(double));
       if (ftype != ASCII)
@@ -1783,7 +1784,7 @@ void readnodes(FILE* gmvin, int ftype)
       nodes_read = 1;
      }
 
-   if (amrflag_in == 0) 
+   if (amrflag_in == 0)
      {
       gmv_data.keyword = NODES;
       if (lstructuredflag == 0) gmv_data.datatype = UNSTRUCT;
@@ -1835,11 +1836,11 @@ void readcells(FILE* gmvin, int ftype)
       else
         {
          if (ftype == IEEEI8R4 || ftype == IEEEI8R8)
-           {         
+           {
             binread(&lncells,longlongsize,LONGLONG,(long)1,gmvin);
            }
          else
-           {         
+           {
             binread(&i,intsize,INT,(long)1,gmvin);
             lncells = i;
            }
@@ -1866,11 +1867,11 @@ void readcells(FILE* gmvin, int ftype)
       else
         {
          if (ftype == IEEEI8R4 || ftype == IEEEI8R8)
-           {         
+           {
             binread(&numtop,longlongsize,LONGLONG,(long)1,gmvin);
            }
          else
-           {         
+           {
             binread(&i,intsize,INT,(long)1,gmvin);
             numtop = i;
            }
@@ -1916,7 +1917,7 @@ void readcells(FILE* gmvin, int ftype)
       gmv_data.longdata1 = daughters;
       numcells = numtop;
       readkeyword = 1;
-      return;      
+      return;
      }
 
    /*  See if all cells read.  */
@@ -2094,7 +2095,7 @@ void readcells(FILE* gmvin, int ftype)
             FREE(cellnodenos);
            }
          else
-            binread(lcellnodenos,longlongsize,LONGLONG, 
+            binread(lcellnodenos,longlongsize,LONGLONG,
                     (long)totverts,gmvin);
          ioerrtst(gmvin);
         }
@@ -2162,7 +2163,7 @@ void readcells(FILE* gmvin, int ftype)
             FREE(cellnodenos);
            }
          else
-            binread(lfaces,longlongsize,LONGLONG, 
+            binread(lfaces,longlongsize,LONGLONG,
                     (long)nfaces,gmvin);
          ioerrtst(gmvin);
         }
@@ -2173,7 +2174,7 @@ void readcells(FILE* gmvin, int ftype)
 */
 
       if (gmv_data.keyword == GMVERROR) return;
-      
+
       gmv_data.keyword = CELLS;
       if (strncmp(keyword,"vface2d",7) == 0)
          gmv_data.datatype = VFACE2D;
@@ -2187,7 +2188,7 @@ void readcells(FILE* gmvin, int ftype)
      }
 
    /*  Else read regular cells.  */
-   else 
+   else
      {
       lcellnodenos = (long *)malloc(ndat*sizeof(long));
       if (lcellnodenos == NULL)
@@ -2313,7 +2314,7 @@ void readfaces(FILE* gmvin, int ftype)
         {
          binread(vertsin,longlongsize,LONGLONG,(long)nverts+2,gmvin);
         }
-      else 
+      else
         {
          tmpvertsin = (int *)malloc((nverts+2)*sizeof(int));
          if (tmpvertsin == NULL)
@@ -2404,7 +2405,7 @@ void readvfaces(FILE* gmvin, int ftype)
          binread(&oppfacepe,intsize,INT,(long)1,gmvin);
          binread(&cellid,longlongsize,LONGLONG,(long)1,gmvin);
         }
-      else 
+      else
         {
          binread(&i,intsize,INT,(long)1,gmvin);
          oppface = i;
@@ -2436,7 +2437,7 @@ void readvfaces(FILE* gmvin, int ftype)
         {
          binread(vertsin,longlongsize,LONGLONG,(long)nverts,gmvin);
         }
-      else 
+      else
         {
          tmpvertsin = (int *)malloc((nverts)*sizeof(int));
          if (tmpvertsin == NULL)
@@ -2532,7 +2533,7 @@ void readxfaces(FILE* gmvin, int ftype)
            {
             binread(nxvertsin,longlongsize,LONGLONG,(long)lnfaces,gmvin);
            }
-         else 
+         else
            {
             tmpftvin = (int *)malloc(lnfaces*sizeof(int));
             if (tmpftvin == NULL)
@@ -2572,7 +2573,7 @@ void readxfaces(FILE* gmvin, int ftype)
            {
             binread(vertsin,longlongsize,LONGLONG,(long)totverts,gmvin);
            }
-         else 
+         else
            {
             tmpftvin = (int *)malloc(totverts*sizeof(int));
             if (tmpftvin == NULL)
@@ -2619,7 +2620,7 @@ void readxfaces(FILE* gmvin, int ftype)
            {
             binread(vertsin,longlongsize,LONGLONG,(long)lnfaces,gmvin);
            }
-         else 
+         else
            {
             tmpftvin = (int *)malloc(lnfaces*sizeof(int));
             if (tmpftvin == NULL)
@@ -2681,7 +2682,7 @@ void readmats(FILE* gmvin, int ftype)
    /*  Read no. of materials and data type (cells or nodes).  */
    if (ftype != ASCII)
       binread(&lmmats,intsize,INT,(long)1,gmvin);
-   else fscanf(gmvin,"%d",&lmmats);  
+   else fscanf(gmvin,"%d",&lmmats);
    ioerrtst(gmvin);
 
    if (ftype != ASCII)
@@ -3023,7 +3024,7 @@ void readflags(FILE* gmvin, int ftype)
          binread(&i,intsize,INT,(long)1,gmvin);
         }
      }
-   if (ftype == ASCII) 
+   if (ftype == ASCII)
      {
       fscanf(gmvin,"%s",flgname);
       if (strncmp(flgname,"endflag",7) != 0)
@@ -3644,7 +3645,7 @@ void readunits(FILE* gmvin, int ftype)
    gmv_data.keyword = UNITS;
 
    /*  If xyz or velocity type, read units.  */
-   if (strncmp(unittype,"xyz",3) == 0 || 
+   if (strncmp(unittype,"xyz",3) == 0 ||
        strncmp(unittype,"velocity",8) == 0)
      {
       if (ftype != ASCII)
@@ -4097,7 +4098,7 @@ void readsurfflag(FILE* gmvin, int ftype)
       binread(&flgname,charsize,CHAR,(long)charsize_in,gmvin);
       *(flgname+charsize_in)='\0';
      }
-   if (ftype == ASCII) 
+   if (ftype == ASCII)
      {
       fscanf(gmvin,"%s",flgname);
      }
@@ -4117,7 +4118,7 @@ void readsurfflag(FILE* gmvin, int ftype)
      {
       binread(&ntypes,intsize,INT,(long)1,gmvin);
      }
-   if (ftype == ASCII) 
+   if (ftype == ASCII)
      {
       fscanf(gmvin,"%d",&ntypes);
      }
@@ -4162,7 +4163,7 @@ void readsurfflag(FILE* gmvin, int ftype)
 
    /*  Allocate and read flag data.  */
    if (numsurf > 0)
-     { 
+     {
       if (ftype != ASCII)
         {
          binread(flagin,intsize,INT,(long)numsurf,gmvin);
@@ -4428,7 +4429,7 @@ void readgroups(FILE* gmvin, int ftype)
          binread(&ngroupin,intsize,INT,(long)1,gmvin);
         }
      }
-   if (ftype == ASCII) 
+   if (ftype == ASCII)
      {
       fscanf(gmvin,"%s",grpname);
       if (strncmp(grpname,"endgrp",6) != 0)
@@ -5010,69 +5011,69 @@ int binread(void* ptr, int size, int type, long nitems, FILE* stream)
 
 #ifdef CRAY
 
-  float *floatptr, *floatbuf; 
-  double *doubleptr, *doublebuf; 
+  float *floatptr, *floatbuf;
+  double *doubleptr, *doublebuf;
   int tierr, ttype, tbitoff;
   char *charptr;
   int  *intptr, *intbuf;
   short *shortptr, *shortbuf;
- 
+
    tbitoff = 0;  tierr = 0;
    ret_stat = 0;
- 
+
    switch(type)
      {
- 
+
       case CHAR:
         charptr = (char *)ptr;
         ret_stat = fread(charptr, size, nitems, stream);
         break;
- 
+
       case SHORT:
         ttype = 7;
         shortbuf = (short *)malloc(size*nitems);
         shortptr = (short *)ptr;
- 
+
         ret_stat = fread(shortbuf, size, nitems, stream);
         tierr = IEG2CRAY(&ttype, &nitems, shortbuf, &tbitoff, shortptr);
         free(shortbuf);
         break;
- 
+
       case INT:
         ttype = 1;
         intptr = (int *)ptr;
         intbuf = (int *)malloc(size*nitems);
- 
+
         ret_stat = fread(intbuf, size, nitems, stream);
         tierr = IEG2CRAY(&ttype, &nitems, intbuf, &tbitoff, intptr);
         free(intbuf);
         break;
- 
+
       case FLOAT:
         ttype = 2;
         floatptr = (float *)ptr;
         floatbuf = (float *)malloc(size*nitems);
- 
+
         ret_stat = fread(floatbuf, size, nitems, stream);
         tierr = IEG2CRAY(&ttype, &nitems, floatbuf, &tbitoff, floatptr);
         free(floatbuf);
         break;
- 
+
       case DOUBLE:
         ttype = 3;
         doubleptr = (double *)ptr;
         doublebuf = (double *)malloc(size*nitems);
- 
+
         ret_stat = fread(doublebuf, size, nitems, stream);
         tierr = IEG2CRAY(&ttype, &nitems, doublebuf, &tbitoff, doubleptr);
         free(doublebuf);
         break;
- 
+
       case WORD:
         intptr = (int *)ptr;
         ret_stat = fread(intptr, size, nitems, stream);
         break;
- 
+
       default:
         fprintf(stderr,"Error: Cannot match input datatype.\n");
         gmv_data.errormsg = (char *)malloc(36 * sizeof(char));
@@ -5080,7 +5081,7 @@ int binread(void* ptr, int size, int type, long nitems, FILE* stream)
         gmv_data.keyword = GMVERROR;
         return;
      }
- 
+
      if(tierr != 0)
        {
         fprintf(stderr,"Error: Cannot convert IEEE data to CRAY\n");
@@ -5089,7 +5090,7 @@ int binread(void* ptr, int size, int type, long nitems, FILE* stream)
         gmv_data.keyword = GMVERROR;
         return;
        }
- 
+
      return ret_stat;
 
 #else
@@ -5116,12 +5117,12 @@ int word2int(unsigned wordin)
 {
 
   int intout;
- 
+
 #ifdef CRAY
 
   int ttype, tnum, tbitoff;
- 
-     tnum = 1; tbitoff = 0; ttype = 1; 
+
+     tnum = 1; tbitoff = 0; ttype = 1;
 
      if(IEG2CRAY(&ttype, &tnum, &wordin, &tbitoff, &intout) != 0)
        {
@@ -5301,7 +5302,7 @@ void gmvread_mesh()
          gmv_meshdata.x = (double *)malloc(nn*sizeof(double));
          gmv_meshdata.y = (double *)malloc(nn*sizeof(double));
          gmv_meshdata.z = (double *)malloc(nn*sizeof(double));
-         if (gmv_meshdata.x == NULL || gmv_meshdata.y == NULL || 
+         if (gmv_meshdata.x == NULL || gmv_meshdata.y == NULL ||
              gmv_meshdata.z == NULL)
            {
             gmvrdmemerr2();
@@ -5346,7 +5347,7 @@ void gmvread_mesh()
                yin[i] = gmv_data.doubledata2[i];
             for (i = 0; i < nzv; i++)
                zin[i] = gmv_data.doubledata3[i];
-            
+
             /*  Generate nodes from direction vectors.  */
             ip = 0;
             for (k = 0; k < nzv; k++)
@@ -5505,7 +5506,7 @@ void rdcells(int nodetype_in)
      {
       if (gmv_data.datatype == GENERAL) gencell(icell,nc);
       if (gmv_data.datatype == REGULAR) regcell(icell,nc);
-      if (gmv_data.datatype == VFACE2D || gmv_data.datatype == VFACE3D) 
+      if (gmv_data.datatype == VFACE2D || gmv_data.datatype == VFACE3D)
          vfacecell(icell,nc);
       icell++;
       gmvread_data();
@@ -5526,7 +5527,7 @@ void rdcells(int nodetype_in)
            }
          else
            {
-            totfaces = nfacesin; 
+            totfaces = nfacesin;
             fillmeshdata(nc);
             if (totcellnodes > 0)
               {
@@ -5557,7 +5558,7 @@ void gencell(long icell, long nc)
   /*                                */
   /*  Set data for a general cell.  */
   /*                                */
-  int totverts, nfaces; 
+  int totverts, nfaces;
   long i, j, k, nverts[MAXVERTS];
   static long sumverts = 0, gcellcount = 0;
 
@@ -5580,7 +5581,7 @@ void gencell(long icell, long nc)
       cellfaces_alloc = k;
      }
    for (i = 0; i < nfaces; i++)
-      cell_faces[nfacesin+i] = nfacesin+i;      
+      cell_faces[nfacesin+i] = nfacesin+i;
 
    /*  Save all face vertices, reallocate if needed.  */
    totverts = gmv_data.nlongdata2;
@@ -5634,7 +5635,7 @@ void regcell(long icell, long nc)
   /*    14-ptet4, 15-ptet10, 16-6tri, 17-8quad,            */
   /*    18-3line, 19-phex27                                */
   /*                                                       */
-  long i, j, k, cnodes[30], fverts[145], l1, l2; 
+  long i, j, k, cnodes[30], fverts[145], l1, l2;
   int nfaces, nverts[144], totverts,  dupflag, ncnodes,
       dupverts[145], dupnverts[145], ndup, nf;
   int icelltype;
@@ -5664,7 +5665,7 @@ void regcell(long icell, long nc)
   short pyr5nverts[5] = {4,3,3,3,3};
   short pyr5fverts[16] = {4,3,2,1, 1,2,5, 2,3,5, 3,4,5, 4,1,5};
   short pyr13nverts[5] = {8,6,6,6,6};
-  short pyr13fverts[32] = {4,8,3,7,2,6,1,9, 1,6,2,11,5,10, 2,7,3,12,5,11, 
+  short pyr13fverts[32] = {4,8,3,7,2,6,1,9, 1,6,2,11,5,10, 2,7,3,12,5,11,
                            3,8,4,13,5,12, 4,9,1,10,5,13};
   short prs6nverts[5] = {3,4,4,4,3};
   short prs6fverts[18] = {1,3,2, 1,2,5,4 ,2,3,6,5, 1,4,6,3, 5,6,4};
@@ -5674,7 +5675,7 @@ void regcell(long icell, long nc)
   short tet4nverts[4] = {3,3,3,3};
   short tet4fverts[12] = {1,3,2, 1,2,4, 1,3,4, 2,3,4};
   short tet10nverts[4] = {6,6,6,6};
-  short tet10fverts[24] = {1,7,3,6,2,5, 1,5,2,9,4,8, 1,7,3,10,4,8, 
+  short tet10fverts[24] = {1,7,3,6,2,5, 1,5,2,9,4,8, 1,7,3,10,4,8,
                             2,6,3,10,4,9};
   short quad8nverts[1] = {8};
   short quad8fverts[8] = {1,5,2,6,3,7,4,8};
@@ -5684,7 +5685,7 @@ void regcell(long icell, long nc)
   short line3fverts[4] = {1,2, 2,3};
   short phex27nverts[48] = {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
                             3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3};
-  short phex27fverts[144] = {1,9,21,  9,2,21,  2,18,21, 18,6,21, 
+  short phex27fverts[144] = {1,9,21,  9,2,21,  2,18,21, 18,6,21,
                              6,13,21, 13,5,21, 5,17,21, 17,1,21,
                              2,10,22, 10,3,22, 3,19,22, 19,7,22,
                              7,14,22, 14,6,22, 6,18,22, 18,2,22,
@@ -5863,7 +5864,7 @@ void regcell(long icell, long nc)
       fverts[i] = cnodes[j];
      }
 
-   /*  If duplicate nodes exist, check   */ 
+   /*  If duplicate nodes exist, check   */
    /*  and adjust for degenerate faces.  */
    if (dupflag)
      {
@@ -5928,7 +5929,7 @@ void regcell(long icell, long nc)
       cellfaces_alloc = k;
      }
    for (i = 0; i < nfaces; i++)
-      cell_faces[nfacesin+i] = nfacesin+i;      
+      cell_faces[nfacesin+i] = nfacesin+i;
 
    /*  Save all face vertices, reallocate if needed.  */
    if (nvertsin+totverts > faceverts_alloc)
@@ -5969,7 +5970,7 @@ void vfacecell(long icell, long nc)
   /*                                */
   /*  Set data for a vface cell.  */
   /*                                */
-  int nfaces; 
+  int nfaces;
   long i, j, k;
 
    /*  Save first face location for cell to faces pointer.  */
@@ -5987,7 +5988,7 @@ void vfacecell(long icell, long nc)
       cellfaces_alloc = k;
      }
    for (i = 0; i < nfaces; i++)
-      cell_faces[nfacesin+i] = gmv_data.longdata1[i] - 1;      
+      cell_faces[nfacesin+i] = gmv_data.longdata1[i] - 1;
 
    /*  Reset counters.  */
    nfacesin += nfaces;
@@ -6128,7 +6129,7 @@ void rdvfaces(long nc)
    oppface = (long *)malloc(nfacesin*sizeof(long));
    oppfacepe = (long *)malloc(nfacesin*sizeof(long));
    if (facetoverts == NULL || faceverts == NULL || facecell1 == NULL ||
-       facecell2 == NULL || facepe == NULL || oppface == NULL || 
+       facecell2 == NULL || facepe == NULL || oppface == NULL ||
        oppfacepe == NULL)
       gmvrdmemerr2();
 
@@ -6170,7 +6171,7 @@ void rdvfaces(long nc)
          /*  Fill second cellid for face.  */
          for (i = 0; i < nfacesin; i++)
            {
-            
+
             /*  If face and opposite faces have same  */
             /*  pe, get cell.  Otherwise use ncells.  */
             if (oppface[i] >= 0)
@@ -6228,7 +6229,7 @@ void rdxfaces()
    oppface = (long *)malloc(nfacesin*sizeof(long));
    oppfacepe = (long *)malloc(nfacesin*sizeof(long));
    if (facetoverts == NULL || faceverts == NULL || facecell1 == NULL ||
-       facecell2 == NULL || facepe == NULL || oppface == NULL || 
+       facecell2 == NULL || facepe == NULL || oppface == NULL ||
        oppfacepe == NULL)
       gmvrdmemerr2();
    for (i = 0; i < nfacesin; i++) facecell2[i] = 0;
@@ -6248,7 +6249,7 @@ void rdxfaces()
    maxnvert = 0;
    for (i = 0; i < nfacesin; i++)
      {
-      if (gmv_data.longdata1[i] > maxnvert) 
+      if (gmv_data.longdata1[i] > maxnvert)
          maxnvert = gmv_data.longdata1[i];
      }
 
@@ -6276,7 +6277,7 @@ void rdxfaces()
          /*  Fill second cellid for face.  */
          for (i = 0; i < nfacesin; i++)
            {
-            
+
             /*  If face and opposite faces have same  */
             /*  pe, get cell.  Otherwise use ncells.  */
             facecell2[i] = 0;
@@ -6461,14 +6462,14 @@ void struct2vface()
    if (gmv_meshdata.faceverts == NULL) gmvrdmemerr2();
    gmv_meshdata.facecell1 = (long *)malloc(nf*sizeof(long));
    gmv_meshdata.facecell2 = (long *)malloc(nf*sizeof(long));
-   if (gmv_meshdata.facecell1 == NULL || 
+   if (gmv_meshdata.facecell1 == NULL ||
        gmv_meshdata.facecell2 == NULL)
       gmvrdmemerr2();
    gmv_meshdata.vfacepe = (long *)malloc(nf*sizeof(long));
    gmv_meshdata.vfaceoppface = (long *)malloc(nf*sizeof(long));
    gmv_meshdata.vfaceoppfacepe = (long *)malloc(nf*sizeof(long));
-   if (gmv_meshdata.vfacepe == NULL || 
-       gmv_meshdata.vfaceoppface == NULL || 
+   if (gmv_meshdata.vfacepe == NULL ||
+       gmv_meshdata.vfaceoppface == NULL ||
        gmv_meshdata.vfaceoppfacepe == NULL)
       gmvrdmemerr2();
 
@@ -6517,7 +6518,7 @@ void struct2vface()
             case 0: icell2 = icell - nxyc;
                     gmv_meshdata.facecell2[jf] = icell2 + 1;
                     gmv_meshdata.vfaceoppface[jf] = (icell2 * nfaces) + 5;
-                    if (izc == 0) 
+                    if (izc == 0)
                        gmv_meshdata.facecell2[jf] = 0;
                     break;
             case 1: icell2 = icell - nxc;
@@ -6559,7 +6560,7 @@ void struct2vface()
                        gmv_meshdata.facecell2[jf] = 0;
                     break;
            }
-         if (gmv_meshdata.facecell2[jf] == 0) 
+         if (gmv_meshdata.facecell2[jf] == 0)
             gmv_meshdata.vfaceoppface[jf] = -1;
          gmv_meshdata.vfacepe[jf] = 0;
          gmv_meshdata.vfaceoppfacepe[jf] = 0;
@@ -6627,13 +6628,13 @@ void struct2face()
    if (gmv_meshdata.faceverts == NULL) gmvrdmemerr2();
    gmv_meshdata.facecell1 = (long *)malloc(nf*sizeof(long));
    gmv_meshdata.facecell2 = (long *)malloc(nf*sizeof(long));
-   if (gmv_meshdata.facecell1 == NULL || 
+   if (gmv_meshdata.facecell1 == NULL ||
        gmv_meshdata.facecell2 == NULL)
       gmvrdmemerr2();
    for (i = 0; i < nf; i++)
       {
-       gmv_meshdata.facecell1[i] = -1; 
-       gmv_meshdata.facecell2[i] = -1; 
+       gmv_meshdata.facecell1[i] = -1;
+       gmv_meshdata.facecell2[i] = -1;
       }
 
    /*  Loop over the number of cells, and fill gmvmesh_data.  */
@@ -6695,7 +6696,7 @@ void struct2face()
            {
             case 0: icell2 = icell - nxyc;
                     gmv_meshdata.facecell2[lf] = icell2 + 1;
-                    if (izc == 0) 
+                    if (izc == 0)
                        gmv_meshdata.facecell2[lf] = 0;
                     break;
             case 1: icell2 = icell - nxc;
@@ -6802,30 +6803,30 @@ fgmvread_close_()
 void
 #ifdef hp
 fgmvread_data(int *keyword, int *datatype, long *num,
-              long *num2, char name1[20], long *ndoubledata1, 
-              double *doubledata1, long *ndoubledata2, 
-              double *doubledata2, long *ndoubledata3, 
-              double *doubledata3, long *nlongdata1, 
-              long *longdata1, long *nlongdata2, 
-              long *longdata2, int *nchardata1, char *chardata1, 
+              long *num2, char name1[20], long *ndoubledata1,
+              double *doubledata1, long *ndoubledata2,
+              double *doubledata2, long *ndoubledata3,
+              double *doubledata3, long *nlongdata1,
+              long *longdata1, long *nlongdata2,
+              long *longdata2, int *nchardata1, char *chardata1,
               int *nchardata2, char *chardata2)
 #elif unicos
 FGMVREAD_DATA(int *keyword, int *datatype, long *num,
-              long *num2, char name1[20], long *ndoubledata1, 
-              double *doubledata1, long *ndoubledata2, 
-              double *doubledata2, long *ndoubledata3, 
-              double *doubledata3, long *nlongdata1, 
-              long *longdata1, long *nlongdata2, 
-              long *longdata2, int *nchardata1, char *chardata1, 
+              long *num2, char name1[20], long *ndoubledata1,
+              double *doubledata1, long *ndoubledata2,
+              double *doubledata2, long *ndoubledata3,
+              double *doubledata3, long *nlongdata1,
+              long *longdata1, long *nlongdata2,
+              long *longdata2, int *nchardata1, char *chardata1,
               int *nchardata2, char *chardata2)
 #else
 fgmvread_data_(int *keyword, int *datatype, long *num,
-               long *num2, char name1[20], long *ndoubledata1, 
-               double *doubledata1, long *ndoubledata2, 
-               double *doubledata2, long *ndoubledata3, 
-               double *doubledata3, long *nlongdata1, 
-               long *longdata1, long *nlongdata2, 
-               long *longdata2, int *nchardata1, char *chardata1, 
+               long *num2, char name1[20], long *ndoubledata1,
+               double *doubledata1, long *ndoubledata2,
+               double *doubledata2, long *ndoubledata3,
+               double *doubledata3, long *nlongdata1,
+               long *longdata1, long *nlongdata2,
+               long *longdata2, int *nchardata1, char *chardata1,
                int *nchardata2, char *chardata2)
 #endif
 {
@@ -6858,21 +6859,21 @@ void
 #ifdef hp
 fgmvread_mesh(long *nnodes, long *ncells, long *nfaces,
               long *totfaces, long *totverts, int *intype,
-              int *nxv, int *nyv, int *nzv, double *x, double *y, 
+              int *nxv, int *nyv, int *nzv, double *x, double *y,
               double *z, long *celltoface, long *cell_faces,
               long *facetoverts, long *faceverts,
               long *facecell1, long *facecell2)
 #elif unicos
 FGMVREAD_MESH(long *nnodes, long *ncells, long *nfaces,
               long *totfaces, long *totverts, int *intype,
-              int *nxv, int *nyv, int *nzv, double *x, double *y, 
+              int *nxv, int *nyv, int *nzv, double *x, double *y,
               double *z, long *celltoface, long *cell_faces,
               long *facetoverts, long *faceverts,
               long *facecell1, long *facecell2)
 #else
 fgmvread_mesh_(long *nnodes, long *ncells, long *nfaces,
                long *totfaces, long *totverts, int *intype,
-               int *nxv, int *nyv, int *nzv, double *x, double *y, 
+               int *nxv, int *nyv, int *nzv, double *x, double *y,
                double *z, long *celltoface, long *cell_faces,
                long *facetoverts, long *faceverts,
                long *facecell1, long *facecell2)
@@ -6959,7 +6960,7 @@ int gmvrayread_open(char *filnam)
           SNPRINTF(gmv_data.errormsg,20,"Error with the path");
           return 1;
       }
-   
+
    gmvrayinGlobal = fopen(filnam, "r");
    if(gmvrayinGlobal == NULL)
       {
@@ -6969,7 +6970,7 @@ int gmvrayread_open(char *filnam)
        SNPRINTF(gmv_data.errormsg,22 + errormsgvarlen,"GMV cannot open file %s",filnam);
        return 1;
       }
-    
+
    /*  Read header. */
    binread(magic,charsize, CHAR, (long)MAXKEYWORDLENGTH, gmvrayinGlobal);
    if (strncmp(magic,"gmvrays",7) != 0)
@@ -7122,9 +7123,9 @@ void gmvrayread_data()
    /*  Zero gmvray_data and free structure arrays.  */
    gmvray_data.nrays = 0;
    gmvray_data.nvars = 0;
-   FREE(gmvray_data.varnames);  
-   FREE(gmvray_data.rayids);  
-   FREE(gmvray_data.gmvrays);  
+   FREE(gmvray_data.varnames);
+   FREE(gmvray_data.rayids);
+   FREE(gmvray_data.gmvrays);
 
    /*  Read and process keyword based data until endray found.  */
    iendLocal = 0;
@@ -7164,7 +7165,7 @@ void gmvrayread_data()
         {
          case(RAYS):
             readrays(gmvrayinGlobal,ftypeGlobal);
-            break;   
+            break;
          case(RAYIDS):
             readrayids(gmvrayinGlobal,ftypeGlobal);
             break;
@@ -7205,12 +7206,12 @@ void readrays(FILE* gmvrayin, int ftype)
    else
      {
       if (ftype == IEEEI8R4 || ftype == IEEEI8R8)
-        {         
+        {
          binread(&lrays,longlongsize,LONGLONG,(long)1,gmvrayin);
          binread(&lrayvars,longlongsize,LONGLONG,(long)1,gmvrayin);
        }
       else
-        {         
+        {
          binread(&i,intsize,INT,(long)1,gmvrayin);
          binread(&j,intsize,INT,(long)1,gmvrayin);
          iswap = i;
@@ -7263,7 +7264,7 @@ void readrays(FILE* gmvrayin, int ftype)
          fscanf(gmvrayin,"%s %d",vname,&j);
          if (ioerrtst2(gmvrayin)) return;
         }
-      
+
       strncpy(&varnames[i*MAXCUSTOMNAMELENGTH],vname,MAXCUSTOMNAMELENGTH-1);
       *(varnames+i*MAXCUSTOMNAMELENGTH+charsize_in) = (char) 0;
       vartype[i] = j;
@@ -7402,7 +7403,7 @@ void readrays(FILE* gmvrayin, int ftype)
         }
       for (k = 0; k < lrayvars; k++)
         {
-         
+
          /*  Determine the number of variable elements to read.  */
          nvarin = npts;
          if (vartype[k] == 1) nvarin = npts - 1;
@@ -7425,11 +7426,11 @@ void readrays(FILE* gmvrayin, int ftype)
               {
                binread(tmpfloat,floatsize,FLOAT,(long)nvarin, gmvrayin);
                ioerrtst2( gmvrayin);
-               for (i = 0; i < nvarin; i++) 
+               for (i = 0; i < nvarin; i++)
                   field[i] = tmpfloat[i];
               }
            }
-         if (ftype == ASCII) rdfloats(field, (long)nvarin, gmvrayin);    
+         if (ftype == ASCII) rdfloats(field, (long)nvarin, gmvrayin);
 
          if (gmv_data.keyword == GMVERROR) return;
 
