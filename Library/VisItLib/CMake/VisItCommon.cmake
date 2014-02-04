@@ -88,19 +88,6 @@ FUNCTION(ADD_PARALLEL_LIBRARY target)
     ENDIF(VISIT_PARALLEL_CXXFLAGS)
 ENDFUNCTION(ADD_PARALLEL_LIBRARY)
 
-MACRO(VISIT_VTK_THIRD_PARTY_INCLUDE upper lower)
-  if(VTK_USE_SYSTEM_${upper})
-    if(${upper}_INCLUDE_DIR)
-      include_directories(${${upper}_INCLUDE_DIR})
-    endif(${upper}_INCLUDE_DIR)
-  else(VTK_USE_SYSTEM_${upper})
-    include_directories(
-      ${VTK_BINARY_DIR}/Utilities/${lower}
-      ${VTK_SOURCE_DIR}/Utilities/${lower}
-    )
-  endif(VTK_USE_SYSTEM_${upper})
-ENDMACRO(VISIT_VTK_THIRD_PARTY_INCLUDE)
-
 #called from readers that are being built into paraview
 FUNCTION(ADD_VISIT_READER NAME VERSION)
   set(PLUGIN_NAME "vtk${NAME}")
@@ -613,19 +600,6 @@ find_package(MILI QUIET)
 if(MILI_FOUND)
   set(HAVE_LIBMILI ${MILI_FOUND})
 endif(MILI_FOUND)
-
-#setup zlib
-include_directories(${VTK_ZLIB_INCLUDE_DIRS})
-
-#setup netcdf
-visit_vtk_third_party_include(NETCDF vtknetcdf/include)
-
-#setup png
-visit_vtk_third_party_include(PNG vtkpng)
-
-#setup tiff
-visit_vtk_third_party_include(TIFF vtktiff)
-
 
 #-----------------------------------------------------------------------------
 # Detect packages here. We could probably write macros that we can include from

@@ -406,7 +406,15 @@ avtBOVFileFormat::GetMesh(int dom, const char *meshname)
         z->SetTuple1(dz-1, z_stop);
     }
 
-    int dims[3] = { dx, dy, dz };
+    //really? I would have though that vtkRectilinearGrid would
+    //support dimensions larger than this
+    int dims[3] =
+        {
+        static_cast<int>(dx),
+        static_cast<int>(dy),
+        static_cast<int>(dz)
+        };
+
     rv->SetDimensions(dims);
     rv->SetXCoordinates(x);
     rv->SetYCoordinates(y);

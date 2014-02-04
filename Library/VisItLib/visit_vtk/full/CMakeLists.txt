@@ -88,7 +88,7 @@ vtkVisItSplitter.C
 vtkVisItStreamLine.C
 vtkVisItStructuredGrid.C
 vtkVisItStructuredGridNormals.C
-vtkVisItTIFFWriter.C
+#vtkVisItTIFFWriter.C
 vtkVisItTensorGlyph.C
 vtkVisItTubeFilter.C
 vtkVolumeFromVolume.C
@@ -132,7 +132,6 @@ target_link_libraries(visit_vtk
     vtkInteractionStyle
     vtkIOLegacy
     vtkRenderingOpenGL
-    vtktiff
   )
 
 VISIT_INSTALL_TARGETS(visit_vtk)

@@ -3,14 +3,16 @@ vtk_module(VisItLib
     vtkCommonDataModel
     vtkCommonExecutionModel
     vtkCommonMisc
-    vtkFiltersExtraction
     vtkFiltersAMR
+    vtkFiltersExtraction
     vtkFiltersFlowPaths
     vtkImagingHybrid
     vtkIOGeometry
     vtkIOImage
-    vtkParallelCore
-    vtkRenderingVolumeOpenGL
     vtkIOLegacy
+    vtkParallelCore
+    vtkpng
+    vtkRenderingVolumeOpenGL
+    vtkzlib
   EXCLUDE_FROM_WRAPPING
   )

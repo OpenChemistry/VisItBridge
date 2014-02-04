@@ -3248,10 +3248,10 @@ avtFVCOMReader::GetVar(int timestate, const char *Variable, avtVariableCache *ca
           VarDimIDs[0] == nTimeID)
         {
           ntuples = dimSizes[VarDimIDs[1]];    
-          size_t starts[]={timestate,0};
-          size_t counts[]={1, ntuples};
+          size_t starts[]={static_cast<size_t>(timestate),0};
+          size_t counts[]={1, static_cast<size_t>(ntuples)};
           ptrdiff_t stride[]={1,1};
-          float *vals = new float[ntuples];
+          float *vals = new float[static_cast<size_t>(ntuples)];
 
           status = nc_get_vars_float(ncid,VarID,
                                      starts, counts, stride, vals);
@@ -3275,10 +3275,12 @@ avtFVCOMReader::GetVar(int timestate, const char *Variable, avtVariableCache *ca
           VarDimIDs[0] == nTimeID)
         {
           ntuples = dimSizes[VarDimIDs[1]]*dimSizes[VarDimIDs[2]];    
-          size_t starts[]={timestate,0,0};
-          size_t counts[]={1, dimSizes[VarDimIDs[1]], dimSizes[VarDimIDs[2]]};
+          size_t starts[]={static_cast<size_t>(timestate),0,0};
+          size_t counts[]={1,
+                          static_cast<size_t>(dimSizes[VarDimIDs[1]]),
+                          static_cast<size_t>(dimSizes[VarDimIDs[2]])};
           ptrdiff_t stride[]={1,1,1};
-          float *vals = new float[ntuples];
+          float *vals = new float[static_cast<size_t>(ntuples)];
     
           status = nc_get_vars_float(ncid,VarID,
                                      starts, counts, stride, vals);
