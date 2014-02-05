@@ -2,7 +2,11 @@
 #define RDC_PATHUTIL_H
 #include "stringutil.h"
 
+#ifdef _WIN32
+#define _POSIX_
+#endif
 #include <limits.h>
+
 //===============================================================
 /*!
   Returns the full path to the directory containing the given file or directory, without the trailing "/", unless the result is "/" itself.  

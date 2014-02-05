@@ -40,7 +40,7 @@
 #define IVP_EXPORTS_H
 
 #if defined(_WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
-#if defined(AVTIVP_EXPORTS) || defined(avtivp_ser_EXPORTS) || defined(avtivp_par_EXPORTS)
+#if defined(AVTIVP_EXPORTS) || defined(avtivp_EXPORTS) || defined(avtivp_ser_EXPORTS) || defined(avtivp_par_EXPORTS)
 #define IVP_API __declspec(dllexport)
 #else
 #define IVP_API __declspec(dllimport)
