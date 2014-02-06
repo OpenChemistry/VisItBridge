@@ -3,6 +3,13 @@
 #include "stringutil.h"
 
 #include <limits.h>
+#ifdef WIN32
+#include <direct.h> /* for _getcwd */
+#define getcwd _getcwd
+#else
+#include <unistd.h>
+#endif
+
 
 /* The maximum length of a file name.  */
 #if defined(PATH_MAX)
