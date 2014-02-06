@@ -2,10 +2,20 @@
 #define RDC_PATHUTIL_H
 #include "stringutil.h"
 
-#ifdef _WIN32
-#define _POSIX_
-#endif
 #include <limits.h>
+
+/* The maximum length of a file name.  */
+#if defined(PATH_MAX)
+# define PARADIS_PATH_MAX PATH_MAX
+#elif defined(MAXPATHLEN)
+# define PARADIS_PATH_MAX MAXPATHLEN
+#elif defined(MAX_PATH)
+# define PARADIS_PATH_MAX MAX_PATH
+#else
+# define PARADIS_PATH_MAX 16384
+#endif
+
+
 
 //===============================================================
 /*!
@@ -25,8 +35,8 @@ inline string Dirname(string filename) {
  
   if (dirname[0] != '/')  {
     // need to switch to absolute path
-    char wd[PATH_MAX]; // this is why I hate C programming -- there is no way to be sure about buffer overflows with this kind of crap lingering around
-    getcwd(wd, PATH_MAX);
+    char wd[PARADIS_PATH_MAX]; // this is why I hate C programming -- there is no way to be sure about buffer overflows with this kind of crap lingering around
+    getcwd(wd, PARADIS_PATH_MAX);
 
     string::size_type loc = dirname.find("/");
     if (loc == string::npos) {
