@@ -32,13 +32,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+//#include <unistd.h>
 #include <string.h>
 #include <math.h>
 #include <stdarg.h>
 #include "debugutil.h"
 #include <time.h>
-#include <sys/time.h>
+//#include <sys/time.h>
 
 static  int iVerbose = 0;
 static  int iCheck = 0;
@@ -71,13 +71,12 @@ void dbfprintf(FILE *stream, int level, const char *fmt, ...){
 
 void dbprintf(int level, const char *fmt, ...){
   if(iVerbose >= level){
+    va_list ap;
     INITDEBUGFILE; 
-    vafprintf(gDebugFile, fmt);
-    /*    va_list ap;
-      va_start(ap, fmt);
-      vfprintf(gDebugFile,fmt,ap);
-      va_end(ap);
-    */
+    //vafprintf(gDebugFile, fmt);
+    va_start(ap, fmt);
+    vfprintf(gDebugFile,fmt,ap);
+    va_end(ap);
     fflush(gDebugFile); 
   }    
   return;
@@ -133,9 +132,10 @@ void dbg_maskstderr(int mask, char *fmt, ...)
 
 /* return 0 on failure, 1 on success */
 int dbg_setfile(const char *dbgfile) {
+  FILE* tmpf;
   INITDEBUGFILE; 
   if (!dbgfile) return 0; 
-  FILE *tmpf = fopen(dbgfile, "w"); 
+  tmpf = fopen(dbgfile, "w"); 
   if (!tmpf) return 0; 
   gDebugFile = tmpf; 
   return 1;

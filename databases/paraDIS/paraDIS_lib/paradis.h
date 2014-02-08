@@ -36,6 +36,7 @@ using boost::int32_t;
 using boost::uint8_t;
 using boost::uint16_t;
 using boost::uint32_t;
+using boost::uint64_t;
 #include <boost/shared_ptr.hpp>
 #include <boost/format.hpp>
 
@@ -1707,7 +1708,7 @@ namespace paraDIS {
   */ 
   class CompareSegPtrs {
   public:
-    bool operator() ( const ArmSegment *seg1, const ArmSegment *seg2) {
+    bool operator() ( const ArmSegment *seg1, const ArmSegment *seg2) const {
       return *seg1 < *seg2; 
     }
   };

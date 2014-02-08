@@ -2,7 +2,7 @@
 #include "timer.h"
 #include <iostream>
 #include <string> 
-#include <boost/date_time/posix_time/posix_time.hpp>
+//#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/format.hpp>
 #include <boost/algorithm/string.hpp>
 using namespace boost; 
@@ -142,7 +142,8 @@ std::ostream& operator<<(std::ostream& os, timer& t)
 // =================================================================
 /* Search the entire known universe for a time string match.  
    This is awful but it works. 
-*/ 
+*/
+#if 0
 bool GetTimeFromString(string s, struct tm &tms) {
   
   boost::trim(s);
@@ -277,5 +278,5 @@ string GetStandardTimeStringFromString(string s) {
   boost::trim (s); 
   return s;
 }
-  
+#endif  
 

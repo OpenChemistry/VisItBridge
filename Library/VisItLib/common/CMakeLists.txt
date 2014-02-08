@@ -296,8 +296,10 @@ utility/Utility.C
 utility/void_ref_ptr.C
 )
 IF(WIN32)
-    SET(UTILITY_WIN32_SOURCES utility/win32-regex.c)
+    SET(UTILITY_WIN32_SOURCES utility/win32-regex.c utility/snprintf.c)
     SET_SOURCE_FILES_PROPERTIES(utility/win32-regex.c
+        PROPERTIES LANGUAGE CXX)
+    SET_SOURCE_FILES_PROPERTIES(utility/snprintf.c
         PROPERTIES LANGUAGE CXX)
 ENDIF(WIN32)
 

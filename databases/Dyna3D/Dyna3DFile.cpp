@@ -21,15 +21,10 @@
 
 #define ALL_LINES -1
 
-#ifdef VISIT_DYNA
 // We're building this code inside of VisIt.
 #include <snprintf.h>
 #include <DebugStream.h>
-#define DEBUG_READER(A) A
-#else
-#define SNPRINTF snprintf
-#define DEBUG_READER(A)
-#endif
+#define DEBUG_READER(A) 
 
 // ****************************************************************************
 //  Method: Dyna3DFile constructor

@@ -40,11 +40,27 @@
 #define SNPRINTF_H
 #include <stdio.h>
 
-/* Define the appropriate macro. */
-#if defined(_WIN32)
-#define SNPRINTF _snprintf
-#else
-#define SNPRINTF snprintf
+#ifdef _WIN32
+#include <stdarg.h>
+#include "utility_exports.h"
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
+int UTILITY_API c99_vsnprintf(char* str, size_t size, const char* format, va_list ap);
+int UTILITY_API c99_snprintf(char* str, size_t size, const char* format, ...);
+
+#ifdef __cplusplus
+}
 #endif
+
+
+#define SNPRINTF c99_snprintf
+
+#else //_WIN32
+#define SNPRINTF snprintf
+#endif //_WIN32
+
+#endif // SNPRINTF_H
+

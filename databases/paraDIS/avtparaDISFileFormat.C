@@ -62,7 +62,6 @@
 #include <InvalidVariableException.h>
 
 using     namespace std;
-using     rclib::Point; 
 
 
 // ****************************************************************************

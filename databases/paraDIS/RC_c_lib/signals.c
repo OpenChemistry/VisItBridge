@@ -1,8 +1,17 @@
 /* $Id: signals.c,v 1.5 2005/09/14 02:30:56 rcook Exp $ */
 #include <signal.h>
 #include <stdio.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <stdio.h>
+#include <windows.h>
+#else // _WIN32
 #include <netdb.h>
 #include <unistd.h>
+#endif // _WIN32
+
+
 /* set a signal handler for the given signal 
    sig == the signal to catch
    func == the handler
@@ -31,7 +40,7 @@ void handler(int sig) {
   /*exit(0);*/
 }
 
-
+#if 0
 /* this is code I used to see if I was getting signaled at one point, and it might be useful*/
 int GettingSignaled(void)
 {
@@ -73,3 +82,5 @@ int GettingSignaled(void)
   }
   return 0;
 }
+#endif
+

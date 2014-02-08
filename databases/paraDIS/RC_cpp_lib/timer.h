@@ -25,9 +25,11 @@
 #include "stringutil.h"
 #define INVALID_TIME_STRING "INVALID_TIME_STRING"
 
-using namespace std; 
+using namespace std;
+#if 0
 string GetStandardTimeStringFromString(string s);
 bool GetTimeFromString(string s, struct tm &tms); 
+#endif
 
 int Progress(class timer &iTimer, double iNum, double iMax, 
              double &oPercent, double iPercentDelta, 

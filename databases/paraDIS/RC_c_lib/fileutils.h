@@ -10,7 +10,7 @@ extern "C" {
 /* utilities to deal with files and directories */
 
 size_t fread_loop(void *bufp, size_t elemSize, size_t elems2Read, FILE *fp);
-int mkdir_recursive(const char *dirname); 
+//int mkdir_recursive(const char *dirname); 
 
 
 #ifdef __cplusplus
