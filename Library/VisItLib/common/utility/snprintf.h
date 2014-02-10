@@ -55,12 +55,9 @@ int UTILITY_API c99_snprintf(char* str, size_t size, const char* format, ...);
 }
 #endif
 
-
 #define SNPRINTF c99_snprintf
-
 #else //_WIN32
 #define SNPRINTF snprintf
 #endif //_WIN32
 
 #endif // SNPRINTF_H
-
