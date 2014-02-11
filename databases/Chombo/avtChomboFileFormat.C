@@ -1488,7 +1488,12 @@ avtChomboFileFormat::CalculateDomainNesting(void)
             dn->SetLevelRefinementRatios(level, refinement_ratio[level-1]);
 
         for (int d=0; d < (std::max(dimension, 3)) ; ++d)
+          {
+          if (d < dimension)
             cs[d] = dx[level][d]*aspectRatio[d];
+          else
+            cs[d] = 0;
+          }
         dn->SetLevelCellSizes(level, cs);
     }
 
