@@ -39,12 +39,15 @@
 #ifndef IVP_EXPORTS_H
 #define IVP_EXPORTS_H
 
-#if defined(_WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(WIN32)
+#if defined(VISIT_BUILD_SHARED_LIBS)
 #if defined(avtivp_EXPORTS) || defined(avtivp_ser_EXPORTS) || defined(avtivp_par_EXPORTS)
 #define IVP_API __declspec(dllexport)
 #else
 #define IVP_API __declspec(dllimport)
-#endif
+#endif // _EXPORTS
+#endif // VISIT_BUILD_SHARED_LIBS
+
 #if defined(_MSC_VER)
 // Turn off warning about lack of DLL interface
 #pragma warning(disable:4251)
@@ -53,8 +56,9 @@
 // Turn off warning about identifier truncation
 #pragma warning(disable:4786)
 #endif
-#else
-# if __GNUC__ >= 4 && (defined(AVTIVP_EXPORTS) || defined(avtivp_ser_EXPORTS) || defined(avtivp_par_EXPORTS))
+
+#else // MSC_VER
+# if __GNUC__ >= 4 && (defined(avtivp_EXPORTS) || defined(avtivp_ser_EXPORTS) || defined(avtivp_par_EXPORTS))
 #   define IVP_API __attribute__ ((visibility("default")))
 # else
 #   define IVP_API /* hidden by default */

@@ -39,14 +39,17 @@
 #ifndef PARSER_EXPORTS_H
 #define PARSER_EXPORTS_H
 
-#if defined(_WIN32) && (BUILD_SHARED_LIBS)
+#if defined(WIN32)
+#if defined(VISIT_BUILD_SHARED_LIBS)
 # if defined(PARSER_EXPORTS) || defined(visitcommon_EXPORTS)
 #   define PARSER_API  __declspec(dllexport)
 #   define PARSER_API2 __declspec(dllexport)
 # else
 #   define PARSER_API  __declspec(dllimport)
 #   define PARSER_API2 __declspec(dllimport)
-# endif
+# endif // _EXPORTS
+#endif // _SHARED_LIBS
+
 # if defined(_MSC_VER)
 // Turn off warning about lack of DLL interface
 #   pragma warning(disable:4251)
@@ -55,7 +58,7 @@
 // Turn off warning about identifier truncation
 # pragma warning(disable:4786)
 # endif
-#else
+#else // WIN32
 # if __GNUC__ >= 4
 #   if (defined(PARSER_EXPORTS) || defined(visitcommon_EXPORTS))
 #     define PARSER_API __attribute__ ((visibility("default")))
@@ -67,6 +70,6 @@
 #   define PARSER_API  /* hidden by default */
 #   define PARSER_API2 /* hidden by default */
 # endif
-#endif
+#endif // WIN32
 
 #endif

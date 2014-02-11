@@ -39,12 +39,16 @@
 #ifndef VISIT_VTK_EXPORTS_H
 #define VISIT_VTK_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
-#if defined(VISIT_VTK_EXPORTS) || defined(visit_vtk_EXPORTS)
+#if defined(WIN32)
+
+#if defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(visit_vtk_EXPORTS)
 #define VISIT_VTK_API __declspec(dllexport)
 #else
 #define VISIT_VTK_API __declspec(dllimport)
 #endif
+#endif //VISIT_BUILD_SHARED_LIBS
+
 #if defined(_MSC_VER)
 // Turn off warning about lack of DLL interface
 #pragma warning(disable:4251)
@@ -52,13 +56,15 @@
 #pragma warning(disable:4275)
 // Turn off warning about identifier truncation
 #pragma warning(disable:4786)
-#endif
-#else
+#endif // _MSC_VER
+
+#else //WIN32
+
 # if __GNUC__ >= 4 && (defined(VISIT_VTK_EXPORTS) || defined(visit_vtk_EXPORTS))
 #   define VISIT_VTK_API __attribute__ ((visibility("default")))
 # else
 #   define VISIT_VTK_API /* hidden by default */
 # endif
-#endif
+#endif //WIN32
 
 #endif

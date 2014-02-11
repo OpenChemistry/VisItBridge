@@ -39,12 +39,15 @@
 #ifndef PROXYBASE_EXPORTS_H
 #define PROXYBASE_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
-# if defined(PROXYBASE_EXPORTS) || defined(visitcommon_EXPORTS)
+#if defined(WIN32)
+#if defined(VISIT_BUILD_SHARED_LIBS)
+# if defined(visitcommon_EXPORTS)
 #   define PROXYBASE_API __declspec(dllexport)
 # else
 #   define PROXYBASE_API __declspec(dllimport)
-# endif
+# endif // _EXPORTS
+#endif // SHARED_LIBS
+
 # if defined(_MSC_VER)
 // Turn off warning about lack of DLL interface
 #   pragma warning(disable:4251)
@@ -53,12 +56,13 @@
 // Turn off warning about identifier truncation
 #   pragma warning(disable:4786)
 # endif
-#else
+
+#else //WIN32
 # if __GNUC__ >= 4 && (defined(PROXYBASE_EXPORTS) || defined(visitcommon_EXPORTS))
 #   define PROXYBASE_API __attribute__ ((visibility("default")))
 # else
 #   define PROXYBASE_API /* hidden by default */
 # endif
-#endif
+#endif //WIN32
 
 #endif

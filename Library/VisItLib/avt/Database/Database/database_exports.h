@@ -39,12 +39,15 @@
 #ifndef DATABASE_EXPORTS_H
 #define DATABASE_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
-#if defined(AVTDATABASE_EXPORTS) || defined(avtdatabase_ser_EXPORTS) || defined(avtdatabase_par_EXPORTS)
+#if defined(WIN32)
+#if defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(avtdatabase_EXPORTS) || defined(avtdatabase_ser_EXPORTS) || defined(avtdatabase_par_EXPORTS)
 #define DATABASE_API __declspec(dllexport)
 #else
 #define DATABASE_API __declspec(dllimport)
-#endif
+#endif // _EXPORTS
+#endif // VISIT_BUILD_SHARED_LIBS
+
 #if defined(_MSC_VER)
 // Turn off warning about possible loss of data
 #pragma warning(disable:4244)
@@ -59,7 +62,8 @@
 // Turn off warning about identifier truncation
 #pragma warning(disable:4786)
 #endif
-#else
+
+#else // WIN32
 # if __GNUC__ >= 4 && (defined(AVTDATABASE_EXPORTS) || defined(avtdatabase_ser_EXPORTS) || defined(avtdatabase_par_EXPORTS))
 #   define DATABASE_API __attribute__ ((visibility("default")))
 # else

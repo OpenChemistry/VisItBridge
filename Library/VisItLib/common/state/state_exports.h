@@ -39,12 +39,15 @@
 #ifndef STATE_EXPORTS_H
 #define STATE_EXPORTS_H
 
-#if defined(_WIN32)
-# if defined(STATE_EXPORTS) || defined(visitcommon_EXPORTS)
+#if defined(WIN32)
+#if defined(VISIT_BUILD_SHARED_LIBS)
+# if defined(visitcommon_EXPORTS)
 #   define STATE_API __declspec(dllexport)
 # else
 #   define STATE_API __declspec(dllimport)
-# endif
+# endif // _EXPORTS
+#endif // _SHARED_LIBS
+
 # if defined(_MSC_VER)
 // Turn off warning about lack of DLL interface
 #   pragma warning(disable:4251)
@@ -53,12 +56,14 @@
 // Turn off warning about identifier truncation
 #   pragma warning(disable:4786)
 # endif
-#else
+
+#else //WIN32
 # if __GNUC__ >= 4 && (defined(STATE_EXPORTS) || defined(visitcommon_EXPORTS))
 #   define STATE_API __attribute__ ((visibility("default")))
 # else
 #   define STATE_API /* hidden by default */
 # endif
-#endif
+
+#endif //WIN32
 
 #endif

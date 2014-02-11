@@ -39,12 +39,15 @@
 #ifndef DBATTS_EXPORTS_H
 #define DBATTS_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
-#if defined(AVTDBATTS_EXPORTS) || defined(avtdbatts_EXPORTS)
+#if defined(WIN32)
+#if defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(avtdbatts_EXPORTS)
 #define DBATTS_API __declspec(dllexport)
 #else
 #define DBATTS_API __declspec(dllimport)
-#endif
+#endif // _EXPORTS
+#endif // _SHARED_LIBS
+
 #if defined(_MSC_VER)
 // Turn off warning about signed/unsigned comparison.
 #pragma warning(disable:4018)
@@ -55,12 +58,13 @@
 // Turn off warning about identifier truncation.
 #pragma warning(disable:4786)
 #endif
-#else
+
+#else // WIN32
 # if __GNUC__ >= 4 && (defined(AVTDBATTS_EXPORTS) || defined(avtdbatts_EXPORTS))
 #   define DBATTS_API __attribute__ ((visibility("default")))
 # else
 #   define DBATTS_API /* hidden by default */
 # endif
-#endif
+#endif // WIN32
 
 #endif

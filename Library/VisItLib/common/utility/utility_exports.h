@@ -39,12 +39,15 @@
 #ifndef UTILITY_EXPORTS_H
 #define UTILITY_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(WIN32)
+#if defined(VISIT_BUILD_SHARED_LIBS)
 # if defined(UTILITY_EXPORTS) || defined(visitcommon_EXPORTS)
 #   define UTILITY_API __declspec(dllexport)
 # else
 #   define UTILITY_API __declspec(dllimport)
-# endif
+# endif // _EXPORTS
+#endif  // _SHARED_LIBS
+
 # if defined(_MSC_VER)
 // Turn off warning about lack of DLL interface
 #   pragma warning(disable:4251)
@@ -55,7 +58,8 @@
 // Turn off warning about identifier truncation
 #   pragma warning(disable:4786)
 # endif
-#else
+
+#else // WIN32
 # if __GNUC__ >= 4 && (defined(UTILITY_EXPORTS) || defined(visitcommon_EXPORTS))
 #   define UTILITY_API __attribute__ ((visibility("default")))
 # else

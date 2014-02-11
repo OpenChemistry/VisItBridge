@@ -39,12 +39,15 @@
 #ifndef MATH_EXPORTS_H
 #define MATH_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
-#if defined(AVTMATH_EXPORTS) || defined(avtmath_EXPORTS)
+#if defined(WIN32)
+#if defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(avtmath_EXPORTS)
 #define MATH_API __declspec(dllexport)
 #else
 #define MATH_API __declspec(dllimport)
-#endif
+#endif // _EXPORTS
+#endif // VISIT_BUILD_SHARED_LIBS
+
 #if defined(_MSC_VER)
 // Turn off warning about lack of DLL interface
 #pragma warning(disable:4251)
@@ -53,7 +56,8 @@
 // Turn off warning about identifier truncation
 #pragma warning(disable:4786)
 #endif
-#else
+
+#else //WIN32
 # if __GNUC__ >= 4 && (defined(AVTMATH_EXPORTS) || defined(avtmath_EXPORTS))
 #   define MATH_API __attribute__ ((visibility("default")))
 # else
