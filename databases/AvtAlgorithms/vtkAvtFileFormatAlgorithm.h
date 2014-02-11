@@ -153,11 +153,6 @@ protected:
   void SetupMeshSelections();
   void SetupMaterialSelections();
 
-  //method to setup the proper block bounds for the data.
-  //this method is needed to support dynamic block loading
-  //for certain streaming pipelines
-  virtual void SetupBlockBoundsInformation(vtkInformation *outInfo);
-
   //method setups the number of timesteps that the file has
   void SetupTemporalInformation(vtkInformation *outInfo);
 
