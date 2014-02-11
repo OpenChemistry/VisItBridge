@@ -46,6 +46,8 @@
 #else
 #define DATABASE_API __declspec(dllimport)
 #endif // _EXPORTS
+#else
+#define DATABASE_API
 #endif // VISIT_BUILD_SHARED_LIBS
 
 #if defined(_MSC_VER)

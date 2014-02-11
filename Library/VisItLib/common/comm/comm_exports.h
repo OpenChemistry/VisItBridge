@@ -50,6 +50,9 @@
 #   define COMM_API  __declspec(dllimport)
 #   define COMM_API2 __declspec(dllimport)
 # endif // visitcommon_EXPORTS
+#else
+#   define COMM_API
+#   define COMM_API2
 #endif // _SHARED_LIBS
 
 # if defined(_MSC_VER)

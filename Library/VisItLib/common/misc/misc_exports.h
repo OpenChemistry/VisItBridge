@@ -48,6 +48,9 @@
 #   define MISC_API  __declspec(dllimport)
 #   define MISC_API2 __declspec(dllimport)
 # endif // _EXPORTS
+#else
+#   define MISC_API
+#   define MISC_API2
 #endif // _SHARED_LIBS
 
 # if defined(_MSC_VER)

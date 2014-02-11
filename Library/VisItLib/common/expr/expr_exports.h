@@ -48,6 +48,9 @@
 #   define EXPR_API  __declspec(dllimport)
 #   define EXPR_API2 __declspec(dllimport)
 # endif // _EXPORTS
+#else
+#   define EXPR_API
+#   define EXPR_API2
 #endif  // _SHARED_LIBS
 # ifdef _MSC_VER
 // Turn off warning about lack of DLL interface

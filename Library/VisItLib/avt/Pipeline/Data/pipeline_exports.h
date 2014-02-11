@@ -46,6 +46,8 @@
 #else
 #define PIPELINE_API __declspec(dllimport)
 #endif // _EXPORTS
+#else
+#define PIPELINE_API
 #endif // _SHARED_LIBS
 
 #if defined(_MSC_VER)

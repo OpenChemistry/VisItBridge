@@ -46,6 +46,8 @@
 # else
 #   define AVTEXCEPTION_API __declspec(dllimport)
 # endif // _EXPORTS
+#else
+#   define AVTEXCEPTION_API
 #endif  // _SHARED_LIBS
 
 # if defined(_MSC_VER)

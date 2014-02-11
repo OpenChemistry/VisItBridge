@@ -48,6 +48,9 @@
 #   define PARSER_API  __declspec(dllimport)
 #   define PARSER_API2 __declspec(dllimport)
 # endif // _EXPORTS
+#else
+#   define PARSER_API
+#   define PARSER_API2
 #endif // _SHARED_LIBS
 
 # if defined(_MSC_VER)

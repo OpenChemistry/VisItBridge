@@ -46,6 +46,8 @@
 # else
 #   define PROXYBASE_API __declspec(dllimport)
 # endif // _EXPORTS
+#else
+#   define PROXYBASE_API
 #endif // SHARED_LIBS
 
 # if defined(_MSC_VER)

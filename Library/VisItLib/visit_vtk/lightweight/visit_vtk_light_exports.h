@@ -47,6 +47,8 @@
 #else
 #define VISIT_VTK_LIGHT_API __declspec(dllimport)
 #endif // lightwight_visit_vtk_EXPORTS
+#else
+#define VISIT_VTK_LIGHT_API
 #endif // VISIT_BUILD_SHARED_LIBS
 
 #if defined(_MSC_VER)
