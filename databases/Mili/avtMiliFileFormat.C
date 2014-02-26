@@ -43,6 +43,7 @@
 #include <avtMiliFileFormat.h>
 
 #include <vector>
+#include <utility>
 #include <string>
 using std::getline;
 #include <snprintf.h>
@@ -77,6 +78,7 @@ extern "C" {
 #include <UnexpectedValueException.h>
 
 using std::vector;
+using std::pair;
 using std::string;
 using std::ifstream;
 
