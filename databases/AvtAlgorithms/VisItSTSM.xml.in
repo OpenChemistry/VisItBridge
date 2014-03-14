@@ -117,7 +117,7 @@
 <ProxyGroup name="sources">
   <SourceProxy name="@XML_NAME@"
    class="vtkFileSeriesReader"
-   si_class="vtkSIFileSeriesReaderProxy"
+   si_class="vtkSIMetaReaderProxy"
    file_name_method="SetFileName">
    <SubProxy>
     <Proxy name="Reader"

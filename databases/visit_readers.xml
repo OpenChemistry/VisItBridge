@@ -6,7 +6,7 @@
     <SourceProxy class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
                  name="VisItSeriesReaderBase"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <StringVectorProperty command="GetCurrentFileName" information_only="1" name="FileNameInfo"/>
       <StringVectorProperty animateable="0"
@@ -1182,7 +1182,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Reads NetCDF ADAPT files">
@@ -1216,7 +1216,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation long_help="Format that stores fMRI data of brain scans">
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1248,7 +1248,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation long_help="ASCII file format used for input to the ANSYS suite">
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1280,7 +1280,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
      <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1312,7 +1312,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation long_help="BOV (Brick of Values) generates a rectilinear grid of values">
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1344,7 +1344,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation long_help="Reads CCSM climate data files">
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1376,7 +1376,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1408,7 +1408,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation long_help="ASCII output of CMAT Fortran simulation.">
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1440,7 +1440,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation long_help="Reads control files for TB-LMTO">
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1472,7 +1472,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Reads files from the Chombo package.
@@ -1506,7 +1506,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Reads ASCII 2D Curve Format. Which is a single x,y values per line to generate a 2D curve">
@@ -1540,7 +1540,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Reads ddcMD particle and atom files">
@@ -1574,7 +1574,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Reads Dyna3D finite element files">
@@ -1608,7 +1608,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1641,7 +1641,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="ASC / Alliances Center for Astrophysical Thermonuclear Flash Reader">
@@ -1675,7 +1675,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Reads FVCOM  primitive equations ocean models">
@@ -1709,7 +1709,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Fluent CFD simulation result reader">
@@ -1743,7 +1743,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1776,7 +1776,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Gadget 2 cosmological N-body/SPH simulation code reader">
@@ -1810,7 +1810,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Multiple Image format reader">
@@ -1844,7 +1844,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -1877,7 +1877,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Reads NASTRAN Bulk ASCII unstructured meshes">
@@ -1911,7 +1911,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads Binary Fortran output files containing overlayed curvilinear meshes files.">
@@ -1945,7 +1945,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads PATRAN neutral files, which are ASCII format files that contain unstructured geometry and simulation results">
@@ -1979,7 +1979,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads structured simulation data from Plot2D.">
@@ -2014,7 +2014,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads structured simulation data from Plot3D.">
@@ -2048,7 +2048,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads VASP simulation result files.">
@@ -2083,7 +2083,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Reads Parallel Dislocation Simulator (ParaDiS) files">
@@ -2117,7 +2117,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
        long_help="Reads Parallel Dislocation Simulator (ParaDiS) tecplot like files">
@@ -2151,7 +2151,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads an ASCII file containing X,Y,Z, and data value columns.">
@@ -2185,7 +2185,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads Protein Databank files contain molecular data.">
@@ -2219,7 +2219,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads RAW mesh geometry format.">
@@ -2254,7 +2254,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads Specific Absorption Rate image volume files.">
@@ -2288,7 +2288,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads ASCII coupled hydrodynamical and gravitational simulations">
@@ -2322,7 +2322,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads ASCII TFT Fortran simulation results.">
@@ -2356,7 +2356,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation>
        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
@@ -2389,7 +2389,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads a subset of the Tecplot binary file format">
@@ -2423,7 +2423,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads a subset of the ASCII Tecplot file format">
@@ -2457,7 +2457,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads UNIC neutronics code result files.">
@@ -2491,7 +2491,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads Velodyne structural mechainces simulation result files.">
@@ -2526,7 +2526,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads VizSchema hdf5 files.">
@@ -2561,7 +2561,7 @@
                  base_proxyname="VisItSeriesReaderBase"
                  class="vtkFileSeriesReader"
                  file_name_method="SetFileName"
-                 si_class="vtkSIFileSeriesReaderProxy">
+                 si_class="vtkSIMetaReaderProxy">
 
       <Documentation
         long_help="Reads XmdvTool ASCII files.">
@@ -2597,7 +2597,7 @@
              base_proxyname="VisItSeriesReaderBase"
              class="vtkFileSeriesReader"
              file_name_method="SetFileName"
-             si_class="vtkSIFileSeriesReaderProxy">
+             si_class="vtkSIMetaReaderProxy">
 
   <Documentation
         long_help="Reads Silo rectilinear, curvilinear, unstructured, or point meshes">
