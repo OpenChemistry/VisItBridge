@@ -535,7 +535,7 @@ avtLAMMPSStructureFileFormat::FileExtensionIdentify(const std::string &filename)
 bool
 avtLAMMPSStructureFileFormat::FileContentsIdentify(const std::string &filename)
 {
-    ifstream in(filename.c_str());
+    ifstream in(filename.c_str(), std::ios::binary);
     char buff[1000];
     for (int i=0; i<20; i++)
     {
