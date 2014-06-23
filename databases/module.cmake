@@ -7,7 +7,10 @@ vtk_module(vtkIOVisItBridge
   PRIVATE_DEPENDS
     VisItLib
     vtkhdf5
+    vtkIOImage
     vtknetcdf
+    vtkRenderingOpenGL
+    vtksys
     vtkzlib
   TEST_DEPENDS
   EXCLUDE_FROM_WRAP_HIERARCHY

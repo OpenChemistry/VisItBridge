@@ -179,31 +179,21 @@ set_source_files_properties(
 
 set(vtkIOVisItBridge_INCLUDE_DIRS "${vtkIOVisItBridge_INCLUDE_DIRS};${CMAKE_CURRENT_SOURCE_DIR}/AvtAlgorithms")
 vtk_module_library(vtkIOVisItBridge ${Module_SRCS} ${VISIT_DB_SOURCES})
-# for OpenFOAM
-target_link_libraries(vtkIOVisItBridge LINK_PRIVATE vtksys)
+
+# if you want to add vtk-module dependencies, simply add those in module.cmake,
+# rather than explicitly adding those by using target_link_libraries.
 
 if(VISIT_PARALLEL)
    target_link_libraries(vtkIOVisItBridge
         LINK_PRIVATE
           visitcommon avtdatabase_par avtpipeline_par avtivp
-          visit_vtk vtkIOImage vtkRenderingOpenGL)
+          visit_vtk)
 else(VISIT_PARALLEL)
   target_link_libraries(vtkIOVisItBridge
         LINK_PRIVATE
           visitcommon avtdatabase_ser avtpipeline_ser avtivp
-          visit_vtk vtkIOImage vtkRenderingOpenGL)
+          visit_vtk)
 endif(VISIT_PARALLEL)
-
-#To properly use thirdparty vtk libraries you shouldn't explicitly link to
-#the target itself. That won't work when the target is external, because in
-#that use case the target has no import libraries. Instead the best way to
-#use third party libraries is to use the global variable <module>_LIBRARIES.
-vtk_module_load(vtkhdf5)
-vtk_module_load(vtknetcdf)
-
-target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${vtknetcdf_LIBRARIES} vtksys)
-
-target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${vtkhdf5_LIBRARIES})
 
 if(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
   target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${SILO_LIBRARIES})
