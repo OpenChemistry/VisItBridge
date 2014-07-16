@@ -41,7 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "vtkAMRInformation.h"
 #include "vtkOverlappingAMR.h"
 #include "vtkHierarchicalBoxDataSet.h"
-#include "vtkAMRUtilities.h"
+#include "vtkParallelAMRUtilities.h"
 #include "vtkMultiProcessController.h"
 #include "vtkMultiBlockDataSet.h"
 #include "vtkPolyData.h"
@@ -442,10 +442,10 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     }
 
 
-  vtkAMRUtilities::StripGhostLayers(
+  vtkParallelAMRUtilities::StripGhostLayers(
       ghostedAMR,outputAMR,vtkMultiProcessController::GetGlobalController());
   ghostedAMR->Delete();
-  vtkAMRUtilities::BlankCells(outputAMR, vtkMultiProcessController::GetGlobalController());
+  vtkParallelAMRUtilities::BlankCells(outputAMR, vtkMultiProcessController::GetGlobalController());
   delete[] numDataSets;
   return 1;
 
