@@ -9,7 +9,6 @@
 #include <boost/cstdint.hpp>
 using boost::int8_t;
 using boost::int32_t;
-using boost::int64_t;
 using boost::uint8_t;
 using boost::uint32_t;
 
@@ -77,7 +76,7 @@ extern "C" {
     The hash function is simple and readable:  
     domain * 1000,000 + nodeID so (3,32) -->  3000032
   */ 
-  int64_t  paraDIS_GetNodeHash(uint32_t nodenum);
+  boost::int64_t  paraDIS_GetNodeHash(uint32_t nodenum);
   
    
   uint32_t paraDIS_GetNumArmSegments(void);
