@@ -175,19 +175,6 @@
      </Hints>
     </SourceProxy>
 
-    <SourceProxy name="VisItANALYZEReaderCore" class="vtkVisItANALYZEReader"
-    base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
-    <Documentation
-       long_help="Format that stores fMRI data of brain scans">
-       Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
-       The default file extensions are .img and .hdr.
-    </Documentation>
-      <Hints>
-        <ReaderFactory extensions="img hdr"
-          file_description="ANALYZE Files" />
-      </Hints>
-    </SourceProxy>
-
     <SourceProxy name="VisItANSYSReaderCore" class="vtkVisItANSYSReader"
     base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
     <Documentation
@@ -1196,38 +1183,6 @@
 
       <SubProxy>
         <Proxy proxyname="VisItNetCDFADAPTReaderCore" name="Reader" proxygroup="internal_readers"/>
-        <ExposedProperties>
-          <Property name="MeshInfo" />
-          <Property name="MeshStatus" />
-          <Property name="MaterialInfo" />
-          <Property name="MaterialStatus" />
-          <Property name="CellArrayInfo" />
-          <Property name="CellArrayStatus" />
-          <Property name="PointArrayInfo" />
-          <Property name="PointArrayStatus" />
-        </ExposedProperties>
-      </SubProxy>
-    </SourceProxy>
-
-    <!-- ================================================================= -->
-
-    <SourceProxy name="VisItANALYZEReader"
-                 base_proxygroup="internal_readers"
-                 base_proxyname="VisItSeriesReaderBase"
-                 class="vtkFileSeriesReader"
-                 file_name_method="SetFileName"
-                 si_class="vtkSIMetaReaderProxy">
-
-      <Documentation long_help="Format that stores fMRI data of brain scans">
-       Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
-       The default file extensions are .img and .hdr.
-      </Documentation>
-      <Hints>
-        <ReaderFactory extensions="img hdr" file_description="ANALYZE Files" />
-      </Hints>
-
-      <SubProxy>
-        <Proxy proxyname="VisItANALYZEReaderCore" name="Reader" proxygroup="internal_readers"/>
         <ExposedProperties>
           <Property name="MeshInfo" />
           <Property name="MeshStatus" />

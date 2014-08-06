@@ -16,7 +16,6 @@ set(VISIT_DB_SOURCES "" CACHE INTERNAL "visit sources for readers" FORCE)
 set(VISIT_DB_INC_DIRS CACHE INTERNAL "include directories" FORCE)
 
 set(DEFAULT_BRIDGE_READERS
-  ANALYZE
   ANSYS
   AUXFile
   BOV
