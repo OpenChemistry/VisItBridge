@@ -69,7 +69,8 @@ using std::string;
 
 static bool getline_cr(std::ifstream& istr, char* str, std::streamsize count)
 {
-    bool ret = istr.getline(str,count);
+    istr.getline(str,count);
+    bool ret = static_cast<bool>(istr);
     size_t sz = strlen(str);
     if (ret && str[sz-1] == '\r')
     {

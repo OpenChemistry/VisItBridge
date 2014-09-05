@@ -38,7 +38,7 @@
 
 #include <avtMeshMetaData.h>
 #include <DataNode.h>
-
+#include <algorithm>
 // ****************************************************************************
 // Method: avtMeshMetaData::avtMeshMetaData
 //
