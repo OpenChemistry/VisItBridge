@@ -12,7 +12,7 @@ vtk_module(VisItLib
     vtkIOLegacy
     vtkParallelCore
     vtkpng
-    vtkRenderingVolumeOpenGL
+    vtkRenderingVolume${VTK_RENDERING_BACKEND}
     vtkzlib
   EXCLUDE_FROM_WRAPPING
   )

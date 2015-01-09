@@ -239,7 +239,7 @@ target_link_libraries(avtpipeline_ser
     vtkInteractionStyle
     vtkIOLegacy
     vtkIOXML
-    vtkRenderingOpenGL
+    vtkRendering${VTK_RENDERING_BACKEND}
     vtkFiltersGeometry
     ${ZLIB_LIB}
   )
@@ -260,7 +260,7 @@ IF(VISIT_PARALLEL)
         vtkInteractionStyle
         vtkIOLegacy
         vtkIOXML
-        vtkRenderingOpenGL
+	vtkRendering${VTK_RENDERING_BACKEND}
         vtkFiltersGeometry
         ${ZLIB_LIB}
       )

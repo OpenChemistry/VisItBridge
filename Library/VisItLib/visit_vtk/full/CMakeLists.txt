@@ -107,10 +107,6 @@ if(HAVE_BILIB)
   add_definitions(-D __USE_ISOC99)
 endif(HAVE_BILIB)
 
-
-# Add link directories needed to use our libraries and VTK.
-LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS})
-
 #fix the include directories to have the parser first no matter what
 get_directory_property(tmp_include_dirs INCLUDE_DIRECTORIES)
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES
@@ -131,7 +127,7 @@ target_link_libraries(visit_vtk
     vtkImagingHybrid
     vtkInteractionStyle
     vtkIOLegacy
-    vtkRenderingOpenGL
+    vtkRendering${VTK_RENDERING_BACKEND}
   )
 
 VISIT_INSTALL_TARGETS(visit_vtk)
