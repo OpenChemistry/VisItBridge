@@ -44,7 +44,6 @@
 #include "vtkHexahedron.h"
 #include "vtkLine.h"
 #include "vtkMath.h"
-#include "vtkStructuredVisibilityConstraint.h"
 #include "vtkQuad.h"
 #include "vtkVertex.h"
 
@@ -168,9 +167,7 @@ vtkVisItStructuredGrid::GetCell(vtkIdType cellId)
     }
     
     // see whether the cell is blanked
-    if ( (this->PointVisibility->IsConstrained() || 
-          this->CellVisibility->IsConstrained())
-        && !this->IsCellVisible(cellId) )
+    if ( !this->IsCellVisible(cellId) )
     {
         if (!this->EmptyCell)
             this->EmptyCell = vtkEmptyCell::New();
