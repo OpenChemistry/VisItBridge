@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "avtDatabaseMetaData.h"
 #include "avtMeshMetaData.h"
 #include "avtVariableCache.h"
+#include "VisItException.h"
 
 #cmakedefine ARG_VISIT_READER_USES_OPTIONS
 
@@ -74,10 +75,10 @@ int @PLUGIN_NAME@::CanReadFile(const char *fname)
     {
     valid = @PLUGIN_NAME@@ARG_VISIT_INTERFACE_FILE@::@ARG_VISIT_INTERFACE_CALL@;
 	}
-  catch(...){}	
+  catch(...){}
   return valid;
 }
-#endif 
+#endif
 
 //-----------------------------------------------------------------------------
 bool @PLUGIN_NAME@::InitializeAVTReader(  const int& timestep  )
@@ -93,24 +94,31 @@ bool @PLUGIN_NAME@::InitializeAVTReader(  const int& timestep  )
     }
 
   if (!this->AvtFile)
-    {     
+    {
     try
-      {    
-#ifdef ARG_VISIT_READER_USES_OPTIONS      
-      @ARG_VISIT_PLUGIN_INFO_CLASS@ *options = 
+      {
+#ifdef ARG_VISIT_READER_USES_OPTIONS
+      @ARG_VISIT_PLUGIN_INFO_CLASS@ *options =
         new @ARG_VISIT_PLUGIN_INFO_CLASS@();
       this->AvtFile = new @ARG_VISIT_READER_NAME@(
         this->FileName, options->GetReadOptions() );
       delete options;
 #else
       this->AvtFile = new @ARG_VISIT_READER_NAME@(this->FileName);
-#endif        
+#endif
       }
-    catch(...)
+    catch(const VisItException& e)
       {
+      vtkErrorMacro(<<e.Message());
       this->AvtFile = NULL;
       return false;
-      }          
+      }
+    catch(const std::exception& e)
+      {
+      vtkErrorMacro(<<e.what());
+      this->AvtFile = NULL;
+      return false;
+      }
     @ARG_VISIT_READER_NAME@ *file = dynamic_cast<@ARG_VISIT_READER_NAME@*>
       (this->AvtFile);
     if ( file )
@@ -121,14 +129,20 @@ bool @PLUGIN_NAME@::InitializeAVTReader(  const int& timestep  )
         {
         file->SetCache( this->Cache );
         file->ActivateTimestep(timestep);
-      
+
         //only fill database after choosing timestep to activate
         file->SetDatabaseMetaData( this->MetaData, timestep );
         }
-      catch(...)
+      catch(const VisItException& e)
         {
+        vtkErrorMacro(<<e.Message());
         return false;
-        }      
+        }
+      catch(const std::exception& e)
+        {
+        vtkErrorMacro(<<e.what());
+        return false;
+        }
       }
     else
       {
