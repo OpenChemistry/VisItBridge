@@ -93,7 +93,7 @@ add_definitions("-DRC_CPP_VISIT_BUILD")
 #-----------------------------------------------------------------------------
 # GMV Reader needs OpenGLU library. So check if it exists before enabling the
 # GMV reader.
-find_package(OpenGL)
+include(vtkOpenGL)
 set (__gmv_default_status OFF)
 if (OPENGL_GLU_FOUND)
   # BUG #13489. There are cases in FindOpenGL.cmake when OPENGL_GLU_FOUND is not
@@ -205,3 +205,7 @@ endif(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
 if(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
   target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${MILI_LIBRARIES})
 endif(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
+
+if (VISIT_BUILD_READER_GMV)
+  vtk_opengl_link(vtkIOVisItBridge)
+endif()
