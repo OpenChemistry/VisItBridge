@@ -110,20 +110,23 @@ LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS})
 #LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS} ${MESA_LIBRARY_DIR} ${GLEW_LIBRARY_DIR})
 
 
+IF(NOT VISIT_PARALLEL)
+
 #********************************* SERIAL ************************************
-VTK_ADD_LIBRARY(avtdatabase_ser ${AVTDATABASE_SOURCES})
-target_link_libraries(avtdatabase_ser
-                      LINK_PUBLIC
-                        avtdbatts
-                        avtpipeline_ser
-                        visit_vtk
-                      LINK_PRIVATE
-                        ${AVTMIR_SER}
-                        )
-VISIT_INSTALL_TARGETS(avtdatabase_ser)
+    VTK_ADD_LIBRARY(avtdatabase_ser ${AVTDATABASE_SOURCES})
+    target_link_libraries(avtdatabase_ser
+                         LINK_PUBLIC
+                            avtdbatts
+                            avtpipeline_ser
+                            visit_vtk
+                         LINK_PRIVATE
+                            ${AVTMIR_SER}
+                            )
+    VISIT_INSTALL_TARGETS(avtdatabase_ser)
+
+ELSE()
 
 #********************************* PARALLEL **********************************
-IF(VISIT_PARALLEL)
     ADD_PARALLEL_LIBRARY(avtdatabase_par ${AVTDATABASE_SOURCES})
     target_link_libraries(avtdatabase_par
                          LINK_PUBLIC
@@ -134,4 +137,5 @@ IF(VISIT_PARALLEL)
                             ${AVTMIR_PAR}
                             )
     VISIT_INSTALL_TARGETS(avtdatabase_par)
-ENDIF(VISIT_PARALLEL)
+
+ENDIF()
