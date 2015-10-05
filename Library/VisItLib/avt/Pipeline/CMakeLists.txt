@@ -225,29 +225,30 @@ ${VTK_INCLUDE_DIRS}
 LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS})
 
 
+IF(NOT VISIT_PARALLEL)
+
 #********************************* SERIAL ************************************
-VTK_ADD_LIBRARY(avtpipeline_ser ${ALL_SOURCES})
+    VTK_ADD_LIBRARY(avtpipeline_ser ${ALL_SOURCES})
+    target_link_libraries(avtpipeline_ser
+      LINK_PUBLIC
+        visitcommon
+        avtmath
+        avtdbatts
+      LINK_PRIVATE
+        lightweight_visit_vtk
+        vtkFiltersCore
+        vtkInteractionStyle
+        vtkIOLegacy
+        vtkIOXML
+        vtkRendering${VTK_RENDERING_BACKEND}
+        vtkFiltersGeometry
+        ${ZLIB_LIB}
+      )
+    VISIT_INSTALL_TARGETS(avtpipeline_ser)
 
-target_link_libraries(avtpipeline_ser
-  LINK_PUBLIC
-    visitcommon
-    avtmath
-    avtdbatts
-  LINK_PRIVATE
-    lightweight_visit_vtk
-    vtkFiltersCore
-    vtkInteractionStyle
-    vtkIOLegacy
-    vtkIOXML
-    vtkRendering${VTK_RENDERING_BACKEND}
-    vtkFiltersGeometry
-    ${ZLIB_LIB}
-  )
-
-VISIT_INSTALL_TARGETS(avtpipeline_ser)
+ELSE()
 
 #********************************* PARALLEL **********************************
-IF(VISIT_PARALLEL)
     ADD_PARALLEL_LIBRARY(avtpipeline_par ${ALL_SOURCES})
     target_link_libraries(avtpipeline_par
       LINK_PUBLIC
@@ -265,4 +266,5 @@ IF(VISIT_PARALLEL)
         ${ZLIB_LIB}
       )
     VISIT_INSTALL_TARGETS(avtpipeline_par)
-ENDIF(VISIT_PARALLEL)
+
+ENDIF()
