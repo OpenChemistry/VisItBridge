@@ -173,12 +173,10 @@ set(Module_SRCS
 
 set_source_files_properties(
   ${VISIT_DB_SOURCES}
-  WRAP_EXCLUDE
-  )
-set_source_files_properties(
-  ${VISIT_DB_SOURCES}
-  ${VISIT_SERVER_SOURCES}
-  PROPERTIES WRAP_EXCLUDE_PYTHON 1)
+  PROPERTIES
+    WRAP_EXCLUDE 1
+    WRAP_EXCLUDE_PYTHON 1
+    SKIP_HEADER_INSTALL 1)
 
 set(vtkIOVisItBridge_INCLUDE_DIRS "${vtkIOVisItBridge_INCLUDE_DIRS};${CMAKE_CURRENT_SOURCE_DIR}/AvtAlgorithms")
 vtk_module_library(vtkIOVisItBridge ${Module_SRCS} ${VISIT_DB_SOURCES})

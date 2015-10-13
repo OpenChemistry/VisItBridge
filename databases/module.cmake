@@ -13,7 +13,6 @@ vtk_module(vtkIOVisItBridge
     vtksys
     vtkzlib
   TEST_DEPENDS
-  EXCLUDE_FROM_WRAP_HIERARCHY
 )
 
 # paraview-sepecfic extensions to a module to bring in proxy xmls.
