@@ -85,7 +85,6 @@ vtkVisItRectilinearGrid.C
 vtkVisItSTLWriter.C
 vtkVisItScalarTree.C
 vtkVisItSplitter.C
-vtkVisItStreamLine.C
 vtkVisItStructuredGrid.C
 vtkVisItStructuredGridNormals.C
 #vtkVisItTIFFWriter.C
