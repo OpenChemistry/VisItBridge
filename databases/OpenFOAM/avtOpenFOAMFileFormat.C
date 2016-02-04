@@ -207,15 +207,13 @@ void
 avtOpenFOAMFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, 
     int timeState)
 {
-    vtkStreamingDemandDrivenPipeline::SetUpdateTimeStep(
-        reader->GetOutputInformation(0), timeSteps[timeState]);
     if (readZones)
     {
         // turn on ReadZones so we can get the names of the pointZones,
         // faceZones and cellZones if present.
         reader->SetReadZones(1);
     }
-    reader->Update();
+    reader->UpdateTimeStep(timeSteps[timeState]);
 
     stringVector lagrangianPatches;
     stringVector meshNames; // for non-lagrangian meshes
@@ -756,8 +754,9 @@ avtOpenFOAMFileFormat::ActivateTimestep(int timestate)
     }
     if (timestate != currentTimeStep)
     {
-        vtkStreamingDemandDrivenPipeline::SetUpdateTimeStep(
-            reader->GetOutputInformation(0), timeSteps[timestate]);
+        reader->GetOutputInformation(0)->Set(
+            vtkStreamingDemandDrivenPipeline::UPDATE_TIME_STEP(),
+            timeSteps[timestate]);
         currentTimeStep = timestate;
     }
 }
