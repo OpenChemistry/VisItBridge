@@ -1399,7 +1399,7 @@ int checkfromfile()
 
 void readnodes(FILE* gmvin, int ftype)
 {
-  int i, k, iswap, lnxv, lnyv, lnzv, lstructuredflag;
+  int i, k, iswap=-1, lnxv=-1, lnyv=-1, lnzv=-1, lstructuredflag;
   long lnodes, tmplnodes;
   double *lxic, *lyic, *lzic, *tmpdouble;
   long pos_after_lnodes, exp_cell_pos;
@@ -1819,11 +1819,16 @@ void readnodes(FILE* gmvin, int ftype)
 
 void readcells(FILE* gmvin, int ftype)
 {
-  int i, ndat, nverts[MAXVERTS], totverts, *verts,
+  int i, ndat=-1, nverts[MAXVERTS], totverts, *verts,
       *cellnodenos, nfaces;
   long *lfaces, numtop, *daughters;
   long *lcellnodenos;
   char keyword[MAXKEYWORDLENGTH+64];
+
+  for (i = 0; i < MAXVERTS; i++)
+    {
+    nverts[i] = -1;
+    }
 
    if (readkeyword == 1)
      {
@@ -2351,8 +2356,8 @@ void readfaces(FILE* gmvin, int ftype)
 
 void readvfaces(FILE* gmvin, int ftype)
 {
-  int i, nverts, *tmpvertsin, facepe, oppfacepe;
-  long *vertsin, oppface, cellid;
+  int i, nverts, *tmpvertsin, facepe=-1, oppfacepe=-1;
+  long *vertsin, oppface=-1, cellid=-1;
 
    if (readkeyword == 1)
      {
@@ -2676,7 +2681,7 @@ void readmats(FILE* gmvin, int ftype)
   /*                               */
   /*  Read and set material data.  */
   /*                               */
-  int i, data_type, *matin, lnmatin, lmmats;
+  int i=-1, data_type, *matin, lnmatin=-1, lmmats;
   char mname[MAXCUSTOMNAMELENGTH], *matnames;
 
    /*  Read no. of materials and data type (cells or nodes).  */
@@ -2775,7 +2780,7 @@ void readvels(FILE* gmvin, int ftype)
   /*                               */
   /*  Read and set velocity data.  */
   /*                               */
-  int i, data_type, nvelin;
+  int i=-1, data_type=-1, nvelin=-1;
   double *uin, *vin, *win;
   float *tmpfloat;
 
@@ -3002,9 +3007,9 @@ void readflags(FILE* gmvin, int ftype)
   /*                                     */
   /*  Read and set selection flag data.  */
   /*                                     */
-  int i, data_type, ntypes, nflagin;
-  int *flagin;
-  char flgname[MAXCUSTOMNAMELENGTH], fname[MAXCUSTOMNAMELENGTH], *fnames;
+  int i=-1, data_type=-1, ntypes=-1, nflagin=-1;
+  int *flagin=NULL;
+  char flgname[MAXCUSTOMNAMELENGTH], fname[MAXCUSTOMNAMELENGTH], *fnames=NULL;
 
    /*  Read flag name, no. flag types,  */
    /*  and data type (cells or nodes).  */
@@ -3136,10 +3141,10 @@ void readpolygons(FILE* gmvin, int ftype)
   /*                                             */
   /*  Read and set interface/boundary polygons.  */
   /*                                             */
-  int i, limatno, nvertsin, junk;
-  double *vertsin;
-  float *tmpfloat;
-  char varname[9], *tmpchar;
+  int i, limatno=-1, nvertsin=-1, junk;
+  double *vertsin=NULL;
+  float *tmpfloat=NULL;
+  char varname[9], *tmpchar=NULL;
 
    /*  Read material no.  */
    if (ftype != ASCII)
@@ -4267,8 +4272,8 @@ void readvinfo(FILE* gmvin, int ftype)
   /*                               */
   /*  Read one set of vinfo data.  */
   /*                               */
-  int i, nelem_line, nlines, nvarin;
-  double *varin;
+  int i, nelem_line=-1, nlines, nvarin;
+  double *varin=NULL;
   float *tmpfloat = NULL;
   char varname[MAXCUSTOMNAMELENGTH];
 
