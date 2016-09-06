@@ -58,7 +58,7 @@ protected:
 
 private:
   caseType CaseType;
-  unsigned long MTimeOld;
+  vtkMTimeType MTimeOld;
   int MaximumNumberOfPieces;
   int NumProcesses;
   int ProcessId;
