@@ -43,7 +43,7 @@
 
 #define MAXVERTS 10000
 #define MAXFACES 10000
-#define MIN(a1,a2)   ( ((a1) < (a2)) ? (a1):(a2) )
+#define GMV_MIN(a1,a2)   ( ((a1) < (a2)) ? (a1):(a2) )
 
 static int charsize = CHARSIZE, intsize = INTSIZE,
            floatsize = FLOATSIZE,
@@ -452,7 +452,7 @@ int gmvread_open(char *filnam)
         }
       if (ilast > -1)
         {
-         strncpy(input_dir, filnam, MIN(ilast+1, MAXFILENAMELENGTH - 1));
+         strncpy(input_dir, filnam, GMV_MIN(ilast+1, MAXFILENAMELENGTH - 1));
          /* When repeatedly calling this function and loading a file from    */
          /* a directory higher up in the hierarchy in a later call, prevent  */
          /* that the previous directory is used again by properly ending the */
@@ -461,7 +461,7 @@ int gmvread_open(char *filnam)
          /* /path/to/directory referenced next. Without properly null        */
          /* terminating the string, /path/to/directory/subdirectory would    */
          /* still get used in the second case.                               */
-         *(input_dir + MIN(ilast+1, MAXFILENAMELENGTH-1)) = (char)0;
+         *(input_dir + GMV_MIN(ilast+1, MAXFILENAMELENGTH-1)) = (char)0;
         }
      }
 
@@ -971,7 +971,7 @@ void gmvread_data()
             gmv_data.keyword = curr_keyword;
             gmv_data.datatype = 0;
             strncpy(gmv_data.name1, tmpchar, 8);
-           *(gmv_data.name1 + MIN(strlen(tmpchar), 8)) = (char)0;
+           *(gmv_data.name1 + GMV_MIN(strlen(tmpchar), 8)) = (char)0;
             readkeyword = 1;
             break;
          case(CELLPES):
@@ -1311,12 +1311,12 @@ int checkfromfile()
      {
       strncpy(charptr,input_dir,MAXFILENAMELENGTH-1);
       strncat(charptr,charptr2,MAXFILENAMELENGTH-1 - strlen(input_dir));
-      *(charptr + MIN(strlen(input_dir) + strlen(charptr2), MAXFILENAMELENGTH-1)) = (char)0;
+      *(charptr + GMV_MIN(strlen(input_dir) + strlen(charptr2), MAXFILENAMELENGTH-1)) = (char)0;
      }
    else
      {
       strncpy(charptr,charptr2,MAXFILENAMELENGTH-1);
-      *(charptr + MIN(strlen(charptr2), MAXFILENAMELENGTH-1)) = (char)0;
+      *(charptr + GMV_MIN(strlen(charptr2), MAXFILENAMELENGTH-1)) = (char)0;
      }
 
    /*  Only returning fromfile filename.  */
@@ -2185,7 +2185,7 @@ void readcells(FILE* gmvin, int ftype)
          gmv_data.datatype = VFACE2D;
       else gmv_data.datatype = VFACE3D;
       strncpy(gmv_data.name1, keyword, MAXKEYWORDLENGTH-1);
-      *(gmv_data.name1 + MIN(strlen(keyword), MAXKEYWORDLENGTH-1)) = (char)0;
+      *(gmv_data.name1 + GMV_MIN(strlen(keyword), MAXKEYWORDLENGTH-1)) = (char)0;
       gmv_data.num = lncells;
       gmv_data.num2 = nfaces;
       gmv_data.nlongdata1 = nfaces;
@@ -2236,7 +2236,7 @@ void readcells(FILE* gmvin, int ftype)
       gmv_data.datatype = REGULAR;
       strcpy(gmv_data.name1,keyword);
       strncpy(gmv_data.name1, keyword, MAXCUSTOMNAMELENGTH-1);
-      *(gmv_data.name1 + MIN(strlen(keyword), MAXCUSTOMNAMELENGTH-1)) = (char)0;
+      *(gmv_data.name1 + GMV_MIN(strlen(keyword), MAXCUSTOMNAMELENGTH-1)) = (char)0;
       gmv_data.num = lncells;
       gmv_data.num2 = ndat;
       gmv_data.nlongdata1 = ndat;
@@ -2996,7 +2996,7 @@ void readvars(FILE* gmvin, int ftype)
    gmv_data.datatype = data_type;
    gmv_data.num = nvarin;
    strncpy(gmv_data.name1, varname, MAXCUSTOMNAMELENGTH-1);
-   *(gmv_data.name1 + MIN(strlen(varname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
+   *(gmv_data.name1 + GMV_MIN(strlen(varname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
    gmv_data.ndoubledata1 = nvarin;
    gmv_data.doubledata1 = varin;
 }
@@ -3118,7 +3118,7 @@ void readflags(FILE* gmvin, int ftype)
    gmv_data.keyword = FLAGS;
    gmv_data.datatype = data_type;
    strncpy(gmv_data.name1, flgname, MAXCUSTOMNAMELENGTH-1);
-   *(gmv_data.name1 + MIN(strlen(flgname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
+   *(gmv_data.name1 + GMV_MIN(strlen(flgname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
    gmv_data.num = nflagin;
    gmv_data.num2 = ntypes;
    gmv_data.nlongdata1 = nflagin;
@@ -3396,7 +3396,7 @@ void readtracers(FILE* gmvin, int ftype)
    gmv_data.keyword = TRACERS;
    gmv_data.datatype = TRACERDATA;
    strncpy(gmv_data.name1, varname, MAXCUSTOMNAMELENGTH-1);
-   *(gmv_data.name1 + MIN(strlen(varname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
+   *(gmv_data.name1 + GMV_MIN(strlen(varname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
    gmv_data.num = numtracers;
    gmv_data.ndoubledata1 = numtracers;
    gmv_data.doubledata1 = lfieldtr;
@@ -3675,8 +3675,8 @@ void readunits(FILE* gmvin, int ftype)
          gmvrdmemerr();
          return;
         }
-      strncpy(gmv_data.chardata1, unittype, MIN(strlen(unittype), 20-1));
-      *(gmv_data.chardata1 + MIN(strlen(unittype), 20-1)) = (char)0;
+      strncpy(gmv_data.chardata1, unittype, GMV_MIN(strlen(unittype), 20-1));
+      *(gmv_data.chardata1 + GMV_MIN(strlen(unittype), 20-1)) = (char)0;
       gmv_data.nchardata2 = 1;
       gmv_data.chardata2 = (char *)malloc(20*sizeof(char));
       if (gmv_data.chardata2 == NULL)
@@ -3684,8 +3684,8 @@ void readunits(FILE* gmvin, int ftype)
          gmvrdmemerr();
          return;
         }
-      strncpy(gmv_data.chardata2, unitname, MIN(strlen(unitname), 20-1));
-      *(gmv_data.chardata2 + MIN(strlen(unitname), 20-1)) = (char)0;
+      strncpy(gmv_data.chardata2, unitname, GMV_MIN(strlen(unitname), 20-1));
+      *(gmv_data.chardata2 + GMV_MIN(strlen(unitname), 20-1)) = (char)0;
       return;
      }
 
@@ -3736,10 +3736,10 @@ void readunits(FILE* gmvin, int ftype)
             ioerrtst(gmvin);
             *(unitname+16) = (char) 0;
            }
-         strncpy(&fldstr[i*MAXCUSTOMNAMELENGTH], fldname, MIN(strlen(fldname), MAXCUSTOMNAMELENGTH-1));
-         fldstr[i*MAXCUSTOMNAMELENGTH + MIN(strlen(fldname), MAXCUSTOMNAMELENGTH-1)] = '\0';
-         strncpy(&unitstr[i*MAXCUSTOMNAMELENGTH], unitname, MIN(strlen(unitname), MAXCUSTOMNAMELENGTH-1));
-         unitstr[i*MAXCUSTOMNAMELENGTH + MIN(strlen(unitname), MAXCUSTOMNAMELENGTH-1)] = '\0';
+         strncpy(&fldstr[i*MAXCUSTOMNAMELENGTH], fldname, GMV_MIN(strlen(fldname), MAXCUSTOMNAMELENGTH-1));
+         fldstr[i*MAXCUSTOMNAMELENGTH + GMV_MIN(strlen(fldname), MAXCUSTOMNAMELENGTH-1)] = '\0';
+         strncpy(&unitstr[i*MAXCUSTOMNAMELENGTH], unitname, GMV_MIN(strlen(unitname), MAXCUSTOMNAMELENGTH-1));
+         unitstr[i*MAXCUSTOMNAMELENGTH + GMV_MIN(strlen(unitname), MAXCUSTOMNAMELENGTH-1)] = '\0';
         }
 
       if (strncmp(unittype,"nodes",5) == 0)
@@ -4070,7 +4070,7 @@ void readsurfvars(FILE* gmvin, int ftype)
    gmv_data.keyword = SURFVARS;
    gmv_data.datatype = REGULAR;
    strncpy(gmv_data.name1, varname, MAXCUSTOMNAMELENGTH-1);
-   *(gmv_data.name1 + MIN(strlen(varname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
+   *(gmv_data.name1 + GMV_MIN(strlen(varname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
    gmv_data.num = numsurf;
    gmv_data.ndoubledata1 = numsurf;
    gmv_data.doubledata1 = varin;
@@ -4182,7 +4182,7 @@ void readsurfflag(FILE* gmvin, int ftype)
    gmv_data.keyword = SURFFLAG;
    gmv_data.datatype = REGULAR;
    strncpy(gmv_data.name1, flgname, MAXCUSTOMNAMELENGTH-1);
-   *(gmv_data.name1 + MIN(strlen(flgname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
+   *(gmv_data.name1 + GMV_MIN(strlen(flgname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
    gmv_data.num = numsurf;
    gmv_data.num2 = ntypes;
    gmv_data.nlongdata1 = numsurf;
@@ -4353,7 +4353,7 @@ void readvinfo(FILE* gmvin, int ftype)
    gmv_data.num = nelem_line;
    gmv_data.num2 = nlines;
    strncpy(gmv_data.name1, varname, MAXCUSTOMNAMELENGTH-1);
-   *(gmv_data.name1 + MIN(strlen(varname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
+   *(gmv_data.name1 + GMV_MIN(strlen(varname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
    gmv_data.ndoubledata1 = nvarin;
    gmv_data.doubledata1 = varin;
 }
@@ -4505,7 +4505,7 @@ void readgroups(FILE* gmvin, int ftype)
    gmv_data.keyword = GROUPS;
    gmv_data.datatype = data_type;
    strncpy(gmv_data.name1, grpname, MAXCUSTOMNAMELENGTH-1);
-   *(gmv_data.name1 + MIN(strlen(grpname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
+   *(gmv_data.name1 + GMV_MIN(strlen(grpname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
    gmv_data.num = ngroupin;
    gmv_data.nlongdata1 = ngroupin;
    gmv_data.longdata1 = (long *)malloc(ngroupin*sizeof(long));
@@ -4700,7 +4700,7 @@ void readsubvars(FILE* gmvin, int ftype)
    gmv_data.datatype = data_type;
    gmv_data.num = nsubvarin;
    strncpy(gmv_data.name1, varname, MAXCUSTOMNAMELENGTH-1);
-   *(gmv_data.name1 + MIN(strlen(varname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
+   *(gmv_data.name1 + GMV_MIN(strlen(varname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
    gmv_data.nlongdata1 = nsubvarin;
    gmv_data.longdata1 = (long *)malloc(nsubvarin*sizeof(long));
    if (gmv_data.longdata1 == NULL)
@@ -4953,7 +4953,7 @@ void readvects(FILE* gmvin, int ftype)
    gmv_data.num = nvectin;
    gmv_data.num2 = ncomps;
    strncpy(gmv_data.name1, vectname, MAXCUSTOMNAMELENGTH-1);
-   *(gmv_data.name1 + MIN(strlen(vectname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
+   *(gmv_data.name1 + GMV_MIN(strlen(vectname), MAXCUSTOMNAMELENGTH-1)) = (char)0;
    gmv_data.nchardata1 = ncomps;
    gmv_data.chardata1 = cvnames;
    gmv_data.ndoubledata1 = nreadin;
@@ -5734,7 +5734,7 @@ void regcell(long icell, long nc)
 
    /*  Determine cell type.  */
    strncpy(ckeyword,gmv_data.name1,MAXKEYWORDLENGTH);
-   *(ckeyword + MIN(strlen(gmv_data.name1), MAXKEYWORDLENGTH)) = (char)0;
+   *(ckeyword + GMV_MIN(strlen(gmv_data.name1), MAXKEYWORDLENGTH)) = (char)0;
    icelltype = 0;
    if (strncmp(ckeyword,"tri",3) == 0) icelltype = 1;
    else if (strncmp(ckeyword,"quad",4) == 0) icelltype = 2;
