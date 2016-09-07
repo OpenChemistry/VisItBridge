@@ -1586,7 +1586,7 @@ avtVsFileFormat::getUnstructuredMesh(VsUnstructuredMesh* unstructuredMesh,
 
       int destSize[1] = {static_cast<int>(numNodes*3)};
       int destMins[1] = {0};
-      int destMaxs[1] = {static_cast<unsigned int>(numNodes)};
+      int destMaxs[1] = {static_cast<int>(numNodes)};
       int destStrides[1] = {3};
       
       for( int i=0; i<numSpatialDims; ++i )
