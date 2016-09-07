@@ -1584,9 +1584,9 @@ avtVsFileFormat::getUnstructuredMesh(VsUnstructuredMesh* unstructuredMesh,
         srcStrides[0] = 1;
       }
 
-      int destSize[1] = {numNodes*3};
+      int destSize[1] = {static_cast<int>(numNodes*3)};
       int destMins[1] = {0};
-      int destMaxs[1] = {numNodes};
+      int destMaxs[1] = {static_cast<unsigned int>(numNodes)};
       int destStrides[1] = {3};
       
       for( int i=0; i<numSpatialDims; ++i )
@@ -1657,7 +1657,7 @@ avtVsFileFormat::getUnstructuredMesh(VsUnstructuredMesh* unstructuredMesh,
       if (unstructuredMesh->isPointMesh() && haveDataSelections)
       {
         int srcMins[1] = {mins[0]};
-        int srcMaxs[1] = {numNodes};
+        int srcMaxs[1] = {static_cast<int>(numNodes)};
         int srcStrides[1] = {strides[0]};
 
         err = reader->getDataSet( pointsDataset, dataPtr,
@@ -1877,7 +1877,7 @@ avtVsFileFormat::getUnstructuredMesh(VsUnstructuredMesh* unstructuredMesh,
     if( haveDataSelections )
     {
       int srcMins[1] = {mins[0]};
-      int srcMaxs[1] = {numCells};
+      int srcMaxs[1] = {static_cast<int>(numCells)};
       int srcStrides[1] = {strides[0]};
       
       err = reader->getDataSet( connectivityDataset, vertices,
