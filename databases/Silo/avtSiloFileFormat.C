@@ -10132,7 +10132,7 @@ avtSiloFileFormat::ReadInConnectivity(vtkUnstructuredGrid *ugrid,
                 j++;
                 continue;
             }
-            unsigned int ocdata[2] = {domain, i};
+            unsigned int ocdata[2] = {static_cast<unsigned int>(domain), static_cast<unsigned int>(i)};
             oca->InsertNextTypedTuple(ocdata);
             cellReMap->push_back(i);
         }
@@ -10820,7 +10820,7 @@ avtSiloFileFormat::ReadInArbConnectivity(const char *meshname,
         else
             fcnt = phzl->nodecnt[gz];
 
-        unsigned int ocdata[2] = {domain, gz+gzOffset};
+        unsigned int ocdata[2] = {static_cast<unsigned int>(domain), static_cast<unsigned int>(gz+gzOffset)};
 
         if (((nsdims == 3) && (fcnt == 3 || // Must be tri
                                fcnt == 4 || // Maybe tet or quad
