@@ -6,6 +6,7 @@ vtk_module(vtkIOVisItBridge
     vtkParallelCore
   PRIVATE_DEPENDS
     VisItLib
+    vtkCommonSystem
     vtkhdf5
     vtkIOImage
     vtknetcdf
