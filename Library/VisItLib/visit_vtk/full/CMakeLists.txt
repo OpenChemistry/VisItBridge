@@ -120,9 +120,11 @@ target_link_libraries(visit_vtk
     vtkCommonCore
     vtkCommonDataModel
     vtkCommonExecutionModel
+    vtkIOImage
   LINK_PRIVATE
     vtkFiltersExtraction
     vtkFiltersFlowPaths
+    vtkFiltersSources
     vtkImagingHybrid
     vtkInteractionStyle
     vtkIOLegacy
