@@ -1,18 +1,28 @@
 vtk_module(VisItLib
-  PRIVATE_DEPENDS
+  EXCLUDE_FROM_WRAPPING
+  DEPENDS
+    vtkCommonCore
     vtkCommonDataModel
     vtkCommonExecutionModel
     vtkCommonMisc
-    vtkFiltersAMR
-    vtkFiltersExtraction
     vtkFiltersFlowPaths
-    vtkImagingHybrid
-    vtkIOGeometry
     vtkIOImage
     vtkIOLegacy
-    vtkParallelCore
-    vtkpng
+  PRIVATE_DEPENDS
+    vtkCommonMath
+    vtkCommonTransforms
+    vtkFiltersCore
+    vtkFiltersExtraction
+    vtkFiltersGeneral
+    vtkFiltersGeometry
+    vtkFiltersSources
+    vtkImagingHybrid
+    vtkRenderingCore
     vtkRenderingVolume${VTK_RENDERING_BACKEND}
+    vtkpng
     vtkzlib
-  EXCLUDE_FROM_WRAPPING
+    # old modules seem not used. Will remove them in the future.
+    vtkFiltersAMR
+    vtkIOGeometry
+    vtkParallelCore
   )
