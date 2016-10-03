@@ -513,9 +513,9 @@ void gmvread_printoff()
 void gmvread_data()
 {
   char keyword[MAXKEYWORDLENGTH+64], tmpchar[20];
-  double ptime;
+  double ptime=0.0;
   float tmptime;
-  int cycleno, before_nodes_ok;
+  int cycleno=0, before_nodes_ok;
   int fromfilecheck(int keyword);
 
    /*  Zero gmv_data and free structure arrays.  */
@@ -1255,7 +1255,7 @@ void endfromfile()
 
 int checkfromfile()
 {
-  char c, charptr[MAXFILENAMELENGTH], *charptr2, tmpbuf[200], stringbuf[100];
+  char c, charptr[MAXFILENAMELENGTH], *charptr2=0, tmpbuf[200], stringbuf[100];
   int i, ierr, fkeyword;
 
    /*  Check for "from".  */
@@ -1291,6 +1291,7 @@ int checkfromfile()
       charptr2 = &tmpbuf[1];
      }
 
+     if (charptr2 == 0) return 0;
 #ifdef _WIN32
 #  if !defined(__CYGWIN__)
    /*  If the first character of the fromfile filename is    */
@@ -2247,7 +2248,7 @@ void readcells(FILE* gmvin, int ftype)
 
 void readfaces(FILE* gmvin, int ftype)
 {
-  int i, nverts, *tmpvertsin;
+  int i, nverts=0, *tmpvertsin;
   long *vertsin;
 
    if (readkeyword == 1)
@@ -2356,7 +2357,7 @@ void readfaces(FILE* gmvin, int ftype)
 
 void readvfaces(FILE* gmvin, int ftype)
 {
-  int i, nverts, *tmpvertsin, facepe=-1, oppfacepe=-1;
+  int i, nverts=0, *tmpvertsin, facepe=-1, oppfacepe=-1;
   long *vertsin, oppface=-1, cellid=-1;
 
    if (readkeyword == 1)
@@ -2681,7 +2682,7 @@ void readmats(FILE* gmvin, int ftype)
   /*                               */
   /*  Read and set material data.  */
   /*                               */
-  int i=-1, data_type, *matin, lnmatin=-1, lmmats;
+  int i=-1, data_type=0, *matin, lnmatin=-1, lmmats;
   char mname[MAXCUSTOMNAMELENGTH], *matnames;
 
    /*  Read no. of materials and data type (cells or nodes).  */
@@ -2887,7 +2888,7 @@ void readvars(FILE* gmvin, int ftype)
   /*                                     */
   /*  Read and set variable field data.  */
   /*                                     */
-  int i, data_type, nvarin;
+  int i=0, data_type=0, nvarin=0;
   double *varin;
   float *tmpfloat;
   char varname[MAXCUSTOMNAMELENGTH];
@@ -3759,7 +3760,7 @@ void readunits(FILE* gmvin, int ftype)
 
 void readsurface(FILE* gmvin, int ftype)
 {
-  int i, nverts, *tmpverts;
+  int i, nverts=0, *tmpverts;
   long *vertsin;
 
    if (readkeyword == 1)
@@ -4082,7 +4083,7 @@ void readsurfflag(FILE* gmvin, int ftype)
   /*                                     */
   /*  Read and set selection flag data.  */
   /*                                     */
-  int i, ntypes;
+  int i, ntypes=0;
   int *flagin;
   char flgname[MAXCUSTOMNAMELENGTH], fname[MAXCUSTOMNAMELENGTH], *fnames;
 
@@ -4272,7 +4273,7 @@ void readvinfo(FILE* gmvin, int ftype)
   /*                               */
   /*  Read one set of vinfo data.  */
   /*                               */
-  int i, nelem_line=-1, nlines, nvarin;
+  int i, nelem_line=-1, nlines=0, nvarin;
   double *varin=NULL;
   float *tmpfloat = NULL;
   char varname[MAXCUSTOMNAMELENGTH];
@@ -4412,7 +4413,7 @@ void readgroups(FILE* gmvin, int ftype)
   /*                            */
   /*  Read and set group data.  */
   /*                            */
-  int i, data_type, ngroupin;
+  int i=0, data_type=0, ngroupin=0;
   int *groupin;
   char grpname[40];
 
@@ -4575,7 +4576,7 @@ void readsubvars(FILE* gmvin, int ftype)
   /*                                     */
   /*  Read and set subvars field data.     */
   /*                                     */
-  int i, data_type, nsubvarin, *subvarid;
+  int i=0, data_type=0, nsubvarin=0, *subvarid;
   double *subvarin;
   float *tmpfloat;
   char varname[MAXCUSTOMNAMELENGTH];
@@ -4721,7 +4722,7 @@ void readghosts(FILE* gmvin, int ftype)
   /*                                     */
   /*  Read and set subvars field data.     */
   /*                                     */
-  int i, data_type, nghostin, *ghostid;
+  int i=0, data_type=0, nghostin=0, *ghostid;
 
    /*  Read the data type (cells or nodes),    */
    /*  and the number of elements in the set.  */
@@ -4795,7 +4796,7 @@ void readvects(FILE* gmvin, int ftype)
   /*                                   */
   /*  Read and set vector field data.  */
   /*                                   */
-  int i, data_type, nvectin, ncomps, nreadin, cnamein;
+  int i=0, data_type=0, nvectin, ncomps=0, nreadin, cnamein=0;
   double *vectin;
   float *tmpfloat;
   char vectname[MAXCUSTOMNAMELENGTH], cvname[MAXCUSTOMNAMELENGTH], *cvnames;
@@ -5249,7 +5250,7 @@ static short vfacetype;
 
 void gmvread_mesh()
 {
-  int nxv, nyv, nzv, nodetype_in, j, k;
+  int nxv, nyv, nzv, nodetype_in=0, j, k;
   long nn, i, ip;
   double *xin, *yin, *zin, x0, y0, z0, dx, dy, dz;
   void rdcells(int nodetype_in);
@@ -7193,7 +7194,7 @@ void gmvrayread_data()
 
 void readrays(FILE* gmvrayin, int ftype)
 {
-  int i, j, k, iswap, jswap, iray, npts, nvarin;
+  int i, j=0, k, iswap=0, jswap=0, iray, npts=0, nvarin;
   int lrays, lrayvars;
   int *rayids;
   double *x, *y, *z, *field, *tmpdouble;
