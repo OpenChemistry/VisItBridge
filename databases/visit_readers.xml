@@ -711,20 +711,6 @@
     </SourceProxy>
 #endif
 
-#ifdef VISIT_BUILD_READER_Boxlib2D
-    <SourceProxy name="VisItBoxlib2DReaderCore" class="vtkVisItBoxlib2DReader"
-      base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
-      <Documentation
-        long_help="Reads Boxlib2D files">
-        Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
-        The default file has extension is .boxlib2d or name Header.
-      </Documentation>
-     <Hints>
-       <ReaderFactory extensions="boxlib2d"
-                      file_description="Boxlib2D Files" />
-     </Hints>
-    </SourceProxy>
-#endif
 
 #ifdef VISIT_BUILD_READER_Boxlib3D
     <SourceProxy name="VisItBoxlib3DReaderCore" class="vtkVisItBoxlib3DReader"
