@@ -391,6 +391,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
   meshIndex=0;
   for ( int i=0; i < numGroups; ++i)
     {
+    bool spacingSet = false;
     for (int j=0; j < numDataSets[i]; ++j)
       {
       vtkRectilinearGrid *rgrid = NULL;
@@ -433,7 +434,11 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
       rgrid = NULL;
 
       vtkAMRBox box(origin, dims, spacing, globalOrigin, ghostedAMR->GetGridDescription());
-      ghostedAMR->SetSpacing(i, spacing);
+      if (!spacingSet)
+        {
+        ghostedAMR->SetSpacing(i, spacing);
+        spacingSet = true;
+        }
       ghostedAMR->SetAMRBox(i,j,box);
 
       //only load grids inside the domainRange for this processor

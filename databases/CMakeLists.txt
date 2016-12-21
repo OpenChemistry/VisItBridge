@@ -225,7 +225,7 @@ if(BoxLib_FOUND AND VISIT_BUILD_READER_Boxlib3D)
   target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${BoxLib_LIBRARIES})
   target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${GFortran_LIBRARIES})
   if(VISIT_PARALLEL)
-    target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${MPI_CXX_LIBRARIES})
+    target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${MPI_CXX_LIBRARIES} ${MPI_Fortran_LIBRARIES})
   endif()
 endif(BoxLib_FOUND AND VISIT_BUILD_READER_Boxlib3D)
 
