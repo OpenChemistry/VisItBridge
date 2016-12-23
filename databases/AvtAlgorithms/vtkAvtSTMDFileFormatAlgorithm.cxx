@@ -297,16 +297,27 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
 
   //determine the number of grids on each level of the AMR
   //and initialize the amr
-  intVector gids = meshMetaData->groupIds;
   int *numDataSets = new int[ numGroups ];
   for ( int i=0; i < numGroups; ++i)
     {
     numDataSets[i] = 0; //clear the array
     }
-  //count the grids at each level
-  for ( int i=0; i < gids.size(); ++i )
+  intVector groupIdsBasedOnRange = meshMetaData->groupIdsBasedOnRange;
+  if (groupIdsBasedOnRange.size() > 0)
     {
-    ++numDataSets[gids.at(i)];
+      for (int i = 0; i < groupIdsBasedOnRange.size() - 1; ++i)
+        {
+        numDataSets[i] = groupIdsBasedOnRange[i+1] - groupIdsBasedOnRange[i];
+        }
+    }
+  else
+    {
+    //count the grids at each level
+    intVector gids = meshMetaData->groupIds;
+    for ( int i=0; i < gids.size(); ++i )
+      {
+      ++numDataSets[gids.at(i)];
+      }
     }
 
   ghostedAMR->Initialize(numGroups, numDataSets);
@@ -380,6 +391,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
   meshIndex=0;
   for ( int i=0; i < numGroups; ++i)
     {
+    bool spacingSet = false;
     for (int j=0; j < numDataSets[i]; ++j)
       {
       vtkRectilinearGrid *rgrid = NULL;
@@ -422,7 +434,11 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
       rgrid = NULL;
 
       vtkAMRBox box(origin, dims, spacing, globalOrigin, ghostedAMR->GetGridDescription());
-      ghostedAMR->SetSpacing(i, spacing);
+      if (!spacingSet)
+        {
+        ghostedAMR->SetSpacing(i, spacing);
+        spacingSet = true;
+        }
       ghostedAMR->SetAMRBox(i,j,box);
 
       //only load grids inside the domainRange for this processor
