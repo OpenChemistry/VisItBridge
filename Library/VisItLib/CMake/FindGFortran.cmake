@@ -9,7 +9,8 @@ find_library(gfortran_LIBRARY NAMES gfortran
   /usr/lib
   /usr/local/lib
   PATH_SUFFIXES
-  gcc/x86_64-linux-gnu/5/
+  gcc/x86_64-linux-gnu/${CMAKE_Fortran_COMPILER_VERSION}/
+  gcc/x86_64-redhat-linux/${CMAKE_Fortran_COMPILER_VERSION}/
   )
 if (gfortran_LIBRARY)
   set(GFortran_LIBRARIES ${gfortran_LIBRARY})
@@ -19,7 +20,8 @@ find_library(quadmath_LIBRARY NAMES quadmath
   /usr/lib
   /usr/local/lib
   PATH_SUFFIXES
-  gcc/x86_64-linux-gnu/5/
+  gcc/x86_64-linux-gnu/${CMAKE_Fortran_COMPILER_VERSION}/
+  gcc/x86_64-redhat-linux/${CMAKE_Fortran_COMPILER_VERSION}/
   )
 if (quadmath_LIBRARY)
   list(APPEND GFortran_LIBRARIES ${quadmath_LIBRARY})
