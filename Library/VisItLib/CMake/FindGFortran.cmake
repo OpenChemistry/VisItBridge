@@ -4,7 +4,18 @@
 #  GFORTRAN_LIBRARIES, the libraries to link against
 #  GFORTRAN_FOUND, If false, do not try to use GFORTRAN
 
+set(_gfortran_extra_paths)
+if (CMAKE_Fortran_COMPILER AND CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+  get_filename_component(_gfortran_root "${CMAKE_Fortran_COMPILER}" DIRECTORY)
+  get_filename_component(_gfortran_root "${_gfortran_root}" DIRECTORY)
+  list(APPEND _gfortran_extra_paths
+    "${_gfortran_root}/lib")
+  message("${_gfortran_extra_paths}")
+endif ()
+
 find_library(gfortran_LIBRARY NAMES gfortran
+  HINTS
+  ${_gfortran_extra_paths}
   PATHS
   /usr/lib
   /usr/local/lib
@@ -16,6 +27,8 @@ if (gfortran_LIBRARY)
   set(GFortran_LIBRARIES ${gfortran_LIBRARY})
 endif()
 find_library(quadmath_LIBRARY NAMES quadmath
+  HINTS
+  ${_gfortran_extra_paths}
   PATHS
   /usr/lib
   /usr/local/lib
