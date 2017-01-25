@@ -2616,7 +2616,7 @@
   </Hints>
 
   <SubProxy>
-    <Proxy proxyname="VisItBoxlib2DReaderCore" name="Reader" proxygroup="internal_readers"/>
+    <Proxy proxyname="VisItBoxlib3DReaderCore" name="Reader" proxygroup="internal_readers"/>
     <ExposedProperties>
       <Property name="MeshInfo" />
       <Property name="MeshStatus" />
