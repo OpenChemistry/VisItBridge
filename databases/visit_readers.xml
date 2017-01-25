@@ -2597,7 +2597,7 @@
 </SourceProxy>
 #endif
 
-#ifdef VISIT_BUILD_READER_Boxlib2D
+#ifdef VISIT_BUILD_READER_Boxlib3D
 <SourceProxy name="VisItBoxlib2DReader"
              base_proxygroup="internal_readers"
              base_proxyname="VisItSeriesReaderBase"

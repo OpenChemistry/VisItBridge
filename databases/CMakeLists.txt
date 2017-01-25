@@ -172,10 +172,6 @@ if(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
   include_directories(${SILO_INCLUDE_DIR})
 endif(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
 
-if(BoxLib_FOUND AND VISIT_BUILD_READER_Boxlib2D)
-  include_directories(${BoxLib_INCLUDE_DIR})
-endif(BoxLib_FOUND AND VISIT_BUILD_READER_Boxlib2D)
-
 if(BoxLib_FOUND AND VISIT_BUILD_READER_Boxlib3D)
   include_directories(${BoxLib_INCLUDE_DIR})
 endif(BoxLib_FOUND AND VISIT_BUILD_READER_Boxlib3D)
