@@ -47,7 +47,7 @@ class VTKIOVISITBRIDGE_EXPORT vtkAvtSTSDFileFormatAlgorithm : public vtkAvtFileF
 public:
   static vtkAvtSTSDFileFormatAlgorithm *New();
   vtkTypeMacro(vtkAvtSTSDFileFormatAlgorithm,vtkAvtFileFormatAlgorithm);
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) VTK_OVERRIDE;
 
 protected:
   vtkAvtSTSDFileFormatAlgorithm();
@@ -55,14 +55,14 @@ protected:
 
   //needed since we have to change the type we output
   virtual int RequestDataObject(vtkInformation *, vtkInformationVector **,
-                                vtkInformationVector *);
+                                vtkInformationVector *) VTK_OVERRIDE;
 
   // Description:
   // This is called by the superclass.
   // This is the method you should override.
   virtual int RequestData(vtkInformation* request,
                           vtkInformationVector** inputVector,
-                          vtkInformationVector* outputVector);
+                          vtkInformationVector* outputVector) VTK_OVERRIDE;
 
   virtual void FillMultiBlock(vtkMultiBlockDataSet *output, const int &timestep);
 
