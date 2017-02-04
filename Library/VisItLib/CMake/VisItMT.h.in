@@ -53,8 +53,8 @@ protected:
   @PLUGIN_NAME@();
   ~@PLUGIN_NAME@();
 
-  virtual bool InitializeAVTReader( const int& timestep ) VTK_OVERRIDE;
-  virtual bool ActivateTimestep( const int& timestep ) VTK_OVERRIDE;
+  bool InitializeAVTReader( const int& timestep ) VTK_OVERRIDE;
+  bool ActivateTimestep( const int& timestep ) VTK_OVERRIDE;
   char *FileName;
 
 private:
