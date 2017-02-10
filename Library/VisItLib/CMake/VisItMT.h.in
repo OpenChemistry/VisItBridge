@@ -42,7 +42,7 @@ class VTKIOVISITBRIDGE_EXPORT @PLUGIN_NAME@ : public vtkAvt@ARG_VISIT_READER_TYP
 public:
   static @PLUGIN_NAME@ *New();
   vtkTypeMacro(@PLUGIN_NAME@,vtkAvt@ARG_VISIT_READER_TYPE@FileFormatAlgorithm );
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) VTK_OVERRIDE;
   vtkSetStringMacro(FileName);
   vtkGetStringMacro(FileName);
 #ifdef VISIT_READER_USES_INTERFACE  
@@ -53,8 +53,8 @@ protected:
   @PLUGIN_NAME@();
   ~@PLUGIN_NAME@();
 
-  virtual bool InitializeAVTReader( const int& timestep );
-  virtual bool ActivateTimestep( const int& timestep );
+  bool InitializeAVTReader( const int& timestep ) VTK_OVERRIDE;
+  bool ActivateTimestep( const int& timestep ) VTK_OVERRIDE;
   char *FileName;
 
 private:

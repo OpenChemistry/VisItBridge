@@ -60,22 +60,22 @@ class VTKIOVISITBRIDGE_EXPORT vtkAvtSTMDFileFormatAlgorithm : public vtkAvtFileF
 public:
   static vtkAvtSTMDFileFormatAlgorithm *New();
   vtkTypeMacro(vtkAvtSTMDFileFormatAlgorithm,vtkAvtFileFormatAlgorithm);
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) VTK_OVERRIDE;
 
 protected:
   vtkAvtSTMDFileFormatAlgorithm();
   ~vtkAvtSTMDFileFormatAlgorithm();
 
   //needed since we have to change the type we output
-  virtual int RequestDataObject(vtkInformation *, vtkInformationVector **,
-                                vtkInformationVector *);
+  int RequestDataObject(vtkInformation *, vtkInformationVector **,
+                        vtkInformationVector *) VTK_OVERRIDE;
 
   // Description:
   // This is called by the superclass.
   // This is the method you should override.
-  virtual int RequestData(vtkInformation* request,
-                          vtkInformationVector** inputVector,
-                          vtkInformationVector* outputVector);
+  int RequestData(vtkInformation* request,
+                  vtkInformationVector** inputVector,
+                  vtkInformationVector* outputVector) VTK_OVERRIDE;
 
   //BTX
   int FillAMR( vtkOverlappingAMR *amr,
