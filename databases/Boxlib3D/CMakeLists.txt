@@ -1,9 +1,5 @@
 SET(SOURCES
 avtBoxlib3DFileFormat.C
-Boxlib3DCommonPluginInfo.C
-Boxlib3DEnginePluginInfo.C
-Boxlib3DMDServerPluginInfo.C
-Boxlib3DPluginInfo.C
 BoxLibHelper.C
 )
 

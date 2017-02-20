@@ -6,7 +6,6 @@ avtSiloOptions.C
 SiloPluginInfo.C
 SiloCommonPluginInfo.C
 SiloEnginePluginInfo.C
-SiloMDServerPluginInfo.C
 )
 
 if(HAVE_LIBSILO)

@@ -4,7 +4,6 @@ set(SOURCES
   avtOpenFOAMOptions.C
   OpenFOAMCommonPluginInfo.C
   OpenFOAMEnginePluginInfo.C
-  OpenFOAMMDServerPluginInfo.C
   OpenFOAMPluginInfo.C
   visit_vtkOpenFOAMReader.cxx
   visit_vtkPOpenFOAMReader.cxx

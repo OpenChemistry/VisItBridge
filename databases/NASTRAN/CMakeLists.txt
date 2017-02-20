@@ -7,7 +7,6 @@ set(SOURCES
   NASTRANPluginInfo.h
   NASTRANPluginInfo.C
   NASTRANEnginePluginInfo.C
-  NASTRANMDServerPluginInfo.C
   NASTRANCommonPluginInfo.C
 )
 

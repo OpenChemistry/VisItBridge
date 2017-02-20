@@ -7,7 +7,6 @@ set(SOURCES
   FLASHPluginInfo.h
   FLASHPluginInfo.C
   FLASHEnginePluginInfo.C
-  FLASHMDServerPluginInfo.C
   FLASHCommonPluginInfo.C
 )
 

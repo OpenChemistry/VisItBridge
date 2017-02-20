@@ -9,7 +9,6 @@ set(SOURCES
 TecplotPluginInfo.h
 TecplotPluginInfo.C
 TecplotEnginePluginInfo.C
-TecplotMDServerPluginInfo.C
 TecplotCommonPluginInfo.C
 
   TecplotFile.C

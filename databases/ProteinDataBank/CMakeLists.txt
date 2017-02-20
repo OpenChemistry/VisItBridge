@@ -7,7 +7,6 @@ avtProteinDataBankOptions.h
 ProteinDataBankPluginInfo.h
 ProteinDataBankPluginInfo.C
 ProteinDataBankEnginePluginInfo.C
-ProteinDataBankMDServerPluginInfo.C
 ProteinDataBankCommonPluginInfo.C
 )
 

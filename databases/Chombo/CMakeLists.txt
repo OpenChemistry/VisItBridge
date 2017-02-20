@@ -6,7 +6,6 @@ avtChomboOptions.h
 ChomboPluginInfo.h
 ChomboPluginInfo.C
 ChomboEnginePluginInfo.C
-ChomboMDServerPluginInfo.C
 ChomboCommonPluginInfo.C
 )
 

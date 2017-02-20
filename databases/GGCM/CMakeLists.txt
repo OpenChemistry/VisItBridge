@@ -4,7 +4,6 @@ set(SOURCES
   avtGGCMOptions.C
   GGCMCommonPluginInfo.C
   GGCMEnginePluginInfo.C
-  GGCMMDServerPluginInfo.C
   GGCMPluginInfo.C
   GGCMPluginInfo.h
   ggcm_grid.C

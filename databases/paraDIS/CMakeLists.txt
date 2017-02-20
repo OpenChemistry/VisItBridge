@@ -3,7 +3,6 @@ set(PARADIS_SOURCES
   avtparaDISOptions.C
   paraDISCommonPluginInfo.C
   paraDISEnginePluginInfo.C
-  paraDISMDServerPluginInfo.C
   paraDISPluginInfo.C
   Dumpfile.C
   parallelParaDIS.C

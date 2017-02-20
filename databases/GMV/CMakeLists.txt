@@ -2,10 +2,6 @@
 set(SOURCES
   avtGMVFileFormat.C
   avtGMVFileFormat.h
-  GMVEnginePluginInfo.C
-  GMVMDServerPluginInfo.C
-  GMVCommonPluginInfo.C
-  GMVPluginInfo.C
   gmvMaterialEncoder.C
   gmvPolyhedralSplit.C
   gmvread.c

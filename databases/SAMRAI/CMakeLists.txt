@@ -3,11 +3,6 @@ SET(SOURCES
 avtSAMRAIFileFormat.C
 avtSAMRAIFileFormat.h
 AutoArray.h
-SAMRAIEnginePluginInfo.C
-SAMRAIPluginInfo.C
-SAMRAIPluginInfo.h
-SAMRAICommonPluginInfo.C
-SAMRAIMDServerPluginInfo.C
 )
 
 ADD_VISIT_READER(VisItSAMRAIReader "1.0"  

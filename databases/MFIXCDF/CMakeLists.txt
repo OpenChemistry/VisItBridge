@@ -8,7 +8,6 @@ set(SOURCES
   MFIXCDFPluginInfo.C
   MFIXCDFEnginePluginInfo.C
   MFIXCDFCommonPluginInfo.C
-  MFIXCDFMDServerPluginInfo.C
   )
 
 

@@ -4,7 +4,6 @@ SET(SOURCES
   avtPixieOptions.C
   PixieCommonPluginInfo.C
   PixieEnginePluginInfo.C
-  PixieMDServerPluginInfo.C
   PixiePluginInfo.C
   )
 

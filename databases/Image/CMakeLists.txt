@@ -4,7 +4,6 @@ set(SOURCES
   avtImageFileFormat.C
   avtImageOptions.C
   avtImagePluginWriter.C
-  ImageMDServerPluginInfo.C
   ImagePluginInfo.C
   ImageCommonPluginInfo.C
   ImageEnginePluginInfo.C

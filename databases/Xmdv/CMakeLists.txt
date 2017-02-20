@@ -9,7 +9,6 @@ set(SOURCES
   XmdvPluginInfo.h
   XmdvPluginInfo.C
   XmdvEnginePluginInfo.C
-  XmdvMDServerPluginInfo.C
   XmdvCommonPluginInfo.C
 )
 

@@ -4,7 +4,6 @@ set(SOURCES
   avtVsOptions.C
   VsPluginInfo.C
   VsEnginePluginInfo.C
-  VsMDServerPluginInfo.C
   VsCommonPluginInfo.C
   VsFilter.C
   VsH5Attribute.C

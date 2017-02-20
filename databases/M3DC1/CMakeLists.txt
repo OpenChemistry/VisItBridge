@@ -8,7 +8,6 @@ set(SOURCES
   M3DC1PluginInfo.h
   M3DC1PluginInfo.C
   M3DC1EnginePluginInfo.C
-  M3DC1MDServerPluginInfo.C
   M3DC1CommonPluginInfo.C
 )
 

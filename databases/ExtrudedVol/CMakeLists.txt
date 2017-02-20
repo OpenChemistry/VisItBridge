@@ -7,7 +7,6 @@ set(SOURCES
   ExtrudedVolPluginInfo.h
   ExtrudedVolPluginInfo.C
   ExtrudedVolEnginePluginInfo.C
-  ExtrudedVolMDServerPluginInfo.C
   ExtrudedVolCommonPluginInfo.C  
   )
 ADD_VISIT_READER(VisItExtrudedVolReader "1.0"

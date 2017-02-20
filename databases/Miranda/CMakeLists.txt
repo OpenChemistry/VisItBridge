@@ -7,7 +7,6 @@ set(SOURCES
   MirandaPluginInfo.h
   MirandaPluginInfo.C
   MirandaEnginePluginInfo.C
-  MirandaMDServerPluginInfo.C
   MirandaCommonPluginInfo.C
 )
 
