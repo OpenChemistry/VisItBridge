@@ -4,6 +4,6 @@ set(SOURCES
   )
 ADD_VISIT_READER(VisItLinesReader "1.0"
   VISIT_READER_TYPE "STMD"
-  VISIT_READER_NAME "avtLinesFileFormat"    
+  VISIT_READER_NAME "avtLinesFileFormat"
   SERVER_SOURCES ${SOURCES}
   )

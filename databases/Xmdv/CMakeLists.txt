@@ -5,16 +5,16 @@ set(SOURCES
   avtXmdvOptions.C
   avtXmdvOptions.h
   avtXmdvWriter.C
-  avtXmdvWriter.h  
+  avtXmdvWriter.h
   XmdvPluginInfo.h
   XmdvPluginInfo.C
   XmdvEnginePluginInfo.C
   XmdvCommonPluginInfo.C
 )
 
-ADD_VISIT_READER(VisItXmdvReader "1.0" 
+ADD_VISIT_READER(VisItXmdvReader "1.0"
   VISIT_READER_TYPE "STSD"
-  VISIT_READER_NAME "avtXmdvFileFormat"     
+  VISIT_READER_NAME "avtXmdvFileFormat"
   VISIT_READER_USES_OPTIONS ON
   SERVER_SOURCES ${SOURCES}
   )

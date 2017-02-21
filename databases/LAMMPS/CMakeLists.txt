@@ -1,20 +1,20 @@
 
-set(SOURCES  
-  avtLAMMPSStructureFileFormat.C  
+set(SOURCES
+  avtLAMMPSStructureFileFormat.C
   )
 
-  set(DUMP_SOURCES    
+  set(DUMP_SOURCES
   avtLAMMPSDumpFileFormat.C
   )
-  
+
 ADD_VISIT_READER(VisItLAMMPSStructureReader "1.0"
   VISIT_READER_TYPE "MTSD"
-  VISIT_READER_NAME "avtLAMMPSStructureFileFormat"    
+  VISIT_READER_NAME "avtLAMMPSStructureFileFormat"
   SERVER_SOURCES ${SOURCES}
   )
 
 ADD_VISIT_READER(VisItLAMMPSDumpReader "1.0"
   VISIT_READER_TYPE "MTSD"
-  VISIT_READER_NAME "avtLAMMPSDumpFileFormat"    
+  VISIT_READER_NAME "avtLAMMPSDumpFileFormat"
   SERVER_SOURCES ${DUMP_SOURCES}
-  )  
+  )
