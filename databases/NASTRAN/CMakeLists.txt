@@ -1,9 +1,6 @@
 set(SOURCES
   avtNASTRANFileFormat.C
-  avtNASTRANFileFormat.h
   avtNASTRANOptions.C
-  avtNASTRANOptions.h
-  NASTRANPluginInfo.h
   NASTRANPluginInfo.C
   NASTRANEnginePluginInfo.C
   NASTRANCommonPluginInfo.C

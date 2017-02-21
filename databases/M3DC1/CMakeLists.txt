@@ -1,10 +1,7 @@
 set(SOURCES
   avtM3DC1Field.C
   avtM3DC1FileFormat.C
-  avtM3DC1FileFormat.h
   avtM3DC1Options.C
-  avtM3DC1Options.h
-  M3DC1PluginInfo.h
   M3DC1PluginInfo.C
   M3DC1EnginePluginInfo.C
   M3DC1CommonPluginInfo.C

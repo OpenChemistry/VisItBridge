@@ -4,7 +4,6 @@ set(SOURCES
   GGCMCommonPluginInfo.C
   GGCMEnginePluginInfo.C
   GGCMPluginInfo.C
-  GGCMPluginInfo.h
   ggcm_grid.C
   ggcm_grid_gse.C
   ggcm_field_matrix.C

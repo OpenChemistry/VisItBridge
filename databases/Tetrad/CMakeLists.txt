@@ -1,5 +1,4 @@
 SET(SOURCES
-  avtTetradFileFormat.h
   avtTetradFileFormat.C
   )
 

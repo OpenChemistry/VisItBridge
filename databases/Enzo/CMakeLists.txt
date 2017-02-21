@@ -1,5 +1,4 @@
 set(SOURCES
-  avtEnzoFileFormat.h
   avtEnzoFileFormat.C
   )
 

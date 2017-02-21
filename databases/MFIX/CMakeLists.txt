@@ -1,6 +1,5 @@
 set(SOURCES
   avtMFIXFileFormat.C
-  avtMFIXFileFormat.h
   avtMFIXOptions.C
   avtMFIXFileFormat.C
   MFIXPluginInfo.C

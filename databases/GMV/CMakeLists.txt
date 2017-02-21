@@ -1,6 +1,5 @@
 set(SOURCES
   avtGMVFileFormat.C
-  avtGMVFileFormat.h
   gmvMaterialEncoder.C
   gmvPolyhedralSplit.C
   gmvread.c

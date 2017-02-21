@@ -1,9 +1,6 @@
 SET(SOURCES
   avtChomboFileFormat.C
-  avtChomboFileFormat.h
   avtChomboOptions.C
-  avtChomboOptions.h
-  ChomboPluginInfo.h
   ChomboPluginInfo.C
   ChomboEnginePluginInfo.C
   ChomboCommonPluginInfo.C

@@ -1,9 +1,6 @@
 set(SOURCES
   avtMirandaFileFormat.C
-  avtMirandaFileFormat.h
   avtMirandaOptions.C
-  avtMirandaOptions.h
-  MirandaPluginInfo.h
   MirandaPluginInfo.C
   MirandaEnginePluginInfo.C
   MirandaCommonPluginInfo.C

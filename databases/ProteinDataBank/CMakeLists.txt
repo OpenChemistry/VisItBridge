@@ -1,9 +1,6 @@
 SET(SOURCES
   avtProteinDataBankFileFormat.C
-  avtProteinDataBankFileFormat.h
   avtProteinDataBankOptions.C
-  avtProteinDataBankOptions.h
-  ProteinDataBankPluginInfo.h
   ProteinDataBankPluginInfo.C
   ProteinDataBankEnginePluginInfo.C
   ProteinDataBankCommonPluginInfo.C

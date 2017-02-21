@@ -1,6 +1,5 @@
 set(SOURCES
   avtAUXFileFileFormat.C
-  avtAUXFileFileFormat.h
   )
 
 ADD_VISIT_READER(VisItAuxFileReader "1.0"

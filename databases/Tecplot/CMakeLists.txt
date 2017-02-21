@@ -1,15 +1,11 @@
 set(SOURCES
   avtTecplotFileFormat.C
   avtTecplotOptions.C
-  avtTecplotOptions.h
   avtTecplotWriter.C
-  avtTecplotWriter.h
-  TecplotPluginInfo.h
   TecplotPluginInfo.C
   TecplotEnginePluginInfo.C
   TecplotCommonPluginInfo.C
   TecplotFile.C
-  TecplotFile.h
   )
 
 set(BINARY_SOURCES

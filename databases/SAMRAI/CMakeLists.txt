@@ -1,7 +1,5 @@
 SET(SOURCES
   avtSAMRAIFileFormat.C
-  avtSAMRAIFileFormat.h
-  AutoArray.h
   )
 
 ADD_VISIT_READER(VisItSAMRAIReader "1.0"

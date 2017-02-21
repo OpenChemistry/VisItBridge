@@ -1,9 +1,6 @@
 set(SOURCES
   avtFLASHFileFormat.C
-  avtFLASHFileFormat.h
   avtFLASHOptions.C
-  avtFLASHOptions.h
-  FLASHPluginInfo.h
   FLASHPluginInfo.C
   FLASHEnginePluginInfo.C
   FLASHCommonPluginInfo.C

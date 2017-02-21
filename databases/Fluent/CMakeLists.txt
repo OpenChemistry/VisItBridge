@@ -1,5 +1,4 @@
 set(SOURCES
-  avtFluentFileFormat.h
   avtFluentFileFormat.C
   )
 
