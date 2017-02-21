@@ -1,7 +1,7 @@
 SET(SOURCES
-avtBoxlib3DFileFormat.C
-BoxLibHelper.C
-)
+  avtBoxlib3DFileFormat.C
+  BoxLibHelper.C
+  )
 
 if(BoxLib_FOUND)
   ADD_VISIT_READER(VisItBoxlib3DReader "1.0"

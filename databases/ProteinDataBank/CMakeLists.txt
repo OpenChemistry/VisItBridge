@@ -1,14 +1,13 @@
-
 SET(SOURCES
-avtProteinDataBankFileFormat.C
-avtProteinDataBankFileFormat.h
-avtProteinDataBankOptions.C
-avtProteinDataBankOptions.h
-ProteinDataBankPluginInfo.h
-ProteinDataBankPluginInfo.C
-ProteinDataBankEnginePluginInfo.C
-ProteinDataBankCommonPluginInfo.C
-)
+  avtProteinDataBankFileFormat.C
+  avtProteinDataBankFileFormat.h
+  avtProteinDataBankOptions.C
+  avtProteinDataBankOptions.h
+  ProteinDataBankPluginInfo.h
+  ProteinDataBankPluginInfo.C
+  ProteinDataBankEnginePluginInfo.C
+  ProteinDataBankCommonPluginInfo.C
+  )
 
 ADD_VISIT_READER(VisItProteinDataBankReader "1.0"
   VISIT_READER_TYPE "STSD"

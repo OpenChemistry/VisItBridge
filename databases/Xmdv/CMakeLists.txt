@@ -1,4 +1,3 @@
-
 set(SOURCES
   avtXmdvFileFormat.C
   avtXmdvFileFormat.h
@@ -10,7 +9,7 @@ set(SOURCES
   XmdvPluginInfo.C
   XmdvEnginePluginInfo.C
   XmdvCommonPluginInfo.C
-)
+  )
 
 ADD_VISIT_READER(VisItXmdvReader "1.0"
   VISIT_READER_TYPE "STSD"

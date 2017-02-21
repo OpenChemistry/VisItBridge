@@ -1,5 +1,3 @@
-
-
 set(SOURCES
   avtMFIXCDFFileFormat.C
   avtMFIXCDFFileFormat.h
@@ -9,7 +7,6 @@ set(SOURCES
   MFIXCDFEnginePluginInfo.C
   MFIXCDFCommonPluginInfo.C
   )
-
 
 ADD_VISIT_READER(VisItMFIXCDFReader "1.0"
   VISIT_READER_TYPE "STMD"

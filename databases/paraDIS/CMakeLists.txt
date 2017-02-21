@@ -15,7 +15,7 @@ set(PARADIS_SOURCES
   RC_cpp_lib/RangeList.C
   RC_cpp_lib/timer.C
   RC_cpp_lib/pathutil.C
-)
+  )
 
 set(PARADIS_TECPLOT_SOURCES
   avtparaDIS_tecplotFileFormat.C
@@ -27,7 +27,7 @@ set(PARADIS_TECPLOT_SOURCES
   RC_cpp_lib/RangeList.C
   RC_cpp_lib/timer.C
   RC_cpp_lib/pathutil.C
-)
+  )
 
 ADD_VISIT_READER(VisItParaDISReader "1.0"
   VISIT_READER_TYPE "STSD"

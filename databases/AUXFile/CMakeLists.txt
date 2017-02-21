@@ -1,4 +1,3 @@
-
 set(SOURCES
   avtAUXFileFileFormat.C
   avtAUXFileFileFormat.h

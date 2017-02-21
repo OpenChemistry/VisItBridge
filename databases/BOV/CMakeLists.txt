@@ -1,4 +1,3 @@
-
 set(SOURCES
   avtBOVFileFormat.C
   )

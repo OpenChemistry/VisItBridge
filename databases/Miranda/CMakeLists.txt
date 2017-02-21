@@ -1,4 +1,3 @@
-
 set(SOURCES
   avtMirandaFileFormat.C
   avtMirandaFileFormat.h
@@ -8,7 +7,7 @@ set(SOURCES
   MirandaPluginInfo.C
   MirandaEnginePluginInfo.C
   MirandaCommonPluginInfo.C
-)
+  )
 
 ADD_VISIT_READER(VisItMirandaReader "1.0"
   VISIT_READER_TYPE "MTMD"

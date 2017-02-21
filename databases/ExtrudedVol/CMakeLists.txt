@@ -1,4 +1,3 @@
-
 set(SOURCES
   avtExtrudedVolFileFormat.C
   avtExtrudedVolWriter.C
@@ -9,6 +8,7 @@ set(SOURCES
   ExtrudedVolEnginePluginInfo.C
   ExtrudedVolCommonPluginInfo.C
   )
+
 ADD_VISIT_READER(VisItExtrudedVolReader "1.0"
   VISIT_READER_TYPE "STMD"
   VISIT_READER_NAME "avtExtrudedVolFileFormat"

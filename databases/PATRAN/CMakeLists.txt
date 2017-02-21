@@ -1,7 +1,7 @@
-
 set(SOURCES
   avtPATRANFileFormat.C
   )
+
 ADD_VISIT_READER(VisItPATRANReader "1.0"
   VISIT_READER_TYPE "STSD"
   VISIT_READER_NAME "avtPATRANFileFormat"

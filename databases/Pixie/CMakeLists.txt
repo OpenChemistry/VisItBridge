@@ -1,4 +1,3 @@
-
 SET(SOURCES
   avtPixieFileFormat.C
   avtPixieOptions.C

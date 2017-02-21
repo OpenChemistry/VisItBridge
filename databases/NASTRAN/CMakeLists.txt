@@ -1,4 +1,3 @@
-
 set(SOURCES
   avtNASTRANFileFormat.C
   avtNASTRANFileFormat.h
@@ -8,7 +7,7 @@ set(SOURCES
   NASTRANPluginInfo.C
   NASTRANEnginePluginInfo.C
   NASTRANCommonPluginInfo.C
-)
+  )
 
 ADD_VISIT_READER(VisItNASTRANReader "1.0"
   VISIT_READER_TYPE "STSD"

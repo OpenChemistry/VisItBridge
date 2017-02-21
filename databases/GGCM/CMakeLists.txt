@@ -1,4 +1,3 @@
-
 set(SOURCES
   avtGGCMFileFormat.C
   avtGGCMOptions.C
@@ -12,7 +11,7 @@ set(SOURCES
   ggcm_mhd_gse.C
   ggcm_read_mhd.C
   matrix.C
-)
+  )
 
 ADD_VISIT_READER(VisItGGCMReader "1.0"
   VISIT_READER_TYPE "MTSD"

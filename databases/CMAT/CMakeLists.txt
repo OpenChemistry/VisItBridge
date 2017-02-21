@@ -1,7 +1,7 @@
-
 SET(SOURCES
-avtCMATFileFormat.C
-)
+  avtCMATFileFormat.C
+  )
+
 ADD_VISIT_READER(VisItCMATReader "1.0"
   VISIT_READER_TYPE "STMD"
   VISIT_READER_NAME "avtCMATFileFormat"

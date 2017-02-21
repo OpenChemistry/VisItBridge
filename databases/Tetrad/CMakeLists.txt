@@ -1,8 +1,7 @@
-
 SET(SOURCES
-avtTetradFileFormat.h
-avtTetradFileFormat.C
-)
+  avtTetradFileFormat.h
+  avtTetradFileFormat.C
+  )
 
 ADD_VISIT_READER(VisItTetradReader "1.0"
   VISIT_READER_TYPE "MTSD"

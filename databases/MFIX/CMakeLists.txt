@@ -1,5 +1,3 @@
-
-
 set(SOURCES
   avtMFIXFileFormat.C
   avtMFIXFileFormat.h
@@ -9,7 +7,6 @@ set(SOURCES
   MFIXEnginePluginInfo.C
   MFIXCommonPluginInfo.C
   )
-
 
 ADD_VISIT_READER(VisItMFIXReader "1.0"
   VISIT_READER_TYPE "MTMD"

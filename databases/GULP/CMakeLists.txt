@@ -1,7 +1,7 @@
-
 set(SOURCES
   avtGULPFileFormat.C
   )
+
 ADD_VISIT_READER(VisItGULPReader "1.0"
   VISIT_READER_TYPE "MTSD"
   VISIT_READER_NAME "avtGULPFileFormat"

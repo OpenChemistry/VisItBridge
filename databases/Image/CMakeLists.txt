@@ -1,4 +1,3 @@
-
 set(SOURCES
   vtkStimulateReader.C
   avtImageFileFormat.C
@@ -7,7 +6,7 @@ set(SOURCES
   ImagePluginInfo.C
   ImageCommonPluginInfo.C
   ImageEnginePluginInfo.C
-)
+  )
 
 ADD_VISIT_READER(VisItImageReader "1.0"
   VISIT_READER_TYPE "STSD"

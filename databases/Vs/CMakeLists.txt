@@ -1,4 +1,3 @@
-
 set(SOURCES
   avtVsFileFormat.C
   avtVsOptions.C
@@ -26,7 +25,7 @@ set(SOURCES
   VsUtils.C
   VsVariable.C
   VsVariableWithMesh.C
-)
+  )
 
 ADD_VISIT_READER(VisItVsReader "1.0"
   VISIT_READER_TYPE "STSD"

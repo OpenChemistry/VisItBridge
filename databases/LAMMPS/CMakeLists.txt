@@ -1,9 +1,8 @@
-
 set(SOURCES
   avtLAMMPSStructureFileFormat.C
   )
 
-  set(DUMP_SOURCES
+set(DUMP_SOURCES
   avtLAMMPSDumpFileFormat.C
   )
 

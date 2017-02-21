@@ -1,4 +1,3 @@
-
 set(SOURCES
   avtM3DC1Field.C
   avtM3DC1FileFormat.C
@@ -9,7 +8,7 @@ set(SOURCES
   M3DC1PluginInfo.C
   M3DC1EnginePluginInfo.C
   M3DC1CommonPluginInfo.C
-)
+  )
 
 ADD_VISIT_READER(VisItM3DC1Reader "1.0"
   VISIT_READER_TYPE "MTSD"

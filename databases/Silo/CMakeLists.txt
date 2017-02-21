@@ -1,12 +1,12 @@
 SET(SOURCES
-avtSiloWriter.C
-avtSiloFileFormat.C
-avtSiloMBObjectCache.C
-avtSiloOptions.C
-SiloPluginInfo.C
-SiloCommonPluginInfo.C
-SiloEnginePluginInfo.C
-)
+  avtSiloWriter.C
+  avtSiloFileFormat.C
+  avtSiloMBObjectCache.C
+  avtSiloOptions.C
+  SiloPluginInfo.C
+  SiloCommonPluginInfo.C
+  SiloEnginePluginInfo.C
+  )
 
 if(HAVE_LIBSILO)
   ADD_VISIT_READER(VisItSiloReader "1.0"

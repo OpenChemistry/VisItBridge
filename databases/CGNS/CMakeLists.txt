@@ -1,7 +1,6 @@
-
 SET(SOURCES
-avtCGNSFileFormat.C
-)
+  avtCGNSFileFormat.C
+  )
 
 #cgns
 ADD_VISIT_READER(VisItCGNSReader "1.0"

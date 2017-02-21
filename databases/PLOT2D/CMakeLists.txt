@@ -1,7 +1,7 @@
-
 set(SOURCES
   avtPLOT2DFileFormat.C
   )
+
 ADD_VISIT_READER(VisItPLOT2DReader "1.0"
   VISIT_READER_TYPE "STSD"
   VISIT_READER_NAME "avtPLOT2DFileFormat"

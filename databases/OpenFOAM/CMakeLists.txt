@@ -1,4 +1,3 @@
-
 set(SOURCES
   avtOpenFOAMFileFormat.C
   avtOpenFOAMOptions.C
