@@ -3,7 +3,7 @@ SET(SOURCES
   BoxLibHelper.C
   )
 
-if(BoxLib_FOUND)
+if(Boxlib_FOUND)
   ADD_VISIT_READER(VisItBoxlib3DReader "1.0"
     VISIT_READER_TYPE "STMD"
     VISIT_READER_NAME "avtBoxlib3DFileFormat"
