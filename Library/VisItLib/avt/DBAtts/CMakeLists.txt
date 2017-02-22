@@ -37,7 +37,6 @@
 # Modifications:
 #
 #****************************************************************************/
-PROJECT(AVT_DBATTS)
 
 SET(METADATA_SOURCES
 MetaData/avtArrayMetaData.C
@@ -77,8 +76,8 @@ SIL/avtSILSet.C
 
 INCLUDE_DIRECTORIES(
 ${VISIT_COMMON_INCLUDES}
-${AVT_DBATTS_SOURCE_DIR}/MetaData
-${AVT_DBATTS_SOURCE_DIR}/SIL
+${VISIT_SOURCE_DIR}/avt/DBAtts/MetaData
+${VISIT_SOURCE_DIR}/avt/DBAtts/SIL
 )
 
 # Add link directories needed.

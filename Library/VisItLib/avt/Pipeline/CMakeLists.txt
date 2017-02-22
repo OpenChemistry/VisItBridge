@@ -37,7 +37,6 @@
 # Modifications:
 #
 #****************************************************************************/
-PROJECT(AVT_PIPELINE)
 
 SET(DATA_SOURCES
 Data/avtAverageValueRF.C
@@ -116,7 +115,6 @@ Pipeline/avtDataRequest.C
 Pipeline/avtDataSetReader.C
 Pipeline/avtDataSetWriter.C
 Pipeline/avtDebugDumpOptions.C
-Pipeline/avtExecutionManager.C
 Pipeline/avtImageReader.C
 Pipeline/avtImageTiler.C
 Pipeline/avtImageWriter.C
@@ -127,8 +125,9 @@ Pipeline/avtNamedSelectionManager.C
 Pipeline/avtNullDataReader.C
 Pipeline/avtNullDataWriter.C
 Pipeline/avtParallel.C
-Pipeline/ThreadPool.C
 Pipeline/avtWebpage.C
+Pipeline/avtExecutionManager.C
+Pipeline/ThreadPool.C
 )
 
 SET(ABSTRACTFILTERS_SOURCES
@@ -148,8 +147,8 @@ AbstractFilters/avtImageToImageFilter.C
 AbstractFilters/avtMultiResolutionPartitionStrategy.C
 AbstractFilters/avtMultipleInputToDataObjectFilter.C
 AbstractFilters/avtMultipleInputToDatasetFilter.C
-AbstractFilters/avtPluginDataTreeIterator.C
 AbstractFilters/avtPluginDatasetToDatasetFilter.C
+AbstractFilters/avtPluginDataTreeIterator.C
 AbstractFilters/avtPluginStructuredChunkDataTreeIterator.C
 AbstractFilters/avtSIMODataTreeIterator.C
 AbstractFilters/avtSamplePointsToDataObjectFilter.C
@@ -206,17 +205,17 @@ ${SOURCES_SOURCES}
 INCLUDE_DIRECTORIES(
 ${CMAKE_CURRENT_SOURCE_DIR}
 ${VISIT_COMMON_INCLUDES}
-${AVT_DBATTS_SOURCE_DIR}/MetaData
-${AVT_DBATTS_SOURCE_DIR}/SIL
+${VISIT_SOURCE_DIR}/avt/DBAtts/MetaData
+${VISIT_SOURCE_DIR}/avt/DBAtts/SIL
 ${VISIT_SOURCE_DIR}/avt/Database/Database
 ${VISIT_SOURCE_DIR}/avt/Database/Ghost
 ${VISIT_SOURCE_DIR}/avt/Math
 ${VISIT_SOURCE_DIR}/avt/VisWindow/VisWindow
-${AVT_PIPELINE_SOURCE_DIR}/Data
-${AVT_PIPELINE_SOURCE_DIR}/AbstractFilters
-${AVT_PIPELINE_SOURCE_DIR}/Pipeline
-${AVT_PIPELINE_SOURCE_DIR}/Sinks
-${AVT_PIPELINE_SOURCE_DIR}/Sources
+${VISIT_SOURCE_DIR}/avt/Pipeline/AbstractFilters
+${VISIT_SOURCE_DIR}/avt/Pipeline/Data
+${VISIT_SOURCE_DIR}/avt/Pipeline/Pipeline
+${VISIT_SOURCE_DIR}/avt/Pipeline/Sinks
+${VISIT_SOURCE_DIR}/avt/Pipeline/Sources
 ${VISIT_SOURCE_DIR}/visit_vtk/lightweight
 ${VTK_INCLUDE_DIRS}
 )

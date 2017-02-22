@@ -37,7 +37,6 @@
 # Modifications:
 #
 #****************************************************************************/
-PROJECT(AVT_DATABASE)
 
 SET(DATABASE_SOURCES
 Database/avtDatabase.C
@@ -47,12 +46,12 @@ Database/avtDatasetDatabase.C
 Database/avtFileDescriptorManager.C
 Database/avtGenericDatabase.C
 Database/avtIOInformation.C
-#Database/avtPolygonToTrianglesTesselator.C
-Database/avtPolyhedralSplit.C
 Database/avtSILGenerator.C
 Database/avtSourceFromDatabase.C
 Database/avtVariableCache.C
 Database/avtTransformManager.C
+#Database/avtPolygonToTrianglesTesselator.C
+Database/avtPolyhedralSplit.C
 )
 
 SET(FORMATS_SOURCES
@@ -88,18 +87,18 @@ ${GHOST_SOURCES}
 
 INCLUDE_DIRECTORIES(
 ${VISIT_COMMON_INCLUDES}
-${AVT_DATABASE_SOURCE_DIR}/Database
-${AVT_DATABASE_SOURCE_DIR}/Formats
-${AVT_DATABASE_SOURCE_DIR}/Ghost
+${CMAKE_CURRENT_SOURCE_DIR}/Database
+${CMAKE_CURRENT_SOURCE_DIR}/Formats
+${CMAKE_CURRENT_SOURCE_DIR}/Ghost
 ${VISIT_SOURCE_DIR}/avt/Math
 ${VISIT_SOURCE_DIR}/avt/VisWindow/VisWindow
-${AVT_DBATTS_SOURCE_DIR}/MetaData
-${AVT_DBATTS_SOURCE_DIR}/SIL
-${AVT_PIPELINE_SOURCE_DIR}/AbstractFilters
-${AVT_PIPELINE_SOURCE_DIR}/Data
-${AVT_PIPELINE_SOURCE_DIR}/Pipeline
-${AVT_PIPELINE_SOURCE_DIR}/Sinks
-${AVT_PIPELINE_SOURCE_DIR}/Sources
+${VISIT_SOURCE_DIR}/avt/DBAtts/MetaData
+${VISIT_SOURCE_DIR}/avt/DBAtts/SIL
+${VISIT_SOURCE_DIR}/avt/Pipeline/AbstractFilters
+${VISIT_SOURCE_DIR}/avt/Pipeline/Data
+${VISIT_SOURCE_DIR}/avt/Pipeline/Pipeline
+${VISIT_SOURCE_DIR}/avt/Pipeline/Sinks
+${VISIT_SOURCE_DIR}/avt/Pipeline/Sources
 ${VISIT_SOURCE_DIR}/visit_vtk/full
 ${VISIT_SOURCE_DIR}/visit_vtk/lightweight
 ${VTK_INCLUDE_DIRS}
