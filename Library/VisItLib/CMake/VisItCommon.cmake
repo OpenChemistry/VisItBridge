@@ -490,22 +490,17 @@ endif(WIN32)
 # Set up easy to use includes for the common directory
 set(VISIT_COMMON_INCLUDES
     ${VISIT_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/common/Exceptions/Database
+    ${VISIT_SOURCE_DIR}/common/Exceptions/Database
     ${VISIT_SOURCE_DIR}/common/Exceptions/Pipeline
     ${VISIT_SOURCE_DIR}/common/Exceptions/Plotter
     ${VISIT_SOURCE_DIR}/common/comm
     ${VISIT_SOURCE_DIR}/common/expr
-    ${VISIT_SOURCE_DIR}/common/icons
     ${VISIT_SOURCE_DIR}/common/misc
     ${VISIT_SOURCE_DIR}/common/parser
     ${VISIT_SOURCE_DIR}/common/plugin
     ${VISIT_SOURCE_DIR}/common/proxybase
     ${VISIT_SOURCE_DIR}/common/state
     ${VISIT_SOURCE_DIR}/common/utility
-    ${VISIT_SOURCE_DIR}/common/common/misc
-    ${VISIT_SOURCE_DIR}/common/common/plugin
-    ${VISIT_SOURCE_DIR}/common/common/state
-    ${VISIT_SOURCE_DIR}/common/common/utility
   )
 
 #watch out, you need to make sure common/parser is always in front of
