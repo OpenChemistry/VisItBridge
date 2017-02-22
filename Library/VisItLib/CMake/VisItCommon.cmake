@@ -594,10 +594,10 @@ if(CGNS_FOUND)
 endif(CGNS_FOUND)
 
 # Setup Mili
-find_package(MILI QUIET)
-if(MILI_FOUND)
-  set(HAVE_LIBMILI ${MILI_FOUND})
-endif(MILI_FOUND)
+find_package(Mili QUIET)
+if(Mili_FOUND)
+  set(HAVE_LIBMILI ${Mili_FOUND})
+endif(Mili_FOUND)
 
 #-----------------------------------------------------------------------------
 # Detect packages here. We could probably write macros that we can include from

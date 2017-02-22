@@ -121,8 +121,8 @@ Mili Support
 To enable Mili readers you will need to set:
 ```
  VISIT_BUILD_READER_Mili
- MILI_INCLUDE_DIR
- MILI_LIBRARY
+ Mili_INCLUDE_DIR
+ Mili_LIBRARY
 ```
 
 Custom Plugin of VisIt Reader

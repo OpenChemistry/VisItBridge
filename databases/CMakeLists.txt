@@ -149,11 +149,11 @@ visit_include_reader_source(Mili OFF)
 if(VISIT_BUILD_READER_Mili)
   if(NOT HAVE_LIBMILI)
     #if we currently don't have silo setup make it required
-    find_package(MILI REQUIRED)
+    find_package(Mili REQUIRED)
   endif(NOT HAVE_LIBMILI)
-  if(NOT MILI_FOUND)
+  if(NOT Mili_FOUND)
     message(FATAL_ERROR "Unable to locate Mili library.")
-  endif(NOT MILI_FOUND)
+  endif(NOT Mili_FOUND)
 endif(VISIT_BUILD_READER_Mili)
 
 #-----------------------------------------------------------------------------
@@ -181,7 +181,7 @@ if(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
 endif(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
 
 if(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
-  include_directories(${MILI_INCLUDE_DIR})
+  include_directories(${Mili_INCLUDE_DIR})
 endif(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
 
 set(Module_SRCS
@@ -230,7 +230,7 @@ if(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
 endif(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
 
 if(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
-  target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${MILI_LIBRARIES})
+  target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${Mili_LIBRARIES})
 endif(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
 
 if (VISIT_BUILD_READER_GMV)
