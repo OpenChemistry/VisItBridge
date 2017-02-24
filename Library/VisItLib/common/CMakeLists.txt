@@ -37,7 +37,6 @@
 # Modifications:
 #
 #****************************************************************************/
-project(visitcommon)
 
 SET(COMM_SOURCES
 comm/BadHostException.C
@@ -71,8 +70,8 @@ Exceptions/Database/InvalidSourceException.C
 Exceptions/Database/InvalidTimeStepException.C
 Exceptions/Database/InvalidVariableException.C
 Exceptions/Database/InvalidZoneTypeException.C
-Exceptions/Database/NonCompliantFileException.C
 Exceptions/Database/NonCompliantException.C
+Exceptions/Database/NonCompliantFileException.C
 Exceptions/Database/PointerNotInCacheException.C
 Exceptions/Database/SiloException.C
 Exceptions/Pipeline/AbortException.C
@@ -120,7 +119,7 @@ misc/DebugStreamFull.C
 misc/Environment.C
 misc/FileFunctions.C
 misc/InstallationFunctions.C
-${CMAKE_CURRENT_BINARY_DIR}/misc/ConfigureInfo.C
+${VISIT_BINARY_DIR}/common/misc/ConfigureInfo.C
 misc/PTY.C
 misc/RuntimeSetting.C
 misc/StackTimer.C
@@ -207,14 +206,13 @@ state/GaussianControlPointList.C
 state/GlobalAttributes.C
 state/GlobalLineoutAttributes.C
 state/LaunchProfile.C
+state/LaunchRPC.C
 state/MachineProfile.C
 state/HostProfileList.C
 state/InteractorAttributes.C
 state/InternalResampleAttributes.C
-state/JSONNode.C
 state/KeepAliveRPC.C
 state/KeyframeAttributes.C
-state/LaunchRPC.C
 state/LightAttributes.C
 state/LightList.C
 state/Line.C
@@ -245,13 +243,14 @@ state/QueryList.C
 state/QueryOverTimeAttributes.C
 state/QuitRPC.C
 state/RenderingAttributes.C
+state/SaveWindowAttributes.C
 state/SaveSubWindowAttributes.C
 state/SaveSubWindowsAttributes.C
-state/SaveWindowAttributes.C
 state/SelectionList.C
 state/SelectionProperties.C
 state/SelectionSummary.C
 state/SelectionVariableSummary.C
+state/SimulationUIValues.C
 state/SILArrayAttributes.C
 state/SILAttributes.C
 state/SILMatrixAttributes.C
@@ -259,15 +258,14 @@ state/SILRestrictionAttributes.C
 state/SimilarityTransformAttributes.C
 state/SimpleObserver.C
 state/SimulationCommand.C
-state/SimulationUIValues.C
 state/SingleAttributeConfigManager.C
 state/SphereAttributes.C
 state/StatusAttributes.C
 state/Subject.C
 state/SurfaceFilterAttributes.C
 state/SyncAttributes.C
-state/TimeFormat.C
 state/ThresholdOpAttributes.C
+state/TimeFormat.C
 state/Variant.C
 state/View2DAttributes.C
 state/View3DAttributes.C
@@ -284,6 +282,7 @@ state/WindowAttributes.C
 state/WindowInformation.C
 state/Xfer.C
 state/XMLNode.C
+state/JSONNode.C
 )
 
 SET(UTILITY_SOURCES

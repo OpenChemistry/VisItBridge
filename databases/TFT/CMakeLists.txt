@@ -1,9 +1,9 @@
-
 set(SOURCES
   avtTFTFileFormat.C
   )
+
 ADD_VISIT_READER(VisItTFTReader "1.0"
   VISIT_READER_TYPE "STSD"
-  VISIT_READER_NAME "avtTFTFileFormat"    
+  VISIT_READER_NAME "avtTFTFileFormat"
   SERVER_SOURCES ${SOURCES}
   )

@@ -4,7 +4,7 @@ set(Kit_SRCS
   vtkAvtMTMDFileFormatAlgorithm.cxx
   vtkAvtSTSDFileFormatAlgorithm.cxx
   vtkAvtSTMDFileFormatAlgorithm.cxx
-)
+  )
 
 set(FullPath_SRCS)
 foreach(fname ${Kit_SRCS})

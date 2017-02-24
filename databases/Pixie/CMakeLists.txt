@@ -1,10 +1,8 @@
-
 SET(SOURCES
   avtPixieFileFormat.C
   avtPixieOptions.C
   PixieCommonPluginInfo.C
   PixieEnginePluginInfo.C
-  PixieMDServerPluginInfo.C
   PixiePluginInfo.C
   )
 

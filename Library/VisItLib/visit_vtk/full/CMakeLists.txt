@@ -40,7 +40,6 @@
 #   a rounding scheme is available.
 #
 #****************************************************************************/
-project(visit_vtk)
 
 SET(VISIT_VTK_SOURCES
 InitVTK.C
@@ -87,18 +86,18 @@ vtkVisItScalarTree.C
 vtkVisItSplitter.C
 vtkVisItStructuredGrid.C
 vtkVisItStructuredGridNormals.C
+vtkVisItTubeFilter.C
 #vtkVisItTIFFWriter.C
 vtkVisItTensorGlyph.C
-vtkVisItTubeFilter.C
-vtkVolumeFromVolume.C
 vtkVolumeFromCSGVolume.C
+vtkVolumeFromVolume.C
 )
 
 INCLUDE_DIRECTORIES(
 ${VISIT_BINARY_DIR}
 ${VISIT_SOURCE_DIR}/visit_vtk/full
-${VISIT_SOURCE_DIR}/visit_vtk/lightweight
 ${VISIT_SOURCE_DIR}/avt/Pipeline/Data
+${VISIT_SOURCE_DIR}/visit_vtk/lightweight
 ${BOOST_INCLUDE_DIR}
 )
 #robert maynard: todo, find a better solution
