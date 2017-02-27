@@ -34,19 +34,19 @@ set(VISITBRIDGE_INCLUDE_DIRS
   ${vtkVisItAVTAlgorithms_SOURCE_DIR}
   ${VISIT_COMMON_INCLUDES}
   ${VISIT_SOURCE_DIR}/include
-  ${AVT_DATABASE_SOURCE_DIR}/Database
-  ${AVT_DATABASE_SOURCE_DIR}/Ghost
-  ${AVT_DATABASE_SOURCE_DIR}/Formats
-  ${AVT_DBATTS_SOURCE_DIR}/MetaData
-  ${AVT_DBATTS_SOURCE_DIR}/SIL
+  ${VISIT_SOURCE_DIR}/avt/Database/Database
+  ${VISIT_SOURCE_DIR}/avt/Database/Ghost
+  ${VISIT_SOURCE_DIR}/avt/Database/Formats
+  ${VISIT_SOURCE_DIR}/avt/DBAtts/MetaData
+  ${VISIT_SOURCE_DIR}/avt/DBAtts/SIL
   ${VISIT_SOURCE_DIR}/avt/Math
   ${VISIT_SOURCE_DIR}/avt/VisWindow/VisWindow
   ${VISIT_SOURCE_DIR}/avt/IVP
-  ${AVT_PIPELINE_SOURCE_DIR}/AbstractFilters
-  ${AVT_PIPELINE_SOURCE_DIR}/Data
-  ${AVT_PIPELINE_SOURCE_DIR}/Pipeline
-  ${AVT_PIPELINE_SOURCE_DIR}/Sinks
-  ${AVT_PIPELINE_SOURCE_DIR}/Sources
+  ${VISIT_SOURCE_DIR}/avt/Pipeline/AbstractFilters
+  ${VISIT_SOURCE_DIR}/avt/Pipeline/Data
+  ${VISIT_SOURCE_DIR}/avt/Pipeline/Pipeline
+  ${VISIT_SOURCE_DIR}/avt/Pipeline/Sinks
+  ${VISIT_SOURCE_DIR}/avt/Pipeline/Sources
   ${VISIT_SOURCE_DIR}/visit_vtk/full
   ${VISIT_SOURCE_DIR}/visit_vtk/lightweight
   ${Boost_INCLUDE_DIR}
