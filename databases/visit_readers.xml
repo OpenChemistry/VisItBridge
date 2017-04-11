@@ -736,21 +736,6 @@
 
   <ProxyGroup name="sources">
 
-#ifdef VISIT_BUILD_READER_CGNS
-    <SourceProxy name="VisItCGNSReader" class="vtkVisItCGNSReader"
-      base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
-      <Documentation
-       long_help="Reads CFD General Notation System Files">
-       Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
-       The default file extension is .cgns.
-     </Documentation>
-     <Hints>
-       <ReaderFactory extensions="cgns"
-                      file_description="CGNS Files" />
-     </Hints>
-    </SourceProxy>
-#endif
-
 #ifndef WIN32
     <SourceProxy name="VisItClawReader" class="vtkVisItClawReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">

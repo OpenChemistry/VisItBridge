@@ -582,12 +582,6 @@ if(SILO_FOUND)
   set(HAVE_LIBSILO ${SILO_FOUND})
 endif(SILO_FOUND)
 
-# Setup CGNS
-find_package(CGNS QUIET)
-if(CGNS_FOUND)
-  set(HAVE_LIBCGNS ${CGNS_FOUND})
-endif(CGNS_FOUND)
-
 # Setup Mili
 find_package(Mili QUIET)
 if(Mili_FOUND)

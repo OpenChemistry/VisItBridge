@@ -133,18 +133,6 @@ endif(VISIT_BUILD_READER_Boxlib3D)
 visit_include_reader_source(Boxlib3D OFF)
 
 #-----------------------------------------------------------------------------
-visit_include_reader_source(CGNS OFF)
-if(VISIT_BUILD_READER_CGNS)
-  if(NOT HAVE_LIBCGNS)
-    #if we currently don't have silo setup make it required
-    find_package(CGNS REQUIRED)
-  endif(NOT HAVE_LIBCGNS)
-  if(NOT CGNS_FOUND)
-    message(FATAL_ERROR "Unable to locate CGNS library.")
-  endif(NOT CGNS_FOUND)
-endif(VISIT_BUILD_READER_CGNS)
-
-#-----------------------------------------------------------------------------
 visit_include_reader_source(Mili OFF)
 if(VISIT_BUILD_READER_Mili)
   if(NOT HAVE_LIBMILI)
@@ -175,10 +163,6 @@ endif(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
 if(Boxlib_FOUND AND VISIT_BUILD_READER_Boxlib3D)
   include_directories(${Boxlib_INCLUDE_DIR})
 endif(Boxlib_FOUND AND VISIT_BUILD_READER_Boxlib3D)
-
-if(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
-  include_directories(${CGNS_INCLUDE_DIR})
-endif(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
 
 if(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
   include_directories(${Mili_INCLUDE_DIR})
@@ -224,10 +208,6 @@ if(Boxlib_FOUND AND VISIT_BUILD_READER_Boxlib3D)
     target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${MPI_CXX_LIBRARIES} ${MPI_Fortran_LIBRARIES})
   endif()
 endif(Boxlib_FOUND AND VISIT_BUILD_READER_Boxlib3D)
-
-if(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
-  target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${CGNS_LIBRARIES})
-endif(HAVE_LIBCGNS AND VISIT_BUILD_READER_CGNS)
 
 if(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
   target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${Mili_LIBRARIES})

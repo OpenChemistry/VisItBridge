@@ -32,7 +32,6 @@ This depends largely on how VisIt is built because databases only are built if t
 * AUXFile
 * BOV
 * CEAucd
-* CGNS
 * Chombo
 * Claw
 * CMAT
@@ -103,16 +102,6 @@ To enable Silo readers you will need to set:
  VISIT_BUILD_READER_Silo
  SILO_INCLUDE_DIR
  SILO_LIBRARY
-```
-
-CGNS Support
----------------
-
-To enable CGNS readers you will need to set:
-```
- VISIT_BUILD_READER_CGNS
- CGNS_INCLUDE_DIR
- CGNS_LIBRARY
 ```
 
 Mili Support
