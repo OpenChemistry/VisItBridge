@@ -91,22 +91,6 @@ add_definitions("-DRC_CPP_VISIT_BUILD")
 
 
 #-----------------------------------------------------------------------------
-# GMV Reader needs OpenGLU library. So check if it exists before enabling the
-# GMV reader.
-include(vtkOpenGL)
-set (__gmv_default_status OFF)
-if (OPENGL_GLU_FOUND)
-  # BUG #13489. There are cases in FindOpenGL.cmake when OPENGL_GLU_FOUND is not
-  # set at all. Hence, don't use ${OPENGL_GLU_FOUND} directly.
-  set (__gmv_default_status ON)
-endif()
-visit_include_reader_source(GMV ${__gmv_default_status})
-
-if (VISIT_BUILD_READER_GMV AND NOT OPENGL_GLU_FOUND)
-  message(FATAL_ERROR "Unable to locate GLU library required for GMV reader.")
-endif()
-
-#-----------------------------------------------------------------------------
 visit_include_reader_source(Silo OFF)
 if(VISIT_BUILD_READER_Silo)
   if(NOT HAVE_LIBSILO)
@@ -149,7 +133,6 @@ endif(VISIT_BUILD_READER_Mili)
 #the visit files
 include_directories(BEFORE
   ${VISIT_DB_INC_DIRS}
-  ${CMAKE_CURRENT_SOURCE_DIR}/Common
   )
 
 include_directories(
@@ -212,7 +195,3 @@ endif(Boxlib_FOUND AND VISIT_BUILD_READER_Boxlib3D)
 if(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
   target_link_libraries(vtkIOVisItBridge LINK_PRIVATE ${Mili_LIBRARIES})
 endif(HAVE_LIBMILI AND VISIT_BUILD_READER_Mili)
-
-if (VISIT_BUILD_READER_GMV)
-  vtk_opengl_link(vtkIOVisItBridge)
-endif()
