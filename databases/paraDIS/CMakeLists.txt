@@ -21,7 +21,6 @@ set(PARADIS_TECPLOT_SOURCES
   avtparaDIS_tecplotFileFormat.C
   RC_c_lib/args.c
   RC_c_lib/debugutil.c
-  RC_c_lib/signals.c
   RC_c_lib/fileutils.c
   RC_c_lib/inventor.c
   RC_cpp_lib/RangeList.C
