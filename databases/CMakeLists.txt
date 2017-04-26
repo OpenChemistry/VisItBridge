@@ -5,7 +5,7 @@ include(${VISIT_BINARY_DIR}/VisItBridgeUse.cmake)
 macro(VISIT_INCLUDE_READER_SOURCE name state)
 option(VISIT_BUILD_READER_${name} "Build VisIt Reader ${name}" ${state})
 if (VISIT_BUILD_READER_${name})
-  add_subdirectory(${name})
+  add_subdirectory(readers/${name})
 endif()
 endmacro(VISIT_INCLUDE_READER_SOURCE name)
 
@@ -84,7 +84,7 @@ add_subdirectory(AvtAlgorithms)
 
 #add the default readers to the library
 foreach(db ${DEFAULT_BRIDGE_READERS})
-  add_subdirectory(${db})
+  add_subdirectory(readers/${db})
 endforeach(db)
 
 add_definitions("-DRC_CPP_VISIT_BUILD")
