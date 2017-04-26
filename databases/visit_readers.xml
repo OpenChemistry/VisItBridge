@@ -457,7 +457,7 @@
      </Hints>
     </SourceProxy>
 
-    <SourceProxy name="VisItPLOT2DReaderCore" class="vtkVisItPLOT2DReader"
+    <SourceProxy name="VisItPLOT2DReaderCore" class="vtkVisItPLOT3DReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
       <Documentation
         long_help="Reads structured simulation data from Plot2D.">
@@ -1055,7 +1055,7 @@
      </Hints>
     </SourceProxy>
 
-    <SourceProxy name="VisItPLOT2DReader" class="vtkVisItPLOT2DReader"
+    <SourceProxy name="VisItPLOT2DReader" class="vtkVisItPLOT3DReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
       <Documentation
         long_help="Reads structured simulation data from Plot2D.">

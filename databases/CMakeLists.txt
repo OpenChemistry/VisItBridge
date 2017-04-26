@@ -53,7 +53,6 @@ set(DEFAULT_BRIDGE_READERS
   PATRAN
   PFLOTRAN
   Pixie
-  PLOT2D
   PLOT3D
   Point3D
   ProteinDataBank
