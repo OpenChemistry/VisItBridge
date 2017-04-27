@@ -50,6 +50,7 @@ set(DEFAULT_BRIDGE_READERS
   OpenFOAM
   OVERFLOW
   paraDIS
+  paraDIS_tecplot
   PATRAN
   PFLOTRAN
   Pixie
