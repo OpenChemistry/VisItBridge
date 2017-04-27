@@ -171,12 +171,12 @@ vtk_module_library(vtkIOVisItBridge ${Module_SRCS} ${VISIT_DB_SOURCES})
 if(VISIT_PARALLEL)
    target_link_libraries(vtkIOVisItBridge
         LINK_PRIVATE
-          visitcommon avtdatabase_par avtpipeline_par avtivp
+          visitcommon avtdatabase_par avtpipeline_par
           visit_vtk)
 else(VISIT_PARALLEL)
   target_link_libraries(vtkIOVisItBridge
         LINK_PRIVATE
-          visitcommon avtdatabase_ser avtpipeline_ser avtivp
+          visitcommon avtdatabase_ser avtpipeline_ser
           visit_vtk)
 endif(VISIT_PARALLEL)
 
