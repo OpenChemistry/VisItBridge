@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -192,7 +192,7 @@ avtDataset::~avtDataset()
 // 
 // ****************************************************************************
 
-int
+long long
 avtDataset::GetNumberOfCells(bool polysOnly) const
 {
    int topoDim = -1;
@@ -581,7 +581,7 @@ avtDataset::CalculateSpatialIntervalTree(bool acrossAllProcs)
     vector<int> ids;
     root->GetAllDomainIds(ids);
     int max = -1;
-    for (int i = 0 ; i < ids.size() ; i++)
+    for (size_t i = 0 ; i < ids.size() ; i++)
         max = (ids[i] > max ? ids[i] : max);
     if (acrossAllProcs)
         max = UnifyMaximumValue(max);
@@ -620,7 +620,7 @@ avtDataset::CalculateSpatialIntervalTree(bool acrossAllProcs)
         else
         { 
             int nc = curTree->GetNChildren();
-            if (trees.size() < idx+nc)
+            if (trees.size() < (size_t)idx+nc)
                 trees.resize(idx+nc);
             for (int j = 0 ; j < nc ; j++)
                 trees[idx++] = curTree->GetChild(j);
@@ -638,7 +638,7 @@ avtDataset::CalculateSpatialIntervalTree(bool acrossAllProcs)
 //  Purpose:
 //      Renumbers the domain IDs.  If a domain has ID 10 and then the reflect
 //      operator comes along, then each of the reflected data sets will also
-//      have ID 10.  This is a nightmare for streamline calculations.
+//      have ID 10.  This is a nightmare for integral curve calculations.
 //      This routine will through away the original IDs and create a new
 //      numbering space.
 //
@@ -675,7 +675,7 @@ avtDataset::RenumberDomainIDs(bool acrossAllProcs)
     }
 
     // This should never execute, but better safe than sorry
-    while (labels.size() < numLeaves)
+    while (labels.size() < (size_t)numLeaves)
     {
         //debug1 << "Unexpected: less labels than leaves" << endl;
         labels.push_back("");

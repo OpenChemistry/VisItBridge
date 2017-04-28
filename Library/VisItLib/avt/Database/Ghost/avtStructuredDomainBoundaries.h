@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -174,6 +174,15 @@ struct Boundary
 //    Hank Childs, Mon Nov 10 15:26:00 PST 2003
 //    Added routines for exchanging rectilinear components.
 //
+//    Jeremy Meredith, Thu Aug 14 10:24:12 EDT 2014
+//    Added ability to fill/communicate/receive values from the 'mixnext'
+//    array for mixed boundary data.  We can't reliably use any other
+//    information (like a change in zone ID) to determine when a segment
+//    of mix data has ended.
+//
+//    Cyrus Harrison, Wed Dec 23 14:31:34 PST 2015
+//    Added FindMatchIndex, which allows us to find the proper "match" values.
+//
 // ****************************************************************************
 template<class T>
 class BoundaryHelperFunctions
@@ -187,18 +196,19 @@ class BoundaryHelperFunctions
 
     T   ***InitializeBoundaryData();
     void   FillBoundaryData(int, const T*, T***, bool, int=1);
-    void   FillMixedBoundaryData(int,avtMaterial*,const T*,T***,int***,int***,std::vector<int>&);
+    void   FillMixedBoundaryData(int,avtMaterial*,const T*,T***,int***,int***,int***,std::vector<int>&);
     void   FillRectilinearBoundaryData(int, const T*, const T*, const T*, T***);
     void   CommunicateBoundaryData(const std::vector<int>&, T***, bool, int=1);
-    void   CommunicateMixedBoundaryData(const std::vector<int>&,T***,int***,int***,std::vector< std::vector<int> > &);
+    void   CommunicateMixedBoundaryData(const std::vector<int>&,T***,int***,int***,int***,std::vector< std::vector<int> > &);
     void   CopyOldValues(int, const T*, T*, bool, int=1);
     void   CopyOldMixedValues(avtMaterial*,const T*, T*);
     void   CopyOldRectilinearValues(int, const T*, T*, int);
     void   SetNewBoundaryData(int, T***, T*, bool, int=1);
-    void   SetNewMixedBoundaryData(int,avtMaterial*,const std::vector< std::vector<int> >&,int***,T***,int***,int***,int*,T*,int*,int*,int*,int&);
+    void   SetNewMixedBoundaryData(int,avtMaterial*,const std::vector< std::vector<int> >&,int***,T***,int***,int***,int***,int*,T*,int*,int*,int*,int&);
     void   SetNewRectilinearBoundaryData(int, T***, T*, T*, T*);
     void   FakeNonexistentBoundaryData(int, T*, bool, int=1);
     void   FreeBoundaryData(T***);
+    int    FindMatchIndex(int src_domain, int nei_domain);
 };
 
 // ****************************************************************************
@@ -286,6 +296,13 @@ class BoundaryHelperFunctions
 //    Gunther H. Weber, Wed Jul 18 15:38:36 PDT 2012
 //    Support anisotropic refinement.
 //
+//    Gunther H. Weber, Thu Aug 21 14:16:29 PDT 2014
+//    Make new ghost zone generation method default.
+//
+//    Kevin Griffin, Tue Apr 21 17:41:51 PDT 2015
+//    Added the ExchangeVector method so that the Exchange*Vector methods can
+//    be called based on the underlying data type.
+//
 // ****************************************************************************
 
 class DATABASE_API avtStructuredDomainBoundaries :  public avtDomainBoundaries
@@ -325,17 +342,9 @@ class DATABASE_API avtStructuredDomainBoundaries :  public avtDomainBoundaries
                                              bool                  isPointData,
                                              std::vector<vtkDataArray*> scalars);
 
-    virtual std::vector<vtkDataArray*>     ExchangeFloatVector(std::vector<int> domainNum,
-                                            bool                   isPointData,
-                                            std::vector<vtkDataArray*>  vectors);
-
-    virtual std::vector<vtkDataArray*>     ExchangeDoubleVector(std::vector<int> domainNum,
-                                            bool                   isPointData,
-                                            std::vector<vtkDataArray*>  vectors);
-
-    virtual std::vector<vtkDataArray*>     ExchangeIntVector(std::vector<int>  domainNum,
-                                             bool                  isPointData,
-                                             std::vector<vtkDataArray*> vectors);
+    virtual std::vector<vtkDataArray*>     ExchangeVector(std::vector<int> domainNum,
+                                                               bool                   isPointData,
+                                                               std::vector<vtkDataArray*>  vectors);
 
     virtual std::vector<avtMaterial*>      ExchangeMaterial(std::vector<int>   domainNum,
                                               std::vector<avtMaterial*>   mats);
@@ -369,6 +378,18 @@ class DATABASE_API avtStructuredDomainBoundaries :  public avtDomainBoundaries
     virtual std::vector<vtkDataArray*>     ExchangeUCharScalar(std::vector<int> domainNum,
                                              bool                  isPointData,
                                              std::vector<vtkDataArray*> scalars);
+    
+    virtual std::vector<vtkDataArray*>     ExchangeFloatVector(std::vector<int> domainNum,
+                                                               bool                   isPointData,
+                                                               std::vector<vtkDataArray*>  vectors);
+    
+    virtual std::vector<vtkDataArray*>     ExchangeDoubleVector(std::vector<int> domainNum,
+                                                                bool                   isPointData,
+                                                                std::vector<vtkDataArray*>  vectors);
+    
+    virtual std::vector<vtkDataArray*>     ExchangeIntVector(std::vector<int>  domainNum,
+                                                             bool                  isPointData,
+                                                             std::vector<vtkDataArray*> vectors);
 
 
     static bool                       createGhostsForTIntersections;

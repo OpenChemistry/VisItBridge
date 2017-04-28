@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -39,6 +39,7 @@
 // ************************************************************************* //
 //                           avtTransformManager.C                           //
 // ************************************************************************* //
+#include <vtkCellArray.h>
 #include <vtkCellData.h>
 #include <vtkCSGGrid.h>
 #include <vtkCharArray.h>
@@ -69,6 +70,7 @@
 
 #include <vtkVisItUtility.h>
 
+#include <avtCallback.h>
 #include <avtDatabase.h>
 #include <avtDatabaseFactory.h>
 #include <avtDatabaseMetaData.h>
@@ -93,6 +95,9 @@
 using std::vector;
 using std::map;
 
+#if defined (_MSC_VER) && (_MSC_VER < 1800) && !defined(round)
+inline double round(double x) {return (x-floor(x)) > 0.5 ? ceil(x) : floor(x);}
+#endif
 
 // ****************************************************************************
 //  Function: GetArrayTypeName 
@@ -226,7 +231,7 @@ PrecisionInBytes(vtkDataArray *var)
 static bool
 IsAdmissibleDataType(const vector<int>& admissibleTypes, const int type)
 {
-    for (int i = 0; i < admissibleTypes.size(); i++)
+    for (size_t i = 0; i < admissibleTypes.size(); i++)
     {
         if (admissibleTypes[i] == type)
             return true;
@@ -287,6 +292,9 @@ static void ConvertToType(oT *obuf, const iT* ibuf, size_t n)
 //    Gunther H. Weber, Thu Nov  8 10:20:32 PST 2012
 //    Use size_t instead of int
 //
+//    Brad Whitlock, Thu Jul 23 16:01:46 PDT 2015
+//    Support for non-standard memory layout. Use vtkTemplateMacro.
+//
 // ****************************************************************************
 
 static vtkDataArray * 
@@ -304,63 +312,32 @@ ConvertDataArrayToFloat(vtkDataArray *oldArr)
         newArr->SetNumberOfComponents(numComponents);
         newArr->SetNumberOfTuples(numTuples);
 
-        float *newBuf = (float*) newArr->GetVoidPointer(0);
-        void *oldBuf = oldArr->GetVoidPointer(0);
-
         debug1 << "avtTransformManager: Converting vktDataArray, ";
-        if (oldArr->GetName() != NULL)
+        if (oldArr->GetName() != NULL) 
+        {
                debug1 << "\"" << oldArr->GetName() << "\", ";
+        }
         debug1 << "with " << numTuples << " tuples and "
                << numComponents << " components from type \""
                << DataArrayTypeName(oldArr) << "\" to \"float\"" << endl;
 
         size_t numValues = numTuples * numComponents;
-        switch (oldArr->GetDataType())
+        if(oldArr->HasStandardMemoryLayout())
         {
-            case VTK_CHAR:
-                ConvertToType(newBuf, (char*) oldBuf, numValues);
-                break;
-            case VTK_UNSIGNED_CHAR:
-                ConvertToType(newBuf, (unsigned char*) oldBuf, numValues);
-                break;
-            case VTK_SHORT:
-                ConvertToType(newBuf, (short*) oldBuf, numValues);
-                break;
-            case VTK_UNSIGNED_SHORT:
-                ConvertToType(newBuf, (unsigned short*) oldBuf, numValues);
-                break;
-            case VTK_INT:
-                ConvertToType(newBuf, (int*) oldBuf, numValues);
-                break;
-            case VTK_UNSIGNED_INT:
-                ConvertToType(newBuf, (unsigned int*) oldBuf, numValues);
-                break;
-            case VTK_LONG:
-                ConvertToType(newBuf, (long*) oldBuf, numValues);
-                break;
-            case VTK_LONG_LONG:
-                ConvertToType(newBuf, (long long*) oldBuf, numValues);
-                break;
-            case VTK_UNSIGNED_LONG:
-                ConvertToType(newBuf, (unsigned long*) oldBuf, numValues);
-                break;
-            case VTK_UNSIGNED_LONG_LONG:
-                ConvertToType(newBuf, (unsigned long long*) oldBuf, numValues);
-                break;
-            case VTK_DOUBLE:
-                ConvertToType(newBuf, (double*) oldBuf, numValues);
-                break;
-            case VTK_ID_TYPE:
-                ConvertToType(newBuf, (vtkIdType*) oldBuf, numValues);
-                break;
-            default:
-                {
-                   char msg[256];
-                    SNPRINTF(msg, sizeof(msg),
-                        "Cannot convert from type \"%s\" to float",
-                        DataArrayTypeName(oldArr));
-                    EXCEPTION1(ImproperUseException, msg);
-                }
+            float *newBuf = (float*) newArr->GetVoidPointer(0);
+            void *oldBuf = oldArr->GetVoidPointer(0);
+            switch (oldArr->GetDataType())
+            {
+            vtkTemplateMacro(
+                ConvertToType(newBuf, (VTK_TT *) oldBuf, numValues);
+            );
+            }
+        }
+        else
+        {
+            vtkIdType nTuples = oldArr->GetNumberOfTuples();
+            for (vtkIdType i = 0; i < nTuples; i++)
+                newArr->SetTuple(i, oldArr->GetTuple(i));
         }
     }
 
@@ -368,7 +345,8 @@ ConvertDataArrayToFloat(vtkDataArray *oldArr)
         newArr->SetName(oldArr->GetName());
 
     vtkInformation* info = oldArr->GetInformation();
-    if (info && info->Has(avtVariableCache::OFFSET_3())) {
+    if (info && info->Has(avtVariableCache::OFFSET_3())) 
+    {
         double* vals = info->Get(avtVariableCache::OFFSET_3());
         vtkInformation* newInfo = newArr->GetInformation();
         newInfo->Set(avtVariableCache::OFFSET_3(), vals[0], vals[1], vals[2]);
@@ -412,8 +390,10 @@ ConvertDataArrayToDouble(vtkDataArray *oldArr)
         void *oldBuf = oldArr->GetVoidPointer(0);
 
         debug1 << "avtTransformManager: Converting vktDataArray, ";
-        if (oldArr->GetName() != NULL)
+        if (oldArr->GetName() != NULL) 
+        {
                debug1 << "\"" << oldArr->GetName() << "\", ";
+        }
         debug1 << "with " << numTuples << " tuples and "
                << numComponents << " components from type \""
                << DataArrayTypeName(oldArr) << "\" to \"double\"" << endl;
@@ -472,7 +452,8 @@ ConvertDataArrayToDouble(vtkDataArray *oldArr)
         newArr->SetName(oldArr->GetName());
   
     vtkInformation* info = oldArr->GetInformation();
-    if (info && info->Has(avtVariableCache::OFFSET_3())) {
+    if (info && info->Has(avtVariableCache::OFFSET_3())) 
+    {
         double* vals = info->Get(avtVariableCache::OFFSET_3());
         vtkInformation* newInfo = newArr->GetInformation();
         newInfo->Set(avtVariableCache::OFFSET_3(), vals[0], vals[1], vals[2]);
@@ -790,9 +771,11 @@ ShouldIgnoreVariableForConversions(vtkDataArray *da,
             ignoreIt = true;
     }
 
-    if (ignoreIt)
+    if (ignoreIt) 
+    {
         debug4 << "Ignoring variable/array \"" << da->GetName()
                << "\" for type conversions" << endl;
+    }
 
     return ignoreIt;
 }
@@ -872,7 +855,7 @@ avtTransformManager::CoordinatesHaveExcessPrecision(vtkDataSet *ds,
         // to lose some precision.
         excessPrecision = !needNativePrecision  &&
             pType != AVT_PRECISION_NATIVE &&
-            (PrecisionInBytes(GetCoordDataType(ds)) > sizeof(float));
+            ((size_t)PrecisionInBytes(GetCoordDataType(ds)) > sizeof(float));
     }
 
     return excessPrecision;
@@ -916,7 +899,7 @@ avtTransformManager::CoordinatesHaveInsufficientPrecision(vtkDataSet *ds,
         // to increase precision.
         insufficientPrecision = !needNativePrecision &&
             pType != AVT_PRECISION_NATIVE  &&
-            (PrecisionInBytes(GetCoordDataType(ds)) < sizeof(double));
+            ((size_t)PrecisionInBytes(GetCoordDataType(ds)) < sizeof(double));
     }
 
     return insufficientPrecision;
@@ -962,7 +945,7 @@ avtTransformManager::DataHasExcessPrecision(vtkDataArray *da,
         // to lose some precision.
         excessPrecision = !needNativePrecision && 
             pType != AVT_PRECISION_NATIVE &&
-            (PrecisionInBytes(da) > sizeof(float));
+            ((size_t)PrecisionInBytes(da) > sizeof(float));
     }
 
     return excessPrecision;
@@ -1005,7 +988,7 @@ avtTransformManager::DataHasInsufficientPrecision(vtkDataArray *da,
         // to lose some precision.
         insufficientPrecision = !needNativePrecision &&
              pType != AVT_PRECISION_NATIVE &&
-            (PrecisionInBytes(da) < sizeof(double));
+            ((size_t)PrecisionInBytes(da) < sizeof(double));
     }
 
     return insufficientPrecision;
@@ -1238,8 +1221,10 @@ avtTransformManager::NativeToFloat(const avtDatabaseMetaData *const md,
             {
                 avtVarType vt = md->DetermineVarType(da->GetName());
                 ignore = (vt == AVT_MATERIAL || vt == AVT_MATSPECIES);
-                if (ignore)
+                if (ignore) 
+                {
                     debug4 << "Conversion to double ignored for " << "da->GetName()" << endl;
+                }
             }
             if(!ignore && (disallowedType || excessPrecision || insufficientPrecision))
             {
@@ -1451,6 +1436,15 @@ avtTransformManager::NativeToFloat(const avtDatabaseMetaData *const md,
 //
 //  Programmer: Mark C. Miller 
 //  Creation:   Friday, February 13, 2009 
+//
+//  Modifications:
+//    Eric Brugger, Wed Nov 19 08:46:49 PST 2014
+//    I reduced the number of reads of CSG meshes to only once per CSG mesh
+//    instead of once per region in order to reduce the number of times the
+//    same CSG mesh was cached. Typically there is one CSG mesh with many
+//    regions, so this is a significant saving. CSG meshes with thousands
+//    of regions were exhausting memory in the previous scheme.
+//
 // ****************************************************************************
 
 vtkDataSet *
@@ -1458,20 +1452,20 @@ avtTransformManager::FindMatchingCSGDiscretization(
     const avtDatabaseMetaData *const md,
     const avtDataRequest_p &dataRequest,
     const char *vname, const char *type,
-    int ts, int dom, const char *mat)
+    int ts, int csgdom, int dom, const char *mat)
 {
-    vtkCSGGrid *curTsDs = (vtkCSGGrid *) gdbCache->GetVTKObject(vname, type, ts, dom, mat);
+    vtkCSGGrid *curTsDs = (vtkCSGGrid *) gdbCache->GetVTKObject(vname, type, ts, csgdom, mat);
     if (curTsDs == 0)
         return 0;
 
     // compare the CSGGrid object as read from the format to the
     // current object
-    vtkCSGGrid *oldTsDs = (vtkCSGGrid *) cache.GetVTKObject(vname, type, -1, dom, mat);
+    vtkCSGGrid *oldTsDs = (vtkCSGGrid *) cache.GetVTKObject(vname, type, -1, csgdom, mat);
     if (oldTsDs && *oldTsDs == *curTsDs)
     {
         // compare the discretization parameters
         void_ref_ptr oldVrDr = cache.GetVoidRef(vname,
-                               avtVariableCache::DATA_SPECIFICATION, -1, dom);
+                               avtVariableCache::DATA_SPECIFICATION, -1, csgdom);
         avtDataRequest *oldDr = (avtDataRequest *) *oldVrDr;
         if ((oldDr->DiscBoundaryOnly() == dataRequest->DiscBoundaryOnly()) &&
             (oldDr->DiscTol() == dataRequest->DiscTol()) &&
@@ -1571,8 +1565,36 @@ double ComputeCellSize(double tol,
 //    in which case we fall back to the Uniform algorithm.
 //
 //    Eric Brugger, Wed Jul 25 09:02:59 PDT 2012
-//    I modified the multi-pass discretizion of CSG meshes to only process
+//    I modified the multi-pass discretization of CSG meshes to only process
 //    a portion of the mesh on each processor instead of the entire mesh.
+//
+//    Eric Brugger, Wed Apr  2 12:12:49 PDT 2014
+//    I modified the multi-pass discretization of CSG meshes to process
+//    each domain independently if the number total number of boundary
+//    surfaces is above the internal limit.
+//
+//    Eric Brugger, Wed Aug 20 14:17:49 PDT 2014
+//    I corrected a bug in the calculation of the subregion index extents
+//    where it would calculate degenerate regions when the number of elements
+//    per block was small.
+//
+//    Eric Brugger, Wed Nov 19 08:46:49 PST 2014
+//    I reduced the number of reads of CSG meshes to only once per CSG mesh
+//    instead of once per region in order to reduce the number of times the
+//    same CSG mesh was cached. Typically there is one CSG mesh with many
+//    regions, so this is a significant saving. CSG meshes with thousands
+//    of regions were exhausting memory in the previous scheme.
+//
+//    Eric Brugger, Fri Nov 21 15:36:42 PST 2014
+//    I added code to try the uniform discretization method if the multi
+//    pass method failed. I also added code to return an empty mesh if we
+//    were unable to discretize the mesh.
+//
+//    Eric Brugger, Mon Nov 24 16:04:47 PST 2014
+//    I added an argument to vtkCSGGrid::DoDiscretizationMultiPass that
+//    specifies if all the regions should be discretized at once. I am
+//    passing a hard coded false since it gives better performance for
+//    complex CSG meshes. In the future this will be user controllable.
 //
 // ****************************************************************************
 vtkDataSet *
@@ -1595,12 +1617,15 @@ avtTransformManager::CSGToDiscrete(avtDatabaseMetaData *md,
     //
     const char *vname, *type, *mat;
     int ts;
-    if (!gdbCache->GetVTKObjectKey(&vname, &type, &ts, dom, &mat, ds))
+
+    vname = dataRequest->GetVariable();
+    int csgdom = dom, csgreg;
+    md->ConvertCSGDomainToBlockAndRegion(vname, &csgdom, &csgreg);
+
+    if (!gdbCache->GetVTKObjectKey(&vname, &type, &ts, csgdom, &mat, ds))
     {
         EXCEPTION1(PointerNotInCacheException, ds);
     }
-    int csgdom = dom, csgreg;
-    md->ConvertCSGDomainToBlockAndRegion(vname, &csgdom, &csgreg);
 
     debug1 << "Preparing to obtain CSG discretized grid for "
            << ", dom=" << dom
@@ -1631,7 +1656,7 @@ avtTransformManager::CSGToDiscrete(avtDatabaseMetaData *md,
     // be a result from another timestate we could use. We look for one now.
     //
     if (dgrid == 0)
-        dgrid = FindMatchingCSGDiscretization(md, dataRequest, vname, type, ts, dom, mat);
+        dgrid = FindMatchingCSGDiscretization(md, dataRequest, vname, type, ts, csgdom, dom, mat);
 
     //
     // Ok, we need to discretize the CSG grid.
@@ -1655,7 +1680,6 @@ avtTransformManager::CSGToDiscrete(avtDatabaseMetaData *md,
         int nY = (int) ((maxY - minY) / tol);
         int nZ = (int) ((maxZ - minZ) / tol);
 
-        int nDims = (nZ < 1) ? 2 : 3;
         int dims[3] = {nX, nY, nZ};
 
         if (nZ < 1)
@@ -1666,6 +1690,7 @@ avtTransformManager::CSGToDiscrete(avtDatabaseMetaData *md,
         //
         int nXBlocks, nYBlocks, nZBlocks;
 #ifdef PARALLEL
+        int nDims = (nZ < 1) ? 2 : 3;
         if (nDims == 2)
         {
             //
@@ -1686,25 +1711,29 @@ avtTransformManager::CSGToDiscrete(avtDatabaseMetaData *md,
         nZBlocks = 1;
 #endif
 
-        int nBlocks = nXBlocks * nYBlocks * nZBlocks;
-
-        int deltaX = (nX + nXBlocks - 1) / nXBlocks;
-        int deltaY = (nY + nYBlocks - 1) / nYBlocks;
-        int deltaZ = (nZ + nZBlocks - 1) / nZBlocks;
+        double deltaX = double(nX) / double(nXBlocks);
+        double deltaY = double(nY) / double(nYBlocks);
+        double deltaZ = double(nZ) / double(nZBlocks);
 
         int iBlock = rank;
         int iXBlock = iBlock / (nYBlocks * nZBlocks);
-        int iMin = iXBlock == 0 ? 0 : iXBlock * deltaX - 1;
-        int iMax = (iXBlock + 1) * deltaX + 1 < nX ? (iXBlock + 1) * deltaX + 1 : nX;
+        int iMin = int(round(deltaX * double(iXBlock))) - 1;
+        iMin = iMin >= 0 ? iMin : 0;
+        int iMax = int(round(deltaX * double(iXBlock + 1))) + 1;
+        iMax = iMax < nX ? iMax : nX;
 
         iBlock = iBlock % (nYBlocks * nZBlocks);
         int iYBlock = iBlock / nZBlocks;
-        int jMin = iYBlock == 0 ? 0 : iYBlock * deltaY - 1;
-        int jMax = (iYBlock + 1) * deltaY + 1 < nY ? (iYBlock + 1) * deltaY + 1 : nY;
+        int jMin = int(round(deltaY * double(iYBlock))) - 1;
+        jMin = jMin >= 0 ? jMin : 0;
+        int jMax = int(round(deltaY * double(iYBlock + 1))) + 1;
+        jMax = jMax < nY ? jMax : nY;
 
         int iZBlock = iBlock % nZBlocks;
-        int kMin = iZBlock == 0 ? 0 : iZBlock * deltaZ - 1;
-        int kMax = (iZBlock + 1) * deltaZ + 1 < nZ ? (iZBlock + 1) * deltaZ + 1 : nZ;
+        int kMin = int(round(deltaZ * double(iZBlock))) - 1;
+        kMin = kMin >= 0 ? kMin : 0;
+        int kMax = int(round(deltaZ * double(iZBlock + 1))) + 1;
+        kMax = kMax < nZ ? kMax : nZ;
 
         int subRegion[6];
         subRegion[0] = iMin; subRegion[1] = iMax;
@@ -1756,61 +1785,51 @@ avtTransformManager::CSGToDiscrete(avtDatabaseMetaData *md,
                 }
             }
 
-            // If we didn't find a mesh, process it now.
-            vtkCSGGrid *csgmesh = NULL;
-            bool success = true;
-            if (!processed)
-            {
-                csgmesh = vtkCSGGrid::SafeDownCast(ds);
-                const double *bnds = csgmesh->GetBounds();
-                success = csgmesh->DiscretizeSpaceMultiPass(
-                                               bnds, dims, subRegion);
-                if (success)
-                {
-                    processed = ds;
-                    cache.CacheVTKObject(vname, type, -1, -1, mat, csgmesh);
-                    avtDataRequest *newdataRequest = new avtDataRequest(dataRequest);
-                    const void_ref_ptr vr = void_ref_ptr(newdataRequest, DestructDspec);
-                    cache.CacheVoidRef(vname, avtVariableCache::DATA_SPECIFICATION,
-                                       -1, -1, vr);
-                }
-                else
-                {
-                    // clear out any old one
-                    cache.CacheVTKObject(vname, type, -1, -1, mat, NULL);
-                }
-            }
-            else
-            {
+            if (processed)
                 csgmesh = vtkCSGGrid::SafeDownCast(processed);
-            }
 
-            // On failure, revert to Uniform mode.
-            if (success)
+            dgrid = csgmesh->DiscretizeSpaceMultiPass(csgreg, false,
+                bnds, dims, subRegion);
+
+            if (dgrid == NULL)
             {
-                dgrid = csgmesh->GetMultiPassDiscretization(csgreg);
-            }
-            else
-            {
-                debug1 << "Something failed in the CSG multipass "
-                       << "algorithm; reverting to uniform\n";
+                std::ostringstream oss;
+                oss << "Unable to discretize domain " << dom << " with "
+                    << "the multi pass method, trying the uniform method.";
+                std::string msg(oss.str());
+                avtCallback::IssueWarning(msg.c_str());
+
                 dgrid = csgmesh->DiscretizeSpace(csgreg,
-                                                 dataRequest->DiscTol(),
-                                                 bnds[0], bnds[1], bnds[2],
-                                                 bnds[3], bnds[4], bnds[5]);
+                                             dataRequest->DiscTol(),
+                                             bnds[0], bnds[1], bnds[2],
+                                             bnds[3], bnds[4], bnds[5]);
             }
-
+            cache.CacheVTKObject(vname, type, -1, -1, mat, csgmesh);
+            avtDataRequest *newdataRequest = new avtDataRequest(dataRequest);
+            const void_ref_ptr vr = void_ref_ptr(newdataRequest, DestructDspec);
+            cache.CacheVoidRef(vname, avtVariableCache::DATA_SPECIFICATION,
+                               -1, -1, vr);
         }
-        // FIX_ME_VTK6.0, ESB, I assume this needs to be done for VTK based
-        // readers. Can we eliminate this or do we need to move it somewhere
-        // else. All the tests pass with this commented out.
-        // dgrid->Update();
+
+        if (dgrid == NULL)
+        {
+            std::ostringstream oss;
+            oss << "Unable to discretize domain " << dom << ". Ignoring it.";
+            std::string msg(oss.str());
+            avtCallback::IssueWarning(msg.c_str());
+            dgrid = vtkUnstructuredGrid::New();
+        }
 
         //
         // Cache the discretized mesh for this timestep
         //
         cache.CacheVTKObject(vname, type, ts, dom, mat, dgrid);
         dgrid->Delete();
+
+        avtDataRequest *newdataRequest = new avtDataRequest(dataRequest);
+        const void_ref_ptr vr = void_ref_ptr(newdataRequest, DestructDspec);
+        cache.CacheVoidRef(vname, avtVariableCache::DATA_SPECIFICATION,
+                           ts, dom, vr);
 
         //
         // Ok, this is a bit of a hack. We want to cache BOTH the
@@ -1822,23 +1841,21 @@ avtTransformManager::CSGToDiscrete(avtDatabaseMetaData *md,
         // We do this caching so that if a CSG grid does NOT change with
         // time, we can avoid re-discretizing it each timestep. 
         //
-        vtkCSGGrid *csgcopy = vtkCSGGrid::New();
-        csgcopy->ShallowCopy(csgmesh);
-        cache.CacheVTKObject(vname, type, -1, dom, mat, csgcopy);
-        csgcopy->Delete();
+        if (cache.GetVTKObject(vname, type, -1, csgdom, mat) == NULL)
+        {
+            vtkCSGGrid *csgcopy = vtkCSGGrid::New();
+            csgcopy->ShallowCopy(csgmesh);
+            cache.CacheVTKObject(vname, type, -1, csgdom, mat, csgcopy);
+            csgcopy->Delete();
+
+            cache.CacheVoidRef(vname, avtVariableCache::DATA_SPECIFICATION,
+                               -1, csgdom, vr);
+        }
 
         vtkDataSet *dgridcopy = dgrid->NewInstance();
         dgridcopy->ShallowCopy(dgrid);
         cache.CacheVTKObject(vname, "DISCRETIZED_CSG", -1, dom, mat, dgridcopy);
         dgridcopy->Delete();
-
-        avtDataRequest *newdataRequest = new avtDataRequest(dataRequest);
-        const void_ref_ptr vr = void_ref_ptr(newdataRequest, DestructDspec);
-        cache.CacheVoidRef(vname, avtVariableCache::DATA_SPECIFICATION,
-                           ts, dom, vr);
-        // Also, cache a copy of the data specification at time -1, too.
-        cache.CacheVoidRef(vname, avtVariableCache::DATA_SPECIFICATION,
-                           -1, dom, vr);
     }
 
     // copy same procuedure used in avtGenericDatabase to put object into
@@ -1855,7 +1872,7 @@ avtTransformManager::CSGToDiscrete(avtDatabaseMetaData *md,
     {
         vtkDataArray *da = cd->GetArray(i);
         // look up this vtk object's "key" in GenericDb's cache
-        if (!gdbCache->GetVTKObjectKey(&vname, &type, &ts, dom, &mat, da))
+        if (!gdbCache->GetVTKObjectKey(&vname, &type, &ts, csgdom, &mat, da))
         {
             EXCEPTION1(PointerNotInCacheException, da);
         }
@@ -1918,6 +1935,17 @@ avtTransformManager::CSGToDiscrete(avtDatabaseMetaData *md,
 //
 //    Mark C. Miller, Wed Aug 22 09:01:36 PDT 2012
 //    Fixed leak of matnames
+//
+//    Burlen Loring, Mon Jul 14 15:52:49 PDT 2014
+//    fix alloc-dealloc-mismatch (operator new [] vs free) of matnames
+//
+//    Eric Brugger, Wed Nov 19 08:46:49 PST 2014
+//    I reduced the number of reads of CSG meshes to only once per CSG mesh
+//    instead of once per region in order to reduce the number of times the
+//    same CSG mesh was cached. Typically there is one CSG mesh with many
+//    regions, so this is a significant saving. CSG meshes with thousands
+//    of regions were exhausting memory in the previous scheme.
+//
 // ****************************************************************************
 bool
 avtTransformManager::TransformMaterialDataset(avtDatabaseMetaData *md,
@@ -1929,14 +1957,7 @@ avtTransformManager::TransformMaterialDataset(avtDatabaseMetaData *md,
     if (mat == 0 || *mat == 0)
         return false;
 
-    // find the given material object in Generic DB's cache
-    int refCount = 1;
-    void_ref_ptr vr = void_ref_ptr(*mat, avtMaterial::Destruct, &refCount);
-    if (!gdbCache->GetVoidRefKey(&vname, &type, &ts, dom, vr))
-    {
-        EXCEPTION1(PointerNotInCacheException, *vr);
-    }
-    
+    vname = dataRequest->GetVariable();
     std::string meshname = md->MeshForVar(vname);
     const avtMeshMetaData *mmd = md->GetMesh(meshname);
     if (mmd->meshType == AVT_CSG_MESH)
@@ -1944,6 +1965,14 @@ avtTransformManager::TransformMaterialDataset(avtDatabaseMetaData *md,
         int csgdom = dom, csgreg;
         md->ConvertCSGDomainToBlockAndRegion(vname, &csgdom, &csgreg);
 
+        // find the given material object in Generic DB's cache
+        int refCount = 1;
+        void_ref_ptr vr = void_ref_ptr(*mat, avtMaterial::Destruct, &refCount);
+        if (!gdbCache->GetVoidRefKey(&vname, &type, &ts, csgdom, vr))
+        {
+            EXCEPTION1(PointerNotInCacheException, *vr);
+        }
+    
         // Determine if the cache is valid based on whether or not the
         // discretization parameters have changed.
         bool cache_valid = true;
@@ -1971,7 +2000,7 @@ avtTransformManager::TransformMaterialDataset(avtDatabaseMetaData *md,
             // is defined has not yet been discretized. So, do it now.
             //
             ds = (vtkDataSet *) gdbCache->GetVTKObject(meshname.c_str(),
-                     avtVariableCache::DATASET_NAME, ts, dom, "_all");
+                     avtVariableCache::DATASET_NAME, ts, csgdom, "_all");
             if (!ds)
             {
                 EXCEPTION1(PointerNotInCacheException, ds);
@@ -2009,7 +2038,7 @@ avtTransformManager::TransformMaterialDataset(avtDatabaseMetaData *md,
 
             delete [] matnos;
             for (j = 0; j < nmats; j++)
-                free(matnames[j]);
+                delete [] matnames[j];
             delete [] matnames;
 
             if (newmat)
@@ -2044,6 +2073,11 @@ avtTransformManager::TransformMaterialDataset(avtDatabaseMetaData *md,
 //
 //    Mark C. Miller, Wed May  6 13:51:30 PDT 2009
 //    Fix md for the mesh if we indeed add VERTEX cells.
+//
+//    Kathleen Biagas, Tue Apr 12 16:58:47 PDT 2016
+//    Removed examination of cell/pt data arrays, as the restriction prevents
+//    creation of Vertex Cells for Mesh plots.
+//
 // ****************************************************************************
 
 vtkDataSet *
@@ -2060,31 +2094,6 @@ avtTransformManager::AddVertexCellsToPointsOnlyDataset(avtDatabaseMetaData *md,
         return ds; // no-op
 
     if (ds->GetNumberOfCells() != 0)
-        return ds; // no-op
-
-    if ((ds->GetCellData() == 0 || ds->GetCellData()->GetNumberOfArrays() == 0) &&
-        (ds->GetPointData() == 0 || ds->GetPointData()->GetNumberOfArrays() == 0))
-        return ds; // no-op
-
-    bool hasEmptyCellDataArrays = true;
-    for (i = 0; i < ds->GetCellData()->GetNumberOfArrays(); i++)
-    {
-        if (ds->GetCellData()->GetArray(i)->GetNumberOfTuples() == ds->GetNumberOfPoints())
-        {
-            hasEmptyCellDataArrays = false;
-            break;
-        }
-    }
-    bool hasEmptyPointDataArrays = true;
-    for (i = 0; i < ds->GetPointData()->GetNumberOfArrays(); i++)
-    {
-        if (ds->GetPointData()->GetArray(i)->GetNumberOfTuples() == ds->GetNumberOfPoints())
-        {
-            hasEmptyPointDataArrays = false;
-            break;
-        }
-    }
-    if (hasEmptyCellDataArrays && hasEmptyPointDataArrays)
         return ds; // no-op
 
     // Ok, really look this object up via reverse lookup
@@ -2227,8 +2236,8 @@ vtkDataSet *ds, int dom)
         return ds;
 
     // Rule out any datasets that cannot possibly be curves.
-    int xvalsType;
-    vtkDataArray *xvals;
+    int xvalsType = 0;
+    vtkDataArray *xvals = NULL;
     switch (doType)
     {
         case VTK_POLY_DATA:
@@ -2390,6 +2399,11 @@ avtTransformManager::TransformSingleDataset(vtkDataSet *ds,
 
         //ds = PolyhedralToZoo(md, d_spec, ds);
 
+        if (avtDatabaseFactory::GetRemoveDuplicateNodes())
+        {
+            ds = RemoveDuplicateNodes(ds);
+        }
+
         ds = NativeToFloat(md, d_spec, ds, domain);
     }
     CATCH(PointerNotInCacheException)
@@ -2399,4 +2413,115 @@ avtTransformManager::TransformSingleDataset(vtkDataSet *ds,
     ENDTRY
 
     return ds;
+}
+
+
+// ****************************************************************************
+//  Method: RemoveDuplicateNodes
+//
+//  Purpose: Remove duplicate nodes from fully-disonnected unstructured grids.
+//
+//  Notes:
+//    Moved from avtVTKFileReader::ReadInDataset on December 22, 2014.
+//
+//  Programmer: Mark C. Miller
+//  Creation: July 2, 2014
+//  
+//  Modifications:
+//
+// ****************************************************************************
+
+vtkDataSet *
+avtTransformManager::RemoveDuplicateNodes(vtkDataSet *ds)
+{
+    //
+    // Try to remove duplicate nodes in datasets meeting the following
+    // criteria...
+    //    a) unstructured grid, and
+    //    b) more than 1,000,000 points, and
+    //    c) number of points is 3x more than number of cells
+ 
+    if (ds->GetDataObjectType() != VTK_UNSTRUCTURED_GRID)
+    {
+        return ds;
+    }
+
+    vtkUnstructuredGrid *ugrid = vtkUnstructuredGrid::SafeDownCast(ds);
+
+    // Detect the "fully disconnected" case
+    if ((ugrid->GetCells()->GetSize() - ugrid->GetNumberOfCells()) <
+         ugrid->GetNumberOfPoints())
+    {
+       return ds;
+    }
+
+    debug2 << "In avtVTKFileReader::ReadInDataset, the unstructured grid is"
+           << " fully disconnected..." << endl;
+    debug2 << "...detecting and removing any spatial duplicate points to"
+           << " re-connect mesh." << endl;
+
+    // build list of unique points
+    vtkPoints *pts = ugrid->GetPoints();
+    std::map<double, std::map<double, std::map<double, vtkIdType> > > uniqpts;
+    int n = 0;
+    for (int i = 0; i < pts->GetNumberOfPoints(); i++)
+    {
+        double pt[3];
+        pts->GetPoint(i, pt);
+        std::map<double, std::map<double, std::map<double, vtkIdType> > >::iterator e0it = uniqpts.find(pt[0]);
+        if (e0it != uniqpts.end())
+        {
+            std::map<double, std::map<double, vtkIdType> >::iterator e1it = e0it->second.find(pt[1]);
+            if (e1it != e0it->second.end())
+            {
+                std::map<double, vtkIdType>::iterator e2it = e1it->second.find(pt[2]);
+                if (e2it != e1it->second.end())
+                    continue;
+            }
+        }
+        uniqpts[pt[0]][pt[1]][pt[2]] = n++;
+    }
+
+    debug2 << "...discovered " << 100.0 * n / pts->GetNumberOfPoints()
+           << "% of points are spatially unique." << endl;
+    debug2 << "...now reconnecting mesh using unique points." << endl;
+
+    for (int i = 0; i < ugrid->GetNumberOfCells(); i++)
+    {
+        vtkIdType nCellPts=0, *cellPts=0;
+        ugrid->GetCellPoints(i, nCellPts, cellPts);
+        for (int j = 0; j < nCellPts; j++)
+        {
+            double pt[3];
+            pts->GetPoint(cellPts[j], pt);
+            std::map<double, std::map<double, std::map<double, vtkIdType> > >::const_iterator e0it = uniqpts.find(pt[0]);
+            if (e0it == uniqpts.end())
+                continue;
+            std::map<double, std::map<double, vtkIdType> >::const_iterator e1it = e0it->second.find(pt[1]);
+            if (e1it == e0it->second.end())
+                continue;
+            std::map<double, vtkIdType>::const_iterator e2it = e1it->second.find(pt[2]);
+            if (e2it == e1it->second.end())
+                continue;
+            cellPts[j] = e2it->second;
+        }
+        ugrid->ReplaceCell(i, nCellPts, cellPts);
+    }
+
+    pts->Initialize();
+    pts->SetNumberOfPoints(n);
+    std::map<double, 
+             std::map<double, std::map<double, vtkIdType> >
+            >::iterator e0it;
+    for (e0it = uniqpts.begin(); e0it != uniqpts.end(); e0it++)
+    {
+        std::map<double, std::map<double, vtkIdType> >::iterator e1it;
+        for (e1it = e0it->second.begin(); e1it != e0it->second.end(); e1it++)
+        {
+            std::map<double, vtkIdType>::iterator e2it;
+            for (e2it = e1it->second.begin(); e2it != e1it->second.end(); e2it++)
+                pts->SetPoint(e2it->second, e0it->first, e1it->first, e2it->first);
+        }
+    }
+    return ugrid;
 }

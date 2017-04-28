@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -61,8 +61,6 @@ using std::vector;
 
 // Prototypes
 static int GroupSorter(const void *, const void *);
-static SILCategoryRole CategoryFromCollectionClassName(string classStr);
-
 
 // ****************************************************************************
 //  Method: avtSILGenerator::CreateSIL
@@ -326,7 +324,7 @@ avtSILGenerator::AddSubsets(avtSIL *sil, int parent, int num, int origin,
         if (namescheme.GetNamescheme() != "")
             pArray = new avtSILArray(namescheme, num, origin, (cat==SIL_DOMAIN),
                                      title, cat, parent);
-        else if (names.size() == num)
+        else if (names.size() == (size_t)num)
             pArray = new avtSILArray(names, num, origin, (cat==SIL_DOMAIN),
                                      title, cat, parent);
         else
@@ -344,7 +342,7 @@ avtSILGenerator::AddSubsets(avtSIL *sil, int parent, int num, int origin,
         for (int i = 0 ; i < num ; i++)
         {
             char name[1024];
-            if (names.size() == num)
+            if (names.size() == (size_t)num)
             {
                 strcpy(name, names[i].c_str());
             }
@@ -436,8 +434,8 @@ avtSILGenerator::AddGroups(avtSIL *sil, int top, int numGroups, int origin,
     for (i = 0 ; i < numGroups ; i++)
     {
         char name[1024];
-        if (!gNames.empty() && gNames.size() == numGroups)
-            sprintf(name, gNames[i].c_str());
+        if (!gNames.empty() && gNames.size() == (size_t)numGroups)
+            strcpy(name, gNames[i].c_str()); 
         else if (strstr(piece.c_str(), "%") != NULL)
             sprintf(name, piece.c_str(), i+origin);
         else
@@ -485,7 +483,7 @@ avtSILGenerator::AddGroupCollections(avtSIL *sil, int top, int numGroups,
    
     if (groupIdsBasedOnRange.size() > 0)
     {
-        for (int i = 0 ; i < groupIdsBasedOnRange.size()-1 ; i++)
+        for (size_t i = 0 ; i < groupIdsBasedOnRange.size()-1 ; i++)
         {
             int min, max;
             int startSet = sil->GetNumSets()-groupIdsBasedOnRange[groupIdsBasedOnRange.size()-1];
@@ -506,7 +504,7 @@ avtSILGenerator::AddGroupCollections(avtSIL *sil, int top, int numGroups,
         // sorted by groupId.  Let's try to be efficient and use the qsort 
         // routine provided by stdlib to do this.
         //
-        int nDoms = domList.size();
+        int nDoms = (int)domList.size();
         int *records = new int[2*nDoms];
         for (i = 0 ; i < nDoms ; i++)
         {
@@ -573,7 +571,7 @@ avtSILGenerator::AddMaterials(avtSIL *sil, int top, const string &name,
                                  const vector<string> &matnames,
                                  vector<int> &list, int id)
 {
-    int numMats = matnames.size();
+    int numMats = (int)matnames.size();
     for (int i = 0 ; i < numMats ; i++)
     {
         avtSILSet_p set = new avtSILSet(matnames[i], id);
@@ -626,13 +624,13 @@ avtSILGenerator::AddSpecies(avtSIL *sil, int top,
                                int id)
 {
     vector<int> list;
-    int numMats = matnames.size();
+    int numMats = (int)matnames.size();
     for (int i = 0 ; i < numMats ; i++)
     {
         if(i >= 0 && i < species->GetNumSpecies())
         {
             const vector<string> &specnames = species->GetSpecies(i).speciesNames;
-            int numSpecs = specnames.size();
+            int numSpecs = (int)specnames.size();
             for (int j = 0 ; j < numSpecs; j++)
             {
                 char n[1024];
@@ -694,7 +692,7 @@ avtSILGenerator::AddMaterialSubsets(avtSIL *sil, const vector<int> &domList,
     // Start off by creating all of the material domains and adding them to
     // the sil.
     //
-    int nmat = matnames.size();
+    int nmat =(int) matnames.size();
     vector<int>  matdomlist;
     for (i = 0 ; i < blocks ; i++)
     {
@@ -704,7 +702,7 @@ avtSILGenerator::AddMaterialSubsets(avtSIL *sil, const vector<int> &domList,
             // Create a domain for this domain, this material.
             //
             char matdom_name[1024];
-            if (blocknames.size() == blocks)
+            if (blocknames.size() == (size_t)blocks)
             {
                 sprintf(matdom_name, "Dom=%s,Mat=%s",
                         blocknames[i].c_str(), matnames[j].c_str());
@@ -799,7 +797,6 @@ AddEnumScalarSubgraph(avtSIL *sil,
     int silTop, int enumTop, const string enumTopName,
     const vector<int> &graphEdges, const vector<int> &setIDs)
 {
-    int i;
     vector<int> childSetIDs;
     vector<int> childEnumIDs;
 
@@ -813,10 +810,10 @@ AddEnumScalarSubgraph(avtSIL *sil,
         // 'tail' of an edge). All tails are at the 'odd' indices in the edge list.
         //
         vector<bool> isTopEnum(setIDs.size(), true);
-        for (i = 1; i < graphEdges.size(); i+=2)
+        for (size_t i = 1; i < graphEdges.size(); i+=2)
             isTopEnum[graphEdges[i]] = false;
 
-        for (i = 0; i < setIDs.size(); i++)
+        for (int i = 0; i < (int)setIDs.size(); i++)
         {
             if (isTopEnum[i])
             {
@@ -827,7 +824,7 @@ AddEnumScalarSubgraph(avtSIL *sil,
     }
     else
     {
-        for (i = 0; i < graphEdges.size(); i+=2)
+        for (size_t i = 0; i < graphEdges.size(); i+=2)
         {
             if (graphEdges[i] == enumTop)
             {
@@ -850,7 +847,7 @@ AddEnumScalarSubgraph(avtSIL *sil,
         //
         // Recurse on the children
         //
-        for (i = 0; i < childSetIDs.size(); i++)
+        for (size_t i = 0; i < childSetIDs.size(); i++)
         {
             const string name = sil->GetSILSet(childSetIDs[i])->GetName();
             AddEnumScalarSubgraph(sil, childSetIDs[i], childEnumIDs[i], name, 
@@ -884,7 +881,7 @@ void
 avtSILGenerator::AddEnumScalars(avtSIL *sil, int top,
                                 const avtScalarMetaData *smd)
 {
-    int nEnums = smd->enumNames.size();
+    int nEnums = (int)smd->enumNames.size();
     vector<int> enumList;
     for (int k=0; k<nEnums; k++)
     {
@@ -952,43 +949,4 @@ GroupSorter(const void *arg1, const void *arg2)
     }
 
     return 0;
-}
-
-// ****************************************************************************
-//  Function: CategoryFromCollectionClassName 
-//
-//  Purpose: guess the intended SIL category from the collection class name.
-//
-//  Notes: It would be best if the creator of the SIL meta data simply told
-//  us the categories. However, that would pull avtSILCollection types into
-//  the plugins and is undesireable
-//
-//  The set of strings searched for here is based on aprior knowledge of what
-//  a plugin might like to create.
-//
-//  Programmer: Mark C. Miller 
-//  Creation:   04Sep03
-//
-// ****************************************************************************
-SILCategoryRole
-CategoryFromCollectionClassName(string classStr)
-{
-   if      (classStr.find("dom") != string::npos) // treat 'dom' as domain
-      return SIL_DOMAIN;
-   else if (classStr.find("mat") != string::npos) // treat 'mat' as material
-      return SIL_MATERIAL;
-   else if (classStr.find("spec") != string::npos) // treat 'spec' as species
-      return SIL_SPECIES;
-   else if (classStr.find("proc") != string::npos) // treat 'proc' as processor
-      return SIL_PROCESSOR;
-   else if (classStr.find("blo") != string::npos) // treat 'blo' as block
-      return SIL_BLOCK;
-   else if (classStr.find("gro") != string::npos) // treat 'gro' as block
-      return SIL_BLOCK;
-   else if (classStr.find("pat") != string::npos) // treat patches as domains
-      return SIL_DOMAIN;
-   else if (classStr.find("lev") != string::npos) // treat levels as assemblies
-      return SIL_ASSEMBLY;
-   else
-      return SIL_USERD;
 }

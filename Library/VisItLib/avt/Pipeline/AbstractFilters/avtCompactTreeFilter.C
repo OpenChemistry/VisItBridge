@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -53,7 +53,7 @@
 #include <avtDataObjectWriter.h>
 #include <avtDataRequest.h>
 #include <avtMetaData.h>
-#include <avtParallel.h>
+#include <avtParallelContext.h>
 #include <avtContract.h>
 #include <avtCommonDataFunctions.h>
 
@@ -115,6 +115,53 @@ avtCompactTreeFilter::avtCompactTreeFilter()
 //  Creation:   September 18, 2001 
 //
 //  Modifications: 
+//    Brad Whitlock, Wed Mar  5 09:52:31 PST 2014
+//    I moved the guts of the Execute method to a static helper method.
+//    Work partially supported by DOE Grant SC0007548.
+//
+//    Brad Whitlock, Thu Aug  6 14:50:32 PDT 2015
+//    Use avtParallelContext.
+//    
+// ****************************************************************************
+
+void
+avtCompactTreeFilter::Execute(void)
+{
+    avtParallelContext context;
+    avtDataTree_p output = Execute(context, GetInput(),
+                                   executionDependsOnDLB,
+                                   parallelMerge,
+                                   false, // skipCompact
+                                   createCleanPolyData,
+                                   tolerance,
+                                   compactDomainMode,
+                                   compactDomainThreshold);
+    SetOutputDataTree(output);
+}
+
+// ****************************************************************************
+//  Method: avtCompactTreeFilter::Execute
+//
+//  Purpose:
+//    Compacts the data tree based on number and type of labels in info: 
+//
+//    If there are no labels, compacts all domains into one vtkDataSet.
+//    If labels are present, will group all like-labeled leaves into
+//    the same child tree.  
+//
+//  Arguments:
+//    input : The input data object.
+//    executionDependsOnDLB : Whether the execution depends on dynamic load balancing.
+//    parallelMerge         : Whether data should be merged onto rank 0.
+//    createCleanPolyData   : Whether polydata should be cleaned up.
+//    tolerance             : tolerance for combining nodes that are close.
+//    compactDomainNode     : Mode that determines how domains are combined.
+//    compactDomainThreshold : The threshold used to determine how domains are combined.
+//
+//  Programmer: Kathleen Bonnell
+//  Creation:   September 18, 2001 
+//
+//  Modifications: 
 //    Kathleen Bonnell, Fri Oct 12 11:38:41 PDT 2001 
 //    Removed domain-pruning as it is not really necessary.
 //    Execute this filter when dynamically load-balanced, only if requested
@@ -165,46 +212,66 @@ avtCompactTreeFilter::avtCompactTreeFilter()
 //    Dave Pugmire, Tue Aug 24 11:32:12 EDT 2010
 //    Add compact domain options.
 //
+//    Brad Whitlock, Wed Mar  5 09:52:31 PST 2014
+//    I turned the method static and made the arguments get passed in. This 
+//    lets me compact datasets without a filter execution.
+//    Work partially supported by DOE Grant SC0007548.
+//
+//    Brad Whitlock, Thu Aug  6 14:50:32 PDT 2015
+//    Use avtParallelContext so we can use this code on a subset of ranks.
+//    
 // ****************************************************************************
 
-void
-avtCompactTreeFilter::Execute(void)
+avtDataTree_p
+avtCompactTreeFilter::Execute(avtParallelContext &context,
+    avtDataObject_p input, 
+    bool                  executionDependsOnDLB,
+    bool                  parallelMerge,
+    bool                  skipCompact,
+    bool                  createCleanPolyData,
+    double                tolerance,
+    CompactDomainsMode    compactDomainMode,
+    int                   compactDomainThreshold)
 {
+    avtDataset_p inputDS;
+    CopyTo(inputDS, input);
+
     if (executionDependsOnDLB && 
-        GetInput()->GetInfo().GetValidity().AreWeStreaming())
+        input->GetInfo().GetValidity().AreWeStreaming())
     {
         //
         //  We execute this filter during cleanup when streaming, 
         //  so no need to execute it at the the end of the avtPlot pipeline.
         //
-        SetOutputDataTree(GetInputDataTree());
-        return;
+        return inputDS->GetDataTree();
     }
 
-    avtDataTree_p inTree = GetInputDataTree();
+    avtDataTree_p inTree = inputDS->GetDataTree();
 
     if (parallelMerge)
     {
 #ifdef PARALLEL
-        int mpiSendDataTag    = GetUniqueMessageTag();
-        int mpiSendObjSizeTag = GetUniqueMessageTag();
+        int tags[2];
+        context.GetUniqueMessageTags(tags, 2);
+        int mpiSendDataTag    = tags[0];
+        int mpiSendObjSizeTag = tags[1];
 #endif
 
-        avtDataObject_p bigDS = GetTypedInput()->Clone();
-        if (PAR_UIProcess())
+        avtDataObject_p bigDS = input->Clone();
+        if (context.Rank() == 0)
         {
 #ifdef PARALLEL
-            int nprocs = PAR_Size();
+            int nprocs = context.Size();
             for (int i = 1 ; i < nprocs ; i++)
             {
                 avtDataObjectReader reader;
                 int len = 0;
                 MPI_Status stat;
                 MPI_Recv(&len, 1, MPI_INT, i, mpiSendObjSizeTag, 
-                         VISIT_MPI_COMM, &stat);
+                         context.GetCommunicator(), &stat);
                 char *buff = new char[len];
                 MPI_Recv(buff, len, MPI_CHAR, i, mpiSendDataTag, 
-                         VISIT_MPI_COMM, &stat);
+                         context.GetCommunicator(), &stat);
                 reader.Read(len, buff);
                 avtDataObject_p ds2 = reader.GetOutput();
                 bigDS->Merge(*(ds2));
@@ -219,30 +286,29 @@ avtCompactTreeFilter::Execute(void)
         else
         {
 #ifdef PARALLEL
-            avtDataObjectWriter_p writer = GetInput()->InstantiateWriter();
-            writer->SetInput(GetInput());
+            avtDataObjectWriter_p writer = input->InstantiateWriter();
+            writer->SetInput(input);
             avtDataObjectString str;
             writer->Write(str);
             int len = 0;
             char *buff = NULL;
             str.GetWholeString(buff, len);
-            MPI_Send(&len, 1, MPI_INT, 0, mpiSendObjSizeTag, VISIT_MPI_COMM);
-            MPI_Send(buff, len, MPI_CHAR, 0, mpiSendDataTag, VISIT_MPI_COMM);
+            MPI_Send(&len, 1, MPI_INT, 0, mpiSendObjSizeTag, context.GetCommunicator());
+            MPI_Send(buff, len, MPI_CHAR, 0, mpiSendDataTag, context.GetCommunicator());
 #endif
 
             inTree = new avtDataTree(); // Make an empty tree, so we exit early
         }
     }
 
-    if (inTree->IsEmpty())
+    if (inTree->IsEmpty() || skipCompact)
     {
         //
-        //  No need to compact an empty tree! 
+        //  No need to compact this tree! 
         //  This is not an exception, because contour plots will return
         //  an empty tree for constant-valued variables.
         //
-        SetOutputDataTree(inTree);
-        return;
+        return inTree;
     }
 
     avtDataTree_p outTree; 
@@ -250,7 +316,7 @@ avtCompactTreeFilter::Execute(void)
 
     vector<string> labels;
 
-    GetInput()->GetInfo().GetAttributes().GetLabels(labels);
+    input->GetInfo().GetAttributes().GetLabels(labels);
 
     struct map
     {
@@ -269,9 +335,8 @@ avtCompactTreeFilter::Execute(void)
             //
             //  No need for compacting a single-leaved tree!
             //
-            SetOutputDataTree(inTree);
             delete pmap;
-            return;
+            return inTree;
         }
         pmap->filter = vtkAppendFilter::New();
         pmap->polyFilter = vtkAppendPolyData::New();
@@ -365,9 +430,8 @@ avtCompactTreeFilter::Execute(void)
             debug1 << "    avtDataAttribute labels that had no corresponding match" << endl;
             debug1 << "    in the tree.  This can happen if avtDataAttribute labels" << endl;
             debug1 << "    were set incorrectly by a filter. Tree can not be compacted.\n" << endl;
-            SetOutputDataTree(inTree);
             delete pmap;
-            return;
+            return inTree;
         }
 
         int nc = prunedTree->GetNChildren();
@@ -426,12 +490,12 @@ avtCompactTreeFilter::Execute(void)
         delete [] temp;
     }
     delete pmap;
-    SetOutputDataTree(outTree);
+    return outTree;
 }
 
 
 // ****************************************************************************
-//  Method:  ::FilterUnderstandsTransformedRectMesh
+//  Method:  avtCompactTreeFilter::FilterUnderstandsTransformedRectMesh
 //
 //  Purpose:
 //    If this filter returns true, this means that it correctly deals

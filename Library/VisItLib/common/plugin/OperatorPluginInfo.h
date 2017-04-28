@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -44,6 +44,7 @@
 #define OPERATOR_PLUGIN_INFO_H
 #include <plugin_exports.h>
 #include <plugin_vartypes.h>
+#include <plugin_entry_point.h>
 #include <stdio.h>
 
 // Forward declarations.
@@ -53,6 +54,7 @@ class QvisPostableWindowObserver;
 class QvisWizard;
 class QWidget;
 class QString;
+class avtPlotMetaData;
 class avtPluginFilter;
 class avtDatabaseMetaData;
 class ViewerPlot;
@@ -130,6 +132,12 @@ class ExpressionList;
 //    Add the ability to create expressions based on scalars, vectors, or
 //    tensors.
 //
+//    Brad Whitlock, Wed Sep 17 12:22:21 PDT 2014
+//    Added common base class for viewer/engine plugins.
+//
+//    Burlen Loring, Thu Oct  8 14:31:15 PDT 2015
+//    clean up a few compiler warnings
+//
 // ****************************************************************************
 
 class PLUGIN_API GeneralOperatorPluginInfo
@@ -149,7 +157,10 @@ class PLUGIN_API CommonOperatorPluginInfo : public virtual GeneralOperatorPlugin
     virtual AttributeSubject *AllocAttributes() = 0;
     virtual void CopyAttributes(AttributeSubject *to,
                                 AttributeSubject *from) = 0;
-    virtual ExpressionList *GetCreatedExpressions(const avtDatabaseMetaData *md) {return NULL;}
+    virtual ExpressionList *GetCreatedExpressions(const avtDatabaseMetaData *) {return NULL;}
+    virtual bool GetUserSelectable() const { return true; }
+    virtual int GetVariableTypes() const { return 0; }
+    virtual int GetVariableMask() const { return ~0; }
 };
 
 class PLUGIN_API GUIOperatorPluginInfo : public virtual CommonOperatorPluginInfo
@@ -159,18 +170,15 @@ class PLUGIN_API GUIOperatorPluginInfo : public virtual CommonOperatorPluginInfo
     virtual QvisPostableWindowObserver *CreatePluginWindow(int type,
         AttributeSubject *attr, const QString &caption, const QString &shortName,
         QvisNotepadArea *notepad) = 0;
-    virtual QvisWizard *CreatePluginWizard(AttributeSubject *attr,
-        QWidget *parent, const char *name =0)
+    virtual QvisWizard *CreatePluginWizard(AttributeSubject *,
+        QWidget *, const char * = 0)
     {
         return 0;
     }
     virtual const char **XPMIconData() const { return 0; }
-    virtual int GetVariableTypes() const { return 0; }
-    virtual int GetVariableMask() const { return ~0; }
-    virtual bool GetUserSelectable() const { return true; }
 };
 
-class PLUGIN_API ViewerOperatorPluginInfo : public virtual CommonOperatorPluginInfo
+class PLUGIN_API ViewerEngineOperatorPluginInfo : public virtual CommonOperatorPluginInfo
 {
   public:
     virtual AttributeSubject *GetClientAtts() = 0;
@@ -178,28 +186,31 @@ class PLUGIN_API ViewerOperatorPluginInfo : public virtual CommonOperatorPluginI
     virtual void SetClientAtts(AttributeSubject *atts) = 0;
     virtual void GetClientAtts(AttributeSubject *atts) = 0;
     virtual void GetClientAtts(AttributeSubject *atts,
-                               const bool activeOperator,
-                               const bool applyToAll)
-    {
-      GetClientAtts(atts);
-    };
+                               const bool, const bool)
+    { GetClientAtts(atts); };
 
     virtual void InitializeOperatorAtts(AttributeSubject *atts,
-                                        const ViewerPlot *plot,
+                                        const avtPlotMetaData &plot,
                                         const bool fromDefault) = 0;
     virtual void UpdateOperatorAtts(AttributeSubject *atts,
-                                    const ViewerPlot *plot) = 0;
-    virtual std::string GetOperatorVarDescription(AttributeSubject *atts,
-                                                  const ViewerPlot *plot) = 0;
-    virtual QString *GetMenuName() const = 0;
-    virtual const char **XPMIconData() const { return 0; }
-    virtual bool GetUserSelectable() const { return true; }
+                                    const avtPlotMetaData &plot) = 0;
+    virtual std::string GetOperatorVarDescription(AttributeSubject *,
+                                                  const avtPlotMetaData &)
+                                                  { return std::string(); }
+    virtual const char *GetMenuName() const = 0;
+
     virtual bool Removeable() const { return true; }
     virtual bool Moveable() const { return true; }
     virtual bool AllowsSubsequentOperators() const { return true; }
 };
 
-class PLUGIN_API EngineOperatorPluginInfo : public virtual CommonOperatorPluginInfo
+class PLUGIN_API ViewerOperatorPluginInfo : public virtual ViewerEngineOperatorPluginInfo
+{
+  public:
+    virtual const char **XPMIconData() const { return 0; }
+};
+
+class PLUGIN_API EngineOperatorPluginInfo : public virtual ViewerEngineOperatorPluginInfo
 {
   public:
     virtual avtPluginFilter *AllocAvtPluginFilter() = 0;
@@ -211,7 +222,7 @@ class PLUGIN_API ScriptingOperatorPluginInfo : public virtual CommonOperatorPlug
     virtual void InitializePlugin(AttributeSubject *subj, void *data) = 0;
     virtual void *GetMethodTable(int *nMethods) = 0;
     virtual char *GetLogString() = 0;
-    virtual bool TypesMatch(void *pyobject) { return false; }
+    virtual bool TypesMatch(void *) { return false; }
     virtual void SetDefaults(const AttributeSubject *) = 0;
 };
 

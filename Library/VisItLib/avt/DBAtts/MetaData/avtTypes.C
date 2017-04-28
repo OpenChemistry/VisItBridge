@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -189,6 +189,38 @@ avtPrecisionTypeToString(avtPrecisionType v)
         return "native";
       case AVT_PRECISION_DOUBLE:
         return "double";
+      default:
+        break;
+    }
+    return "unknown";
+}
+
+// ****************************************************************************
+//  Function: avtBackendTypeToString
+//
+//  Purpose:
+//      Creates a string from an avtBackendType.
+//
+//  Programmer: Cameron Christensen
+//  Creation:   June 10, 2014
+//
+//  Modifications:
+//    Eric Brugger, Thu Dec 10 11:14:07 PST 2015
+//    I added support for VTKm.
+//
+// ****************************************************************************
+
+std::string
+avtBackendTypeToString(avtBackendType v)
+{
+    switch (v)
+    {
+      case AVT_BACKEND_VTK:
+        return "VTK";
+      case AVT_BACKEND_EAVL:
+        return "EAVL";
+      case AVT_BACKEND_VTKM:
+        return "VTKm";
       default:
         break;
     }

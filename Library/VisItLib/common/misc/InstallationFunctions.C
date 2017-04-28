@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -266,6 +266,9 @@ GetSystemConfigFile(const char *filename)
 //   Kathleen Biagas, Wed Nov 7 09:48:37 PDT 2012
 //   Remove version number from VISITUSERHOME on windows.
 //
+//   Kathleen Biagas, Wed Nov 24 16:29:43 MST 2015
+//   Use VisItStat.
+//
 // ****************************************************************************
 
 std::string
@@ -283,7 +286,7 @@ GetUserVisItDirectory()
         char visituserpath[MAX_PATH], expvisituserpath[MAX_PATH];
         int haveVISITUSERHOME=0;
         TCHAR szPath[MAX_PATH];
-        struct _stat fs;
+        FileFunctions::VisItStat_t fs;
         if(SUCCEEDED(SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, 
                                  SHGFP_TYPE_CURRENT, szPath))) 
         {
@@ -294,7 +297,7 @@ GetUserVisItDirectory()
         if (haveVISITUSERHOME)
         {
             ExpandEnvironmentStrings(visituserpath,expvisituserpath,MAX_PATH);
-            if (_stat(expvisituserpath, &fs) == -1)
+            if (FileFunctions::VisItStat(expvisituserpath, &fs) == -1)
             {
                 _mkdir(expvisituserpath);
             }
@@ -445,12 +448,26 @@ GetSystemVisItHostsDirectory()
 //   Brad Whitlock, Fri Oct 12 16:36:02 PDT 2012
 //   Add help directory.
 //
+//   Kathleen Biagas, Wed Aug 6 13:32:47 PDT 2014
+//   Support the correct loction in dev version on Windows.
+//
 // ****************************************************************************
 
 std::string
 GetVisItResourcesDirectory(VisItResourceDirectoryType t)
 {
     std::string retval(GetVisItArchitectureDirectory());
+#if defined(_WIN32)
+    if (GetIsDevelopmentVersion())
+    {
+        size_t pos = retval.rfind("exe");
+        if (pos != std::string::npos)
+        {
+            std::string tmp = retval.substr(0, pos-1);
+            retval = tmp;
+        }
+    }
+#endif
     retval += VISIT_SLASH_STRING;
     retval += "resources";
 
@@ -467,6 +484,8 @@ GetVisItResourcesDirectory(VisItResourceDirectoryType t)
             retval += "translations";
         else if(t == VISIT_RESOURCES_MOVIETEMPLATES)
             retval += "movietemplates";
+        else if(t == VISIT_RESOURCES_IMAGES)
+            retval += "images";
     }
 
     return retval;
@@ -1138,8 +1157,8 @@ ConfigStateIncrementRunCount(ConfigStateEnum &code)
 
     // Does the file exist?
     bool firstTime = false;
-    VisItStat_t s;
-    if(VisItStat(rcFile.c_str(), &s) == -1)
+    FileFunctions::VisItStat_t s;
+    if(FileFunctions::VisItStat(rcFile.c_str(), &s) == -1)
         firstTime = true;
 
     ConfigStateEnum code2;

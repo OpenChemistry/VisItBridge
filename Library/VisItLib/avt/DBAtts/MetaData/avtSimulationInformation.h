@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -65,9 +65,9 @@ class DBATTS_API avtSimulationInformation : public AttributeSubject
 public:
     enum RunMode
     {
-        Unknown,
-        Running,
-        Stopped
+        Unknown = 0,
+        Running = 1,
+        Stopped = 2
     };
 
     // These constructors are for objects of this class
@@ -101,6 +101,7 @@ public:
     void SelectOtherValues();
     void SelectGenericCommands();
     void SelectCustomCommands();
+    void SelectMessage();
 
     // Property setting methods
     void SetHost(const std::string &host_);
@@ -109,6 +110,7 @@ public:
     void SetOtherNames(const stringVector &otherNames_);
     void SetOtherValues(const stringVector &otherValues_);
     void SetMode(RunMode mode_);
+    void SetMessage(const std::string &message_);
 
     // Property getting methods
     const std::string  &GetHost() const;
@@ -125,6 +127,8 @@ public:
     RunMode            GetMode() const;
     const AttributeGroupVector &GetCustomCommands() const;
           AttributeGroupVector &GetCustomCommands();
+    const std::string  &GetMessage() const;
+          std::string  &GetMessage();
 
 
     // Attributegroup convenience methods
@@ -149,6 +153,13 @@ protected:
     static std::string RunMode_ToString(int);
 public:
 
+    // Keyframing methods
+    virtual std::string               GetFieldName(int index) const;
+    virtual AttributeGroup::FieldType GetFieldType(int index) const;
+    virtual std::string               GetFieldTypeName(int index) const;
+    virtual bool                      FieldsEqual(int index, const AttributeGroup *rhs) const;
+
+
     // IDs that can be used to identify fields in case statements
     enum {
         ID_host = 0,
@@ -159,6 +170,7 @@ public:
         ID_genericCommands,
         ID_mode,
         ID_customCommands,
+        ID_message,
         ID__LAST
     };
 
@@ -173,11 +185,12 @@ private:
     AttributeGroupVector genericCommands;
     int                  mode;
     AttributeGroupVector customCommands;
+    std::string          message;
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
     static const private_tmfs_t TmfsStruct;
 };
-#define AVTSIMULATIONINFORMATION_TMFS "siss*s*a*ia*"
+#define AVTSIMULATIONINFORMATION_TMFS "siss*s*a*ia*s"
 
 #endif

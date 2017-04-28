@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -108,6 +108,12 @@ class     avtIOInformation;
 //    Hank Childs, Tue Apr 10 15:12:58 PDT 2012
 //    Add method SetReadAllCyclesAndTimes.
 //
+//    Brad Whitlock, Thu Jun 19 10:50:25 PDT 2014
+//    Pass mesh name to PopulateIOInformation.
+//
+//    Burlen Loring, Tue Sep 29 13:43:26 PDT 2015
+//    Clean up a couple of warnings.
+//
 // ****************************************************************************
 
 class DATABASE_API avtMTSDFileFormat : public avtFileFormat
@@ -116,10 +122,10 @@ class DATABASE_API avtMTSDFileFormat : public avtFileFormat
                            avtMTSDFileFormat(const char * const *, int);
     virtual               ~avtMTSDFileFormat();
 
-    virtual void          *GetAuxiliaryData(const char *var, int time, 
+    virtual void          *GetAuxiliaryData(const char *var, int time,
                               int domain, const char *type, void *args,
                               DestructorFunction &df)
-      {return GetAuxiliaryData(var,time,type,args,df);};
+      {return GetAuxiliaryData(var,time,type,args,df);}
 
     virtual void          *GetAuxiliaryData(const char *var, int,
                                             const char *type, void *args,
@@ -143,11 +149,11 @@ class DATABASE_API avtMTSDFileFormat : public avtFileFormat
     virtual vtkDataArray  *GetVar(int, const char *) = 0;
     virtual vtkDataArray  *GetVectorVar(int, const char *);
 
-    virtual void           ActivateTimestep(int ts)
+    virtual void           ActivateTimestep(int)
                                { avtFileFormat::ActivateTimestep(); };
-    virtual void           PopulateIOInformation(int ts, avtIOInformation& ioInfo)
-                               { avtFileFormat::PopulateIOInformation(ioInfo); };
-    virtual void           SetDatabaseMetaData(avtDatabaseMetaData *md, int ts = 0);
+    virtual bool           PopulateIOInformation(int, const std::string &,
+                                                 avtIOInformation&) { return false; }
+    virtual void           SetDatabaseMetaData(avtDatabaseMetaData *md, int = 0);
 
     void                   SetReadAllCyclesAndTimes(bool b) 
                                              { readAllCyclesAndTimes = b; };

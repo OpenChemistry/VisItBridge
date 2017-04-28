@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -140,6 +140,13 @@ enum avtPrecisionType
     AVT_PRECISION_DOUBLE   /* 2 */
 };
 
+enum avtBackendType
+{
+    AVT_BACKEND_VTK     = 0,
+    AVT_BACKEND_EAVL,  /* 1 */
+    AVT_BACKEND_VTKM   /* 2 */
+};
+
 enum SetState
 {
     NoneUsed            = 0,
@@ -186,6 +193,7 @@ DBATTS_API bool avtExtentType_FromString(const std::string &, avtExtentType &);
 
 DBATTS_API std::string avtVarTypeToString(avtVarType);
 DBATTS_API std::string avtPrecisionTypeToString(avtPrecisionType);
+DBATTS_API std::string avtBackendTypeToString(avtBackendType);
 
 DBATTS_API std::string LoadBalanceSchemeToString(LoadBalanceScheme);
 

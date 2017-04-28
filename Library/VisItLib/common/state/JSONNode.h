@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -122,7 +122,7 @@ class STATE_API JSONNode
     JSONNode(const stringVector& v);
     virtual  ~JSONNode();
 
-    JSONType GetType() const { return type; } const
+    JSONType GetType() const { return type; }
 
     bool isNullValue()   const { return json.num.nullValue; }
     bool   GetBool()    const { return json.num.boolValue; }
@@ -210,8 +210,8 @@ class STATE_API JSONNode
     bool HasKey(std::string key);
 
     // JSON parsing methods
-    void    Parse(istream &);
-    void    Parse(const std::string &);
+    size_t Parse(istream &);
+    size_t Parse(const std::string &);
 
 private:
     std::string EscapeString(const std::string &val) const;

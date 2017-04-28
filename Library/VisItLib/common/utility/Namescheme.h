@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -62,6 +62,10 @@
 //  Programmer: Mark C. Miller
 //  Creation:   Wed Aug 26 15:34:45 PDT 2009
 //
+//  Modifications
+//
+//    Mark C. Miller, Thu Dec 18 13:05:54 PST 2014
+//    Changed embedded strings to be embedded nameschemes.
 // ****************************************************************************
 class UTILITY_API Namescheme
 {
@@ -69,6 +73,8 @@ class UTILITY_API Namescheme
     Namescheme(const char *fmt, ...);
    ~Namescheme();
     const char *GetName(int n);
+    int GetIndex(int n);
+    static void FreeClassStaticResources(void);
 
   private:
 
@@ -100,7 +106,7 @@ class UTILITY_API Namescheme
     int ncspecs;          // # of conversion specs in printf part of fmt
     char delim;           // delimiter char used for parts of fmt
     int nembed;           // number of last embedded string encountered
-    char **embedstrs;     // ptrs to copies of embedded strings
+    Namescheme **embedns; // ptrs to copies of embedded nameschemes
     int narrefs;          // number of array refs in conversion specs
     char **arrnames;      // array names used by array refs
     const int **arrvals;  // pointer to actual array data assoc. with each name

@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -39,8 +39,12 @@
 #ifndef PLOT_PLUGIN_EXPORTS_H
 #define PLOT_PLUGIN_EXPORTS_H
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
+#if defined(_WIN32)
+#if defined(VISIT_BUILD_SHARED_LIBS)
 # define PLOT_EXPORT __declspec(dllexport)
+#else
+#define PLOT_EXPORT
+#endif
 #else
 # if __GNUC__ >= 4
 #   define PLOT_EXPORT __attribute__((visibility("default")))

@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -79,6 +79,11 @@
 #endif
 #include <snprintf.h>
 
+#ifdef PARALLEL
+#include <mpi.h>
+#include <avtParallel.h>
+#endif
+
 using std::string;
 using std::vector;
 using StringHelpers::Plural;
@@ -91,8 +96,11 @@ using StringHelpers::HumanReadableList;
 bool    avtDatabaseFactory::createMeshQualityExpressions = true;
 bool    avtDatabaseFactory::createTimeDerivativeExpressions = true;
 bool    avtDatabaseFactory::createVectorMagnitudeExpressions = true;
+bool    avtDatabaseFactory::checkFilePermissions = true;
+bool    avtDatabaseFactory::removeDuplicateNodes = false;
 FileOpenOptions avtDatabaseFactory::defaultFileOpenOptions;
 avtPrecisionType avtDatabaseFactory::precisionType = AVT_PRECISION_NATIVE;
+avtBackendType avtDatabaseFactory::backendType = AVT_BACKEND_VTK;
 
 //
 // Function Prototypes
@@ -141,6 +149,27 @@ avtDatabaseFactory::SetPrecisionType(const int pType)
 {
     if (pType >= 0 && pType < 3)
         precisionType = avtPrecisionType(pType);
+}
+
+// ****************************************************************************
+//  Method:  avtDatabaseFactory::SetBackendType
+//
+//  Purpose:
+//    Store off the backendType.
+//
+//  Arguments:
+//    bType      the new backend type.
+//
+//  Programmer:  Cameron Christensen
+//  Creation:    June 11, 2014
+//
+// ****************************************************************************
+
+void
+avtDatabaseFactory::SetBackendType(const int bType)
+{
+    if (bType >= 0 && bType < 4)
+        backendType = avtBackendType(bType);
 }
 
 // ****************************************************************************
@@ -336,6 +365,14 @@ avtDatabaseFactory::SetPrecisionType(const int pType)
 //    Dave Pugmire, Thu Feb 14 13:56:46 EST 2013
 //    Support for ensemble .visit files (files with identical time states)
 //
+//    Mark C. Miller, Wed Jan  8 18:15:01 PST 2014
+//    Added some error checking for !NBLOCKS, !TIMES declarations and adjusted
+//    the debug output to be a little more helpful.
+//
+//    Brad Whitlock, Thu Sep 18 23:02:07 PDT 2014
+//    Allow file permission check to be bypassed. We don't want it for batch
+//    in situ.
+//
 // ****************************************************************************
 
 avtDatabase *
@@ -344,7 +381,8 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
                              int timestep, vector<string> &plugins,
                              const char *format,
                              bool forceReadAllCyclesAndTimes,
-                             bool treatAllDBsAsTimeVarying)
+                             bool treatAllDBsAsTimeVarying,
+                             int bang_nblocks)
 {
     vector<string> noncompliantPlugins;
     vector<string> noncompliantErrors;
@@ -357,31 +395,57 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
     avtDatabase *rv = NULL;
     int fileIndex = 0;
 
-    int nBlocks = 1;
+    int nBlocks = bang_nblocks > 0 ? bang_nblocks : 1;
     bool filesAreEnsemble = false;
     vector<double> times;
     for (int f = 0 ; f < filelistN ; f++)
     {
-         if (strstr(filelist[fileIndex], "!NBLOCKS ") != NULL)
+         //
+         // MCM-28Aug14: All the logic for handling these special values should probably
+         // be re-factored to GetFileListFromTextFile. There is already logic there
+         // for !NBLOCKS and it is being duplicated here. Furthermore, the
+         // list of strings passed in to FileList here is called a 'filelist' but nonetheless
+         // is expected/allowed to contain strings that are certainly not files. OTOH,
+         // the set of !KEYWORDS being processed here has grown on a few occasions and
+         // instead of continuing to add args to the method itself for each such keyword
+         // setting, maybe its ok to use the list of strings passed here as a sort of
+         // catchall container for all such possible !KEYWORD settings.
+         //
+         if (bang_nblocks < 0 && strstr(filelist[fileIndex], "!NBLOCKS ") != NULL)
          {
-             nBlocks = atoi(filelist[fileIndex] + strlen("!NBLOCKS "));
-             if (nBlocks <= 0)
+             errno = 0;
+             nBlocks = strtol(filelist[fileIndex] + strlen("!NBLOCKS "), 0, 10);
+             if (errno != 0 || nBlocks <= 0)
              {
-                 debug1 << "BAD SYNTAX FOR N BLOCKS, RESETTING TO 1"  << endl;
+                 debug1 << "BAD SYNTAX FOR !NBLOCKS, \"" << filelist[fileIndex] << "\", RESETTING TO 1"  << endl;
                  nBlocks = 1;
              }
              else
-                 debug1 << "Found a multi-block file with " << nBlocks << " blocks."
-                        << endl;
+             {
+                 debug1 << "Found a multi-block file with " << nBlocks << " blocks." << endl;
+             }
              fileIndex++;
          }
          else if (strstr(filelist[fileIndex], "!TIME ") != NULL)
          {
-             times.push_back(atof(filelist[fileIndex] + strlen("!TIME ")));
+             char *endptr = 0;
+             errno = 0;
+             double time = strtod(filelist[fileIndex] + strlen("!TIME "), &endptr);
+             if (errno != 0 || (time == 0.0 || endptr == filelist[fileIndex] + strlen("!TIME ")))
+             {
+                 debug1 << "BAD SYNTAX FOR !TIME, \"" << filelist[fileIndex] << "\", RESETTING TO ";
+                 if (times.size())
+                     time = times[times.size()-1];
+                 else
+                     time = 0.0;
+                 debug1 << time << endl;
+             }
+             times.push_back(time);
              fileIndex++;
          }
          else if (strstr(filelist[fileIndex], "!ENSEMBLE") != NULL)
          {
+             debug1 << "!ENSEMBLE FLAG ENCOUNTERED" << endl;
              filesAreEnsemble = true;
              fileIndex++;
          }
@@ -395,7 +459,8 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
     //
     // Make sure we can read the file before we proceed.
     //
-    CheckPermissions(filelist[fileIndex]);
+    if(checkFilePermissions)
+        CheckPermissions(filelist[fileIndex]);
 
     //
     // If we were specifically told which format to use, then try that now.
@@ -481,7 +546,7 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
     // succeed immediately.
     //
     vector<string> &preferred = defaultFileOpenOptions.GetPreferredIDs();
-    for (int i = 0 ; i < preferred.size() && rv == NULL ; i++)
+    for (size_t i = 0 ; i < preferred.size() && rv == NULL ; i++)
     {
         string formatid = preferred[i];
         if (!dbmgr->PluginAvailable(formatid))
@@ -548,7 +613,7 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
             // but another one could, then report a warning.
             if (rv != NULL && noncompliantPlugins.size() > 0)
             {
-                int n = noncompliantPlugins.size();
+                int n = (int)noncompliantPlugins.size();
                 string warning = "While we were able to open the file "
                     "with the " + string(info ? info->GetName() : "") + " reader, "+
                     (n==1?"an":"") + "other file format "+Plural(n,"reader")+
@@ -561,13 +626,13 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
                 dbmgr->ReportWarning(warning);                
             }
         }
-        CATCH(NonCompliantException &e)
+        CATCH2(NonCompliantException, e)
         {
             rv = NULL;
             noncompliantPlugins.push_back(info ? info->GetName(): "");
             noncompliantErrors.push_back(e.Message());
         }
-        CATCH(NonCompliantFileException &e)
+        CATCH2(NonCompliantFileException, e)
         {
             rv = NULL;
             noncompliantPlugins.push_back(info ? info->GetName(): "");
@@ -589,7 +654,7 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
     if (rv == NULL)
     {
         vector<string> succeeded;
-        for (int i = 0; i < fileMatchedIds.size(); i++)
+        for (size_t i = 0; i < fileMatchedIds.size(); i++)
         {
             // Skip this one if it was preferred -- if we got here, it
             // already failed on the previous pass
@@ -645,13 +710,13 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
                         delete dbtmp;
                 }
             }
-            CATCH(NonCompliantException &e)
+            CATCH2(NonCompliantException, e)
             {
                 rv = NULL;
                 noncompliantPlugins.push_back(info ? info->GetName(): "");
                 noncompliantErrors.push_back(e.Message());
             }
-            CATCH(NonCompliantFileException &e)
+            CATCH2(NonCompliantFileException, e)
             {
                 rv = NULL;
                 noncompliantPlugins.push_back(info ? info->GetName(): "");
@@ -667,7 +732,7 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
         if (succeeded.size() > 0 && noncompliantPlugins.size() > 0)
         {
 
-            int n = noncompliantPlugins.size();
+            int n = (int)noncompliantPlugins.size();
             string warning = "While we were able to open the file "
                 "with the " + succeeded[0] + " reader, " + 
                 (n==1?"an":"") + "other file format "+Plural(n,"reader")+
@@ -709,7 +774,7 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
     // fallbacks, unless they are strictly unable to open the given
     // file without a matching filename.
     //
-    for (int i = 0 ; i < preferred.size() && rv == NULL ; i++)
+    for (size_t i = 0 ; i < preferred.size() && rv == NULL ; i++)
     {
         string formatid = preferred[i];
         if (!dbmgr->PluginAvailable(formatid))
@@ -776,7 +841,7 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
             // but another one could, then report a warning.
             if (rv != NULL && noncompliantPlugins.size() > 0)
             {
-                int n = noncompliantPlugins.size();
+                int n = (int)noncompliantPlugins.size();
                 string warning = "While we were able to open the file "
                     "with the " + string(info ? info->GetName() : "") + " reader, "+
                     (n==1?"an":"") + "other file format "+Plural(n,"reader")+
@@ -789,13 +854,13 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
                 dbmgr->ReportWarning(warning);                
             }
         }
-        CATCH(NonCompliantException &e)
+        CATCH2(NonCompliantException, e)
         {
             rv = NULL;
             noncompliantPlugins.push_back(info ? info->GetName(): "");
             noncompliantErrors.push_back(e.Message());
         }
-        CATCH(NonCompliantFileException &e)
+        CATCH2(NonCompliantFileException, e)
         {
             rv = NULL;
             noncompliantPlugins.push_back(info ? info->GetName(): "");
@@ -812,14 +877,14 @@ avtDatabaseFactory::FileList(DatabasePluginManager *dbmgr,
     // from any NonCompliant exceptions.
     if (rv == NULL && noncompliantPlugins.size() > 0)
     {
-        int nNonCompl = noncompliantPlugins.size();
+        size_t nNonCompl = noncompliantPlugins.size();
         string error;
         if (nNonCompl > 1)
         {
             error += "At least one file format reader claimed this file, "
                      " but could not open it:\n";
         }
-        for (int i=0; i<nNonCompl; i++)
+        for (size_t i=0; i<nNonCompl; i++)
             error += noncompliantErrors[i] + "\n";
         EXCEPTION2(InvalidFilesException,"the file",error);
     }
@@ -942,7 +1007,7 @@ avtDatabaseFactory::SetupDatabase(CommonDatabasePluginInfo *info,
                             treatAllDBsAsTimeVarying);
             int nStates = md->GetNumStates();
             // Expectation is that nStates == times.size() or times.size() == 0
-            int nToDo = (nStates < times.size() ? nStates : times.size());
+            int nToDo = (nStates < (int)times.size() ? nStates : (int)times.size());
             for (int i = 0 ; i < nToDo ; i++)
             {
                 md->SetTime(i, times[i]);
@@ -1035,7 +1100,8 @@ avtDatabaseFactory::VisitFile(DatabasePluginManager *dbmgr,
     //
     char  **reallist  = NULL;
     int     listcount = 0;
-    avtDatabase::GetFileListFromTextFile(visitFile, reallist, listcount);
+    int     bang_nblocks = -1;
+    avtDatabase::GetFileListFromTextFile(visitFile, reallist, listcount, &bang_nblocks);
 
 #if defined(_WIN32)
     //
@@ -1048,7 +1114,7 @@ avtDatabaseFactory::VisitFile(DatabasePluginManager *dbmgr,
     {
         visitPath = visitPath.substr(0, sepIndex + 1);
 
-        int s = visitPath.size();
+        size_t s = visitPath.size();
         string curDir("./");
         for(int j = 0; j < listcount; ++j)
         {
@@ -1066,7 +1132,7 @@ avtDatabaseFactory::VisitFile(DatabasePluginManager *dbmgr,
                 fileName = fileName.substr(2, fileName.size() - 2);
 
             // Create a new filename that has the path prepended to it.
-            int len = fileName.size() + s + 2;
+            size_t len = fileName.size() + s + 2;
             char *name = new char[len];
             SNPRINTF(name, len, "%s%s", visitPath.c_str(), fileName.c_str());
             delete [] reallist[j];
@@ -1078,8 +1144,8 @@ avtDatabaseFactory::VisitFile(DatabasePluginManager *dbmgr,
     //
     // Create a database using the list of files.
     //
-    avtDatabase *rv = FileList(dbmgr, reallist, listcount, timestep, plugins, format,
-                               forceReadAllCyclesAndTimes, treatAllDBsAsTimeVarying);
+    avtDatabase *rv = FileList(dbmgr, reallist, listcount, timestep, plugins,
+        format, forceReadAllCyclesAndTimes, treatAllDBsAsTimeVarying, bang_nblocks);
 
     //
     // Clean up memory
@@ -1123,85 +1189,39 @@ avtDatabaseFactory::VisitFile(DatabasePluginManager *dbmgr,
 //    Tom Fogal, Sun May  3 15:33:55 MDT 2009
 //    Marked the functions static.
 //
+//    Kathleen Biagas, Thu Feb 6 13:24:01 PST 2014
+//    Test for file's existence on Windows. Throwing the exception here can
+//    prevent engine crashing elsewhere. (conn_cmfe test with bad_file.silo).
+//
+//    Brad Whitlock, Mon Sep  8 14:25:23 PDT 2014
+//    Moved code to FileFunctions.
+//
+//    Burlen Loring, Thu Jul 30 11:18:12 PDT 2015
+//    For parallel runs let one proc check perms and share
+//    the result to avoid mds scalability issues on lustre
+//
 // ****************************************************************************
 
-#if defined(_WIN32)
 static void
 CheckPermissions(const char *filename)
 {
-   // nothing
-}
-
-#else
-static bool    setUpUserInfo = false;
-static uid_t   uid;
-static gid_t   gids[100];
-static int     ngids;
-
-static void
-SetUpUserInfo(void)
-{
-    setUpUserInfo = true;
-    uid = getuid();
-    ngids = getgroups(100, gids);
-}
-
-static void
-CheckPermissions(const char *filename)
-{
-    if (!setUpUserInfo)
-    {
-        SetUpUserInfo();
-    }
-
-    VisItStat_t s;
-    int rv = VisItStat(filename, &s);
-    if (rv < 0)
-    {
-        if(errno == ENOENT || errno == ENOTDIR)
-        {
-            EXCEPTION1(FileDoesNotExistException, filename);
-        }
-        else
-        {
-            EXCEPTION1(BadPermissionException, filename);
-        }
-    }
-    mode_t mode = s.st_mode;
-
-    //
-    // If other has permission, then we are set.
-    //
-    if (mode & S_IROTH)
-    {
-        return;
-    }
-
-    //
-    // If we are the user and the user has permission, then we are set.
-    //
-    bool isuser =  (s.st_uid == uid);
-    if (isuser && (mode & S_IRUSR))
-    {
-        return;
-    }
-
-    //
-    // If we are in the group and the group has permission, then we are set.
-    //
-    bool isgroup = false;
-    for (int i = 0 ; i < ngids ; i++)
-    {
-        if (gids[i] == s.st_gid)
-        {
-            isgroup = true;
-        }
-    }
-    if (isgroup && (mode & S_IRGRP))
-    {
-        return;
-    }
-
-    EXCEPTION1(BadPermissionException, filename);
-}
+    int rank = 0;
+#ifdef PARALLEL
+    MPI_Comm_rank(VISIT_MPI_COMM, &rank);
 #endif
+    int result = FileFunctions::PERMISSION_RESULT_READABLE;
+    if (rank == 0)
+        result = FileFunctions::CheckPermissions(filename);
+#ifdef PARALLEL
+    MPI_Bcast(&result, 1, MPI_INT, 0, VISIT_MPI_COMM);
+#endif
+
+    if (result == FileFunctions::PERMISSION_RESULT_NOFILE)
+    {
+        EXCEPTION1(FileDoesNotExistException, filename);
+    }
+    else if (result == FileFunctions::PERMISSION_RESULT_NONREADABLE)
+    {
+        EXCEPTION1(BadPermissionException, filename);
+    }
+}

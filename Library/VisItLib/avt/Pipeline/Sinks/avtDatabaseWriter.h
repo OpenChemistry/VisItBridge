@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -44,6 +44,7 @@
 #define AVT_DATABASE_WRITER_H
 
 #include <avtTerminatingDatasetSink.h>
+#include <avtParallelContext.h>
 
 #include <string>
 #include <vector>
@@ -51,8 +52,8 @@
 #include <pipeline_exports.h>
 
 
-class     avtDatabaseMetaData;
-
+class avtDatabaseMetaData;
+class vtkPolyData;
 
 // ****************************************************************************
 //  Class: avtDatabaseWriter
@@ -98,17 +99,53 @@ class     avtDatabaseMetaData;
 //    Hank Childs, Fri Sep  7 17:54:21 PDT 2012
 //    Add support for outputZonal.
 //
+//    Brad Whitlock, Tue Jan 21 15:35:55 PST 2014
+//    Added the GetDefaultVariables method.
+//    Pass more identifying plot information to the Write method. I added
+//    methods to let this class perform polydata aggregation.
+//    Work partially supported by DOE Grant SC0007548.
+//
+//    Brad Whitlock, Thu Aug  6 16:47:50 PDT 2015
+//    Added support for writing using groups of MPI ranks.
+//
+//    Mark C. Miller, Tue Jun 14 10:38:17 PDT 2016
+//    Added logic to keep track of whether the writeContext wound up with
+//    some processors with no data.
 // ****************************************************************************
 
 class PIPELINE_API avtDatabaseWriter : public virtual avtTerminatingDatasetSink
 {
   public:
+    typedef enum 
+    {
+        CombineNone, // Do no combination of geometry before export.
+
+        CombineNoneGather, // Do no combination of geometry but gather to rank 0
+
+        CombineLike, // Combine like geometry by label and convert to polydata
+                     // so rank 0 will get N polydata objects representing
+                     // data from all ranks (1 per label).
+
+        CombineAll   // Combine all geometry from all ranks onto rank 0 and
+                     // get a single polydata object.
+    } CombineMode;
+
                        avtDatabaseWriter();
     virtual           ~avtDatabaseWriter();
    
-    void               Write(const std::string &, const avtDatabaseMetaData *);
-    void               Write(const std::string &, const avtDatabaseMetaData *,
-                             std::vector<std::string> &, bool allVars = true);
+    void               Write(const std::string &filename,
+                             const avtDatabaseMetaData *md);
+    void               Write(const std::string &plotName,
+                             const std::string &filename,
+                             const avtDatabaseMetaData *md,
+                             std::vector<std::string> &vars,
+                             bool allVars);
+    void               Write(const std::string &plotName,
+                             const std::string &filename,
+                             const avtDatabaseMetaData *md,
+                             std::vector<std::string> &vars,
+                             bool allVars,
+                             bool writeUsingGroups, int groupSize);
 
     void               SetShouldAlwaysDoMIR(bool s)
                              { shouldAlwaysDoMIR = s; };
@@ -125,6 +162,10 @@ class PIPELINE_API avtDatabaseWriter : public virtual avtTerminatingDatasetSink
     void               SetVariableList(std::vector<std::string> &);
     void               SetContractToUse(avtContract_p ps);
 
+    void               SetWriteContext(avtParallelContext &);
+    avtParallelContext &GetWriteContext();
+    bool               GetWriteContextHasNoDataProcs(void) const
+                           { return writeContextHasNoDataProcs; };
   protected:
     bool               shouldAlwaysDoMIR;
     bool               shouldNeverDoMIR;
@@ -138,20 +179,80 @@ class PIPELINE_API avtDatabaseWriter : public virtual avtTerminatingDatasetSink
     int                nTargetChunks;
     VISIT_LONG_LONG    targetTotalZones;
 
-    avtContract_p savedContract;
+    avtContract_p      savedContract;
+    avtParallelContext writeContext;
+    bool               writeContextHasNoDataProcs;
 
     virtual bool       CanHandleMaterials(void) { return false; };
 
+    virtual void       CheckCompatibility(const std::string &);
     virtual void       OpenFile(const std::string &, int) = 0;
     virtual void       WriteHeaders(const avtDatabaseMetaData *, 
-                           std::vector<std::string>&,std::vector<std::string>&,
-                           std::vector<std::string> &) = 0;
-    virtual void       WriteChunk(vtkDataSet *, int) = 0;
+                                    const std::vector<std::string>&scalars,
+                                    const std::vector<std::string>&vectors,
+                                    const std::vector<std::string>&materials) = 0;
+    virtual void       BeginPlot(const std::string &);
+    virtual void       WriteChunk(vtkDataSet *, int, int, const std::string &);
+    virtual void       WriteChunk(vtkDataSet *, int) = 0; // DEPRECATED VERSION
+    virtual void       EndPlot(const std::string &);
     virtual void       CloseFile(void) = 0;
+    virtual void       WriteRootFile();
 
     virtual bool       SupportsTargetChunks(void) { return false; };
     virtual bool       SupportsTargetZones(void) { return false; };
     virtual bool       SupportsOutputZonal(void) { return false; };
+
+    virtual CombineMode GetCombineMode(const std::string &plotName) const;
+    virtual bool        CreateTrianglePolyData() const;
+    virtual bool        CreateNormals() const;
+    virtual bool        SequentialOutput() const;
+
+    std::string         GetMeshName(const avtDatabaseMetaData *md) const;
+    double              GetTime() const;
+    int                 GetCycle() const;
+
+    virtual int         GetVariables(const std::string &meshname,
+                                     const avtDatabaseMetaData *md,
+                                     const std::vector<std::string> &varlist,
+                                     bool allVars,
+                                     bool allowExpressions,
+                                     const std::vector<std::string> &defaultVars,
+                                     std::vector<std::string> &scalarList,
+                                     std::vector<std::string> &vectorList);
+
+    virtual std::vector<std::string> GetDefaultVariables(avtDataRequest_p ds);
+
+    virtual void        GetMaterials(bool needsExecute,
+                                     const std::string &meshname,
+                                     const avtDatabaseMetaData *md,
+                                     std::vector<std::string> &materialList);
+
+    virtual avtContract_p ApplyVariablesToContract(avtContract_p c0, 
+                                     const std::string &meshname,
+                                     const std::vector<std::string> &vars,
+                                     bool &changed);
+
+    virtual avtContract_p ApplyMaterialsToContract(avtContract_p c0, 
+                                      const std::string &meshname,
+                                      const std::vector<std::string> &mats,
+                                      bool &changed);
+
+    vtkPolyData               *CreateSinglePolyData(avtParallelContext &context,
+                                                    avtDataTree_p rootnode);
+    std::vector<vtkPolyData *> ConvertDatasetsIntoPolyData(vtkDataSet **ds, int nds);
+    vtkPolyData               *CombinePolyData(const std::vector<vtkPolyData *> &pds);
+    std::vector<vtkPolyData *> SendPolyDataToRank0(avtParallelContext &context,
+                                                   const std::vector<vtkPolyData *> &pds);
+    void                GroupWrite(const std::string &plotName,
+                                   const std::string &filename,
+                                   const avtDatabaseMetaData *md,
+                                   const std::vector<std::string> &scalarList,
+                                   const std::vector<std::string> &vectorList,
+                                   const std::vector<std::string> &materialList,
+                                   int numTotalChunks, int startIndex,
+                                   int tag, bool writeUsingGroups, int groupSize);
+    void                WaitForTurn(int tag, int &nWritten);
+    void                GrantTurn(int tag, int &nWritten);
 };
 
 

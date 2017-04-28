@@ -5,7 +5,7 @@ include(${VISIT_BINARY_DIR}/VisItBridgeUse.cmake)
 macro(VISIT_INCLUDE_READER_SOURCE name state)
 option(VISIT_BUILD_READER_${name} "Build VisIt Reader ${name}" ${state})
 if (VISIT_BUILD_READER_${name})
-  add_subdirectory(${name})
+  add_subdirectory(readers/${name})
 endif()
 endmacro(VISIT_INCLUDE_READER_SOURCE name)
 
@@ -50,10 +50,10 @@ set(DEFAULT_BRIDGE_READERS
   OpenFOAM
   OVERFLOW
   paraDIS
+  paraDIS_tecplot
   PATRAN
   PFLOTRAN
   Pixie
-  PLOT2D
   PLOT3D
   Point3D
   ProteinDataBank
@@ -84,7 +84,7 @@ add_subdirectory(AvtAlgorithms)
 
 #add the default readers to the library
 foreach(db ${DEFAULT_BRIDGE_READERS})
-  add_subdirectory(${db})
+  add_subdirectory(readers/${db})
 endforeach(db)
 
 add_definitions("-DRC_CPP_VISIT_BUILD")
@@ -171,12 +171,12 @@ vtk_module_library(vtkIOVisItBridge ${Module_SRCS} ${VISIT_DB_SOURCES})
 if(VISIT_PARALLEL)
    target_link_libraries(vtkIOVisItBridge
         LINK_PRIVATE
-          visitcommon avtdatabase_par avtpipeline_par avtivp
+          visitcommon avtdatabase_par avtpipeline_par
           visit_vtk)
 else(VISIT_PARALLEL)
   target_link_libraries(vtkIOVisItBridge
         LINK_PRIVATE
-          visitcommon avtdatabase_ser avtpipeline_ser avtivp
+          visitcommon avtdatabase_ser avtpipeline_ser
           visit_vtk)
 endif(VISIT_PARALLEL)
 

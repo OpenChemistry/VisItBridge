@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -42,6 +42,18 @@
 
 #include <avtDataRepresentation.h>
 
+#include <visit-config.h>
+
+#ifdef HAVE_LIBEAVL
+#include <eavl.h>
+#include <eavlDataSet.h>
+#include <eavlVTKDataSet.h>
+#endif
+
+#ifdef HAVE_LIBVTKM
+#include <vtkmDataSet.h>
+#endif
+
 #include <vtkCellData.h>
 #include <vtkCharArray.h>
 #include <vtkDataSet.h>
@@ -63,9 +75,12 @@
 #include <avtParallel.h>
 #include <avtWebpage.h>
 
-#include <NoInputException.h>
-#include <ImproperUseException.h>
 #include <DebugStream.h>
+#include <ImproperUseException.h>
+#include <InvalidConversionException.h>
+#include <NoInputException.h>
+#include <StubReferencedException.h>
+#include <TimingsManager.h>
 #include <visitstream.h>
 #include <snprintf.h>
 #include <vtkVisItUtility.h>
@@ -77,8 +92,10 @@ using std::vector;
 //
 // Static members
 //
-bool          avtDataRepresentation::initializedNullDataset = false;
-vtkDataSet   *avtDataRepresentation::nullDataset = NULL;
+bool          avtDataRepresentation::initializedNullDatasets = false;
+vtkDataSet   *avtDataRepresentation::nullVTKDataset          = NULL;
+eavlDataSet  *avtDataRepresentation::nullEAVLDataset         = NULL;
+vtkmDataSet  *avtDataRepresentation::nullVTKmDataset         = NULL;
 
 
 // ****************************************************************************
@@ -97,11 +114,20 @@ vtkDataSet   *avtDataRepresentation::nullDataset = NULL;
 //
 //    Mark C. Miller, Wed Nov 16 14:17:01 PST 2005
 //    Added compression data members
+//
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 avtDataRepresentation::avtDataRepresentation()
 {
     asVTK        = NULL;
+    asEAVL       = NULL;
+    asVTKm       = NULL;
     asChar       = NULL;
     asCharLength = 0;
     domain       = -1;
@@ -109,6 +135,7 @@ avtDataRepresentation::avtDataRepresentation()
     compressionRatio = -1.0;
     timeToCompress   = -1.0;
     timeToDecompress = -1.0;
+    dataRepType  = DATA_REP_TYPE_VTK;
 }
 
 
@@ -142,16 +169,35 @@ avtDataRepresentation::avtDataRepresentation()
 //
 //    Mark C. Miller, Wed Nov 16 14:17:01 PST 2005
 //    Added compression data members
+//
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 avtDataRepresentation::avtDataRepresentation(vtkDataSet *d, int dom, string s,
                                              bool dontCopyData)
 {
-    InitializeNullDataset();
+    InitializeNullDatasets();
+
+    asEAVL       = NULL;
+    asVTKm       = NULL;
+    asChar       = NULL;
+    asCharLength = 0;
+    datasetType  = DATASET_TYPE_UNKNOWN;
+    dataRepType  = DATA_REP_TYPE_VTK;
+    domain       = dom;
+    label        = s ;
+    compressionRatio = -1.0;
+    timeToCompress   = -1.0;
+    timeToDecompress = -1.0;
 
     if (dontCopyData)
     {
-       asVTK = nullDataset;
+       asVTK = nullVTKDataset;
        datasetType = DATASET_TYPE_NULL;
        asVTK->Register(NULL);
     }
@@ -163,16 +209,108 @@ avtDataRepresentation::avtDataRepresentation(vtkDataSet *d, int dom, string s,
            asVTK->Register(NULL);
        }
     }
+}
+
+
+// ****************************************************************************
+//  Method: avtDataRepresentation constructor
+//
+//  Arguments:
+//      d       The dataset this object should represent.
+//      dom     The domain for this dataset.
+//      s       The label for this dataset.
+//
+//  Programmer: Cameron Christensen
+//  Creation:   May 22, 2014
+//
+//  Modifications:
+//    Eric Brugger, Tue Sep 30 15:07:51 PDT 2014
+//    I modified the EAVL version of the avtDataRepresentation constructor
+//    to also have domain and label arguments.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
+// ****************************************************************************
+
+avtDataRepresentation::avtDataRepresentation(eavlDataSet *d, int dom, string s,
+                                             bool dontCopyData)
+{
+    InitializeNullDatasets();
+
+#ifdef HAVE_LIBEAVL
+    asVTK        = NULL;
+    asVTKm       = NULL;
     asChar       = NULL;
     asCharLength = 0;
     datasetType  = DATASET_TYPE_UNKNOWN;
+    dataRepType  = DATA_REP_TYPE_EAVL;
     domain       = dom;
     label        = s ;
     compressionRatio = -1.0;
     timeToCompress   = -1.0;
     timeToDecompress = -1.0;
+
+    if (dontCopyData)
+    {
+       asEAVL = nullEAVLDataset;
+       datasetType = DATASET_TYPE_NULL;
+    }
+    else
+    {
+       asEAVL = d;
+    }
+#else
+    EXCEPTION1(StubReferencedException,"avtDataRepresentation::avtDataRepresentation(eavlDataSet *d)");
+#endif
 }
 
+// ****************************************************************************
+//  Method: avtDataRepresentation constructor
+//
+//  Arguments:
+//      d       The dataset this object should represent.
+//      dom     The domain for this dataset.
+//      s       The label for this dataset.
+//
+//  Programmer: Eric Brugger
+//  Creation:   Thu Dec 10 11:49:40 PST 2015
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+avtDataRepresentation::avtDataRepresentation(vtkmDataSet *d, int dom, string s,
+                                             bool dontCopyData)
+{
+    InitializeNullDatasets();
+
+#ifdef HAVE_LIBVTKM
+    asEAVL       = NULL;
+    asVTK        = NULL;
+    asChar       = NULL;
+    asCharLength = 0;
+    datasetType  = DATASET_TYPE_UNKNOWN;
+    dataRepType  = DATA_REP_TYPE_VTKM;
+    domain       = dom;
+    label        = s ;
+    compressionRatio = -1.0;
+    timeToCompress   = -1.0;
+    timeToDecompress = -1.0;
+
+    if (dontCopyData)
+    {
+       asVTKm = nullVTKmDataset;
+       datasetType = DATASET_TYPE_NULL;
+    }
+    else
+    {
+       asVTKm = d;
+    }
+#else
+    EXCEPTION1(StubReferencedException,"avtDataRepresentation::avtDataRepresentation(vtkmDataSet *d)");
+#endif
+}
 
 // ****************************************************************************
 //  Method: avtDataRepresentation constructor
@@ -204,12 +342,21 @@ avtDataRepresentation::avtDataRepresentation(vtkDataSet *d, int dom, string s,
 //
 //    Mark C. Miller, Wed Nov 16 14:17:01 PST 2005
 //    Added compression data members
+//
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 avtDataRepresentation::avtDataRepresentation(char *d, int dl, int dom, 
                                      string s, CharStrRef &os, DataSetType dst)
 {
     asVTK  = NULL;
+    asEAVL = NULL;
+    asVTKm = NULL;
 
     asCharLength = dl;
     asChar       = (unsigned char *) d;
@@ -221,6 +368,7 @@ avtDataRepresentation::avtDataRepresentation(char *d, int dl, int dom,
     compressionRatio = -1.0;
     timeToCompress   = -1.0;
     timeToDecompress = -1.0;
+    dataRepType  = DATA_REP_TYPE_VTK;
 }
 
 
@@ -253,14 +401,34 @@ avtDataRepresentation::avtDataRepresentation(char *d, int dl, int dom,
 //    Hank Childs, Fri Feb 15 16:17:18 PST 2008
 //    Initialize more data members.
 //
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 avtDataRepresentation::avtDataRepresentation(const avtDataRepresentation &rhs)
 {
     asVTK        = NULL;
+    asEAVL       = NULL;
+    asVTKm       = NULL;
     asChar       = NULL;
     asCharLength = 0;
 
+#ifdef HAVE_LIBEAVL
+    if (rhs.asEAVL)
+    {
+        asEAVL = rhs.asEAVL;
+    }
+#endif
+#ifdef HAVE_LIBVTKM
+    if (rhs.asVTKm)
+    {
+        asVTKm = rhs.asVTKm;
+    }
+#endif
     if (rhs.asVTK)
     {
         asVTK  = rhs.asVTK;
@@ -274,6 +442,7 @@ avtDataRepresentation::avtDataRepresentation(const avtDataRepresentation &rhs)
     }
 
     datasetType = rhs.datasetType;
+    dataRepType  = rhs.dataRepType;
     domain = rhs.domain;
     label = rhs.label; 
     compressionRatio = rhs.compressionRatio;
@@ -296,10 +465,31 @@ avtDataRepresentation::avtDataRepresentation(const avtDataRepresentation &rhs)
 //    Hank Childs, Mon Sep 17 09:27:11 PDT 2001
 //    Changed method for reference counting the character string.
 //
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 avtDataRepresentation::~avtDataRepresentation()
 {
+#ifdef HAVE_LIBEAVL
+    if (asEAVL)
+    {
+        //delete asEAVL; // TODO: smart pointers are getting me!
+        //asEAVL = NULL;
+        asEAVL = (eavlDataSet*)(0xdeadbeef);
+    }
+#endif
+#ifdef HAVE_LIBVTKM
+    if (asVTKm)
+    {
+        delete asVTKm;
+        asVTKm = NULL;
+    }
+#endif
     if (asVTK)
     {
         asVTK->Delete();
@@ -351,11 +541,32 @@ avtDataRepresentation::~avtDataRepresentation()
 //    Hank Childs, Tue Dec 18 10:25:09 PST 2007
 //    Remove const qualification of return type.
 //
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 avtDataRepresentation &
 avtDataRepresentation::operator=(const avtDataRepresentation &rhs)
 {
+    if (&rhs == this)
+        return *this;
+
+#ifdef HAVE_LIBEAVL
+    if (asEAVL)
+    {
+        delete asEAVL;
+    }
+#endif
+#ifdef HAVE_LIBVTKM
+    if (asVTKm)
+    {
+        delete asVTKm;
+    }
+#endif
     if (asVTK)
     {
         asVTK->Delete();
@@ -367,9 +578,23 @@ avtDataRepresentation::operator=(const avtDataRepresentation &rhs)
         originalString = NULL;
     }
 
-    asVTK = NULL;
+    asVTK  = NULL;
+    asEAVL = NULL;
+    asVTKm = NULL;
     asChar = NULL;
 
+#ifdef HAVE_LIBEAVL
+    if (rhs.asEAVL)
+    {
+        asEAVL = rhs.asEAVL;
+    }
+#endif
+#ifdef HAVE_LIBVTKM
+    if (rhs.asVTKm)
+    {
+        asVTKm = rhs.asVTKm;
+    }
+#endif
     if (rhs.asVTK)
     {
         asVTK  = rhs.asVTK;
@@ -383,6 +608,7 @@ avtDataRepresentation::operator=(const avtDataRepresentation &rhs)
     }
 
     datasetType = rhs.datasetType;
+    dataRepType = rhs.dataRepType;
     domain = rhs.domain;
     label = rhs.label; 
     compressionRatio = rhs.compressionRatio;
@@ -404,12 +630,20 @@ avtDataRepresentation::operator=(const avtDataRepresentation &rhs)
 //  Programmer: Hank Childs
 //  Creation:   September 22, 2000
 //
+//  Modifications:
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 bool
 avtDataRepresentation::Valid(void)
 {
-    return (asVTK != NULL || asChar != NULL ? true : false);
+    return (asVTK != NULL || asEAVL != NULL || asVTKm != NULL || asChar != NULL
+        ? true : false);
 }
 
 // ****************************************************************************
@@ -425,38 +659,67 @@ avtDataRepresentation::Valid(void)
 //
 //  Modifications:
 //
-//  Mark C. Miller, Wed Nov  5 09:48:13 PST 2003
-//  Added option to count polygons only
+//    Mark C. Miller, Wed Nov  5 09:48:13 PST 2003
+//    Added option to count polygons only
+//
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Burlen Loring, Sun Sep  6 14:58:03 PDT 2015
+//    Changed the return type of GetNumberOfCells to long long
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
 //
 // ****************************************************************************
 
-int
+long long
 avtDataRepresentation::GetNumberOfCells(int topoDim, bool polysOnly) const
 {
-   if (asVTK == NULL)
+   if (asVTK == NULL && asEAVL == NULL && asVTKm == NULL)
    {
-      if (asChar == NULL)
-         EXCEPTION0(NoInputException);
-      return -1;
+       if (asChar == NULL)
+       {
+           EXCEPTION0(NoInputException);
+       }
+       return -1;
    }
    else
    {
-      int numCells = 0;
+      long long numCells = 0;
 
-      if (polysOnly)
+#ifdef HAVE_LIBEAVL
+      if (dataRepType == DATA_REP_TYPE_EAVL)
       {
-         if (topoDim < 3)
-            numCells = (int) asVTK->GetNumberOfCells();
-         else
-            numCells = 0;
+          numCells = 0;
+          if (asEAVL->GetNumCellSets() > 0)
+          {
+              numCells = asEAVL->GetCellSet(0)->GetNumCells();
+          }
       }
-      else
+#endif
+#ifdef HAVE_LIBVTKM
+      if (dataRepType == DATA_REP_TYPE_VTKM)
       {
-         numCells = (int) asVTK->GetNumberOfCells();
+          numCells = 0;
       }
-       
+#endif
+      if (dataRepType == DATA_REP_TYPE_VTK)
+      {
+          if (polysOnly)
+          {
+              if (topoDim < 3)
+                  numCells = asVTK->GetNumberOfCells();
+              else
+                  numCells = 0;
+          }
+          else
+          {
+              numCells = asVTK->GetNumberOfCells();
+          }
+      }
+
       return numCells;
-
    }
 }
 
@@ -497,6 +760,55 @@ avtDataRepresentation::GetCompressedDataString(int &length, DataSetType &dst)
 }
 
 // ****************************************************************************
+//  Method: avtDataRepresentation::vtkToString
+//
+//  Purpose:
+//      Gets the vtk data as a character string.
+//
+//  Programmer: Cameron Christensen
+//  Creation:   May 22, 2014
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+unsigned char*
+avtDataRepresentation::vtkToString(bool compress)
+{
+    if (asVTK == NULL)
+        return NULL;
+                    
+    datasetType = DatasetTypeForVTK(asVTK);
+
+    vtkDataSetWriter *writer = vtkDataSetWriter::New();
+    writer->SetInputData(asVTK);
+    writer->SetWriteToOutputString(1);
+    writer->SetFileTypeToBinary();
+    writer->Write();
+    asCharLength = writer->GetOutputStringLength();
+    asChar = (unsigned char *) writer->RegisterAndGetOutputString();
+    writer->Delete();
+
+    if (compress)
+    {
+        int asCharLengthNew = 0;
+        unsigned char *asCharNew = 0;
+        if (CCompressDataString(asChar, asCharLength,
+                                &asCharNew, &asCharLengthNew,
+                                &timeToCompress, &compressionRatio))
+        {
+            delete [] asChar;
+            asChar = asCharNew;
+            asCharLength = asCharLengthNew;
+        }
+    }
+
+    originalString = (char *)asChar;
+
+    return asChar;
+}
+                
+// ****************************************************************************
 //  Method: avtDataRepresentation::GetDataString
 //
 //  Purpose:
@@ -521,54 +833,79 @@ avtDataRepresentation::GetCompressedDataString(int &length, DataSetType &dst)
 //
 //    Mark C. Miller, Wed Nov 16 14:17:01 PST 2005
 //    Added compression
+//
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 unsigned char *
 avtDataRepresentation::GetDataString(int &length, DataSetType &dst, bool compress)
 {
-    InitializeNullDataset();
+    InitializeNullDatasets();
 
     if (asChar == NULL)
     {
-        if (asVTK == NULL)
+        if (asVTK == NULL && asEAVL == NULL)
         {
             EXCEPTION0(NoInputException);
         }
-        else if (asVTK == nullDataset)
+        if (dataRepType == DATA_REP_TYPE_VTK)
         {
-            dst = DATASET_TYPE_NULL;
-            asCharLength = 0;
-            asChar = NULL;
+            if (asVTK == nullVTKDataset)
+            {
+                dst = DATASET_TYPE_NULL;
+                asCharLength = 0;
+                asChar = NULL;
+            }
+            else
+            {
+                vtkToString(compress);
+                dst = datasetType;
+            }
         }
+#ifdef HAVE_LIBEAVL
+        else if (dataRepType == DATA_REP_TYPE_EAVL)
+        {
+            if (asEAVL == nullEAVLDataset)
+            {
+                dst = DATASET_TYPE_NULL;
+                asCharLength = 0;
+                asChar = NULL;
+            }
+            else
+            {
+                //simply convert the EAVL data to VTK and then to a string
+                GetDataVTK();
+                vtkToString(compress);
+                dst = datasetType;
+            }
+        }            
+#endif
+#ifdef HAVE_LIBVTKM
+        else if (dataRepType == DATA_REP_TYPE_VTKM)
+        {
+            if (asVTKm == nullVTKmDataset)
+            {
+                dst = DATASET_TYPE_NULL;
+                asCharLength = 0;
+                asChar = NULL;
+            }
+            else
+            {
+                //simply convert the VTKm data to VTK and then to a string
+                GetDataVTKm();
+                vtkToString(compress);
+                dst = datasetType;
+            }
+        }            
+#endif
         else
         {
-            dst = DatasetTypeForVTK(asVTK);
-            datasetType = dst;
-             
-            vtkDataSetWriter *writer = vtkDataSetWriter::New();
-            writer->SetInputData(asVTK);
-            writer->SetWriteToOutputString(1);
-            writer->SetFileTypeToBinary();
-            writer->Write();
-            asCharLength = writer->GetOutputStringLength();
-            asChar = (unsigned char *) writer->RegisterAndGetOutputString();
-            writer->Delete();
-
-            if (compress)
-            {
-                int asCharLengthNew = 0;
-                unsigned char *asCharNew = 0;
-                if (CCompressDataString(asChar, asCharLength,
-                                        &asCharNew, &asCharLengthNew,
-                                        &timeToCompress, &compressionRatio))
-                {
-                    delete [] asChar;
-                    asChar = asCharNew;
-                    asCharLength = asCharLengthNew;
-                }
-            }
-
-            originalString = (char *)asChar;
+            EXCEPTION0(NoInputException);
         }
     }
     else
@@ -580,6 +917,58 @@ avtDataRepresentation::GetDataString(int &length, DataSetType &dst, bool compres
     return asChar;
 }
 
+// ****************************************************************************
+//  Method: avtDataRepresentation::GetDataEAVL
+//
+//  Purpose:
+//      Gets the data as an eavlDataSet.
+//
+//  Returns:      The data as a eavlDataSet.
+//
+//  Programmer: Eric Brugger
+//  Creation:   May 21, 2014
+//
+//  Modifications:
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+// ****************************************************************************
+
+eavlDataSet *
+avtDataRepresentation::GetDataEAVL(void)
+{
+#ifndef HAVE_LIBEAVL
+    asEAVL = NULL;
+#else
+
+    InitializeNullDatasets();
+    
+    if (asEAVL == NULL)
+    {
+        if (datasetType == DATASET_TYPE_NULL)
+        {
+            asEAVL = nullEAVLDataset;
+        }
+        else
+        {
+            //convert from VTK
+            vtkDataSet *vtkdata = GetDataVTK();
+            asEAVL              = VTKToEAVL(vtkdata);
+
+            if (asEAVL == NULL)
+            {
+                EXCEPTION0(NoInputException);
+            }
+            else if (datasetType == DATASET_TYPE_NULL)
+            {
+                asEAVL = nullEAVLDataset;
+            }
+        }
+    }
+#endif
+
+    return asEAVL;
+}
 
 // ****************************************************************************
 //  Method: avtDataRepresentation::GetDataVTK
@@ -621,26 +1010,49 @@ avtDataRepresentation::GetDataString(int &length, DataSetType &dst, bool compres
 //    Kathleen Biagas, Mon Jan 28 10:29:06 PST 2013
 //    Call Update on the reader, not the dataset.
 //
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Jan 14 10:48:40 PST 2016
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 vtkDataSet *
 avtDataRepresentation::GetDataVTK(void)
 {
-    InitializeNullDataset();
+    InitializeNullDatasets();
 
     if (asVTK == NULL)
     {
-        if (asChar == NULL)
+        if (datasetType == DATASET_TYPE_NULL)
         {
-            EXCEPTION0(NoInputException);
-        }
-        else if (datasetType == DATASET_TYPE_NULL)
-        {
-            asVTK = nullDataset;
+            asVTK = nullVTKDataset;
             asVTK->Register(NULL);
         }
+#ifdef HAVE_LIBEAVL
         else
         {
+            //try to convert from EAVL dataset
+            asVTK = EAVLToVTK(asEAVL);
+        }
+#endif
+#ifdef HAVE_LIBVTKM
+        else
+        {
+            //try to convert from VTKm dataset
+            asVTK = VTKmToVTK(asVTKm);
+        }
+#endif
+
+        //try to convert from char dataset
+        if (asVTK == NULL)
+        {
+            if (asChar == NULL)
+            {
+                EXCEPTION0(NoInputException);
+            }
+
             vtkDataReader *reader = NULL;
             vtkDataSetReader *dsreader = NULL;
             bool readerIsAFrontEnd = false;
@@ -736,9 +1148,57 @@ avtDataRepresentation::GetDataVTK(void)
     return asVTK;
 }
 
+// ****************************************************************************
+//  Method: avtDataRepresentation::GetDataVTKm
+//
+//  Purpose:
+//      Gets the data as a vtkmDataSet.
+//
+//  Returns:      The data as a vtkmDataSet.
+//
+//  Programmer: Eric Brugger
+//  Creation:   Thu Dec 10 11:49:40 PST 2015
+//
+// ****************************************************************************
+
+vtkmDataSet *
+avtDataRepresentation::GetDataVTKm(void)
+{
+#ifndef HAVE_LIBVTKM
+    asVTKm = NULL;
+#else
+
+    InitializeNullDatasets();
+    
+    if (asVTKm == NULL)
+    {
+        if (datasetType == DATASET_TYPE_NULL)
+        {
+            asVTKm = nullVTKmDataset;
+        }
+        else
+        {
+            //convert from VTK
+            vtkDataSet *vtkdata = GetDataVTK();
+            asVTKm              = VTKToVTKm(vtkdata);
+
+            if (asVTKm == NULL)
+            {
+                EXCEPTION0(NoInputException);
+            }
+            else if (datasetType == DATASET_TYPE_NULL)
+            {
+                asVTKm = nullVTKmDataset;
+            }
+        }
+    }
+#endif
+
+    return asVTKm;
+}
 
 // ****************************************************************************
-//  Method: avtDataRepresentation::InitializeNullDataset
+//  Method: avtDataRepresentation::InitializeNullDatasets
 //
 //  Purpose:
 //      The null dataset is used to represent that the contents of a tree
@@ -754,12 +1214,19 @@ avtDataRepresentation::GetDataVTK(void)
 //  Programmer: Hank Childs
 //  Creation:   March 17, 2004
 //
+//  Modifications:
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 void
-avtDataRepresentation::InitializeNullDataset(void)
+avtDataRepresentation::InitializeNullDatasets(void)
 {
-    if (initializedNullDataset)
+    if (initializedNullDatasets)
         return;
 
     // build the points object (not a vtkDataSet object)
@@ -768,35 +1235,59 @@ avtDataRepresentation::InitializeNullDataset(void)
     dummyPoints->SetNumberOfPoints(0);
     ugrid->SetPoints(dummyPoints);
     dummyPoints->Delete();
+    nullVTKDataset = ugrid;
 
-    nullDataset = ugrid;
-    initializedNullDataset = true;
-
-#if defined(DEBUG_MEMORY_LEAKS)
-    atexit(DeleteNullDataset);
+#ifdef HAVE_LIBEAVL
+    nullEAVLDataset = new eavlDataSet();
 #endif
+
+#ifdef HAVE_LIBVTKM
+    nullVTKmDataset = new vtkmDataSet();
+#endif
+
+    initializedNullDatasets = true;
+
+    atexit(DeleteNullDatasets);
 }
 
 // ****************************************************************************
-//  Function: DeleteNullDataset
+//  Function: DeleteNullDatasets
 //
 //  Purpose:
-//      Delete the initializedNullDataset object. This is to help with memory
+//      Delete the initializedNullDatasets object. This is to help with memory
 //    tools to remove the still reachable memory.
 //
 //  Programmer: David Camp
 //  Creation:   August 16, 2011
 //
+//  Modifications:
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Thu Dec 10 11:49:40 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 void 
-avtDataRepresentation::DeleteNullDataset(void)
+avtDataRepresentation::DeleteNullDatasets(void)
 {
-    if (nullDataset)
+    if (nullVTKDataset)
     {
-        nullDataset->Delete();
-        nullDataset = NULL;
-        initializedNullDataset = false;
+        nullVTKDataset->Delete();
+        nullVTKDataset = NULL;
     }
+
+#ifdef HAVE_LIBEAVL
+    delete nullEAVLDataset;
+    nullEAVLDataset = NULL;
+#endif
+    
+#ifdef HAVE_LIBVTKM
+    delete nullVTKmDataset;
+    nullVTKmDataset = NULL;
+#endif
+    
+    initializedNullDatasets = false;
 }
 
 // ****************************************************************************
@@ -818,14 +1309,17 @@ avtDataRepresentation::DeleteNullDataset(void)
 //    Hank Childs, Wed Mar 17 19:51:05 PST 2004
 //    Account for the null dataset.
 //
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
 // ****************************************************************************
 
 DataSetType
 avtDataRepresentation::DatasetTypeForVTK(vtkDataSet *ds)
 {
-    InitializeNullDataset();
+    InitializeNullDatasets();
 
-    if (ds == nullDataset)
+    if (ds == nullVTKDataset)
         return DATASET_TYPE_NULL;
 
     DataSetType rv = DATASET_TYPE_UNKNOWN;
@@ -988,6 +1482,9 @@ avtDataRepresentation::GetTimeToDecompress() const
 //    Tom Fogal, Tue Sep 27 11:04:08 MDT 2011
 //    Fix warning.
 //
+//    Kathleen Biagas, Wed Apr  1 16:34:55 PDT 2015
+//    Access FieldData arrays via AbstractArray interface.
+//
 // ****************************************************************************
 
 const char *
@@ -1052,16 +1549,15 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
 
         for(int i = 0; i < nfield; i++)
         {
-            vtkDataArray *arr = newDS->GetFieldData()->GetArray(i);
             string cur_name("");
-            if (arr->GetName() != NULL)
-                cur_name = arr->GetName();
+            if (newDS->GetFieldData()->GetArrayName(i) != NULL)
+                cur_name = newDS->GetFieldData()->GetArrayName(i);
             string dmp_name = cur_name;
             orig_names.push_back(cur_name);
             if( cur_name.find("avt") == 0 )
             {
                 dmp_name = "dump_internal_" + dmp_name.substr(3);
-                arr->SetName(dmp_name.c_str());
+                newDS->GetFieldData()->GetAbstractArray(i)->SetName(dmp_name.c_str());
                 dump_names.push_back(dmp_name);
             }
             else
@@ -1143,7 +1639,7 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
         for(int i = 0; i < nfield; i++, idx++)
         {
             if(orig_names[idx] != dump_names[idx])
-                newDS->GetFieldData()->GetArray(i)->SetName(orig_names[idx].c_str());
+                newDS->GetFieldData()->GetAbstractArray(i)->SetName(orig_names[idx].c_str());
         }
 
         for(int i = 0; i < npt; i++, idx++)
@@ -1249,7 +1745,7 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
             for (int i=0; i<data[fd]->GetNumberOfArrays(); i++)
             {
                 const char *arr_type = "<unknown>";
-                switch (data[fd]->GetArray(i)->GetDataType())
+                switch (data[fd]->GetAbstractArray(i)->GetDataType())
                 {
                   case VTK_CHAR:
                     arr_type = "char";
@@ -1282,15 +1778,15 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
                     arr_type = "id_type";
                     break;
                 }
-                oss << "<li>" << data[fd]->GetArray(i)->GetName() 
+                oss << "<li>" << data[fd]->GetAbstractArray(i)->GetName() 
                     << "<ul>" 
                     << "<li>" 
-                    << "refs = "  << data[fd]->GetArray(i)->GetReferenceCount()
+                    << "refs = "  << data[fd]->GetAbstractArray(i)->GetReferenceCount()
                     << "</li><li>" 
-                    << "vals = " << data[fd]->GetArray(i)->GetNumberOfTuples()
+                    << "vals = " << data[fd]->GetAbstractArray(i)->GetNumberOfTuples()
                     << "</li><li>" 
                     << "ncomps = " 
-                    << data[fd]->GetArray(i)->GetNumberOfComponents()
+                    << data[fd]->GetAbstractArray(i)->GetNumberOfComponents()
                     << "</li><li>" 
                     << "type = " 
                     << arr_type
@@ -1305,3 +1801,154 @@ avtDataRepresentation::DebugDump(avtWebpage *webpage, const char *prefix)
     return str;
 }
 
+
+#ifdef HAVE_LIBEAVL
+// ****************************************************************************
+//  Method: avtDataRepresentation::EAVLToVTK
+//
+//  Purpose:
+//      Convert between VTK and EAVL data representation.
+//
+//  Returns:      The data as a vtkDataSet.
+//
+//  Programmer: Cameron Christensen
+//  Creation:   May 22, 2014
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+vtkDataSet*
+avtDataRepresentation::EAVLToVTK(eavlDataSet *data)
+{
+    debug5 << "converting dataset from EAVL to VTK...\n";
+
+    vtkDataSet *ret = NULL;
+    if (data)
+    {
+        int timerhandle = visitTimer->StartTimer();
+
+        ret = ConvertEAVLToVTK(data);
+        if (ret == NULL)
+        {
+            EXCEPTION0(InvalidConversionException);
+        }
+
+        visitTimer->StopTimer(timerhandle, "avtDataRepresentation::EAVLToVTK");
+    }
+    return ret;
+}
+
+
+// ****************************************************************************
+//  Method: avtDataRepresentation::VTKToEAVL
+//
+//  Purpose:
+//      Convert between VTK and EAVL data representation.
+//
+//  Returns:      The data as a eavlDataSet.
+//
+//  Programmer: Cameron Christensen
+//  Creation:   May 22, 2014
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+eavlDataSet*
+avtDataRepresentation::VTKToEAVL(vtkDataSet *data)
+{
+    debug5 << "converting dataset from VTK to EAVL...\n";
+
+    eavlDataSet *ret = NULL;
+    if (data)
+    {
+        int timerhandle = visitTimer->StartTimer();
+
+        ret = ConvertVTKToEAVL(data);
+        if (ret == NULL)
+        {
+            EXCEPTION0(InvalidConversionException);
+        }
+
+        visitTimer->StopTimer(timerhandle, "avtDataRepresentation::VTKToEAVL");
+    }
+    return ret;
+}
+#endif
+
+
+#ifdef HAVE_LIBVTKM
+// ****************************************************************************
+//  Method: avtDataRepresentation::VTKmToVTK
+//
+//  Purpose:
+//      Convert between VTK and VTKm data representation.
+//
+//  Returns:      The data as a vtkDataSet.
+//
+//  Programmer: Eric Brugger
+//  Creation:   Thu Dec 10 11:49:40 PST 2015
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+vtkDataSet*
+avtDataRepresentation::VTKmToVTK(vtkmDataSet *data)
+{
+    debug5 << "converting dataset from VTKm to VTK...\n";
+
+    vtkDataSet *ret = NULL;
+    if (data)
+    {
+        int timerhandle = visitTimer->StartTimer();
+
+        ret = ConvertVTKmToVTK(data);
+        if (ret == NULL)
+        {
+            EXCEPTION0(InvalidConversionException);
+        }
+
+        visitTimer->StopTimer(timerhandle, "avtDataRepresentation::VTKmToVTK");
+    }
+    return ret;
+}
+
+
+// ****************************************************************************
+//  Method: avtDataRepresentation::VTKToVTKm
+//
+//  Purpose:
+//      Convert between VTK and VTKm data representation.
+//
+//  Returns:      The data as a vtkmDataSet.
+//
+//  Programmer: Eric Brugger
+//  Creation:   Thu Dec 10 11:49:40 PST 2015
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+vtkmDataSet*
+avtDataRepresentation::VTKToVTKm(vtkDataSet *data)
+{
+    debug5 << "converting dataset from VTK to VTKm...\n";
+
+    vtkmDataSet *ret = NULL;
+    if (data)
+    {
+        int timerhandle = visitTimer->StartTimer();
+
+        ret = ConvertVTKToVTKm(data);
+        if (ret == NULL)
+        {
+            EXCEPTION0(InvalidConversionException);
+        }
+
+        visitTimer->StopTimer(timerhandle, "avtDataRepresentation::VTKToVTKm");
+    }
+    return ret;
+}
+#endif

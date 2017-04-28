@@ -1,8 +1,8 @@
 #*****************************************************************************
 #
-# Copyright (c) 2000 - 2008, Lawrence Livermore National Security, LLC
+# Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 # Produced at the Lawrence Livermore National Laboratory
-# LLNL-CODE-400142
+# LLNL-CODE-442911
 # All rights reserved.
 #
 # This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -39,95 +39,124 @@
 #   Define __USE_ISOC99 if we are using the boost interval lib to make sure
 #   a rounding scheme is available.
 #
+#   Eric Brugger, Wed Jul 25 08:30:40 PDT 2012
+#   I added the classes vtkMultiSplitter and vtkVolumeFromCSGVolume.
+#
+#   Kathleen Biagas, Wed Aug  8 08:15:26 PDT 2012
+#   Removed vtkDisjointCubesFacelistFilter.
+#
+#   Burlen Loring, Sun Oct 18 00:47:57 PDT 2015
+#   Added vtkDepthSortPolyData2
+#
 #****************************************************************************/
 
 SET(VISIT_VTK_SOURCES
-InitVTK.C
-vtkAxisDepthSort.C
+#InitVTK.C
+#vtkAxisDepthSort.C
 vtkBinaryPartitionVolumeFromVolume.C
-vtkCSGCell.C
+#vtkCSGCell.C
 vtkCSGGrid.C
-vtkConnectedTubeFilter.C
-vtkDataSetRemoveGhostCells.C
-vtkLineoutFilter.C
-vtkLinesFromOriginalCells.C
+#vtkConnectedTubeFilter.C
+#vtkDataSetRemoveGhostCells.C
+#vtkDepthSortPolyData2.C
+#vtkLineoutFilter.C
+#vtkLinesFromOriginalCells.C
+#vtkMergeTree.C
 vtkMultiSplitter.C
-vtkOBJWriter.C
-vtkOnionPeelFilter.C
-vtkPPMWriter.C
+#vtkOBJWriter.C
+#vtkOnionPeelFilter.C
+#vtkPPMWriter.C
 vtkPolyDataOnionPeelFilter.C
-vtkRGBWriter.C
-vtkRectilinearGridFacelistFilter.C
-vtkRectilinearLinesNoDataFilter.C
-vtkSlicer.C
-vtkStructuredGridFacelistFilter.C
-vtkSurfaceFilter.C
+#vtkRGBWriter.C
+#vtkRectilinearGridFacelistFilter.C
+#vtkRectilinearLinesNoDataFilter.C
+#vtkSlicer.C
+#vtkStructuredGridFacelistFilter.C
+#vtkSurfaceFilter.C
 vtkSurfaceFromVolume.C
-vtkTensorReduceFilter.C
-vtkUniqueFeatureEdges.C
+#vtkTensorReduceFilter.C
+#vtkUniqueFeatureEdges.C
 vtkUnstructuredGridRelevantPointsFilter.C
-vtkVectorGlyph.C
-vtkVectorReduceFilter.C
-vtkVertexFilter.C
+#vtkVectorGlyph.C
+#vtkVectorReduceFilter.C
+#vtkVertexFilter.C
 vtkVisItCellDataToPointData.C
 vtkVisItClipper.C
-vtkVisItContourFilter.C
-vtkVisItCutter.C
-vtkVisItExtractGrid.C
-vtkVisItExtractRectilinearGrid.C
-vtkVisItFeatureEdges.C
-vtkVisItGlyph3D.C
-vtkVisItInterpolatedVelocityField.C
+#vtkVisItContourFilter.C
+#vtkVisItCutter.C
+#vtkVisItExtractGrid.C
+#vtkVisItExtractRectilinearGrid.C
+#vtkVisItFeatureEdges.C
+#vtkVisItGlyph3D.C
+#vtkVisItInterpolatedVelocityField.C
 vtkVisItPolyDataNormals.C
-vtkVisItProbeFilter.C
-vtkVisItRectilinearGrid.C
-vtkVisItSTLWriter.C
-vtkVisItScalarTree.C
+#vtkVisItPolyDataNormals2D.C
+#vtkVisItProbeFilter.C
+#vtkVisItRectilinearGrid.C
+#vtkVisItSTLWriter.C
+#vtkVisItScalarTree.C
 vtkVisItSplitter.C
-vtkVisItStructuredGrid.C
-vtkVisItStructuredGridNormals.C
-vtkVisItTubeFilter.C
+#vtkVisItStreamLine.C
+#vtkVisItStructuredGrid.C
+#vtkVisItStructuredGridNormals.C
+#vtkVisItTubeFilter.C
 #vtkVisItTIFFWriter.C
-vtkVisItTensorGlyph.C
+#vtkVisItTensorGlyph.C
 vtkVolumeFromCSGVolume.C
 vtkVolumeFromVolume.C
 )
 
+
 INCLUDE_DIRECTORIES(
-${VISIT_BINARY_DIR}
+${VISIT_BINARY_DIR}/include
+${VISIT_SOURCE_DIR}/include
 ${VISIT_SOURCE_DIR}/visit_vtk/full
 ${VISIT_SOURCE_DIR}/avt/Pipeline/Data
+${VISIT_SOURCE_DIR}/common/Exceptions/Pipeline
+${VISIT_SOURCE_DIR}/common/misc
+${VISIT_SOURCE_DIR}/common/utility
 ${VISIT_SOURCE_DIR}/visit_vtk/lightweight
+${VTK_INCLUDE_DIRS}
 ${BOOST_INCLUDE_DIR}
 )
-#robert maynard: todo, find a better solution
-if(HAVE_BILIB)
-  add_definitions(-D __USE_ISOC99)
-endif(HAVE_BILIB)
 
-#fix the include directories to have the parser first no matter what
-get_directory_property(tmp_include_dirs INCLUDE_DIRECTORIES)
-set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES
-  "${VISIT_SOURCE_DIR}/parser;${tmp_include_dirs}")
+IF(HAVE_BOOST)
+    ADD_DEFINITIONS(-D__USE_ISOC99)
+ENDIF(HAVE_BOOST)
 
+# Add link directories needed to use our libraries and VTK.
+LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS})
+
+#ADD_LIBRARY(visit_vtk ${VISIT_VTK_SOURCES})
 VTK_ADD_LIBRARY(visit_vtk ${VISIT_VTK_SOURCES})
 
 target_link_libraries(visit_vtk
-  LINK_PUBLIC
-    visitcommon
-    lightweight_visit_vtk
-    vtkCommonCore
-    vtkCommonDataModel
-    vtkCommonExecutionModel
-    vtkIOImage
-  LINK_PRIVATE
-    vtkFiltersExtraction
-    vtkFiltersFlowPaths
-    vtkFiltersSources
-    vtkImagingHybrid
-    vtkInteractionStyle
-    vtkIOLegacy
-    vtkRendering${VTK_RENDERING_BACKEND}
-  )
+    LINK_PUBLIC
+        visitcommon
+        lightweight_visit_vtk
+        vtkCommonCore
+        vtkCommonDataModel
+        vtkCommonExecutionModel
+        vtkIOImage
+    LINK_PRIVATE
+        vtkFiltersExtraction
+        vtkFiltersFlowPaths
+        vtkFiltersSources
+        vtkImagingHybrid
+        vtkInteractionStyle
+        vtkIOLegacy
+        vtkRendering${VTK_RENDERING_BACKEND}
+)
+
+if (FALSE)
+IF(HAVE_LIB_R)
+    TARGET_LINK_LIBRARIES(visit_vtk lightweight_visit_vtk vtkFiltersExtraction vtkFiltersFlowPaths vtkImagingHybrid vtkRenderingOpenGL vtkRenderingFreeType vtkRenderingFreeTypeOpenGL vtkInteractionStyle vtktiff vtkFiltersStatisticsGnuR)
+ELSE(HAVE_LIB_R)
+    TARGET_LINK_LIBRARIES(visit_vtk lightweight_visit_vtk vtkFiltersExtraction vtkFiltersFlowPaths vtkImagingHybrid vtkRenderingOpenGL vtkRenderingFreeType vtkRenderingFreeTypeOpenGL vtkInteractionStyle vtktiff)
+ENDIF(HAVE_LIB_R)
+# Add vtk definitions
+ADD_TARGET_DEFINITIONS(visit_vtk "${VTK_DEFINITIONS}")
+endif ()
+
 
 VISIT_INSTALL_TARGETS(visit_vtk)

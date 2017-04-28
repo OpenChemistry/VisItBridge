@@ -1,8 +1,8 @@
 #*****************************************************************************
 #
-# Copyright (c) 2000 - 2008, Lawrence Livermore National Security, LLC
+# Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 # Produced at the Lawrence Livermore National Laboratory
-# LLNL-CODE-400142
+# LLNL-CODE-442911
 # All rights reserved.
 #
 # This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -62,15 +62,15 @@ MetaData/avtVectorMetaData.C
 )
 
 SET(SIL_SOURCES
-SIL/avtSIL.C
-SIL/avtSILArray.C
-SIL/avtSILCollection.C
-SIL/avtSILEnumeratedNamespace.C
-SIL/avtSILMatrix.C
-SIL/avtSILNamespace.C
-SIL/avtSILRangeNamespace.C
-SIL/avtSILRestriction.C
-SIL/avtSILRestrictionTraverser.C
+SIL/avtSIL.C 
+SIL/avtSILArray.C 
+SIL/avtSILCollection.C 
+SIL/avtSILEnumeratedNamespace.C 
+SIL/avtSILMatrix.C 
+SIL/avtSILNamespace.C 
+SIL/avtSILRangeNamespace.C 
+SIL/avtSILRestriction.C 
+SIL/avtSILRestrictionTraverser.C 
 SIL/avtSILSet.C
 )
 
@@ -83,8 +83,10 @@ ${VISIT_SOURCE_DIR}/avt/DBAtts/SIL
 # Add link directories needed.
 LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY})
 
+#ADD_LIBRARY(avtdbatts ${METADATA_SOURCES} ${SIL_SOURCES})
 VTK_ADD_LIBRARY(avtdbatts ${METADATA_SOURCES} ${SIL_SOURCES})
 
-target_link_libraries(avtdbatts LINK_PRIVATE visitcommon)
+#TARGET_LINK_LIBRARIES(avtdbatts visitcommon)
+TARGET_LINK_LIBRARIES(avtdbatts LINK_PRIVATE visitcommon)
 
 VISIT_INSTALL_TARGETS(avtdbatts)

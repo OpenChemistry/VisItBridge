@@ -1,8 +1,8 @@
 #*****************************************************************************
 #
-# Copyright (c) 2000 - 2008, Lawrence Livermore National Security, LLC
+# Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 # Produced at the Lawrence Livermore National Laboratory
-# LLNL-CODE-400142
+# LLNL-CODE-442911
 # All rights reserved.
 #
 # This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -43,3 +43,9 @@ PROJECT(visit_vtk)
 ADD_SUBDIRECTORY(lightweight)
 ADD_SUBDIRECTORY(full)
 
+if (FALSE)
+# if mesa is enabled, add our external mesa rendering lib
+IF(MESA_FOUND)
+    ADD_SUBDIRECTORY(osmesa)
+ENDIF(MESA_FOUND)
+endif ()

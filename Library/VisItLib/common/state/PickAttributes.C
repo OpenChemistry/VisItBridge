@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -226,6 +226,8 @@ void PickAttributes::Init()
     ghostType = 0;
     hasMixedGhostTypes = -1;
     linesData = false;
+    showPickHighlight = false;
+    notifyEnabled = true;
     inputTopoDim = -1;
     meshCoordType = XY;
     createSpreadsheet = false;
@@ -271,6 +273,7 @@ void PickAttributes::Copy(const PickAttributes &obj)
     domain = obj.domain;
     elementNumber = obj.elementNumber;
     incidentElements = obj.incidentElements;
+    cellCoordinates = obj.cellCoordinates;
     timeStep = obj.timeStep;
     dimension = obj.dimension;
     databaseName = obj.databaseName;
@@ -345,6 +348,8 @@ void PickAttributes::Copy(const PickAttributes &obj)
     ghostType = obj.ghostType;
     hasMixedGhostTypes = obj.hasMixedGhostTypes;
     linesData = obj.linesData;
+    showPickHighlight = obj.showPickHighlight;
+    notifyEnabled = obj.notifyEnabled;
     inputTopoDim = obj.inputTopoDim;
     meshCoordType = obj.meshCoordType;
     createSpreadsheet = obj.createSpreadsheet;
@@ -565,6 +570,7 @@ PickAttributes::operator == (const PickAttributes &obj) const
             (domain == obj.domain) &&
             (elementNumber == obj.elementNumber) &&
             (incidentElements == obj.incidentElements) &&
+            (cellCoordinates == obj.cellCoordinates) &&
             (timeStep == obj.timeStep) &&
             (dimension == obj.dimension) &&
             (databaseName == obj.databaseName) &&
@@ -610,6 +616,8 @@ PickAttributes::operator == (const PickAttributes &obj) const
             (ghostType == obj.ghostType) &&
             (hasMixedGhostTypes == obj.hasMixedGhostTypes) &&
             (linesData == obj.linesData) &&
+            (showPickHighlight == obj.showPickHighlight) &&
+            (notifyEnabled == obj.notifyEnabled) &&
             (inputTopoDim == obj.inputTopoDim) &&
             (meshCoordType == obj.meshCoordType) &&
             (createSpreadsheet == obj.createSpreadsheet) &&
@@ -778,6 +786,7 @@ PickAttributes::SelectAll()
     Select(ID_domain,                      (void *)&domain);
     Select(ID_elementNumber,               (void *)&elementNumber);
     Select(ID_incidentElements,            (void *)&incidentElements);
+    Select(ID_cellCoordinates,             (void *)&cellCoordinates);
     Select(ID_timeStep,                    (void *)&timeStep);
     Select(ID_dimension,                   (void *)&dimension);
     Select(ID_databaseName,                (void *)&databaseName);
@@ -823,6 +832,8 @@ PickAttributes::SelectAll()
     Select(ID_ghostType,                   (void *)&ghostType);
     Select(ID_hasMixedGhostTypes,          (void *)&hasMixedGhostTypes);
     Select(ID_linesData,                   (void *)&linesData);
+    Select(ID_showPickHighlight,           (void *)&showPickHighlight);
+    Select(ID_notifyEnabled,               (void *)&notifyEnabled);
     Select(ID_inputTopoDim,                (void *)&inputTopoDim);
     Select(ID_meshCoordType,               (void *)&meshCoordType);
     Select(ID_createSpreadsheet,           (void *)&createSpreadsheet);
@@ -946,6 +957,7 @@ PickAttributes::CreateNode(DataNode *parentNode, bool completeSave, bool forceAd
     // domain is not persistent and should not be saved.
     // elementNumber is not persistent and should not be saved.
     // incidentElements is not persistent and should not be saved.
+    // cellCoordinates is not persistent and should not be saved.
     // timeStep is not persistent and should not be saved.
     // dimension is not persistent and should not be saved.
     // databaseName is not persistent and should not be saved.
@@ -1021,6 +1033,8 @@ PickAttributes::CreateNode(DataNode *parentNode, bool completeSave, bool forceAd
     // ghostType is not persistent and should not be saved.
     // hasMixedGhostTypes is not persistent and should not be saved.
     // linesData is not persistent and should not be saved.
+    // showPickHighlight is not persistent and should not be saved.
+    // notifyEnabled is not persistent and should not be saved.
     // inputTopoDim is not persistent and should not be saved.
     // meshCoordType is not persistent and should not be saved.
     if(completeSave || !FieldsEqual(ID_createSpreadsheet, &defaultObject))
@@ -1106,6 +1120,7 @@ PickAttributes::SetFromNode(DataNode *parentNode)
     // domain is not persistent and was not saved.
     // elementNumber is not persistent and was not saved.
     // incidentElements is not persistent and was not saved.
+    // cellCoordinates is not persistent and was not saved.
     // timeStep is not persistent and was not saved.
     // dimension is not persistent and was not saved.
     // databaseName is not persistent and was not saved.
@@ -1157,6 +1172,8 @@ PickAttributes::SetFromNode(DataNode *parentNode)
     // ghostType is not persistent and was not saved.
     // hasMixedGhostTypes is not persistent and was not saved.
     // linesData is not persistent and was not saved.
+    // showPickHighlight is not persistent and was not saved.
+    // notifyEnabled is not persistent and was not saved.
     // inputTopoDim is not persistent and was not saved.
     // meshCoordType is not persistent and was not saved.
     if((node = searchNode->GetNode("createSpreadsheet")) != 0)
@@ -1285,6 +1302,13 @@ PickAttributes::SetIncidentElements(const intVector &incidentElements_)
 {
     incidentElements = incidentElements_;
     Select(ID_incidentElements, (void *)&incidentElements);
+}
+
+void
+PickAttributes::SetCellCoordinates(const doubleVector &cellCoordinates_)
+{
+    cellCoordinates = cellCoordinates_;
+    Select(ID_cellCoordinates, (void *)&cellCoordinates);
 }
 
 void
@@ -1606,6 +1630,20 @@ PickAttributes::SetLinesData(bool linesData_)
 }
 
 void
+PickAttributes::SetShowPickHighlight(bool showPickHighlight_)
+{
+    showPickHighlight = showPickHighlight_;
+    Select(ID_showPickHighlight, (void *)&showPickHighlight);
+}
+
+void
+PickAttributes::SetNotifyEnabled(bool notifyEnabled_)
+{
+    notifyEnabled = notifyEnabled_;
+    Select(ID_notifyEnabled, (void *)&notifyEnabled);
+}
+
+void
 PickAttributes::SetInputTopoDim(int inputTopoDim_)
 {
     inputTopoDim = inputTopoDim_;
@@ -1784,6 +1822,18 @@ intVector &
 PickAttributes::GetIncidentElements()
 {
     return incidentElements;
+}
+
+const doubleVector &
+PickAttributes::GetCellCoordinates() const
+{
+    return cellCoordinates;
+}
+
+doubleVector &
+PickAttributes::GetCellCoordinates()
+{
+    return cellCoordinates;
 }
 
 int
@@ -2188,6 +2238,18 @@ PickAttributes::GetLinesData() const
     return linesData;
 }
 
+bool
+PickAttributes::GetShowPickHighlight() const
+{
+    return showPickHighlight;
+}
+
+bool
+PickAttributes::GetNotifyEnabled() const
+{
+    return notifyEnabled;
+}
+
 int
 PickAttributes::GetInputTopoDim() const
 {
@@ -2286,6 +2348,12 @@ void
 PickAttributes::SelectIncidentElements()
 {
     Select(ID_incidentElements, (void *)&incidentElements);
+}
+
+void
+PickAttributes::SelectCellCoordinates()
+{
+    Select(ID_cellCoordinates, (void *)&cellCoordinates);
 }
 
 void
@@ -2681,6 +2749,7 @@ PickAttributes::GetFieldName(int index) const
     case ID_domain:                      return "domain";
     case ID_elementNumber:               return "elementNumber";
     case ID_incidentElements:            return "incidentElements";
+    case ID_cellCoordinates:             return "cellCoordinates";
     case ID_timeStep:                    return "timeStep";
     case ID_dimension:                   return "dimension";
     case ID_databaseName:                return "databaseName";
@@ -2726,6 +2795,8 @@ PickAttributes::GetFieldName(int index) const
     case ID_ghostType:                   return "ghostType";
     case ID_hasMixedGhostTypes:          return "hasMixedGhostTypes";
     case ID_linesData:                   return "linesData";
+    case ID_showPickHighlight:           return "showPickHighlight";
+    case ID_notifyEnabled:               return "notifyEnabled";
     case ID_inputTopoDim:                return "inputTopoDim";
     case ID_meshCoordType:               return "meshCoordType";
     case ID_createSpreadsheet:           return "createSpreadsheet";
@@ -2775,6 +2846,7 @@ PickAttributes::GetFieldType(int index) const
     case ID_domain:                      return FieldType_int;
     case ID_elementNumber:               return FieldType_int;
     case ID_incidentElements:            return FieldType_intVector;
+    case ID_cellCoordinates:             return FieldType_doubleVector;
     case ID_timeStep:                    return FieldType_int;
     case ID_dimension:                   return FieldType_int;
     case ID_databaseName:                return FieldType_string;
@@ -2820,6 +2892,8 @@ PickAttributes::GetFieldType(int index) const
     case ID_ghostType:                   return FieldType_int;
     case ID_hasMixedGhostTypes:          return FieldType_int;
     case ID_linesData:                   return FieldType_bool;
+    case ID_showPickHighlight:           return FieldType_bool;
+    case ID_notifyEnabled:               return FieldType_bool;
     case ID_inputTopoDim:                return FieldType_int;
     case ID_meshCoordType:               return FieldType_enum;
     case ID_createSpreadsheet:           return FieldType_bool;
@@ -2869,6 +2943,7 @@ PickAttributes::GetFieldTypeName(int index) const
     case ID_domain:                      return "int";
     case ID_elementNumber:               return "int";
     case ID_incidentElements:            return "intVector";
+    case ID_cellCoordinates:             return "doubleVector";
     case ID_timeStep:                    return "int";
     case ID_dimension:                   return "int";
     case ID_databaseName:                return "string";
@@ -2914,6 +2989,8 @@ PickAttributes::GetFieldTypeName(int index) const
     case ID_ghostType:                   return "int";
     case ID_hasMixedGhostTypes:          return "int";
     case ID_linesData:                   return "bool";
+    case ID_showPickHighlight:           return "bool";
+    case ID_notifyEnabled:               return "bool";
     case ID_inputTopoDim:                return "int";
     case ID_meshCoordType:               return "enum";
     case ID_createSpreadsheet:           return "bool";
@@ -3027,6 +3104,11 @@ PickAttributes::FieldsEqual(int index_, const AttributeGroup *rhs) const
     case ID_incidentElements:
         {  // new scope
         retval = (incidentElements == obj.incidentElements);
+        }
+        break;
+    case ID_cellCoordinates:
+        {  // new scope
+        retval = (cellCoordinates == obj.cellCoordinates);
         }
         break;
     case ID_timeStep:
@@ -3288,6 +3370,16 @@ PickAttributes::FieldsEqual(int index_, const AttributeGroup *rhs) const
         retval = (linesData == obj.linesData);
         }
         break;
+    case ID_showPickHighlight:
+        {  // new scope
+        retval = (showPickHighlight == obj.showPickHighlight);
+        }
+        break;
+    case ID_notifyEnabled:
+        {  // new scope
+        retval = (notifyEnabled == obj.notifyEnabled);
+        }
+        break;
     case ID_inputTopoDim:
         {  // new scope
         retval = (inputTopoDim == obj.inputTopoDim);
@@ -3394,6 +3486,9 @@ PickAttributes::FieldsEqual(int index_, const AttributeGroup *rhs) const
 //   Kathleen Biagas, Wed Oct 26 13:31:50 PDT 2011
 //   Only print timeStep information if requested and not -1.
 //
+//   Kathleen Biagas, Tue Jul 22 11:35:33 MST 2014
+//   Account for global ids.
+//
 // ****************************************************************************
 void
 PickAttributes::PrintSelf(ostream &os)
@@ -3485,10 +3580,12 @@ PickAttributes::PrintSelf(ostream &os)
         os << "Zone " ;
         if (showZoneId)
         {
-            if (!elementIsGhost)
-                os<< elementNumber << " ";
-            else 
+            if (elementIsGhost)
                 os<< elementNumber << "(ghost) ";
+            else if (elementIsGlobal)
+                os<< elementNumber << "(global) ";
+            else 
+                os<< elementNumber << " ";
         }
         if (showZoneDomainLogicalCoords && !dzoneCoords.empty())
         {
@@ -3505,10 +3602,12 @@ PickAttributes::PrintSelf(ostream &os)
         os << "Node ";
         if (showNodeId)
         {
-            if (!elementIsGhost)
-                os << elementNumber << " ";
-            else 
+            if (elementIsGhost)
                 os << elementNumber << "(ghost) ";
+            else if (elementIsGlobal)
+                os << elementNumber << "(global) ";
+            else 
+                os << elementNumber << " ";
         }
         if (showNodePhysicalCoords && !pnodeCoords.empty())
         {
@@ -4528,6 +4627,90 @@ PickAttributes::SetRayPoint2(const doubleVector &_v)
     rayPoint2[2] = _v[2];
 }
 
+// ****************************************************************************
+// Method: PickAttributes::AddLine
+//
+// Purpose: 
+//   Add the a line to the pick. This highlights the cell
+//
+// Programmer:  Matt Larsen
+// Creation:     
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+PickAttributes::AddLine(const double *_c0, const double *_c1, const int &pos)
+{
+    if(!_c0 || !_c1) return; //TODO: is there error checking here?
+    // extend vector of points as necessary
+    while ((int)cellCoordinates.size() < 6*(pos+1))
+        cellCoordinates.push_back(0.0);
+
+    cellCoordinates[pos*6+0] = _c0[0];
+    cellCoordinates[pos*6+1] = _c0[1];
+    cellCoordinates[pos*6+2] = _c0[2];
+    cellCoordinates[pos*6+3] = _c1[0];
+    cellCoordinates[pos*6+4] = _c1[1];
+    cellCoordinates[pos*6+5] = _c1[2];
+
+}
+
+// ****************************************************************************
+// Method: PickAttributes::Notify
+//
+// Purpose: 
+//    Notifies the observers. This is an override of an inherented method that
+//    adds the ability to disable notification. This is desirable when picking 
+//    ranges of elements, possibly 100+, for visual reasons only and not to
+//    encur the overhead of waiting for all the tabs to appear in the GUI.
+//
+// Programmer:  Matt Larsen 
+// Creation:    December 12, 2016
+//
+// Modifications:
+//
+// ****************************************************************************
+//
+
+void
+PickAttributes::Notify()
+{
+    //
+    // Check to see if we want to notify the window
+    //
+
+    if(notifyEnabled)
+    {
+        // Call the base class's Notify method.
+        Subject::Notify();
+
+        // Now that all the Obsevrers have been called, unselect all the
+        // attributes.
+        UnSelectAll();
+    }
+}
+
+// ****************************************************************************
+// Method: PickAttributes::ClearLines
+//
+// Purpose: 
+//   Clear the vector of lines for cell highlights
+//
+// Programmer:  Matt Larsen
+// Creation:     
+//
+// Modifications:
+//
+// ****************************************************************************
+
+void
+PickAttributes::ClearLines()
+{
+    cellCoordinates.clear();
+}
+
 
 // ****************************************************************************
 // Method: PickAttributes::CreateOutputMapNode
@@ -4539,6 +4722,8 @@ PickAttributes::SetRayPoint2(const doubleVector &_v)
 // Creation:    September 22, 2011
 //
 // Modifications:
+//   Kathleen Biagas, Tue Jul 22 11:35:33 MST 2014
+//   Account for showing global ids.
 //
 // ****************************************************************************
 
@@ -4554,13 +4739,19 @@ PickAttributes::CreateOutputMapNode(MapNode &m, bool withLetter)
     if (!fulfilled)
         return;
 
-    if (pickType == Zone || pickType == DomainZone)
+    if ((pickType == Zone || pickType == DomainZone) && showZoneId)
     {
-        m["zone_id"] = elementNumber;
+        if (globalElement == -1)
+            m["zone_id"] = elementNumber;
+        else 
+            m["zone_id"] = globalElement;
     }
-    else if (pickType == Node || pickType == DomainNode)
+    else if ((pickType == Node || pickType == DomainNode) && showNodeId)
     {
-        m["node_id"] = elementNumber;
+        if (globalElement == -1)
+            m["node_id"] = elementNumber;
+        else 
+            m["node_id"] = globalElement;
     }
 
     doubleVector p;
@@ -4599,8 +4790,6 @@ PickAttributes::CreateOutputMapNode(MapNode &m, bool withLetter)
 #endif
     }
 
-    char buff[512];
-   
     std::string fileName; 
     size_t pos = databaseName.find_last_of('/');
     if (pos >= databaseName.size())
@@ -4633,26 +4822,22 @@ PickAttributes::CreateOutputMapNode(MapNode &m, bool withLetter)
         std::string ghostName;
         if (pickType == Zone || pickType == DomainZone)
         {
-            if (!showGlobal)
-                elName = "incident_nodes";
-            else 
-                elName = "global_incident_nodes"; 
+            elName = "incident_nodes";
             ghostName = "ghost_incident_nodes";
             showId = showNodeId;
         }
         else if (pickType == Node || pickType == DomainNode)
         {
-            if (!showGlobal)
-                elName = "incident_zones";
-            else 
-                elName = "global_incident_zones"; 
+            elName = "incident_zones";
             ghostName = "ghost_incident_zones";
             showId = showZoneId;
         }
         if (showId)
         {
-            m[elName] = incidentElements;
-#if 0
+            if (showGlobal)
+                m[elName] = globalIncidentElements;
+            else 
+                m[elName] = incidentElements;
             intVector els, ghostEls;
             for (size_t i = 0; i < incidentElements.size(); ++i)
             {
@@ -4666,7 +4851,6 @@ PickAttributes::CreateOutputMapNode(MapNode &m, bool withLetter)
             m[elName] = els;
             if (!ghostEls.empty())
                 m[ghostName] = ghostEls;
-#endif
         }
     }
 

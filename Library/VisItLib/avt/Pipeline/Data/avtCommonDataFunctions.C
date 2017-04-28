@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -63,6 +63,7 @@
 #include <vtkPointData.h>
 #include <vtkPolyData.h>
 #include <vtkRectilinearGrid.h>
+#include <vtkSetGet.h>
 #include <vtkStructuredGrid.h>
 #include <vtkTemplateAliasMacro.h>
 #include <vtkTrivialProducer.h>
@@ -84,12 +85,20 @@
 
 using std::vector;
 using std::string;
+using std::set;
+using std::pair;
 using namespace std;
 
-
-void GetDataScalarRange(vtkDataSet *, double *, const char *, bool);
-void GetDataMagnitudeRange(vtkDataSet *, double *, const char *, bool);
-void GetDataMajorEigenvalueRange(vtkDataSet *, double *, const char *, bool);
+// ****************************************************************************
+//
+//    Kathleen Biagas, Wed May 28 17:27:33 MST 2014
+//    Added another bool arg with default to false, specifies whether to
+//    only consider connected nodes.
+//
+// ****************************************************************************
+void GetDataScalarRange(vtkDataSet *, double *, const char *, bool, bool = false);
+void GetDataMagnitudeRange(vtkDataSet *, double *, const char *, bool, bool = false);
+void GetDataMajorEigenvalueRange(vtkDataSet *, double *, const char *, bool, bool = false);
 
 
 // ****************************************************************************
@@ -283,6 +292,9 @@ CGetSpatialExtents(avtDataRepresentation &data, void *info, bool &success)
 //    Hank Childs, Wed Oct 10 16:03:59 PDT 2007
 //    Add argument for whether or not we should ignore ghost zones.
 //
+//    Kathleen Biagas, Wed May 28 17:27:33 MST 2014
+//    Added connectedNodesOnly.
+//
 // ****************************************************************************
 
 void 
@@ -296,6 +308,7 @@ CGetDataExtents(avtDataRepresentation &data, void *g, bool &success)
             GetVariableRangeArgs *gvra = (GetVariableRangeArgs *) g;
             double *dde = gvra->extents;
             const char *vname = gvra->varname;
+            bool cNO = gvra->connectedNodesOnly;
 
             vtkDataArray *da = NULL;
             if (ds->GetPointData()->GetArray(vname) != NULL)
@@ -310,11 +323,11 @@ CGetDataExtents(avtDataRepresentation &data, void *g, bool &success)
             double range[2] = {+DBL_MAX, -DBL_MAX};
             bool ignoreGhost = false; // legacy behavior
             if (dim == 1)
-                GetDataScalarRange(ds, range, vname, ignoreGhost);
+                GetDataScalarRange(ds, range, vname, ignoreGhost, cNO);
             else if (dim <= 3)
-                GetDataMagnitudeRange(ds, range, vname, ignoreGhost);
+                GetDataMagnitudeRange(ds, range, vname, ignoreGhost, cNO);
             else if (dim == 9)
-                GetDataMajorEigenvalueRange(ds, range, vname, ignoreGhost);
+                GetDataMajorEigenvalueRange(ds, range, vname, ignoreGhost, cNO);
 
             //
             // If we have gotten extents from another data rep, then merge the
@@ -391,6 +404,57 @@ CGetNumberOfZones(avtDataRepresentation &data, void *sum, bool &)
 
 
 // ****************************************************************************
+//  Method: CGetNumberOfOriginalZones
+//
+//  Purpose:
+//    Adds the number of cells in the vtk input to the passed argument.
+//    Utilizes avtOriginalCellNumbers to ensure count does not include
+//    duplicate 'original' zones.
+//
+//  Arguments:
+//    data      The data from which to calculate number of cells.
+//    arg       A place to store the cumulative number of cells.
+//    <unused>
+//
+//  Notes:
+//      This method is designed to be used as the function parameter of
+//      avtDataTree::Iterate.
+//
+//  Programmer: Kathleen Biagas
+//  Creation:   September 11, 2014
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+void
+CGetNumberOfOriginalZones(avtDataRepresentation &data, void *arg, bool &)
+{
+    if (!data.Valid())
+    {
+        EXCEPTION0(NoInputException);
+    }
+    vtkDataSet *ds = data.GetDataVTK();
+    vtkUnsignedIntArray *ocArray = vtkUnsignedIntArray::SafeDownCast(
+              ds->GetCellData()->GetArray("avtOriginalCellNumbers"));
+    if (ocArray)
+    {
+        OrigElementCountArgs *args = (OrigElementCountArgs *) arg;
+        int ncomp = ocArray->GetNumberOfComponents();
+        int ntups = ocArray->GetNumberOfTuples();
+        unsigned int *oca = (unsigned int*) ocArray->GetPointer(0);
+        for (int i = 0; i < ntups; ++i)
+        {
+            if (ncomp ==2)
+                args->elementCount.insert(pair<unsigned int, unsigned int>(oca[2*i], oca[2*i+1]));
+            else 
+                args->elementCount.insert(pair<unsigned int, unsigned int>(0, oca[i]));
+        }
+    }
+}
+
+
+// ****************************************************************************
 //  Method: CConvertUnstructuredGridToPolyData
 //
 //  Purpose:
@@ -425,7 +489,7 @@ CGetNumberOfZones(avtDataRepresentation &data, void *sum, bool &)
 // ****************************************************************************
 
 void
-CConvertUnstructuredGridToPolyData(avtDataRepresentation &data, void *, bool &)
+CConvertUnstructuredGridToPolyData(avtDataRepresentation &data, void *dataAndKey, bool &)
 {
     if (!data.Valid())
     {
@@ -437,6 +501,15 @@ CConvertUnstructuredGridToPolyData(avtDataRepresentation &data, void *, bool &)
     {
         vtkUnstructuredGrid *ugrid = (vtkUnstructuredGrid *) ds;
         vtkPolyData *out_pd = vtkPolyData::New();
+        int avtTopoDim = 2;
+
+        if (dataAndKey)
+        {
+            int intVal;
+            if (sscanf((char*)dataAndKey, "avtTopoDim=%d", &intVal) == 1)
+                avtTopoDim = intVal;
+        }
+
         out_pd->SetPoints(ugrid->GetPoints());
         out_pd->GetPointData()->ShallowCopy(ugrid->GetPointData());
         out_pd->GetCellData()->ShallowCopy(ugrid->GetCellData());
@@ -445,60 +518,32 @@ CConvertUnstructuredGridToPolyData(avtDataRepresentation &data, void *, bool &)
         out_pd->Allocate(ncells);
         for (vtkIdType i = 0 ; i < ncells ; i++)
         {
-            int celltype = ugrid->GetCellType(i);
-            if (celltype == VTK_HEXAHEDRON ||
-                celltype == VTK_VOXEL || 
-                celltype == VTK_WEDGE || 
-                celltype == VTK_TETRA ||
-                celltype == VTK_PYRAMID ||
-                celltype == VTK_QUADRATIC_TETRA ||
-                celltype == VTK_QUADRATIC_HEXAHEDRON ||
-                celltype == VTK_QUADRATIC_WEDGE ||
-                celltype == VTK_QUADRATIC_PYRAMID ||
-                celltype == VTK_QUADRATIC_LINEAR_QUAD ||
-                celltype == VTK_QUADRATIC_LINEAR_WEDGE
-               )
+            int cellTopoDim = ugrid->GetCell(i)->GetCellDimension();
+            if (cellTopoDim > avtTopoDim)
             {
+                vtkIdType *pts = NULL;
                 static bool issuedWarning = false;
                 if (!issuedWarning)
                 {
-                    avtCallback::IssueWarning("The data set has "
-                          "a topologically three dimensional cell even "
-                          "thought it supposedly is topologically 2D."
-                          "  This occurs most often when there is an error in "
-                          "the file format reader.  Your 3D cells are being "
-                          "discarded.  Please contact a VisIt developer to "
-                          "resolve this issue.  (This warning will only be "
-                          "issued once per session.)");
+                    avtCallback::IssueWarning("Encountered a cell of topological "
+                        "dimension greater than the underlying dataset in which "
+                        "it is embedded. This occurs most often when there is an "
+                        "error in the file format reader. This cell and any others "
+                        "like it are being discarded.  Please contact a VisIt "
+                        "developer to resolve this issue.  (This warning will be "
+                        "issued only once per session.)");
                     issuedWarning = true;
                 }
-                continue;
+                out_pd->InsertNextCell(VTK_EMPTY_CELL, 0, pts);
             }
-            if(celltype == VTK_QUADRATIC_EDGE || 
-               celltype == VTK_QUADRATIC_TRIANGLE ||
-               celltype == VTK_QUADRATIC_QUAD
-              )
+            else
             {
-                static bool issuedWarning2 = false;
-                if (!issuedWarning2)
-                {
-                    avtCallback::IssueWarning("The data set has "
-                          "a quadratic element in it and this code to "
-                          "convert 2D elements to polydata is only capable "
-                          "of 1:1 cell to cell translation, whereas quadratic "
-                          "cells produce a 1:N translation. Please contact a "
-                          "VisIt developer to resolve this issue. "
-                          "(This warning will only be issued once per session.)");
-                    issuedWarning2 = true;
-                }
-                continue;
+                vtkIdType *pts, npts;
+                ugrid->GetCellPoints(i, npts, pts);
+                out_pd->InsertNextCell(ugrid->GetCellType(i), npts, pts);
             }
-            vtkIdType *pts, npts;
-            ugrid->GetCellPoints(i, npts, pts);
-            out_pd->InsertNextCell(celltype, npts, pts);
         }
-        avtDataRepresentation new_data(out_pd, data.GetDomain(),
-                                       data.GetLabel());
+        avtDataRepresentation new_data(out_pd, data.GetDomain(), data.GetLabel());
         data = new_data;
         out_pd->Delete();
     }
@@ -536,10 +581,13 @@ CConvertUnstructuredGridToPolyData(avtDataRepresentation &data, void *, bool &)
 //    Tom Fogal, Tue Sep 27 14:07:30 MDT 2011
 //    Ensure static vtk memory gets cleaned up.
 //
+//    Burlen Loring, Fri Oct  2 17:02:27 PDT 2015
+//    clean up a warning
+//
 // ****************************************************************************
 
 void
-CBreakVTKPipelineConnections(avtDataRepresentation &data, void *arg, bool &)
+CBreakVTKPipelineConnections(avtDataRepresentation &data, void *, bool &)
 {
     if (!data.Valid())
     {
@@ -794,7 +842,7 @@ CPruneByDomainList(avtDataRepresentation & data, void *arg, bool &success)
     bool keepIt = false;
     if (data.GetDomain() < 0)
         keepIt = true;
-    else if (data.GetDomain() < pmap->lookup.size())
+    else if ((size_t)data.GetDomain() < pmap->lookup.size())
         keepIt = pmap->lookup[data.GetDomain()];
     if (keepIt)
     {
@@ -1326,67 +1374,178 @@ GetDataRange(vtkDataSet *ds, double *de, const char *vname,
 //    Fix uninitialized memory read that can lead to possible infinite 
 //    recursion when there is no valid data in the array.
 //
+//    Kathleen Biagas, Wed May 28 17:29:48 MST 2014
+//    Added 'GetNodalScalarRangeViaCells' to be used when data is nodal
+//    and 'onlyConnectedNodes' is requested.
+//
+//    Brad Whitlock, Tue Jul 21 10:37:29 PDT 2015
+//    Add support for non-standard memory layout.
+//
 // ****************************************************************************
 
-template <class T> static bool
-GetScalarRange(T *buf, int n, double *exts, unsigned char *ghosts, 
-               bool checkFinite)
+template <typename T>
+class vtkDataArrayAccessor1
 {
-    T *buf_orig = buf;
-    T min; 
-    T max;
+public:
+    vtkDataArrayAccessor1(vtkDataArray *arr, int comp = 0) :
+        array(arr), component(comp)
+    {
+    }
+    
+    ~vtkDataArrayAccessor1()
+    {
+    }
+
+    T operator[](vtkIdType index) const
+    {
+        return static_cast<T>(array->GetComponent(index, component));
+    }
+
+    vtkDataArray *array;
+    int           component;
+};
+
+// NOTE: I didn't do things exactly how I wanted because of problems with 
+//       vtkTemplateMacro and passing more substantial code blocks to it.
+//
+
+template <typename Array, typename Scalar>
+static bool
+GetScalarRangeTemplate(Array buf, Scalar &min, Scalar &max,
+    int n, unsigned char *ghosts, bool checkFinite)
+{
+    // Keep the minmax calculation in the Scalar precision.
     bool setOne = false;
-    for (int i = 0; i < n; i++, buf++)
+    for (int i = 0; i < n; i++)
     {
         if ((ghosts != NULL) && (ghosts[i] != '\0'))
             continue;
 
         if (checkFinite)
-            if (! visitIsFinite(*buf))
+            if (! visitIsFinite(buf[i]))
                 continue;
 
         if (!setOne)
         {
-            min = *buf;
-            max = *buf;
+            min = buf[i];
+            max = buf[i];
             setOne = true;
             continue;
         }
 
-        if (*buf < min)
+        if (buf[i] < min)
         {
-            min = *buf;
+            min = buf[i];
         }
         else
         {
-            if (*buf > max)
-                max = *buf;
+            if (buf[i] > max)
+                max = buf[i];
         }
     }
 
     if (setOne)
     {
         if (! visitIsFinite(min) || ! visitIsFinite(max))
-            return GetScalarRange(buf_orig, n, exts, ghosts, true);
-        else
-        {
-            exts[0] = (double) min;
-            exts[1] = (double) max;
-        }
+            return GetScalarRangeTemplate(buf, min, max, n, ghosts, true);
     }
 
     return setOne;
 }
 
+template <typename Scalar>
+inline bool GetScalarRange(Scalar* buf, double *exts, 
+    int n, unsigned char *ghosts, bool checkFinite)
+{
+    Scalar min, max;
+    bool retval = GetScalarRangeTemplate(buf, min, max, n, ghosts, checkFinite);
+    if(retval)
+    {
+        exts[0] = static_cast<double>(min);
+        exts[1] = static_cast<double>(max);
+    }
+    return retval;
+}
+
+// KSB:
+// This method determines nodal range of connected nodes by looking at cells and using 
+// their point ids.  Involves duplicate comparisons, but in initial testing, the
+// alternative is slower. (Step through points, if # cells a node is  connected to > 0,
+// consider the point). I think it is 'ds->GetPointCells' that is the slowdown.
+
+template <typename Array, typename Scalar>
+static bool
+GetNodalScalarRangeViaCellsTemplate(Array buf, Scalar &min, Scalar &max,
+    int n, bool checkFinite, vtkDataSet *ds)
+{
+    bool setOne = false;
+    vtkIdType nCells = ds->GetNumberOfCells();
+    vtkIdList *ptIds = vtkIdList::New();
+    for (vtkIdType cellId = 0; cellId < nCells; ++cellId)
+    {
+        ds->GetCellPoints(cellId, ptIds);
+        for (vtkIdType i = 0; i < ptIds->GetNumberOfIds(); i++)
+        {
+            vtkIdType id = ptIds->GetId(i);
+
+            if (checkFinite)
+                if (! visitIsFinite(buf[id]))
+                    continue;
+
+            if (!setOne)
+            {
+                min = buf[id];
+                max = buf[id];
+                setOne = true;
+                continue;
+            }
+
+            if (buf[id] < min)
+            {
+                min = buf[id];
+            }
+            else if (buf[id] > max)
+            {
+                max = buf[id];
+            }
+        }
+        ptIds->Reset();
+    }
+    if (setOne)
+    {
+        if (! visitIsFinite(min) || ! visitIsFinite(max))
+            return GetNodalScalarRangeViaCellsTemplate(buf, min, max, n, true, ds);
+    }
+    ptIds->Delete();
+    return setOne;
+}
+
+template <typename Scalar>
+inline bool
+GetNodalScalarRangeViaCells(Scalar *buf, double *exts,
+    int n, bool checkFinite, vtkDataSet *ds)
+{
+    Scalar min,max;
+    bool retval = GetNodalScalarRangeViaCellsTemplate(buf, min, max, n, checkFinite, ds);
+    if(retval)
+    {
+        exts[0] = static_cast<double>(min);
+        exts[1] = static_cast<double>(max);
+    }
+    return retval;
+}
+
 void
 GetDataScalarRange(vtkDataSet *ds, double *exts, const char *vname,
-                   bool ignoreGhost)
+                   bool ignoreGhost, bool connectedNodesOnly)
 {
     vtkDataArray *da = NULL;
     unsigned char *ghosts = NULL;
+    bool nodalData = false;
     if (ds->GetPointData()->GetArray(vname))
     {
         da = ds->GetPointData()->GetArray(vname);
+        nodalData = true; 
     }
     else
     {
@@ -1405,15 +1564,53 @@ GetDataScalarRange(vtkDataSet *ds, double *exts, const char *vname,
 
     int nvals = da->GetNumberOfTuples();
 
-    exts[0] = +FLT_MAX;
-    exts[1] = -FLT_MAX;
-    
+    exts[0] = +DBL_MAX;
+    exts[1] = -DBL_MAX;
+
     bool checkForFiniteByDefault = false;
-    switch (da->GetDataType())
+    if (!(connectedNodesOnly && nodalData))
     {
-        vtkTemplateAliasMacro(GetScalarRange(
-            static_cast<VTK_TT*>(da->GetVoidPointer(0)), 
-            nvals, exts, ghosts, checkForFiniteByDefault));
+        if(da->HasStandardMemoryLayout())
+        {
+            switch (da->GetDataType())
+            {
+            vtkTemplateMacro(GetScalarRange(
+                static_cast<VTK_TT*>(da->GetVoidPointer(0)),
+                exts, nvals, ghosts, checkForFiniteByDefault));
+            }
+        }
+        else
+        {
+            double min(0.), max(0.);
+            if(GetScalarRangeTemplate(vtkDataArrayAccessor1<double>(da),
+                min, max, nvals, ghosts, checkForFiniteByDefault))
+            {
+                exts[0] = min;
+                exts[1] = max;
+            }
+        }
+    }
+    else
+    {
+        if(da->HasStandardMemoryLayout())
+        {
+            switch (da->GetDataType())
+            {
+            vtkTemplateMacro(GetNodalScalarRangeViaCells(
+                static_cast<VTK_TT*>(da->GetVoidPointer(0)),
+                exts, nvals, checkForFiniteByDefault, ds));
+            }
+        }
+        else
+        {
+            double min(0.), max(0.);
+            if(GetNodalScalarRangeViaCellsTemplate(vtkDataArrayAccessor1<double>(da),
+                min, max, nvals, checkForFiniteByDefault, ds))
+            {
+                exts[0] = min;
+                exts[1] = max;
+            }
+        }
     }
 }
 
@@ -1441,45 +1638,57 @@ GetDataScalarRange(vtkDataSet *ds, double *exts, const char *vname,
 //    Hank Childs, Fri Feb 24 14:53:01 PST 2012
 //    Don't set the min/max if there are no valid values.
 //
+//    Brad Whitlock, Tue Jul 21 10:37:29 PDT 2015
+//    Add support for non-standard memory layout.
+//
 // ****************************************************************************
 
-template <class T> static bool
-GetComponentRange(T *buf, int n, int c, int nc, double *exts, unsigned char *ghosts)
+template <typename Array, typename Scalar>
+static bool
+GetComponentRangeTemplate(Array buf, Scalar &min, Scalar &max,
+    int n, int c, int nc, unsigned char *ghosts)
 {
-    T min; 
-    T max;
     bool setOne = false;
-    buf += c;
-    for (int i = c; i < n*nc; i+=nc, buf+=nc)
+    for (int i = c; i < n*nc; i+=nc)
     {
         if ((ghosts != NULL) && (ghosts[i] != '\0'))
             continue;
 
         if (!setOne)
         {
-            min = *buf;
-            max = *buf;
+            min = buf[i];
+            max = buf[i];
             setOne = true;
             continue;
         }
 
-        if (*buf < min)
+        if (buf[i] < min)
         {
-            min = *buf;
+            min = buf[i];
         }
         else
         {
-            if (*buf > max)
-                max = *buf;
+            if (buf[i] > max)
+                max = buf[i];
         }
-    }
-    if (setOne)
-    {
-        exts[0] = (double) min;
-        exts[1] = (double) max;
     }
 
     return setOne;
+}
+
+template <typename Scalar>
+bool
+GetComponentRange(Scalar *buf, double *exts,
+    int n, int c, int nc, unsigned char *ghosts)
+{
+    Scalar min = 0, max = 0;
+    bool retval = GetComponentRangeTemplate(buf, min, max, n,c,nc,ghosts);
+    if(retval)
+    {
+        exts[0] = static_cast<double>(min);
+        exts[1] = static_cast<double>(max);
+    }
+    return retval;
 }
 
 void
@@ -1513,14 +1722,28 @@ GetDataAllComponentsRange(vtkDataSet *ds, double *exts, const char *vname,
     for (int comp=0; comp<ncomps; comp++)
     {
         double *compexts = &(exts[2*comp]);
-        compexts[0] = +FLT_MAX;
-        compexts[1] = -FLT_MAX;
-    
-        switch (da->GetDataType())
+        compexts[0] = +DBL_MAX;
+        compexts[1] = -DBL_MAX;
+        if(da->HasStandardMemoryLayout())
         {
-          vtkTemplateAliasMacro(GetComponentRange(
-            static_cast<VTK_TT*>(da->GetVoidPointer(0)), 
-            ntuples, comp, ncomps, compexts, ghosts));
+            switch (da->GetDataType())
+            {
+            vtkTemplateAliasMacro(
+                GetComponentRange(
+                   static_cast<VTK_TT*>(da->GetVoidPointer(0)), 
+                   compexts, ntuples, comp, ncomps, ghosts)
+                );
+            }
+        }
+        else
+        {
+            double min(0),max(0);
+            if(GetComponentRangeTemplate(vtkDataArrayAccessor1<double>(da, comp),
+               min, max, ntuples, comp, ncomps, ghosts))
+            {
+                compexts[0] = static_cast<double>(min);
+                compexts[1] = static_cast<double>(max);
+            }
         }
     }
 }
@@ -1575,21 +1798,74 @@ GetDataAllComponentsRange(vtkDataSet *ds, double *exts, const char *vname,
 //    Hank Childs, Thu Sep 23 14:06:57 PDT 2010
 //    Use the original pointer when doing a recursive call.
 //
+//    Kathleen Biagas, Wed May 28 17:29:48 MST 2014
+//    Added 'GetNodalMagnitudeRangeViaCells' to be used when data is nodal
+//    and 'onlyConnectedNodes' is requested.
+//
+//    Mark C. Miller, Wed Oct  1 19:41:32 PDT 2014
+//    Add some casts to double precision to avoid FPE issues.
+//
+//    Brad Whitlock, Tue Jul 21 13:39:32 PDT 2015
+//    Added support for non-standard memory layouts.
+//
 // ****************************************************************************
 
-template <class T> static void
-GetMagnitudeRange(T *buf, int n, int ncomps, double *exts, 
+template <typename ScalarPtr>
+class TupleMagnitude
+{
+public:
+    TupleMagnitude(ScalarPtr s, int nc) : ptr(s), nComponents(nc)
+    {
+    }
+
+    inline double operator()(int tupleId) const
+    {
+        double mag = 0.0;
+        ScalarPtr tuple = this->ptr + tupleId * this->nComponents;
+        for (int j = 0; j < this->nComponents; j++)
+        {
+            double value = static_cast<double>(tuple[j]);
+            mag += (value * value);
+        }
+        return mag;
+    }
+private:
+    ScalarPtr ptr;
+    int       nComponents;
+};
+
+class TupleMagnitudeDataArray
+{
+public:
+    TupleMagnitudeDataArray(vtkDataArray *arr) : array(arr)
+    {
+    }
+
+    inline double operator()(int tupleId) const
+    {
+        double mag = 0.0;
+        for (int j = 0; j < array->GetNumberOfComponents(); j++)
+        {
+            double value = array->GetComponent(tupleId, j);
+            mag += (value * value);
+        }
+        return mag;
+    }
+private:
+    vtkDataArray *array;
+};
+
+template <typename MagFunctor>
+static void
+GetMagnitudeRange(MagFunctor func, int n, int ncomps, double *exts, 
                   unsigned char *ghosts, bool checkFinite)
 {
-    T *buf_orig = buf;
     for (int i = 0; i < n; i++)
     {
         if ((ghosts != NULL) && (ghosts[i] != '\0'))
             continue;
 
-        double mag = 0.0;
-        for (int j = 0; j < ncomps; j++, buf++)
-            mag += *buf * *buf;
+        double mag = func(i);
 
         if (checkFinite)
             if (! visitIsFinite(mag))
@@ -1608,27 +1884,72 @@ GetMagnitudeRange(T *buf, int n, int ncomps, double *exts,
 
     if (! visitIsFinite(exts[0]) || ! visitIsFinite(exts[1]))
     {
-        exts[0] = +FLT_MAX;
+        exts[0] = +DBL_MAX;
         exts[1] = 0;
-        return GetMagnitudeRange(buf_orig, n, ncomps, exts, ghosts, true);
+        return GetMagnitudeRange(func, n, ncomps, exts, ghosts, true);
+    }
+
+    exts[0] = exts[0]>0?sqrt(exts[0]):0;
+    exts[1] = exts[1]>0?sqrt(exts[1]):0;
+}
+
+template <typename MagFunctor>
+static void
+GetNodalMagnitudeRangeViaCells(MagFunctor func, int n, int ncomps, double *exts,
+                  bool checkFinite, vtkDataSet *ds)
+{
+    vtkIdType nCells = ds->GetNumberOfCells();
+    vtkIdList *ptIds = vtkIdList::New();
+    for (vtkIdType cellId = 0; cellId < nCells; ++cellId)
+    {
+        ds->GetCellPoints(cellId, ptIds);
+        for (vtkIdType i = 0; i < ptIds->GetNumberOfIds(); i++)
+        {
+            vtkIdType id = ptIds->GetId(i);
+
+            double mag = func(id);
+
+            if (checkFinite)
+                if (! visitIsFinite(mag))
+                    continue;
+
+            if (mag < exts[0])
+            {
+                exts[0] = mag;
+            }
+            else if (mag > exts[1])
+            {
+                exts[1] = mag;
+            }
+        }
+    }
+
+    if (! visitIsFinite(exts[0]) || ! visitIsFinite(exts[1]))
+    {
+        exts[0] = +DBL_MAX;
+        exts[1] = 0;
+        return GetNodalMagnitudeRangeViaCells(func, n, ncomps, exts, true, ds);
     }
 
     exts[0] = sqrt(exts[0]);
     exts[1] = sqrt(exts[1]);
 }
 
+
 void
 GetDataMagnitudeRange(vtkDataSet *ds, double *exts, const char *vname,
-                      bool ignoreGhost)
+                      bool ignoreGhost, bool connectedNodesOnly)
 {
-    exts[0] = +FLT_MAX;
+    exts[0] = +DBL_MAX;
     exts[1] = 0;
 
     vtkDataArray *da = NULL;
     unsigned char *ghosts = NULL;
+    bool nodalData = false;
     if (ds->GetPointData()->GetArray(vname))
     {
         da = ds->GetPointData()->GetArray(vname);
+        nodalData = true;
     }
     else
     {
@@ -1649,11 +1970,41 @@ GetDataMagnitudeRange(vtkDataSet *ds, double *exts, const char *vname,
     int ncomps = da->GetNumberOfComponents();
 
     bool checkForFiniteByDefault = false;
-    switch (da->GetDataType())
+    if (!(connectedNodesOnly && nodalData))
     {
-        vtkTemplateAliasMacro(GetMagnitudeRange(
-            static_cast<VTK_TT*>(da->GetVoidPointer(0)), 
-            nvals, ncomps, exts, ghosts, checkForFiniteByDefault));
+        if(da->HasStandardMemoryLayout())
+        {
+            switch (da->GetDataType())
+            {
+            vtkTemplateAliasMacro(GetMagnitudeRange(
+                TupleMagnitude<VTK_TT*>(static_cast<VTK_TT*>(da->GetVoidPointer(0)), da->GetNumberOfComponents()),
+                nvals, ncomps, exts, ghosts, checkForFiniteByDefault));
+            }
+        }
+        else
+        {
+            GetMagnitudeRange(
+                TupleMagnitudeDataArray(da),
+                nvals, ncomps, exts, ghosts, checkForFiniteByDefault);
+        }
+    }
+    else
+    {
+        if(da->HasStandardMemoryLayout())
+        {
+            switch (da->GetDataType())
+            {
+            vtkTemplateAliasMacro(GetNodalMagnitudeRangeViaCells(
+                TupleMagnitude<VTK_TT*>(static_cast<VTK_TT*>(da->GetVoidPointer(0)),da->GetNumberOfComponents()),
+                nvals, ncomps, exts, checkForFiniteByDefault, ds));
+            }
+        }
+        else
+        {
+            GetNodalMagnitudeRangeViaCells(
+                TupleMagnitudeDataArray(da),
+                nvals, ncomps, exts, checkForFiniteByDefault, ds);
+        }
     }
 }
 
@@ -1696,6 +2047,13 @@ GetDataMagnitudeRange(vtkDataSet *ds, double *exts, const char *vname,
 //
 //    Kathleen Biagas, Wed Aug  8 09:26:51 PDT 2012
 //    Allow doubles.
+//
+//    Kathleen Biagas, Wed May 28 17:29:48 MST 2014
+//    Added 'GetNodalMajorEigenalueRangeViaCells' to be used when data is nodal
+//    and 'onlyConnectedNodes' is requested.
+//
+//    Burlen Loring, Fri Oct  2 17:02:27 PDT 2015
+//    clean up a warning
 //
 // ****************************************************************************
 
@@ -1750,15 +2108,42 @@ GetMajorEigenvalueRange(T *ptr, int n, int ncomps, double *exts,
     }
 }
 
+template <class T> static void
+GetNodalMajorEigenvalueRangeViaCells(T *ptr, int n, int ncomps, double *exts, 
+                  vtkDataSet *ds)
+{
+    (void)n;
+    vtkIdType nCells = ds->GetNumberOfCells();
+    vtkIdList *ptIds = vtkIdList::New();
+    for (vtkIdType cellId = 0; cellId < nCells; ++cellId)
+    {
+        ds->GetCellPoints(cellId, ptIds);
+        for (vtkIdType i = 0; i < ptIds->GetNumberOfIds(); i++)
+        {
+            vtkIdType id = ptIds->GetId(i);
+
+            double val = MajorEigenvalueT(&ptr[id*ncomps]);
+
+            if (!visitIsFinite(val))
+                continue;
+
+            exts[0] = (exts[0] < val ? exts[0] : val);
+            exts[1] = (exts[1] > val ? exts[1] : val);
+        }
+    }
+}
+
 void
 GetDataMajorEigenvalueRange(vtkDataSet *ds, double *exts, const char *vname,
-                            bool ignoreGhost)
+                            bool ignoreGhost, bool connectedNodesOnly)
 {
     vtkDataArray *da = NULL;
     unsigned char *ghosts = NULL;
+    bool nodalData = false;
     if (ds->GetPointData()->GetArray(vname))
     {
         da = ds->GetPointData()->GetArray(vname);
+        nodalData = true;
     }
     else
     {
@@ -1784,11 +2169,23 @@ GetDataMajorEigenvalueRange(vtkDataSet *ds, double *exts, const char *vname,
     {
         return;
     }
-    switch (da->GetDataType())
+    if (! (connectedNodesOnly && nodalData))
     {
-        vtkTemplateAliasMacro(GetMajorEigenvalueRange(
-            static_cast<VTK_TT*>(da->GetVoidPointer(0)),
-            nvals, ncomps, exts, ghosts ));
+        switch (da->GetDataType())
+        {
+            vtkTemplateAliasMacro(GetMajorEigenvalueRange(
+                static_cast<VTK_TT*>(da->GetVoidPointer(0)),
+                nvals, ncomps, exts, ghosts ));
+        }
+    }
+    else 
+    {
+        switch (da->GetDataType())
+        {
+            vtkTemplateAliasMacro(GetNodalMajorEigenvalueRangeViaCells(
+                static_cast<VTK_TT*>(da->GetVoidPointer(0)),
+                nvals, ncomps, exts, ds ));
+        }
     }
 }
 
@@ -1861,7 +2258,7 @@ CFindMaximum(avtDataRepresentation &data, void *arg, bool &success)
     }
 
     int nS = s->GetNumberOfTuples();
-    double localMax = -FLT_MAX;
+    double localMax = -DBL_MAX;
     int ind = -1;
     for (int i = 0 ; i < nS ; i++)
     {
@@ -1967,7 +2364,7 @@ CFindMinimum(avtDataRepresentation &data, void *arg, bool &success)
     }
 
     int nS = s->GetNumberOfTuples();
-    double localMin = FLT_MAX;
+    double localMin = DBL_MAX;
     int ind = -1;
     for (int i = 0 ; i < nS ; i++)
     {
@@ -2488,6 +2885,58 @@ CGetNumberOfNodes(avtDataRepresentation &data, void *sum, bool &)
 
 
 // ****************************************************************************
+//  Method: CGetNumberOfOriginalNodes
+//
+//  Purpose:
+//    Adds the number of nodes in the vtk input to the passed sum argument.
+//    Utilizes avtOriginalNodeNumbers to ensure count does not include dups.
+//
+//  Arguments:
+//    data      The data from which to calculate number of nodes.
+//    arg       A place to store the cumulative number of nodes.
+//    <unused>
+//
+//  Notes:
+//      This method is designed to be used as the function parameter of
+//      avtDataTree::Iterate.
+//
+//  Programmer: Kathleen Biagas
+//  Creation:   September 11, 2014
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+void
+CGetNumberOfOriginalNodes(avtDataRepresentation &data, void *arg, bool &)
+{
+    if (!data.Valid())
+    {
+        EXCEPTION0(NoInputException);
+    }
+
+    vtkDataSet *ds = data.GetDataVTK();
+    vtkIntArray *onArray = vtkIntArray::SafeDownCast(
+              ds->GetPointData()->GetArray("avtOriginalNodeNumbers"));
+    if (onArray)
+    {
+        OrigElementCountArgs *args = (OrigElementCountArgs *) arg;
+        int ncomp = onArray->GetNumberOfComponents();
+        int ntups = onArray->GetNumberOfTuples();
+        for (int i = 0; i < ntups; ++i)
+        {
+            int oNode = onArray->GetComponent(i, ncomp-1);
+            if (oNode == -1)
+                continue;
+            unsigned int dom = ncomp == 1 ? 0 : onArray->GetComponent(i, 0);
+            args->elementCount.insert(pair<unsigned int, unsigned int>(dom, (unsigned int)oNode));
+        }
+    }
+
+}
+
+
+// ****************************************************************************
 //  Method: CGetNumberOfRealZones
 //
 //  Purpose:
@@ -2549,6 +2998,78 @@ CGetNumberOfRealZones(avtDataRepresentation &data, void *sum, bool &)
         numZones[0] += nCells;
     }
 }
+
+
+// ****************************************************************************
+//  Method: CGetNumberOfRealOriginalZones
+//
+//  Purpose:
+//    Adds the number of zones in the vtk input to the passed argument.
+//    Counts 'real' and 'ghost' separately.
+//    Utilizes avtOriginalCellNumbers to ensure count does not include dups.
+//
+//  Arguments:
+//    data      The data from which to calculate number of zones.
+//    sum       A place to store the cumulative number of zones.
+//    <unused>
+//
+//  Notes:
+//      This method is designed to be used as the function parameter of
+//      avtDataTree::Iterate.
+//
+//  Programmer: Kathleen Biagas
+//  Creation:   September 11, 2014
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+void
+CGetNumberOfRealOriginalZones(avtDataRepresentation &data, void *arg, bool &dummy)
+{
+    if (!data.Valid())
+    {
+        EXCEPTION0(NoInputException);
+    }
+    vtkDataSet *ds = data.GetDataVTK();
+    vtkUnsignedCharArray *ghosts = (vtkUnsignedCharArray*)
+        ds->GetCellData()->GetArray("avtGhostZones");
+    if (!ghosts)
+    {
+        CGetNumberOfOriginalZones(data, arg, dummy);
+        return;
+    }
+
+    vtkUnsignedIntArray *ocArray = vtkUnsignedIntArray::SafeDownCast(
+        ds->GetCellData()->GetArray("avtOriginalCellNumbers"));
+    if (ocArray)
+    {
+        OrigElementCountArgs *args = (OrigElementCountArgs *) arg;
+        int ncomp = ocArray->GetNumberOfComponents();
+        int ntups = ocArray->GetNumberOfTuples();
+        unsigned int *oca = (unsigned int*) ocArray->GetPointer(0);
+        unsigned char *gptr = ghosts->GetPointer(0);
+
+        for (int i = 0; i < ntups; i++)
+        {
+            if (gptr[i])
+            {
+                if (ncomp ==2)
+                    args->ghostElementCount.insert(pair<unsigned int, unsigned int>(oca[2*i], oca[2*i+1]));
+                else 
+                    args->ghostElementCount.insert(pair<unsigned int, unsigned int>(0, oca[i]));
+            }
+            else
+            {
+                if (ncomp ==2)
+                    args->elementCount.insert(pair<unsigned int, unsigned int>(oca[2*i], oca[2*i+1]));
+                else
+                    args->elementCount.insert(pair<unsigned int, unsigned int>(0, oca[i]));
+            }
+        }
+    }
+}
+
 
 
 // ****************************************************************************
@@ -2632,6 +3153,108 @@ CGetNumberOfRealNodes(avtDataRepresentation &data, void *sum, bool &)
     else
     {
         numNodes[0] += nPoints;
+    }
+}
+
+
+// ****************************************************************************
+//  Method: CGetNumberOfRealOriginalNodes
+//
+//  Purpose:
+//    Adds the number of nodes in the vtk input to the passed sum argument.
+//    Counts 'real' and 'ghost' separately.
+//    Utilizes avtOriginalNodeNumbers to ensure count does not include dups.
+//
+//  Arguments:
+//    data      The data from which to calculate number of nodes.
+//    sum       A place to store the cumulative number of nodes.
+//    <unused>
+//
+//  Notes:
+//      This method is designed to be used as the function parameter of
+//      avtDataTree::Iterate.
+//
+//  Programmer: Kathleen Biagas
+//  Creation:   September 11, 2014
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+void
+CGetNumberOfRealOriginalNodes(avtDataRepresentation &data, void *arg, bool &dummy)
+{
+    if (!data.Valid())
+    {
+        EXCEPTION0(NoInputException);
+    }
+    vtkDataSet *ds = data.GetDataVTK();
+    vtkUnsignedCharArray *ghostNodes = (vtkUnsignedCharArray*)
+        ds->GetPointData()->GetArray("avtGhostNodes");
+    vtkUnsignedCharArray *ghostZones = (vtkUnsignedCharArray*)
+        ds->GetCellData()->GetArray("avtGhostZones");
+
+    if (!ghostNodes && !ghostZones)
+    {
+        CGetNumberOfOriginalNodes(data, arg, dummy);
+        return;
+    }
+
+    vtkIntArray *onArray = vtkIntArray::SafeDownCast(
+        ds->GetPointData()->GetArray("avtOriginalNodeNumbers"));
+
+    if (onArray)
+    {
+        OrigElementCountArgs *args = (OrigElementCountArgs*)arg;
+        int nPoints = ds->GetNumberOfPoints();
+        int nComp = onArray->GetNumberOfComponents();
+        if (ghostNodes != NULL)
+        {
+            unsigned char *gptr = ghostNodes->GetPointer(0);
+            for (int i = 0; i < nPoints; i++)
+            {
+              int origNode = onArray->GetComponent(i, nComp-1);
+              if (origNode == -1)
+                  continue;
+              unsigned int dom = nComp == 1 ? 0 : onArray->GetComponent(i, 0);
+
+              if (gptr[i])
+              {
+                  args->ghostElementCount.insert(pair<unsigned int, unsigned int>(dom, (unsigned int)origNode));
+              }
+              else
+              {
+                  args->elementCount.insert(pair<unsigned int, unsigned int>(dom, (unsigned int)origNode));
+              }
+            }
+        }
+        else
+        {
+            unsigned char *gptr = ghostZones->GetPointer(0);
+            vtkIdList *ids = vtkIdList::New();
+            for (int i = 0; i < nPoints; i++)
+            {
+               int origNode = onArray->GetComponent(i, nComp-1);
+               if (origNode == -1)
+                   continue;
+               unsigned int dom = nComp == 1 ? 0 : onArray->GetComponent(i, 0);
+
+               ds->GetPointCells(i, ids);    
+               int numGhostCells = 0;
+               if (ids->GetNumberOfIds() == 0)
+                   continue;
+
+               for (int j = 0; j < ids->GetNumberOfIds(); j++)
+               {
+                   numGhostCells += gptr[ids->GetId(j)] > 0 ? 1 : 0;
+               }
+               if (numGhostCells == ids->GetNumberOfIds())
+                   args->ghostElementCount.insert(pair<unsigned int, unsigned int>(dom, (unsigned int)origNode));
+               else
+                   args->elementCount.insert(pair<unsigned int, unsigned int>(dom, (unsigned int)origNode));
+            }
+            ids->Delete();
+        }
     }
 }
 
@@ -3049,14 +3672,16 @@ CInsertRectilinearTransformInfoIntoDataset(avtDataRepresentation &data,
 //  Creation:    February 15, 2007
 //
 //  Modifications:
-//
 //    Hank Childs, Thu Feb  3 14:50:54 CST 2011
 //    Use pointer arithmetic.  Looks to be ~4X faster.
 //
+//    Brad Whitlock, Tue Jul 21 13:01:47 PDT 2015
+//    Support non-standard memory layout.
+//
 // ****************************************************************************
 
-template <class T> static void
-PopulateHistogram(T *buf, int ntups, int nbins, double min, double max, VISIT_LONG_LONG *numVals)
+template <typename Array> static void
+PopulateHistogram(Array buf, int ntups, int nbins, double min, double max, VISIT_LONG_LONG *numVals)
 {
     double mult = nbins/(max-min);  // This is actually needed to help the compiler.  2X difference.
     for (int i = 0 ; i < ntups ; i++)
@@ -3068,7 +3693,6 @@ PopulateHistogram(T *buf, int ntups, int nbins, double min, double max, VISIT_LO
         numVals[idx]++;
     }
 }
-
 
 void
 CCalculateHistogram(avtDataRepresentation &data, void *args, bool &errOccurred)
@@ -3106,12 +3730,20 @@ CCalculateHistogram(avtDataRepresentation &data, void *args, bool &errOccurred)
     double max = cha->max;
     VISIT_LONG_LONG *numVals = &(cha->numVals[0]);
  
-    switch (arr->GetDataType())
+    if(arr->HasStandardMemoryLayout())
     {
+        switch (arr->GetDataType())
+        {
         vtkTemplateAliasMacro(PopulateHistogram( 
             static_cast<VTK_TT*>(arr->GetVoidPointer(0)), 
             ntups, nbins, min, max, numVals));
+        }
+    }
+    else
+    {
+        // Access via GetComponent
+        PopulateHistogram(vtkDataArrayAccessor1<double>(arr), 
+            ntups, nbins, min, max, numVals);
     }
 }
-
 

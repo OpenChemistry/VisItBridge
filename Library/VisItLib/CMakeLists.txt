@@ -41,7 +41,6 @@ set(VISITBRIDGE_INCLUDE_DIRS
   ${VISIT_SOURCE_DIR}/avt/DBAtts/SIL
   ${VISIT_SOURCE_DIR}/avt/Math
   ${VISIT_SOURCE_DIR}/avt/VisWindow/VisWindow
-  ${VISIT_SOURCE_DIR}/avt/IVP
   ${VISIT_SOURCE_DIR}/avt/Pipeline/AbstractFilters
   ${VISIT_SOURCE_DIR}/avt/Pipeline/Data
   ${VISIT_SOURCE_DIR}/avt/Pipeline/Pipeline

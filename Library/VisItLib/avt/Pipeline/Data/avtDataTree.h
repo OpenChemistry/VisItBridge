@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -123,6 +123,16 @@ typedef void (*TraverseFunc)(avtDataRepresentation &, void *, bool &);
 //    Kathleen Bonnell, Thu Feb 17 09:16:46 PST 2011
 //    Added a PruneTree method that accepts a single string.
 //
+//    Cameron Christensen, Thursday, May 29, 2014
+//    Added a couple of more constructors that take avtDataRepresentation.
+//
+//    Kathleen Biagas, Wed Jun  3 10:56:38 PDT 2015
+//    Added methods for constructing leaves, to aid in keeping the tree depth
+//    as shallow as possible.
+//
+//    Burlen Loring, Sun Sep  6 14:58:03 PDT 2015
+//    Changed the return type of GetNumberOfCells to long long
+//
 // ****************************************************************************
 
 class PIPELINE_API avtDataTree
@@ -132,16 +142,20 @@ class PIPELINE_API avtDataTree
                              avtDataTree(vtkDataSet *, int);
                              avtDataTree(vtkDataSet *, int, std::string s);
                              avtDataTree(avtDataRepresentation &);
+                             avtDataTree(avtDataRepresentation *);
                              avtDataTree(int, vtkDataSet **, int *);
                              avtDataTree(int, vtkDataSet **,std::vector<int>&);
+                             avtDataTree(int, vtkDataSet **,std::vector<int>&,
+                                         std::vector<std::string>&);
                              avtDataTree(int, vtkDataSet **, int);
                              avtDataTree(int, vtkDataSet **, int,
                                          std::vector<std::string>&);
                              avtDataTree(int, vtkDataSet **,int,std::string &);
                              avtDataTree(int, avtDataRepresentation *);
+                             avtDataTree(int, avtDataRepresentation **);
                              avtDataTree(avtDataTree_p, bool dontCopyData = false );
                              avtDataTree(int, avtDataTree_p *);
-   
+
     virtual                 ~avtDataTree();
 
     avtDataTree             &operator=(const avtDataTree&);
@@ -149,7 +163,7 @@ class PIPELINE_API avtDataTree
 
     avtDataTree_p            GetChild(int);
     avtDataRepresentation   &GetDataRepresentation(void); 
-    int                      GetNumberOfCells(int topoDim, bool polysOnly) const;
+    long long                GetNumberOfCells(int topoDim, bool polysOnly) const;
 
     vtkDataSet              *GetSingleLeaf(void);
     std::string              GetDatasetAsString();
@@ -184,9 +198,10 @@ class PIPELINE_API avtDataTree
     avtDataTree_p           *children;
     avtDataRepresentation   *dataRep; 
 
+    void                     ConstructLeaf(vtkDataSet *, int);
+    void                     ConstructLeaf(vtkDataSet *, int, std::string);
     void                     AddLeafToList(vtkDataSet**, int &); 
     void                     GetUniqueLabels(std::vector<std::string> &, std::set<std::string> &);
 };
-
 
 #endif

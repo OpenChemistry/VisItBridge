@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -348,6 +348,38 @@ avtZoneIdNamedSelection::ModifyContract(avtContract_p contract) const
 }
 
 // ****************************************************************************
+//  Method: avtZoneIdNamedSelection::CreateSelection
+//
+//  Purpose:
+//      Creates an avtDataSelection for the database to read in only the data
+//      corresponding to this selection.
+//
+//  Programmer: Hank Childs
+//  Creation:   February 23, 2009
+//
+//  Modifications:
+//    Brad Whitlock, Thu Mar 15 14:15:13 PDT 2012
+//    Store the id variable in the data selection.
+//
+// ****************************************************************************
+
+avtDataSelection *
+avtZoneIdNamedSelection::CreateSelection(void)
+{
+    avtIdentifierSelection *rv = new avtIdentifierSelection;
+    rv->SetIdVariable(GetIdVariable());
+
+    // NOTE: the domains are not sent.
+    std::vector<double> ids(zoneId.size());    
+    for (size_t i = 0 ; i < zoneId.size() ; i++)
+      ids[i] = zoneId[i];
+    
+    rv->SetIdentifiers(ids);
+    return rv;
+}
+
+
+// ****************************************************************************
 //  Method: avtZoneIdNamedSelection::GetDomainList
 //
 //  Purpose:
@@ -508,13 +540,13 @@ avtZoneIdNamedSelection::Globalize()
 
     int *buffer = new int[numTotal];
     memset(buffer, 0, sizeof(int) * numTotal);
-    for (int i = 0 ; i < domId.size() ; i++)
+    for (size_t i = 0 ; i < domId.size() ; i++)
         buffer[myStart+i] = domId[i];
     domId.resize(numTotal);
     SumIntArrayAcrossAllProcessors(buffer, &domId[0], numTotal);
 
     memset(buffer, 0, sizeof(int) * numTotal);
-    for (int i = 0 ; i < zoneId.size() ; i++)
+    for (size_t i = 0 ; i < zoneId.size() ; i++)
         buffer[myStart+i] = zoneId[i];
     zoneId.resize(numTotal);
     SumIntArrayAcrossAllProcessors(buffer, &zoneId[0], numTotal);
@@ -936,7 +968,7 @@ avtFloatingPointIdNamedSelection::Globalize()
 
     double *buffer = new double[numTotal];
     memset(buffer, 0, sizeof(double) * numTotal);
-    for (int i = 0 ; i < ids.size() ; i++)
+    for (size_t i = 0 ; i < ids.size() ; i++)
         buffer[myStart+i] = ids[i];
     ids.resize(numTotal);
     SumDoubleArrayAcrossAllProcessors(buffer, &ids[0], numTotal);
@@ -1232,13 +1264,12 @@ avtLocationsNamedSelection::GetMatchingIds(vtkDataSet *ds, std::vector<vtkIdType
     vtkIdType cellId;
     
     vtkGenericCell *cell = vtkGenericCell::New();
-    int nLocs = locations.size();
+    size_t nLocs = locations.size();
     std::map<vtkIdType, int> idMap;
 
     //Use a map to ensure we don't get duplicate cells.
-    for (int i = 0; i < nLocs; i++)
+    for (size_t i = 0; i < nLocs; i++)
     {
-        avtVector pt = locations[i];
         p[0] = locations[i].x;
         p[1] = locations[i].y;
         p[2] = locations[i].z;
@@ -1302,7 +1333,7 @@ avtLocationsNamedSelection::Globalize()
     double *buffer = new double[numTotalVals], *bufferOut = new double[numTotalVals];
     for (int i = 0; i < numTotalVals; i++)
         buffer[i] = 0.0;
-    for (int i = 0; i < locations.size(); i++)
+    for (size_t i = 0; i < locations.size(); i++)
     {
         buffer[(myStart+i)*3+0] = locations[i].x;
         buffer[(myStart+i)*3+1] = locations[i].y;
@@ -1341,6 +1372,6 @@ void
 avtLocationsNamedSelection::GetMatchingLocations(std::vector<avtVector> &pts)
 {
     size_t nPts = locations.size();
-    for (int i = 0; i < nPts; i++)
+    for (size_t i = 0; i < nPts; i++)
         pts.push_back(locations[i]);
 }

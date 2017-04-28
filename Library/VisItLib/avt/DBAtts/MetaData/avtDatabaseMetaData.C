@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -38,6 +38,7 @@
 
 #include <avtDatabaseMetaData.h>
 #include <DataNode.h>
+#include <avtExpressionTypeConversions.h>
 #include <ImproperUseException.h>
 #include <InvalidVariableException.h>
 #include <BadIndexException.h>
@@ -84,6 +85,7 @@ void avtDatabaseMetaData::Init()
     mustRepopulateOnStateChange = false;
     mustAlphabetizeVariables = true;
     formatCanDoDomainDecomposition = false;
+    formatCanDoMultires = false;
     useCatchAllMesh = false;
     isSimulation = false;
     replacementMask = -65;
@@ -118,6 +120,7 @@ void avtDatabaseMetaData::Copy(const avtDatabaseMetaData &obj)
     mustRepopulateOnStateChange = obj.mustRepopulateOnStateChange;
     mustAlphabetizeVariables = obj.mustAlphabetizeVariables;
     formatCanDoDomainDecomposition = obj.formatCanDoDomainDecomposition;
+    formatCanDoMultires = obj.formatCanDoMultires;
     useCatchAllMesh = obj.useCatchAllMesh;
     timeStepPath = obj.timeStepPath;
     timeStepNames = obj.timeStepNames;
@@ -623,6 +626,7 @@ avtDatabaseMetaData::operator == (const avtDatabaseMetaData &obj) const
             (mustRepopulateOnStateChange == obj.mustRepopulateOnStateChange) &&
             (mustAlphabetizeVariables == obj.mustAlphabetizeVariables) &&
             (formatCanDoDomainDecomposition == obj.formatCanDoDomainDecomposition) &&
+            (formatCanDoMultires == obj.formatCanDoMultires) &&
             (useCatchAllMesh == obj.useCatchAllMesh) &&
             (timeStepPath == obj.timeStepPath) &&
             (timeStepNames == obj.timeStepNames) &&
@@ -801,6 +805,7 @@ avtDatabaseMetaData::SelectAll()
     Select(ID_mustRepopulateOnStateChange,    (void *)&mustRepopulateOnStateChange);
     Select(ID_mustAlphabetizeVariables,       (void *)&mustAlphabetizeVariables);
     Select(ID_formatCanDoDomainDecomposition, (void *)&formatCanDoDomainDecomposition);
+    Select(ID_formatCanDoMultires,            (void *)&formatCanDoMultires);
     Select(ID_useCatchAllMesh,                (void *)&useCatchAllMesh);
     Select(ID_timeStepPath,                   (void *)&timeStepPath);
     Select(ID_timeStepNames,                  (void *)&timeStepNames);
@@ -1018,6 +1023,52 @@ avtDatabaseMetaData::SetFormatCanDoDomainDecomposition(bool can)
     formatCanDoDomainDecomposition = can;
 }
 
+// ****************************************************************************
+//  Method: avtDatabaseMetaData::SetFormatCanDoMultires
+//
+//  Purpose:
+//     Sets flag indicating that format can provide multiple resolutions
+//     of the data. This means all meshes should have numBlocks set to 1.
+//     Upon each attempt to get data from the database, the format can decide
+//     what resolution of the data to provide and how to decompose the data
+//     across processors. This also means that when VisIt "load-balances"
+//     blocks (i.e. domains) across processors, it will do so by assigning
+//     the one and only block to each and every processor. It is up to the
+//     plugin to decide which portion of the whole it will actually return
+//     in a request to GetMesh(), GetVar(), ...
+//
+//  Programmer:  Eric Brugger
+//  Creation:    December 20, 2013
+// ****************************************************************************
+
+void
+avtDatabaseMetaData::SetFormatCanDoMultires(bool can)
+{
+    if (can)
+    {
+        // see if there are any meshes with other than a single block
+        bool someMeshesHaveOtherThanOneBlock = false;
+        for (int i = 0; i < GetNumMeshes(); i++)
+        {
+            if (GetMeshes(i).numBlocks != 1)
+            {
+                someMeshesHaveOtherThanOneBlock = true;
+                break;
+            }
+        }
+
+        if (someMeshesHaveOtherThanOneBlock)
+        {
+            EXCEPTION1(ImproperUseException, "Format cannot provide "
+                "multiple resolutions of the data with meshes having other "
+                "than a single block");
+        }
+    }
+
+    formatCanDoMultires = can;
+    Select(ID_formatCanDoMultires, (void *)&formatCanDoMultires);
+}
+
 void
 avtDatabaseMetaData::SetUseCatchAllMesh(bool useCatchAllMesh_)
 {
@@ -1173,6 +1224,12 @@ bool
 avtDatabaseMetaData::GetFormatCanDoDomainDecomposition() const
 {
     return formatCanDoDomainDecomposition;
+}
+
+bool
+avtDatabaseMetaData::GetFormatCanDoMultires() const
+{
+    return formatCanDoMultires;
 }
 
 bool
@@ -3446,6 +3503,506 @@ avtDatabaseMetaData::GetDefaultPlots(int i) const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Keyframing methods
+///////////////////////////////////////////////////////////////////////////////
+
+// ****************************************************************************
+// Method: avtDatabaseMetaData::GetFieldName
+//
+// Purpose: 
+//   This method returns the name of a field given its index.
+//
+// Note:       Autogenerated by xml2atts.
+//
+// Programmer: xml2atts
+// Creation:   omitted
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+std::string
+avtDatabaseMetaData::GetFieldName(int index) const
+{
+    switch (index)
+    {
+    case ID_hasTemporalExtents:             return "hasTemporalExtents";
+    case ID_minTemporalExtents:             return "minTemporalExtents";
+    case ID_maxTemporalExtents:             return "maxTemporalExtents";
+    case ID_numStates:                      return "numStates";
+    case ID_isVirtualDatabase:              return "isVirtualDatabase";
+    case ID_mustRepopulateOnStateChange:    return "mustRepopulateOnStateChange";
+    case ID_mustAlphabetizeVariables:       return "mustAlphabetizeVariables";
+    case ID_formatCanDoDomainDecomposition: return "formatCanDoDomainDecomposition";
+    case ID_formatCanDoMultires:            return "formatCanDoMultires";
+    case ID_useCatchAllMesh:                return "useCatchAllMesh";
+    case ID_timeStepPath:                   return "timeStepPath";
+    case ID_timeStepNames:                  return "timeStepNames";
+    case ID_cycles:                         return "cycles";
+    case ID_cyclesAreAccurate:              return "cyclesAreAccurate";
+    case ID_times:                          return "times";
+    case ID_timesAreAccurate:               return "timesAreAccurate";
+    case ID_databaseName:                   return "databaseName";
+    case ID_fileFormat:                     return "fileFormat";
+    case ID_databaseComment:                return "databaseComment";
+    case ID_exprList:                       return "exprList";
+    case ID_meshes:                         return "meshes";
+    case ID_subsets:                        return "subsets";
+    case ID_scalars:                        return "scalars";
+    case ID_vectors:                        return "vectors";
+    case ID_tensors:                        return "tensors";
+    case ID_symmTensors:                    return "symmTensors";
+    case ID_arrays:                         return "arrays";
+    case ID_materials:                      return "materials";
+    case ID_species:                        return "species";
+    case ID_curves:                         return "curves";
+    case ID_labels:                         return "labels";
+    case ID_defaultPlots:                   return "defaultPlots";
+    case ID_isSimulation:                   return "isSimulation";
+    case ID_simInfo:                        return "simInfo";
+    case ID_suggestedDefaultSILRestriction: return "suggestedDefaultSILRestriction";
+    case ID_replacementMask:                return "replacementMask";
+    default:  return "invalid index";
+    }
+}
+
+// ****************************************************************************
+// Method: avtDatabaseMetaData::GetFieldType
+//
+// Purpose: 
+//   This method returns the type of a field given its index.
+//
+// Note:       Autogenerated by xml2atts.
+//
+// Programmer: xml2atts
+// Creation:   omitted
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+AttributeGroup::FieldType
+avtDatabaseMetaData::GetFieldType(int index) const
+{
+    switch (index)
+    {
+    case ID_hasTemporalExtents:             return FieldType_bool;
+    case ID_minTemporalExtents:             return FieldType_double;
+    case ID_maxTemporalExtents:             return FieldType_double;
+    case ID_numStates:                      return FieldType_int;
+    case ID_isVirtualDatabase:              return FieldType_bool;
+    case ID_mustRepopulateOnStateChange:    return FieldType_bool;
+    case ID_mustAlphabetizeVariables:       return FieldType_bool;
+    case ID_formatCanDoDomainDecomposition: return FieldType_bool;
+    case ID_formatCanDoMultires:            return FieldType_bool;
+    case ID_useCatchAllMesh:                return FieldType_bool;
+    case ID_timeStepPath:                   return FieldType_string;
+    case ID_timeStepNames:                  return FieldType_stringVector;
+    case ID_cycles:                         return FieldType_intVector;
+    case ID_cyclesAreAccurate:              return FieldType_intVector;
+    case ID_times:                          return FieldType_doubleVector;
+    case ID_timesAreAccurate:               return FieldType_intVector;
+    case ID_databaseName:                   return FieldType_string;
+    case ID_fileFormat:                     return FieldType_string;
+    case ID_databaseComment:                return FieldType_string;
+    case ID_exprList:                       return FieldType_att;
+    case ID_meshes:                         return FieldType_attVector;
+    case ID_subsets:                        return FieldType_attVector;
+    case ID_scalars:                        return FieldType_attVector;
+    case ID_vectors:                        return FieldType_attVector;
+    case ID_tensors:                        return FieldType_attVector;
+    case ID_symmTensors:                    return FieldType_attVector;
+    case ID_arrays:                         return FieldType_attVector;
+    case ID_materials:                      return FieldType_attVector;
+    case ID_species:                        return FieldType_attVector;
+    case ID_curves:                         return FieldType_attVector;
+    case ID_labels:                         return FieldType_attVector;
+    case ID_defaultPlots:                   return FieldType_attVector;
+    case ID_isSimulation:                   return FieldType_bool;
+    case ID_simInfo:                        return FieldType_att;
+    case ID_suggestedDefaultSILRestriction: return FieldType_stringVector;
+    case ID_replacementMask:                return FieldType_int;
+    default:  return FieldType_unknown;
+    }
+}
+
+// ****************************************************************************
+// Method: avtDatabaseMetaData::GetFieldTypeName
+//
+// Purpose: 
+//   This method returns the name of a field type given its index.
+//
+// Note:       Autogenerated by xml2atts.
+//
+// Programmer: xml2atts
+// Creation:   omitted
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+std::string
+avtDatabaseMetaData::GetFieldTypeName(int index) const
+{
+    switch (index)
+    {
+    case ID_hasTemporalExtents:             return "bool";
+    case ID_minTemporalExtents:             return "double";
+    case ID_maxTemporalExtents:             return "double";
+    case ID_numStates:                      return "int";
+    case ID_isVirtualDatabase:              return "bool";
+    case ID_mustRepopulateOnStateChange:    return "bool";
+    case ID_mustAlphabetizeVariables:       return "bool";
+    case ID_formatCanDoDomainDecomposition: return "bool";
+    case ID_formatCanDoMultires:            return "bool";
+    case ID_useCatchAllMesh:                return "bool";
+    case ID_timeStepPath:                   return "string";
+    case ID_timeStepNames:                  return "stringVector";
+    case ID_cycles:                         return "intVector";
+    case ID_cyclesAreAccurate:              return "intVector";
+    case ID_times:                          return "doubleVector";
+    case ID_timesAreAccurate:               return "intVector";
+    case ID_databaseName:                   return "string";
+    case ID_fileFormat:                     return "string";
+    case ID_databaseComment:                return "string";
+    case ID_exprList:                       return "att";
+    case ID_meshes:                         return "attVector";
+    case ID_subsets:                        return "attVector";
+    case ID_scalars:                        return "attVector";
+    case ID_vectors:                        return "attVector";
+    case ID_tensors:                        return "attVector";
+    case ID_symmTensors:                    return "attVector";
+    case ID_arrays:                         return "attVector";
+    case ID_materials:                      return "attVector";
+    case ID_species:                        return "attVector";
+    case ID_curves:                         return "attVector";
+    case ID_labels:                         return "attVector";
+    case ID_defaultPlots:                   return "attVector";
+    case ID_isSimulation:                   return "bool";
+    case ID_simInfo:                        return "att";
+    case ID_suggestedDefaultSILRestriction: return "stringVector";
+    case ID_replacementMask:                return "int";
+    default:  return "invalid index";
+    }
+}
+
+// ****************************************************************************
+// Method: avtDatabaseMetaData::FieldsEqual
+//
+// Purpose: 
+//   This method compares two fields and return true if they are equal.
+//
+// Note:       Autogenerated by xml2atts.
+//
+// Programmer: xml2atts
+// Creation:   omitted
+//
+// Modifications:
+//   
+// ****************************************************************************
+
+bool
+avtDatabaseMetaData::FieldsEqual(int index_, const AttributeGroup *rhs) const
+{
+    const avtDatabaseMetaData &obj = *((const avtDatabaseMetaData*)rhs);
+    bool retval = false;
+    switch (index_)
+    {
+    case ID_hasTemporalExtents:
+        {  // new scope
+        retval = (hasTemporalExtents == obj.hasTemporalExtents);
+        }
+        break;
+    case ID_minTemporalExtents:
+        {  // new scope
+        retval = (minTemporalExtents == obj.minTemporalExtents);
+        }
+        break;
+    case ID_maxTemporalExtents:
+        {  // new scope
+        retval = (maxTemporalExtents == obj.maxTemporalExtents);
+        }
+        break;
+    case ID_numStates:
+        {  // new scope
+        retval = (numStates == obj.numStates);
+        }
+        break;
+    case ID_isVirtualDatabase:
+        {  // new scope
+        retval = (isVirtualDatabase == obj.isVirtualDatabase);
+        }
+        break;
+    case ID_mustRepopulateOnStateChange:
+        {  // new scope
+        retval = (mustRepopulateOnStateChange == obj.mustRepopulateOnStateChange);
+        }
+        break;
+    case ID_mustAlphabetizeVariables:
+        {  // new scope
+        retval = (mustAlphabetizeVariables == obj.mustAlphabetizeVariables);
+        }
+        break;
+    case ID_formatCanDoDomainDecomposition:
+        {  // new scope
+        retval = (formatCanDoDomainDecomposition == obj.formatCanDoDomainDecomposition);
+        }
+        break;
+    case ID_formatCanDoMultires:
+        {  // new scope
+        retval = (formatCanDoMultires == obj.formatCanDoMultires);
+        }
+        break;
+    case ID_useCatchAllMesh:
+        {  // new scope
+        retval = (useCatchAllMesh == obj.useCatchAllMesh);
+        }
+        break;
+    case ID_timeStepPath:
+        {  // new scope
+        retval = (timeStepPath == obj.timeStepPath);
+        }
+        break;
+    case ID_timeStepNames:
+        {  // new scope
+        retval = (timeStepNames == obj.timeStepNames);
+        }
+        break;
+    case ID_cycles:
+        {  // new scope
+        retval = (cycles == obj.cycles);
+        }
+        break;
+    case ID_cyclesAreAccurate:
+        {  // new scope
+        retval = (cyclesAreAccurate == obj.cyclesAreAccurate);
+        }
+        break;
+    case ID_times:
+        {  // new scope
+        retval = (times == obj.times);
+        }
+        break;
+    case ID_timesAreAccurate:
+        {  // new scope
+        retval = (timesAreAccurate == obj.timesAreAccurate);
+        }
+        break;
+    case ID_databaseName:
+        {  // new scope
+        retval = (databaseName == obj.databaseName);
+        }
+        break;
+    case ID_fileFormat:
+        {  // new scope
+        retval = (fileFormat == obj.fileFormat);
+        }
+        break;
+    case ID_databaseComment:
+        {  // new scope
+        retval = (databaseComment == obj.databaseComment);
+        }
+        break;
+    case ID_exprList:
+        {  // new scope
+        retval = (exprList == obj.exprList);
+        }
+        break;
+    case ID_meshes:
+        {  // new scope
+        bool meshes_equal = (obj.meshes.size() == meshes.size());
+        for(size_t i = 0; (i < meshes.size()) && meshes_equal; ++i)
+        {
+            // Make references to avtMeshMetaData from AttributeGroup *.
+            const avtMeshMetaData &meshes1 = *((const avtMeshMetaData *)(meshes[i]));
+            const avtMeshMetaData &meshes2 = *((const avtMeshMetaData *)(obj.meshes[i]));
+            meshes_equal = (meshes1 == meshes2);
+        }
+
+        retval = meshes_equal;
+        }
+        break;
+    case ID_subsets:
+        {  // new scope
+        bool subsets_equal = (obj.subsets.size() == subsets.size());
+        for(size_t i = 0; (i < subsets.size()) && subsets_equal; ++i)
+        {
+            // Make references to avtSubsetsMetaData from AttributeGroup *.
+            const avtSubsetsMetaData &subsets1 = *((const avtSubsetsMetaData *)(subsets[i]));
+            const avtSubsetsMetaData &subsets2 = *((const avtSubsetsMetaData *)(obj.subsets[i]));
+            subsets_equal = (subsets1 == subsets2);
+        }
+
+        retval = subsets_equal;
+        }
+        break;
+    case ID_scalars:
+        {  // new scope
+        bool scalars_equal = (obj.scalars.size() == scalars.size());
+        for(size_t i = 0; (i < scalars.size()) && scalars_equal; ++i)
+        {
+            // Make references to avtScalarMetaData from AttributeGroup *.
+            const avtScalarMetaData &scalars1 = *((const avtScalarMetaData *)(scalars[i]));
+            const avtScalarMetaData &scalars2 = *((const avtScalarMetaData *)(obj.scalars[i]));
+            scalars_equal = (scalars1 == scalars2);
+        }
+
+        retval = scalars_equal;
+        }
+        break;
+    case ID_vectors:
+        {  // new scope
+        bool vectors_equal = (obj.vectors.size() == vectors.size());
+        for(size_t i = 0; (i < vectors.size()) && vectors_equal; ++i)
+        {
+            // Make references to avtVectorMetaData from AttributeGroup *.
+            const avtVectorMetaData &vectors1 = *((const avtVectorMetaData *)(vectors[i]));
+            const avtVectorMetaData &vectors2 = *((const avtVectorMetaData *)(obj.vectors[i]));
+            vectors_equal = (vectors1 == vectors2);
+        }
+
+        retval = vectors_equal;
+        }
+        break;
+    case ID_tensors:
+        {  // new scope
+        bool tensors_equal = (obj.tensors.size() == tensors.size());
+        for(size_t i = 0; (i < tensors.size()) && tensors_equal; ++i)
+        {
+            // Make references to avtTensorMetaData from AttributeGroup *.
+            const avtTensorMetaData &tensors1 = *((const avtTensorMetaData *)(tensors[i]));
+            const avtTensorMetaData &tensors2 = *((const avtTensorMetaData *)(obj.tensors[i]));
+            tensors_equal = (tensors1 == tensors2);
+        }
+
+        retval = tensors_equal;
+        }
+        break;
+    case ID_symmTensors:
+        {  // new scope
+        bool symmTensors_equal = (obj.symmTensors.size() == symmTensors.size());
+        for(size_t i = 0; (i < symmTensors.size()) && symmTensors_equal; ++i)
+        {
+            // Make references to avtSymmetricTensorMetaData from AttributeGroup *.
+            const avtSymmetricTensorMetaData &symmTensors1 = *((const avtSymmetricTensorMetaData *)(symmTensors[i]));
+            const avtSymmetricTensorMetaData &symmTensors2 = *((const avtSymmetricTensorMetaData *)(obj.symmTensors[i]));
+            symmTensors_equal = (symmTensors1 == symmTensors2);
+        }
+
+        retval = symmTensors_equal;
+        }
+        break;
+    case ID_arrays:
+        {  // new scope
+        bool arrays_equal = (obj.arrays.size() == arrays.size());
+        for(size_t i = 0; (i < arrays.size()) && arrays_equal; ++i)
+        {
+            // Make references to avtArrayMetaData from AttributeGroup *.
+            const avtArrayMetaData &arrays1 = *((const avtArrayMetaData *)(arrays[i]));
+            const avtArrayMetaData &arrays2 = *((const avtArrayMetaData *)(obj.arrays[i]));
+            arrays_equal = (arrays1 == arrays2);
+        }
+
+        retval = arrays_equal;
+        }
+        break;
+    case ID_materials:
+        {  // new scope
+        bool materials_equal = (obj.materials.size() == materials.size());
+        for(size_t i = 0; (i < materials.size()) && materials_equal; ++i)
+        {
+            // Make references to avtMaterialMetaData from AttributeGroup *.
+            const avtMaterialMetaData &materials1 = *((const avtMaterialMetaData *)(materials[i]));
+            const avtMaterialMetaData &materials2 = *((const avtMaterialMetaData *)(obj.materials[i]));
+            materials_equal = (materials1 == materials2);
+        }
+
+        retval = materials_equal;
+        }
+        break;
+    case ID_species:
+        {  // new scope
+        bool species_equal = (obj.species.size() == species.size());
+        for(size_t i = 0; (i < species.size()) && species_equal; ++i)
+        {
+            // Make references to avtSpeciesMetaData from AttributeGroup *.
+            const avtSpeciesMetaData &species1 = *((const avtSpeciesMetaData *)(species[i]));
+            const avtSpeciesMetaData &species2 = *((const avtSpeciesMetaData *)(obj.species[i]));
+            species_equal = (species1 == species2);
+        }
+
+        retval = species_equal;
+        }
+        break;
+    case ID_curves:
+        {  // new scope
+        bool curves_equal = (obj.curves.size() == curves.size());
+        for(size_t i = 0; (i < curves.size()) && curves_equal; ++i)
+        {
+            // Make references to avtCurveMetaData from AttributeGroup *.
+            const avtCurveMetaData &curves1 = *((const avtCurveMetaData *)(curves[i]));
+            const avtCurveMetaData &curves2 = *((const avtCurveMetaData *)(obj.curves[i]));
+            curves_equal = (curves1 == curves2);
+        }
+
+        retval = curves_equal;
+        }
+        break;
+    case ID_labels:
+        {  // new scope
+        bool labels_equal = (obj.labels.size() == labels.size());
+        for(size_t i = 0; (i < labels.size()) && labels_equal; ++i)
+        {
+            // Make references to avtLabelMetaData from AttributeGroup *.
+            const avtLabelMetaData &labels1 = *((const avtLabelMetaData *)(labels[i]));
+            const avtLabelMetaData &labels2 = *((const avtLabelMetaData *)(obj.labels[i]));
+            labels_equal = (labels1 == labels2);
+        }
+
+        retval = labels_equal;
+        }
+        break;
+    case ID_defaultPlots:
+        {  // new scope
+        bool defaultPlots_equal = (obj.defaultPlots.size() == defaultPlots.size());
+        for(size_t i = 0; (i < defaultPlots.size()) && defaultPlots_equal; ++i)
+        {
+            // Make references to avtDefaultPlotMetaData from AttributeGroup *.
+            const avtDefaultPlotMetaData &defaultPlots1 = *((const avtDefaultPlotMetaData *)(defaultPlots[i]));
+            const avtDefaultPlotMetaData &defaultPlots2 = *((const avtDefaultPlotMetaData *)(obj.defaultPlots[i]));
+            defaultPlots_equal = (defaultPlots1 == defaultPlots2);
+        }
+
+        retval = defaultPlots_equal;
+        }
+        break;
+    case ID_isSimulation:
+        {  // new scope
+        retval = (isSimulation == obj.isSimulation);
+        }
+        break;
+    case ID_simInfo:
+        {  // new scope
+        retval = (simInfo == obj.simInfo);
+        }
+        break;
+    case ID_suggestedDefaultSILRestriction:
+        {  // new scope
+        retval = (suggestedDefaultSILRestriction == obj.suggestedDefaultSILRestriction);
+        }
+        break;
+    case ID_replacementMask:
+        {  // new scope
+        retval = (replacementMask == obj.replacementMask);
+        }
+        break;
+    default: retval = false;
+    }
+
+    return retval;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // User-defined methods.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -3764,10 +4321,32 @@ avtDatabaseMetaData::AreAllTimesAccurateAndValid(int expectedNumStates) const
 //    Brad Whitlock, Tue May 11 14:50:46 PDT 2010
 //    Check replacementMask before doing character replacement.
 //
+//    Mark C. Miller, Thu Sep 15 13:03:15 PDT 2016
+//    Moved code setting up forbidden characters and replacement strings from
+//    avtGenericDatabase to here. Adjusted interfaces to used C char*'s 
+//    instead of C++ strings.
 // ****************************************************************************
 
-static bool IsForbidden(std::string &origName, std::string &newName, 
-                 std::vector<char> &badChars, stringVector &newStr)
+static char const *forbiddenVarNameChars = "\n\t@#:[]<>(){}";
+
+static char const * const replacementVarNameStrs[13] = {
+    "_nl_",     // \n
+    "_tab_",    // \t
+    "_at_",     // @
+    "_number_", // #
+    "_colon_",  // :
+    "_lb_",     // [
+    "_rb_",     // ]
+    "_la_",     // <
+    "_ra_",     // >
+    "_lp_",     // (
+    "_rp_",     // )
+    "_lc_",     // {
+    "_rc_"      // }
+};
+
+static bool IsForbidden(std::string const &origName, std::string &newName, 
+                 char const *badChars, char const * const *newStr)
 {
     //
     // Note: this is rather unefficiently implemented.  It is expected that
@@ -3783,12 +4362,12 @@ static bool IsForbidden(std::string &origName, std::string &newName,
     for (size_t i = 0 ; i < len ; i++)
     {
         bool hadBadChar = false;
-        for (size_t j = 0 ; j < badChars.size() ; j++)
+        for (size_t j = 0 ; j < strlen(badChars) ; j++)
         {
             if (orig_name[i] == badChars[j])
             {
                 hadBadChar = true;
-                const char *replacement = newStr[j].c_str();
+                const char *replacement = newStr[j];
                 size_t len2 = strlen(replacement);
                 for (size_t k = 0 ; k < len2 ; k++)
                 {
@@ -3808,8 +4387,7 @@ static bool IsForbidden(std::string &origName, std::string &newName,
 }
 
 void
-avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
-                                      stringVector &replacementStr)
+avtDatabaseMetaData::ReplaceForbiddenCharacters(void)
 {
     int  i;
 
@@ -3821,8 +4399,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
         {
             if (GetMeshes(i).originalName == "")
                 GetMeshes(i).originalName = GetMeshes(i).name;
-            if (IsForbidden(GetMeshes(i).originalName, replacementName, badChars, 
-                            replacementStr))
+            if (IsForbidden(GetMeshes(i).originalName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
             {
                 char msg[1024];
                 SNPRINTF(msg, 1024, "The database contains an object named \"%s\""
@@ -3842,8 +4420,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
         {
             if (GetScalars(i).originalName == "")
                 GetScalars(i).originalName = GetScalars(i).name;
-            if (IsForbidden(GetScalars(i).originalName, replacementName, badChars, 
-                            replacementStr))
+            if (IsForbidden(GetScalars(i).originalName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
             {
                 char msg[1024];
                 SNPRINTF(msg, 1024, "The database contains an object named \"%s\""
@@ -3854,8 +4432,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
                 IssueWarning(msg);
                 GetScalars(i).name = replacementName;
             }
-            if (IsForbidden(GetScalars(i).meshName, replacementName, badChars,
-                            replacementStr))
+            if (IsForbidden(GetScalars(i).meshName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
                 GetScalars(i).meshName = replacementName;
         }
     }
@@ -3866,8 +4444,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
         {
             if (GetVectors(i).originalName == "")
                 GetVectors(i).originalName = GetVectors(i).name;
-            if (IsForbidden(GetVectors(i).originalName, replacementName, badChars, 
-                            replacementStr))
+            if (IsForbidden(GetVectors(i).originalName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
             {
                 char msg[1024];
                 SNPRINTF(msg, 1024, "The database contains an object named \"%s\""
@@ -3878,8 +4456,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
                 IssueWarning(msg);
                 GetVectors(i).name = replacementName;
             }
-            if (IsForbidden(GetVectors(i).meshName, replacementName, badChars,
-                            replacementStr))
+            if (IsForbidden(GetVectors(i).meshName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
                 GetVectors(i).meshName = replacementName;
         }
     }
@@ -3890,8 +4468,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
         {
             if (GetTensors(i).originalName == "")
                 GetTensors(i).originalName = GetTensors(i).name;
-            if (IsForbidden(GetTensors(i).originalName, replacementName, badChars, 
-                            replacementStr))
+            if (IsForbidden(GetTensors(i).originalName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
             {
                 char msg[1024];
                 SNPRINTF(msg, 1024, "The database contains an object named \"%s\""
@@ -3902,8 +4480,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
                 IssueWarning(msg);
                 GetTensors(i).name = replacementName;
             }
-            if (IsForbidden(GetTensors(i).meshName, replacementName, badChars,
-                            replacementStr))
+            if (IsForbidden(GetTensors(i).meshName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
                 GetTensors(i).meshName = replacementName;
         }
     }
@@ -3915,7 +4493,7 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
             if (GetSymmTensors(i).originalName == "")
                 GetSymmTensors(i).originalName = GetSymmTensors(i).name;
             if (IsForbidden(GetSymmTensors(i).originalName, replacementName, 
-                            badChars, replacementStr))
+                            forbiddenVarNameChars, replacementVarNameStrs))
             {
                 char msg[1024];
                 SNPRINTF(msg, 1024, "The database contains an object named \"%s\""
@@ -3926,8 +4504,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
                 IssueWarning(msg);
                 GetSymmTensors(i).name = replacementName;
             }
-            if (IsForbidden(GetSymmTensors(i).meshName, replacementName, badChars,
-                            replacementStr))
+            if (IsForbidden(GetSymmTensors(i).meshName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
                 GetSymmTensors(i).meshName = replacementName;
         }
     }
@@ -3938,8 +4516,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
         {
             if (GetArrays(i).originalName == "")
                 GetArrays(i).originalName = GetArrays(i).name;
-            if (IsForbidden(GetArrays(i).originalName, replacementName, badChars, 
-                            replacementStr))
+            if (IsForbidden(GetArrays(i).originalName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
             {
                 char msg[1024];
                 SNPRINTF(msg, 1024, "The database contains an object named \"%s\""
@@ -3950,8 +4528,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
                 IssueWarning(msg);
                 GetArrays(i).name = replacementName;
             }
-            if (IsForbidden(GetArrays(i).meshName, replacementName, badChars,
-                            replacementStr))
+            if (IsForbidden(GetArrays(i).meshName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
                 GetArrays(i).meshName = replacementName;
         }
     }
@@ -3962,8 +4540,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
         {
             if (GetMaterials(i).originalName == "")
                 GetMaterials(i).originalName = GetMaterials(i).name;
-            if (IsForbidden(GetMaterials(i).originalName, replacementName, badChars, 
-                            replacementStr))
+            if (IsForbidden(GetMaterials(i).originalName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
             {
                 char msg[1024];
                 SNPRINTF(msg, 1024, "The database contains an object named \"%s\""
@@ -3974,8 +4552,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
                 IssueWarning(msg);
                 GetMaterials(i).name = replacementName;
             }
-            if (IsForbidden(GetMaterials(i).meshName, replacementName, badChars,
-                            replacementStr))
+            if (IsForbidden(GetMaterials(i).meshName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
                 GetMaterials(i).meshName = replacementName;
         }
     }
@@ -3986,8 +4564,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
         {
             if (GetCurves(i).originalName == "")
                 GetCurves(i).originalName = GetCurves(i).name;
-            if (IsForbidden(GetCurves(i).originalName, replacementName, badChars,
-                            replacementStr))
+            if (IsForbidden(GetCurves(i).originalName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
             {
                 char msg[1024];
                 SNPRINTF(msg, 1024, "The database contains an object named \"%s\""
@@ -4007,8 +4585,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
         {
             if (GetLabels(i).originalName == "")
                 GetLabels(i).originalName = GetLabels(i).name;
-            if (IsForbidden(GetLabels(i).originalName, replacementName, badChars, 
-                            replacementStr))
+            if (IsForbidden(GetLabels(i).originalName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
             {
                 char msg[1024];
                 SNPRINTF(msg, 1024, "The database contains an object named \"%s\""
@@ -4019,8 +4597,8 @@ avtDatabaseMetaData::ReplaceForbiddenCharacters(std::vector<char> &badChars,
                 IssueWarning(msg);
                 GetLabels(i).name = replacementName;
             }
-            if (IsForbidden(GetLabels(i).meshName, replacementName, badChars,
-                            replacementStr))
+            if (IsForbidden(GetLabels(i).meshName, replacementName,
+                            forbiddenVarNameChars, replacementVarNameStrs))
                 GetLabels(i).meshName = replacementName;
         }
     }
@@ -4977,6 +5555,30 @@ avtDatabaseMetaData::SetContainsGlobalZoneIds(std::string name, bool val)
 }
 
 // ****************************************************************************
+//  Method: avtDatabaseMetaData::SetZonesWereSplit
+//
+//  Purpose:
+//      Sets whether a particular mesh's zones were split
+//
+//  Programmer:  Kathleen Biagas 
+//  Creation:    July 23, 2014
+//
+// ****************************************************************************
+
+void
+avtDatabaseMetaData::SetZonesWereSplit(std::string name, bool val)
+{
+    for (int i = 0 ; i < GetNumMeshes() ; i++)
+    {
+        if (GetMeshes(i).name == name)
+        {
+            GetMeshes(i).zonesWereSplit = val;
+            return;
+        }
+    }
+}
+
+// ****************************************************************************
 //  Method: avtDatabaseMetaData::AddGroupInformation
 //
 //  Purpose:
@@ -5111,14 +5713,20 @@ avtDatabaseMetaData::UnsetExtents(void)
 //  Programmer: Hank Childs
 //  Creation:   September 4, 2002
 //
+//  Mark C. Miller, Thu Jun 16 18:23:24 PDT 2016
+//  Remove leading slash, if any, from expression name.
 // ****************************************************************************
 
 void
-avtDatabaseMetaData::AddExpression(Expression *expr)
+avtDatabaseMetaData::AddExpression(Expression *_expr)
 {
-    expr->SetFromDB(true);
-    expr->SetDbName(databaseName);
-    exprList.AddExpressions(*expr);
+    Expression expr = *_expr;
+    std::string exprName = expr.GetName();
+    if (exprName[0] == '/')
+        expr.SetName(&exprName[1]);
+    expr.SetFromDB(true);
+    expr.SetDbName(databaseName);
+    exprList.AddExpressions(expr);
 }
 
 // ****************************************************************************
@@ -5194,7 +5802,7 @@ avtDatabaseMetaData::ConvertCSGDomainToBlockAndRegion(const char *const var,
     if (mmd && mmd->meshType == AVT_CSG_MESH)
     {
         const intVector& groupIds = mmd->groupIds;
-        if (groupIds.size() > domainAsVisItSeesIt)
+        if (groupIds.size() > (size_t)domainAsVisItSeesIt)
         {
             int i, j = groupIds[domainAsVisItSeesIt];
             for (i = domainAsVisItSeesIt; i >= 0 && groupIds[i] == j; i--)
@@ -5319,7 +5927,6 @@ avtDatabaseMetaData::GetNDomains(const std::string &var) const
 //    Change conversion function.
 //
 // ****************************************************************************
-#include <avtExpressionTypeConversions.h>
 
 avtVarType
 avtDatabaseMetaData::DetermineVarType(std::string var_in, bool do_expr) const
@@ -5438,7 +6045,7 @@ avtDatabaseMetaData::DetermineVarType(std::string var_in, bool do_expr) const
         }
     }
 
-    EXCEPTION1(InvalidVariableException, var);
+    return AVT_UNKNOWN_TYPE;
 }
 
 // ****************************************************************************
@@ -6635,6 +7242,9 @@ avtDatabaseMetaData::ParseCompoundForCategory(const std::string &inVar,
 //
 // Modifications:
 //   
+//    Mark C. Miller, Thu Sep 15 11:01:24 PDT 2016
+//    Added logic to compare to original v2 or to munged v2new after forbidden 
+//    char replacement has occured.
 // ****************************************************************************
 
 bool
@@ -6642,15 +7252,18 @@ avtDatabaseMetaData::VariableNamesEqual(const std::string &v1, const std::string
 {
     bool v1BeginsWithSlash = (v1.size() >= 1) ? v1[0] == '/' : false;
     bool v2BeginsWithSlash = (v2.size() >= 1) ? v2[0] == '/' : false;
+    std::string v2new;
+
+    IsForbidden(v2, v2new, forbiddenVarNameChars, replacementVarNameStrs);
 
     if(v1BeginsWithSlash && v2BeginsWithSlash)
-        return v1 == v2;
+        return v1 == v2 || v1 == v2new;
     else if(!v1BeginsWithSlash && !v2BeginsWithSlash)
-        return v1 == v2;
+        return v1 == v2 || v1 == v2new;
     else if(v1BeginsWithSlash)
-        return v1.substr(1) == v2;
+        return v1.substr(1) == v2 || v1.substr(1) == v2new;
     else
-        return v2.substr(1) == v1;
+        return v2.substr(1) == v1 || v2new.substr(1) == v1;
 }
 
 std::string avtDatabaseMetaData::cycleFromFilenameRegex;
@@ -6860,3 +7473,4 @@ avtDatabaseMetaData::AddGhostZoneTypePresent(std::string name,
         }
     }
 }
+

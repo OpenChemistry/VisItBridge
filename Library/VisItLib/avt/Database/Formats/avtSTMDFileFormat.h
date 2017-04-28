@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -93,6 +93,13 @@ class     avtIOInformation;
 //
 //    Mark C. Miller, Fri Oct 29 09:58:43 PDT 2010
 //    Moved implementation of SetDatabaseMetaData to the .C file.
+//
+//    Brad Whitlock, Thu Jun 19 10:50:25 PDT 2014
+//    Pass mesh name to PopulateIOInformation.
+//
+//    Burlen Loring, Fri Oct  2 17:01:02 PDT 2015
+//    Clean up a couple of warnings
+//
 // ****************************************************************************
 
 class DATABASE_API avtSTMDFileFormat : public avtFileFormat
@@ -101,21 +108,23 @@ class DATABASE_API avtSTMDFileFormat : public avtFileFormat
                            avtSTMDFileFormat(const char * const *, int);
     virtual               ~avtSTMDFileFormat();
 
-    virtual void          *GetAuxiliaryData(const char *var, int time, 
+    virtual void          *GetAuxiliaryData(const char *var, int time,
                               int domain, const char *type, void *args,
                               DestructorFunction &df)
-      {return GetAuxiliaryData(var,domain,type,args,df);};
+      {return GetAuxiliaryData(var,domain,type,args,df);}
+
     virtual void          *GetAuxiliaryData(const char *var, int,
                                             const char *type, void *args,
                                             DestructorFunction &);
 
     virtual void           ActivateTimestep(void)
                                { avtFileFormat::ActivateTimestep(); };
-    virtual void           PopulateIOInformation(avtIOInformation& ioInfo)
-                               { avtFileFormat::PopulateIOInformation(ioInfo); };
+    virtual bool           PopulateIOInformation(const std::string &,
+                                                 avtIOInformation&) { return false; }
+
     virtual void           SetDatabaseMetaData(avtDatabaseMetaData *md);
 
-    void                   SetTimestep(int ts, int ns) 
+    void                   SetTimestep(int ts, int ns)
                                  { timestep = ts; nTimesteps = ns; };
 
     virtual const char    *GetFilename(void) { return filenames[0]; };

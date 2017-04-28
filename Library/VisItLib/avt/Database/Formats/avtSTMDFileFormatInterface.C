@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -295,12 +295,17 @@ avtSTMDFileFormatInterface::GetAuxiliaryData(const char *var, int ts, int dom,
 //  Programmer: Hank Childs
 //  Creation:   December 20, 2011
 //
+//  Modifications:
+//    Burlen Loring, Fri Oct  2 17:02:27 PDT 2015
+//    clean up a warning
+//
 // ****************************************************************************
 
 std::string
 avtSTMDFileFormatInterface::CreateCacheNameIncludingSelections(std::string var, 
                                                                int ts, int dom)
 {
+    (void)dom;
     return timesteps[ts]->CreateCacheNameIncludingSelections(var);
 }
 
@@ -657,14 +662,18 @@ avtSTMDFileFormatInterface::ActivateTimestep(int ts)
 //    Brad Whitlock, Tue May 4 13:47:45 PST 2004
 //    Reenabled exception.
 //
+//    Brad Whitlock, Thu Jun 19 10:59:53 PDT 2014
+//    Added meshname.
+//    
 // ****************************************************************************
 
-void
-avtSTMDFileFormatInterface::PopulateIOInformation(int ts, avtIOInformation& ioInfo)
+bool
+avtSTMDFileFormatInterface::PopulateIOInformation(int ts, const std::string &meshname,
+    avtIOInformation& ioInfo)
 {
     if (ts < 0 || ts >= nTimesteps)
     {
         EXCEPTION2(BadIndexException, ts, nTimesteps);
     }
-    timesteps[ts]->PopulateIOInformation(ioInfo);
+    return timesteps[ts]->PopulateIOInformation(meshname, ioInfo);
 }

@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -356,7 +356,7 @@ avtNekDomainBoundaries::CreateNeighborList(const vector<int>         &domainNum,
     if (multipleBlocks && meshes.size() == 1)
         nLocalDomains = meshes[0]->GetNumberOfPoints()/ptsPerDomain;
     else
-        nLocalDomains = meshes.size();
+        nLocalDomains = (int) meshes.size();
     int ii, ff, pp, cc;
     const int  f[6][4] = { {0, 2, 4, 6},
                            {1, 3, 5, 7},
@@ -433,7 +433,7 @@ avtNekDomainBoundaries::CreateNeighborList(const vector<int>         &domainNum,
     if (multipleBlocks && meshes.size() == 1)
         bFullDomainInfo = (nDomains == (meshes[0]->GetNumberOfPoints()/ptsPerDomain));
     else
-        bFullDomainInfo = (nDomains == meshes.size());
+        bFullDomainInfo = ((size_t)nDomains == meshes.size());
 
 #else
     int jj;
@@ -556,7 +556,7 @@ avtNekDomainBoundaries::CreateNeighborList(const vector<int>         &domainNum,
 
     //Send all the matches to proc 0
     int *aNumMatches = NULL;
-    int  nMatches = aMatchedFaces.size() / 4;
+    int  nMatches = (int)aMatchedFaces.size() / 4;
     if (iRank == 0)
         aNumMatches = new int[nProcs];
     
@@ -611,7 +611,7 @@ avtNekDomainBoundaries::CreateNeighborList(const vector<int>         &domainNum,
     }
     else
     {
-        err = MPI_Send( &(aMatchedFaces[0]), aMatchedFaces.size(), 
+        err = MPI_Send( &(aMatchedFaces[0]), (int)aMatchedFaces.size(), 
                         MPI_INT,  0, 888, VISIT_MPI_COMM);
         if (err != MPI_SUCCESS)
             EXCEPTION1(ImproperUseException, 
@@ -800,12 +800,12 @@ avtNekDomainBoundaries::CreateGhostNodes(vector<int>          domainNum,
     }
     else
     {
-        numToIterate = meshes.size();
+        numToIterate = (int)meshes.size();
         partOfLargerArray = false;
         gn = NULL;
     }
 
-    for (size_t ii = 0; ii < numToIterate; ii++)
+    for (size_t ii = 0; ii < (size_t)numToIterate; ii++)
     {
         int dom = domainNum[ii];
     
@@ -836,12 +836,12 @@ avtNekDomainBoundaries::CreateGhostNodes(vector<int>          domainNum,
             bool bMarkFace = false;
             if (bAllDomainsSequential)
             {
-                if (allDomains[0] <= iNeighborDomain && iNeighborDomain < allDomains[0]+allDomains.size())
+                if (allDomains[0] <= iNeighborDomain && (size_t)iNeighborDomain < allDomains[0]+allDomains.size())
                     bMarkFace = true;
             }
             else if (bAllDomainsSorted)
             {
-                int min = 0, max = allDomains.size()-1, mid;
+                int min = 0, max = (int)allDomains.size()-1, mid;
                 while (min <= max)
                 {
                     mid = (max+min)/2;
@@ -983,32 +983,13 @@ avtNekDomainBoundaries::ExchangeScalar(vector<int>     domainNum,
     EXCEPTION0(ImproperUseException);
 }
 
-
-vector<vtkDataArray*>     
-avtNekDomainBoundaries::ExchangeFloatVector(vector<int> domainNum,
+vector<vtkDataArray*>
+avtNekDomainBoundaries::ExchangeVector(vector<int> domainNum,
                                             bool                   isPointData,
                                             vector<vtkDataArray*>  vectors)
 {
     EXCEPTION0(ImproperUseException);
 }
-
-vector<vtkDataArray*>     
-avtNekDomainBoundaries::ExchangeDoubleVector(vector<int> domainNum,
-                                            bool                   isPointData,
-                                            vector<vtkDataArray*>  vectors)
-{
-    EXCEPTION0(ImproperUseException);
-}
-
-
-vector<vtkDataArray*>     
-avtNekDomainBoundaries::ExchangeIntVector(vector<int>  domainNum,
-                                          bool                  isPointData,
-                                          vector<vtkDataArray*> vectors)
-{
-    EXCEPTION0(ImproperUseException);
-}
-
 
 vector<avtMaterial*>      
 avtNekDomainBoundaries::ExchangeMaterial(vector<int>   domainNum,

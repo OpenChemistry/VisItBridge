@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -54,15 +54,13 @@
 #include <vector>
 
 #include <visit-config.h>
+#include <FileFunctions.h>
 
 using std::map;
 using std::string;
 using std::vector;
 
 static string IGNORE_CHARS = StringHelpers::NON_RELEVANT_CHARS;
-
-const int STATIC_BUF_SIZE = 4096;
-static char StaticStringBuf[STATIC_BUF_SIZE];
 
 bool has_nonspace_chars(const std::string &s);
 
@@ -89,7 +87,7 @@ void maccess_init()
     sprintf(buf, "/proc/%d/maps", getpid());
     FILE            *fp = fopen(buf, "re");
     rend = rngv;
-    while (0 < fscanf(fp, "%x-%x %4s %*[^\n]",
+    while (0 < fscanf(fp, "%lx-%lx %4s %*[^\n]",
                           &rend->alpha, &rend->omega, buf)) {
         if (buf[1] == '-' || rend->alpha < brk)
             continue;
@@ -317,13 +315,13 @@ StringHelpers::GroupStringsAsPaths(vector<string> stringList,
 
    // now, scan the sorted list of strings for value transitions
    // in the Dirname of each member
-   string lastVal = Dirname(stringPtrs[0]);
+   string lastVal = FileFunctions::Dirname(stringPtrs[0]);
    groupNames.push_back(lastVal);
    vector<string> curGroup;
    curGroup.push_back(stringPtrs[0]);
    for (i = 1; i < nStrings; i++)
    {
-       string thisVal = Dirname(stringPtrs[i]);
+       string thisVal = FileFunctions::Dirname(stringPtrs[i]);
 
        if (thisVal != lastVal)
        {
@@ -477,7 +475,7 @@ StringHelpers::FindRE(const char *strToSearch, const char *re)
     if (rval == REG_NOMATCH)
         return FindNone;
 
-    if (pm.rm_so >= strlen(strToSearch))
+    if (pm.rm_so >= (int)strlen(strToSearch))
         return FindError;
 
     if (pm.rm_so < 0)
@@ -632,327 +630,6 @@ StringHelpers::ExtractRESubstr(const char *strToSearch, const char *re)
 }
 
 // ****************************************************************************
-//  Function: Basename
-//
-//  Purpose: Find the basename of a file path string
-//
-//  Programmer: Mark C. Miller
-//  Creation:   Unknown
-//
-//  Modifications:
-//    Jeremy Meredith, Wed May 20 13:46:39 EDT 2009
-//    Should default to "0" for start, and only use "-1" for
-//    the "all-slash-string" case.
-//
-//    Kathleen Biagas, Thu Jul 28 09:41:27 PDT 2011
-//    When searching the string, look for either type of slash char, but still
-//    use the sys-dependent VISIT_SLASH_STRING when setting in the empty buf.
-//
-// ****************************************************************************
-static const char *
-basename(const char *path, int& start)
-{
-   start = 0;
-
-   if (path == 0)
-   {
-       strcpy(StaticStringBuf, ".");
-       return StaticStringBuf;
-   }
-   else if (*path == '\0')
-   {
-       strcpy(StaticStringBuf, ".");
-       return StaticStringBuf;
-   }
-   else
-   {
-       // find end of path string
-       int n = 0;
-       while ((path[n] != '\0') && (n < STATIC_BUF_SIZE))
-           n++;
-
-       // deal with string too large
-       if (n == STATIC_BUF_SIZE)
-       {
-           strcpy(StaticStringBuf, ".");
-           return StaticStringBuf;
-       }
-
-       // backup, skipping over all trailing slash chars
-       int j = n-1;
-       while ((j >= 0) && (path[j] == '/' || path[j] == '\\'))
-           j--;
-
-       // deal with string consisting of all slash chars
-       if (j == -1)
-       {
-           start = -1;
-           strcpy(StaticStringBuf, VISIT_SLASH_STRING);
-           return StaticStringBuf;
-       }
-
-       // backup to just after next slash char
-       int i = j-1;
-       while ((i >= 0) && (path[i] != '/' && path[i] != '\\'))
-           i--;
-       i++;
-       start = i;
-
-       // build the return string
-       int k;
-       for (k = 0; k < j - i + 1; k++)
-           StaticStringBuf[k] = path[i+k];
-       StaticStringBuf[k] = '\0';
-       return StaticStringBuf;
-   }
-}
-
-const char *
-StringHelpers::Basename(const char *path)
-{
-   int dummy1;
-   return basename(path, dummy1);
-}
-
-string
-StringHelpers::Basename(string const path)
-{
-    return Basename(path.c_str());
-}
-
-// ****************************************************************************
-//  Function: Dirname
-//
-//  Purpose: Find the dirname of a file path string
-//
-//  Programmer: Mark C. Miller
-//  Creation:   Unknown
-//
-//  Modifications:
-//    Jeremy Meredith, Wed May 20 13:46:39 EDT 2009
-//    Special cases were unnecessary; they fall out of the start position
-//    returned from the above implementation of basename naturally.  Fixed
-//    a couple of the special cases as well.
-//
-//    Kathleen Biagas, Thu Jul 28 09:41:27 PDT 2011
-//    When searching the string, look for either type of slash char, but still
-//    use the sys-dependent VISIT_SLASH_STRING when setting in the empty buf.
-//
-//    Mark C. Miller, Wed Jul 11 20:03:16 PDT 2012
-//    Fixed the special case where the only part of the string left after
-//    eliminating the basename part is a single slash char at index zero.
-// ****************************************************************************
-const char *
-StringHelpers::Dirname(const char *path)
-{
-    int start;
-
-    // ok, figure out the basename
-    basename(path, start);
-
-    if (start == -1)
-    {
-        strcpy(StaticStringBuf, VISIT_SLASH_STRING);
-        return StaticStringBuf;
-    }
-    else if (start == 0)
-    {
-        strcpy(StaticStringBuf, ".");
-        return StaticStringBuf;
-    }
-    else
-    {
-        int i;
-        for (i = 0; i < start; i++)
-            StaticStringBuf[i] = path[i];
-        if (i > 1 && (StaticStringBuf[i-1] == '/' ||
-                      StaticStringBuf[i-1] == '\\'))
-            StaticStringBuf[i-1] = '\0';
-        else
-            StaticStringBuf[i] = '\0';
-        return StaticStringBuf;
-    }
-}
-
-string
-StringHelpers::Dirname(string const path)
-{
-    return Dirname(path.c_str());
-}
-
-// ****************************************************************************
-//  Function: Normalize
-//
-//  Purpose: Normalize a pathname; removing all embedded './' and/or '../' or
-//  '//', and any trailing '/'. Note, however, that he code is written to use
-//  whatever the VISIT_SLASH_STRING is so it should work on Windows as well
-//  with the exception of a leading drive letter and colon.
-//
-//  Programmer: Mark C. Miller, Mon Jul 16 21:56:03 PDT 2012
-//
-//  Modifications:
-//    Kathleen Biagas, Thu June 6 09:39:25 PDT 2013
-//    Added pathSep argument that defaults to platform-specific 
-//    VISIT_SLASH_STRING.  Use of non-platform specific case my be needed if
-//    parsing internal database path-names.
-//
-// ****************************************************************************
-
-const char *
-StringHelpers::Normalize(const char *path, const char *pathSep)
-{
-    string retval = string(path);
-
-    // First, remove any double slashes
-    string dbl_slash = string(pathSep) + string(pathSep);
-    size_t dbl_slash_idx = retval.rfind(dbl_slash);
-    while (dbl_slash_idx != std::string::npos)
-    {
-        retval.erase(dbl_slash_idx, 1);
-        dbl_slash_idx = retval.rfind(dbl_slash);
-    }
-
-    // Remove any terms of the form "./". These have no effect
-    string dot_slash = string(".") + string(pathSep);
-    size_t dot_slash_idx = retval.rfind(dot_slash);
-    while (dot_slash_idx != std::string::npos)
-    {
-        if ((dot_slash_idx > 0 && retval[dot_slash_idx-1] != '.') ||
-             dot_slash_idx == 0)
-        {
-            retval.erase(dot_slash_idx, 2);
-            dot_slash_idx = retval.rfind(dot_slash,dot_slash_idx-1);
-        }
-        else
-        {
-            if (dot_slash_idx > 0)
-                dot_slash_idx = retval.rfind(dot_slash,dot_slash_idx-1);
-            else
-                dot_slash_idx = std::string::npos;
-        }
-    }
-
-    // Remove any trailing slash if one exists
-    if (retval[retval.size()-1] == pathSep[0])
-        retval.erase(retval.size()-1);
-
-    // At this point we have a string that begins with a slash
-    // and has only <path> terms or "../" terms. We need to
-    // resolve any "../" terms by backing up through the <path>
-    // terms that precede them.
-    string slash_dot_dot = string(pathSep) + string("..");
-    size_t slash_dot_dot_idx = retval.find(slash_dot_dot);
-    bool noCharsRemainingToBackup = false;
-    while (slash_dot_dot_idx != std::string::npos)
-    {
-        size_t preceding_slash_idx = retval.rfind(pathSep, slash_dot_dot_idx-1);
-        if (preceding_slash_idx == std::string::npos)
-        {
-            size_t nchars = slash_dot_dot_idx + 3;
-            retval.erase(0, nchars);
-            slash_dot_dot_idx = retval.find(slash_dot_dot);
-            if (slash_dot_dot_idx == 0)
-            {
-                retval = "";
-                noCharsRemainingToBackup = true;
-                break;
-            }
-        }
-        else
-        {
-            size_t nchars = slash_dot_dot_idx - preceding_slash_idx + 3;
-            retval.erase(preceding_slash_idx+1, nchars);
-            slash_dot_dot_idx = retval.find(slash_dot_dot);
-        }
-    }
-
-    // Remove any trailing slash if one exists
-    if (retval[retval.size()-1] == pathSep[0])
-        retval.erase(retval.size()-1);
-
-    if (retval == "" && !noCharsRemainingToBackup) retval = ".";
-
-    StaticStringBuf[0] = '\0';
-    strcat(StaticStringBuf, retval.c_str());
-    return StaticStringBuf;
-}
-
-string
-StringHelpers::Normalize(const string& path, string const pathSep)
-{
-    return Normalize(path.c_str(), pathSep.c_str());
-}
-
-// ****************************************************************************
-//  Function: Absname
-//
-//  Purpose: Compute absolute path name based on cwd and a path relative to
-//  the cwd.
-//
-//  Programmer: Mark C. Miller, Mon Jul 16 21:56:03 PDT 2012
-//
-//  Modifications:
-//    Kathleen Biagas, Thu June 6 09:39:25 PDT 2013
-//    Added pathSep argument that defaults to platform-specific 
-//    VISIT_SLASH_STRING.  Use of non-platform specific case my be needed if
-//    parsing internal database path-names.
-//
-// ****************************************************************************
-
-const char *
-StringHelpers::Absname(const char *cwd_context, const char *path, 
-    const char *pathSep)
-{
-    // Clear our temporary array for handling char * return values.
-    StaticStringBuf[0] = '\0';
-
-    // cwd_context is null or empty string
-    if (!cwd_context || cwd_context[0] == '\0')
-    {
-        if (!path) return StaticStringBuf;
-        if (path[0] != pathSep[0]) return StaticStringBuf;
-
-        string npath = Normalize(path, pathSep);
-        strcpy(StaticStringBuf, npath.c_str());
-        return StaticStringBuf;
-    }
-
-    // path is null or empty string
-    if (!path || path[0] == '\0')
-    {
-        if (!cwd_context) return StaticStringBuf;
-        if (cwd_context[0] != pathSep[0]) return StaticStringBuf;
-
-        string ncwd = Normalize(cwd_context, pathSep);
-        strcpy(StaticStringBuf, ncwd.c_str());
-        return StaticStringBuf;
-    }
-
-    if (path[0] == pathSep[0])
-    {
-        string npath = Normalize(path, pathSep);
-        strcpy(StaticStringBuf, npath.c_str());
-        return StaticStringBuf;
-    }
-
-    if (cwd_context[0] != pathSep[0]) return StaticStringBuf;
-
-    // Catenate path to cwd_context and then Normalize the result
-    string path2 = string(cwd_context) + string(pathSep) + string(path);
-    string npath = Normalize(path2.c_str(), pathSep);
-    strcpy(StaticStringBuf, npath.c_str());
-    return StaticStringBuf;
-}
-
-string
-StringHelpers::Absname(string const cwd_context, 
-                       string const path, 
-                       string const pathSep)
-{
-    return Absname(cwd_context.c_str(), path.c_str(), pathSep.c_str());
-}
-
-// ****************************************************************************
 //  Function: InitTypeNameToFmtREMap
 //
 //  Purpose: Support routine to build map of regular expressions for different
@@ -974,22 +651,22 @@ static void InitTypeNameToFmtREMap()
     if (typeNameToFmtREMap.size())
         return;
 
-    typeNameToFmtREMap["float"]                   = "[^%]*%#?0?-? ?+?'?(([1-9][0-9]*)?(\\.[0-9]*)?)?[eEfFgGaA]{1}";
-    typeNameToFmtREMap["double"]                  = "[^%]*%#?0?-? ?+?'?(([1-9][0-9]*)?(\\.[0-9]*)?)?[eEfFgGaA]{1}";
-    typeNameToFmtREMap["long double"]             = "[^%]*%#?0?-? ?+?'?(([1-9][0-9]*)?(\\.[0-9]*)?)?L[eEfFgGaA]{1}";
-    typeNameToFmtREMap["int"]                     = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?[di]{1}";
-    typeNameToFmtREMap["long int"]                = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?l[di]{1}";
-    typeNameToFmtREMap["long long int"]           = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?ll[di]{1}";
-    typeNameToFmtREMap["unsigned int"]            = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?[ouxX]{1}";
-    typeNameToFmtREMap["unsigned long int"]       = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?l[ouxX]{1}";
-    typeNameToFmtREMap["unsigned long long int"]  = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?ll[ouxX]{1}";
-    typeNameToFmtREMap["short int"]               = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?h[di]{1}";
-    typeNameToFmtREMap["unsigned short int"]      = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?h[ouxX]{1}";
+    typeNameToFmtREMap["float"]                   = "[^%]*%#?0?-? ?\\+?'?(([1-9][0-9]*)?(\\.[0-9]*)?)?[eEfFgGaA]{1}";
+    typeNameToFmtREMap["double"]                  = "[^%]*%#?0?-? ?\\+?'?(([1-9][0-9]*)?(\\.[0-9]*)?)?[eEfFgGaA]{1}";
+    typeNameToFmtREMap["long double"]             = "[^%]*%#?0?-? ?\\+?'?(([1-9][0-9]*)?(\\.[0-9]*)?)?L[eEfFgGaA]{1}";
+    typeNameToFmtREMap["int"]                     = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?[di]{1}";
+    typeNameToFmtREMap["long int"]                = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?l[di]{1}";
+    typeNameToFmtREMap["long long int"]           = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?ll[di]{1}";
+    typeNameToFmtREMap["unsigned int"]            = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?[ouxX]{1}";
+    typeNameToFmtREMap["unsigned long int"]       = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?l[ouxX]{1}";
+    typeNameToFmtREMap["unsigned long long int"]  = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?ll[ouxX]{1}";
+    typeNameToFmtREMap["short int"]               = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?h[di]{1}";
+    typeNameToFmtREMap["unsigned short int"]      = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?h[ouxX]{1}";
     typeNameToFmtREMap["char"]                    = "[^%]*%c{1}";
-    typeNameToFmtREMap["unsigned char"]           = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?hh[ouxX]{1}";
-    typeNameToFmtREMap["char*"]                   = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?s{1}";
+    typeNameToFmtREMap["unsigned char"]           = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?hh[ouxX]{1}";
+    typeNameToFmtREMap["char*"]                   = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?s{1}";
     typeNameToFmtREMap["void*"]                   = "[^%]*%p{1}";
-    typeNameToFmtREMap["size_t"]                  = "[^%]*%#?0?-? ?+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?z[ouxX]{1}";
+    typeNameToFmtREMap["size_t"]                  = "[^%]*%#?0?-? ?\\+?'?I?(([1-9][0-9]*)?(\\.[0-9]*)?)?z[ouxX]{1}";
 
     // aliases
     typeNameToFmtREMap["long"]                    = typeNameToFmtREMap["long int"];
@@ -1023,39 +700,6 @@ StringHelpers::ValidatePrintfFormatString(const char *fmtStr, const char *arg1Ty
 {
     int n;
     int i;
-
-    // this block should be removed with regcomp on Mac works with REG_EXTENDED
-#if defined(__APPLE__)
-    // first char must be a conversion specifier ('%')
-    n = 0;
-    if (fmtStr[n] == '%')
-    {
-        n++;
-
-        // optional sign designation
-        if (strchr(" +-", fmtStr[n]) != 0)
-            n++;
-
-        // walk over field width digits
-        while (fmtStr[n] >= '0' && fmtStr[n] <= '9')
-            n++;
-
-        // optional dot
-        if (fmtStr[n] == '.')
-        {
-            n++;
-            // walk over precision digits
-            while (fmtStr[n] >= '0' && fmtStr[n] <= '9')
-                n++;
-        }
-
-        if (strchr("eEfFgGaAouxXdi", fmtStr[n]) != 0)
-        {
-            if (fmtStr[n+1] == '\0')
-                return true;
-        }
-    }
-#endif
 
     //
     // fall back to RE based validation
@@ -1511,5 +1155,161 @@ StringHelpers::trim(string &val)
     ltrim(val);
 }
 
+// ****************************************************************************
+// Method: StringHelpers::UpperCase
+//
+// Purpose:
+//   Make the string all upper case.
+//
+// Arguments:
+//   src : The source string.
+//
+// Returns:    An upper case string.
+//
+// Note:       
+//
+// Programmer: Brad Whitlock
+// Creation:   Mon Sep  8 14:42:48 PDT 2014
+//
+// Modifications:
+//
+// ****************************************************************************
 
+std::string
+StringHelpers::UpperCase(const std::string &src)
+{
+    std::string tmp(src);
+    for(size_t i = 0; i < tmp.size(); ++i)
+    {
+        if(tmp[i] >= 'a' && tmp[i] <= 'z')
+            tmp[i] -= 'a' - 'A';
+    }
+    return tmp;
+}
+
+// ****************************************************************************
+//  Method:  StringHelpers::StringToInt
+//
+//  Purpose:
+//     Utility method to convert a string to an int. returns true if the 
+//     conversion was successful.
+//  Arguments 
+//    input: the string to convert to an int
+//    output: an integer representation of the string
+//
+//  Returns:
+//    boolean indicating if the conversion was successful.
+//
+//  Progammer:  Matt Larsen
+//  Creation:   Dec 12, 2016
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+bool 
+StringHelpers::StringToInt(const string &input, int &output)
+{
+    bool valid 
+        = input.find_first_not_of(" 0123456789") == std::string::npos;
+    if(!valid) return false;
+    
+    output = atoi(input.c_str());
+    //
+    //  Check for conversion errors
+    //
+    if(output == 0 && input != "0") 
+        return false;
+
+    return true;
+}
+//
+// ****************************************************************************
+//  Method:  StringHelpers::ParseRange
+//
+//  Purpose:
+//      To parse a string that constains a range of positive integers
+//      in a comma separated list. For example, "1,5-6,10" becomes "1,5,6,10".
+//  
+//
+//  Progammer:  Matt Larsen
+//  Creation:   Dec 12, 2016
+//
+//  Modifications:
+//
+// ****************************************************************************
+bool
+StringHelpers::ParseRange(const string range, std::vector<int> &list)
+{
+    std::vector<std::string> rangeTokens = StringHelpers::split(range, ',');
+
+    bool parseError = false;
+    for(int i =0; i < rangeTokens.size(); ++i)
+    {
+        int first = 0;
+        int last = 0;
+        std::vector<std::string> currentRange 
+            = StringHelpers::split(rangeTokens.at(i),'-');
+        const int size = static_cast<int>(currentRange.size());
+        
+        //
+        // Check to see that we have exactly one or two items 
+        //
+
+        if(size < 1 || size > 2) 
+        {
+            parseError = true;
+            continue;
+        }
+       
+        size_t dashPos = rangeTokens[i].find("-");
+        bool hasDash = dashPos != std::string::npos;
+
+        if(hasDash && size == 1)
+        {
+            parseError = true;
+            continue;
+        }
+         
+        bool valid = StringHelpers::StringToInt(currentRange[0], first);
+
+        if(!valid)
+        {
+            parseError = true;
+            continue;
+        }
+        
+        if(size == 1) 
+        {
+            list.push_back(first);
+            continue;
+        }
+
+        valid = StringHelpers::StringToInt(currentRange[1], last);
+
+        if(!valid)
+        {
+            parseError = true;
+            continue;
+        } 
+        
+        //
+        // Allow for backward range and don't go into inf loop
+        //
+
+        if(first > last)
+        {
+            int tmp = first;
+            first = last;
+            last = tmp;
+        }
+
+        for(int n = first; n <= last; ++n)
+        {
+            list.push_back(n);
+        }
+    }
+  
+    return parseError;
+}
 

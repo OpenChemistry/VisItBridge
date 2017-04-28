@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -39,17 +39,16 @@
 #ifndef DATABASE_EXPORTS_H
 #define DATABASE_EXPORTS_H
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #if defined(VISIT_BUILD_SHARED_LIBS)
-#if defined(avtdatabase_EXPORTS) || defined(avtdatabase_ser_EXPORTS) || defined(avtdatabase_par_EXPORTS)
+#if defined(AVTDATABASE_EXPORTS) || defined(avtdatabase_ser_EXPORTS) || defined(avtdatabase_par_EXPORTS)
 #define DATABASE_API __declspec(dllexport)
 #else
 #define DATABASE_API __declspec(dllimport)
-#endif // _EXPORTS
+#endif
 #else
 #define DATABASE_API
-#endif // VISIT_BUILD_SHARED_LIBS
-
+#endif
 #if defined(_MSC_VER)
 // Turn off warning about possible loss of data
 #pragma warning(disable:4244)
@@ -64,8 +63,7 @@
 // Turn off warning about identifier truncation
 #pragma warning(disable:4786)
 #endif
-
-#else // WIN32
+#else
 # if __GNUC__ >= 4 && (defined(AVTDATABASE_EXPORTS) || defined(avtdatabase_ser_EXPORTS) || defined(avtdatabase_par_EXPORTS))
 #   define DATABASE_API __attribute__ ((visibility("default")))
 # else

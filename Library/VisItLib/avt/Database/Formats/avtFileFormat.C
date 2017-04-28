@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -51,6 +51,7 @@
 #include <avtFileDescriptorManager.h>
 
 #include <DebugStream.h>
+#include <FileFunctions.h>
 #include <ImproperUseException.h>
 #include <StringHelpers.h>
 
@@ -253,26 +254,6 @@ avtFileFormat::ActivateTimestep(void)
     debug5 << "Asked " << GetType() << " to activate timestep, but it did not "
            << "define how to do that." << endl;
 }
-
-// ****************************************************************************
-//  Method: avtFileFormat::PopulateIOInformation
-//
-//  Purpose:
-//      This is defined so that individual file formats will not have to
-//      provide information abotu I/O if it does not make sense for that 
-//      format.
-//
-//  Programmer: Hank Childs
-//  Creation:   May 11, 2001
-//
-// ****************************************************************************
-
-void
-avtFileFormat::PopulateIOInformation(avtIOInformation &)
-{
-    debug5 << "No I/O info provided for file format " << GetType() << endl;
-}
-
 
 // ****************************************************************************
 //  Method: avtFileFormat::SetCache
@@ -552,7 +533,7 @@ avtFileFormat::AddArrayVarToMetaData(avtDatabaseMetaData *md, string name,
     avtArrayMetaData *st = new avtArrayMetaData();
     st->name = name;
     st->compNames = cnames;
-    st->nVars = cnames.size();
+    st->nVars = (int)cnames.size();
     st->meshName = mesh;
     st->centering = cent;
 
@@ -775,7 +756,7 @@ avtFileFormat::GuessCycleOrTime(const char *fname, const char *re)
     //
     // Take out any of the name that comes from the directory structure.
     //
-    fname = StringHelpers::Basename(fname);
+    fname = FileFunctions::Basename(fname);
 
     string substr = StringHelpers::ExtractRESubstr(fname, re);
     if (substr != "")
@@ -809,7 +790,7 @@ void
 avtFileFormat::CloseFileDescriptor(int manIndex)
 {
     int index = -1;
-    int nFiles = fileIndicesForDescriptorManager.size();
+    int nFiles = (int)fileIndicesForDescriptorManager.size();
     for (int i = 0 ; i < nFiles ; i++)
     {
         if (fileIndicesForDescriptorManager[i] == manIndex)
@@ -854,7 +835,7 @@ avtFileFormat::RegisterFile(int fileIndex)
     avtFileDescriptorManager *man = avtFileDescriptorManager::Instance();
     int manIndex = man->RegisterFile(FileFormatCloseFileCallback, this);
  
-    while (fileIndex >= fileIndicesForDescriptorManager.size())
+    while ((size_t)fileIndex >= fileIndicesForDescriptorManager.size())
     {
         fileIndicesForDescriptorManager.push_back(-1);
     }
@@ -982,33 +963,11 @@ FileFormatCloseFileCallback(void *ptr, int idx)
     ff->CloseFileDescriptor(idx);
 }
 
-// ****************************************************************************
-// These need to be in the implementation so that linking across dll's work
-int avtFileFormat::GetCycle(void)
-{
-  return INVALID_CYCLE;
-}
-int avtFileFormat::GetCycle(int)
-{
-  return INVALID_CYCLE;
-}
-double avtFileFormat::GetTime(void)
-{
-  return INVALID_TIME;
-}
-double avtFileFormat::GetTime(int)
-{
-  return INVALID_TIME;
-}
+int avtFileFormat::GetCycle(void) { return INVALID_CYCLE; }
+int avtFileFormat::GetCycle(int) { return INVALID_CYCLE; }
+double avtFileFormat::GetTime(void) { return INVALID_TIME; }
+double avtFileFormat::GetTime(int) { return INVALID_TIME; }
 int avtFileFormat::GetCycleFromFilename(const char *f) const
-{
-  if (f[0] == '\0')
-    return FORMAT_INVALID_CYCLE;
-  return GuessCycle(f);
-}
+    { if (f[0] == '\0') return FORMAT_INVALID_CYCLE; return GuessCycle(f); };
 double avtFileFormat::GetTimeFromFilename(const char *f) const
-{
-  if (f[0] == '\0')
-    return FORMAT_INVALID_TIME;
-  return GuessTime(f);
-}
+    { if (f[0] == '\0') return FORMAT_INVALID_TIME; return GuessTime(f); };

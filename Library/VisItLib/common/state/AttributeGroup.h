@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -116,6 +116,10 @@ class DataNode;
 //
 //    Mark C. Miller, Mon Aug 31 14:07:18 PDT 2009
 //    Added a generic exception class for state object failures.
+//
+//    Kathleen Biagas, Wed Dec 21 07:47:58 PST 2016
+//    Added glyphtype field.
+//
 // ****************************************************************************
 
 class STATE_API AttributeGroup
@@ -123,20 +127,28 @@ class STATE_API AttributeGroup
 public:
     enum FieldType {
         FieldType_unknown,
-        FieldType_int,
-        FieldType_intArray,
-        FieldType_intVector,
         FieldType_bool,
         FieldType_boolVector,
-        FieldType_float,
-        FieldType_floatArray,
-        FieldType_double,
-        FieldType_doubleArray,
-        FieldType_doubleVector,
+        FieldType_char,
+        FieldType_charArray,
+        FieldType_charVector,
         FieldType_uchar,
         FieldType_ucharArray,
         FieldType_ucharVector,
+        FieldType_int,
+        FieldType_intArray,
+        FieldType_intVector,
+        FieldType_long,
+        FieldType_longArray,
+        FieldType_longVector,
+        FieldType_float,
+        FieldType_floatArray,
+        FieldType_floatVector,
+        FieldType_double,
+        FieldType_doubleArray,
+        FieldType_doubleVector,
         FieldType_string,
+        FieldType_stringArray,
         FieldType_stringVector,
         FieldType_colortable,
         FieldType_color,
@@ -148,9 +160,16 @@ public:
         FieldType_attVector,
         FieldType_enum,
         FieldType_scalemode,
-        FieldType_MapNode
+        FieldType_MapNode,
+        FieldType_glyphtype
     };
 
+    enum {
+        AttributeGroupType = MapNode::ID__LAST,
+        AttributeGroupListType,
+        AttributeGroupVectorType,
+        ID__LAST
+    } AttributeGroupEnumType;
     // This type is used only by code-generated state objects
     // which are themselves derived from other code-generated
     // state objects. We define this (silly) type to prevent

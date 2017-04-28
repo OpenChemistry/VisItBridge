@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -39,17 +39,16 @@
 #ifndef PIPELINE_EXPORTS_H
 #define PIPELINE_EXPORTS_H
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #if defined(VISIT_BUILD_SHARED_LIBS)
-#if defined(avtpipeline_EXPORTS) || defined(avtpipeline_ser_EXPORTS) || defined(avtpipeline_par_EXPORTS)
+#if defined(AVTPIPELINE_EXPORTS) || defined(avtpipeline_ser_EXPORTS) || defined(avtpipeline_par_EXPORTS)
 #define PIPELINE_API __declspec(dllexport)
 #else
 #define PIPELINE_API __declspec(dllimport)
-#endif // _EXPORTS
+#endif
 #else
 #define PIPELINE_API
-#endif // _SHARED_LIBS
-
+#endif
 #if defined(_MSC_VER)
 // Turn off warning about inheritance by dominance.
 #pragma warning(disable:4250)
@@ -69,21 +68,18 @@
 #else
 #define VISIT_LONG_LONG long long
 #endif
-#endif //VISIT_LONG_LONG
+#endif
 
-#endif // _MSC_VER
-#else // WIN32
-
-# if __GNUC__ >= 4 && (defined(avtpipeline_EXPORTS) || defined(avtpipeline_ser_EXPORTS) || defined(avtpipeline_par_EXPORTS))
+#endif
+#else
+# if __GNUC__ >= 4 && (defined(AVTPIPELINE_EXPORTS) || defined(avtpipeline_ser_EXPORTS) || defined(avtpipeline_par_EXPORTS))
 #   define PIPELINE_API __attribute__ ((visibility("default")))
 # else
 #   define PIPELINE_API /* hidden by default */
 # endif
-
 #ifndef VISIT_LONG_LONG
 #define VISIT_LONG_LONG long long
 #endif
-
-#endif // WIN32
+#endif
 
 #endif

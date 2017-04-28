@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -48,9 +48,18 @@
 #include <array_ref_ptr.h>
 #include <string>
 
-class  vtkDataSet;
 class  avtWebpage;
+class  eavlDataSet;
+class  vtkDataSet;
+class  vtkmDataSet;
 
+
+typedef enum
+{
+    DATA_REP_TYPE_VTK,
+    DATA_REP_TYPE_EAVL,
+    DATA_REP_TYPE_VTKM
+} DataRepType;
 
 typedef enum
 {
@@ -111,6 +120,19 @@ typedef enum
 //    Cyrus Harrison, Wed Feb 13 10:25:48 PST 2008
 //    Removed DatasetDump option b/c it was migrated to avtDebugDumpOptions.
 //
+//    Cameron Christensen, Thursday, May 22, 2014
+//    Added support for EAVL.
+//
+//    Eric Brugger, Tue Sep 30 15:05:02 PDT 2014
+//    I modified the EAVL version of the avtDataRepresentation constructor
+//    to also have domain and label arguments.
+//
+//    Burlen Loring, Sun Sep  6 14:58:03 PDT 2015
+//    Changed the return type of GetNumberOfCells to long long
+//
+//    Eric Brugger, Thu Dec 10 11:47:06 PST 2015
+//    Added support for VTKm.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtDataRepresentation
@@ -119,17 +141,25 @@ class PIPELINE_API avtDataRepresentation
                         avtDataRepresentation();
                         avtDataRepresentation(vtkDataSet *, int, std::string,
                                               bool dontCopyData = false);
+                        avtDataRepresentation(eavlDataSet *, int, std::string,
+                                              bool dontCopyData = false);
+                        avtDataRepresentation(vtkmDataSet *, int, std::string,
+                                              bool dontCopyData = false);
                         avtDataRepresentation(char *, int, int, std::string,
                                               CharStrRef &, DataSetType);
                         avtDataRepresentation(const avtDataRepresentation &);
+
     virtual            ~avtDataRepresentation();
 
     avtDataRepresentation    &operator=(const avtDataRepresentation &);
 
+    DataRepType         GetDataRepType() const { return dataRepType; }
     vtkDataSet         *GetDataVTK(void);
+    eavlDataSet        *GetDataEAVL(void);
+    vtkmDataSet        *GetDataVTKm(void);
     unsigned char      *GetDataString(int &, DataSetType &);
     unsigned char      *GetCompressedDataString(int &, DataSetType &);
-    int                 GetNumberOfCells(int topoDim, bool polysOnly) const;
+    long long           GetNumberOfCells(int topoDim, bool polysOnly) const;
 
     float               GetCompressionRatio() const;
     float               GetTimeToCompress() const;
@@ -144,10 +174,13 @@ class PIPELINE_API avtDataRepresentation
 
   protected:
     vtkDataSet         *asVTK;
+    eavlDataSet        *asEAVL;
+    vtkmDataSet        *asVTKm;
     unsigned char      *asChar;
     int                 asCharLength;
     CharStrRef          originalString;
     DataSetType         datasetType;
+    DataRepType         dataRepType;
 
     float               compressionRatio;
     float               timeToCompress;
@@ -156,16 +189,22 @@ class PIPELINE_API avtDataRepresentation
     int                 domain;
     std::string         label;
 
-    static bool         initializedNullDataset;
-    static vtkDataSet  *nullDataset;
+    static bool         initializedNullDatasets;
+    static vtkDataSet  *nullVTKDataset;
+    static eavlDataSet *nullEAVLDataset;
+    static vtkmDataSet *nullVTKmDataset;
 
     unsigned char      *GetDataString(int &, DataSetType &, bool);
-    static void         InitializeNullDataset(void);
-    static void         DeleteNullDataset(void);
+    unsigned char      *vtkToString(bool compress);
+    static void         InitializeNullDatasets(void);
+    static void         DeleteNullDatasets(void);
     static DataSetType  DatasetTypeForVTK(vtkDataSet *);
+
+ private:
+    vtkDataSet*         EAVLToVTK(eavlDataSet *data);
+    eavlDataSet*        VTKToEAVL(vtkDataSet *data);
+    vtkDataSet*         VTKmToVTK(vtkmDataSet *data);
+    vtkmDataSet*        VTKToVTKm(vtkDataSet *data);
 };
 
-
 #endif
-
-

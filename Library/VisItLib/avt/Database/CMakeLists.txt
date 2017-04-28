@@ -1,8 +1,8 @@
 #*****************************************************************************
 #
-# Copyright (c) 2000 - 2008, Lawrence Livermore National Security, LLC
+# Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 # Produced at the Lawrence Livermore National Laboratory
-# LLNL-CODE-400142
+# LLNL-CODE-442911
 # All rights reserved.
 #
 # This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -36,6 +36,9 @@
 #
 # Modifications:
 #
+#  Cyrus Harrison, Thu Apr 19 16:07:11 PDT 2012
+#  Added Ghost/avtLocalStructuredDomainBoundaries.C
+#
 #****************************************************************************/
 
 SET(DATABASE_SOURCES
@@ -51,7 +54,7 @@ Database/avtSourceFromDatabase.C
 Database/avtVariableCache.C
 Database/avtTransformManager.C
 #Database/avtPolygonToTrianglesTesselator.C
-Database/avtPolyhedralSplit.C
+#Database/avtPolyhedralSplit.C
 )
 
 SET(FORMATS_SOURCES
@@ -73,6 +76,7 @@ Ghost/avtDomainBoundaries.C
 Ghost/avtIsenburgSGG.C
 Ghost/avtStreamingGhostGenerator.C
 Ghost/avtStructuredDomainBoundaries.C
+Ghost/avtLocalStructuredDomainBoundaries.C
 Ghost/avtUnstructuredDomainBoundaries.C
 Ghost/avtNekDomainBoundaries.C
 Ghost/avtStructuredDomainNesting.C
@@ -94,47 +98,50 @@ ${VISIT_SOURCE_DIR}/avt/Math
 ${VISIT_SOURCE_DIR}/avt/VisWindow/VisWindow
 ${VISIT_SOURCE_DIR}/avt/DBAtts/MetaData
 ${VISIT_SOURCE_DIR}/avt/DBAtts/SIL
+${VISIT_SOURCE_DIR}/avt/MIR/Base
+${VISIT_SOURCE_DIR}/avt/MIR/Tet
+${VISIT_SOURCE_DIR}/avt/MIR/Youngs
+${VISIT_SOURCE_DIR}/avt/MIR/Zoo
+${VISIT_SOURCE_DIR}/avt/MIR/Discrete/
 ${VISIT_SOURCE_DIR}/avt/Pipeline/AbstractFilters
 ${VISIT_SOURCE_DIR}/avt/Pipeline/Data
 ${VISIT_SOURCE_DIR}/avt/Pipeline/Pipeline
 ${VISIT_SOURCE_DIR}/avt/Pipeline/Sinks
 ${VISIT_SOURCE_DIR}/avt/Pipeline/Sources
+#${VISIT_SOURCE_DIR}/third_party_builtin/tess2
 ${VISIT_SOURCE_DIR}/visit_vtk/full
 ${VISIT_SOURCE_DIR}/visit_vtk/lightweight
 ${VTK_INCLUDE_DIRS}
 )
 
 # Add link directories
-LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS})
-#LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS} ${MESA_LIBRARY_DIR} ${GLEW_LIBRARY_DIR})
+LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${EAVL_LIBRARY_DIR} ${VTK_LIBRARY_DIRS} ${MESA_LIBRARY_DIR} ${GLEW_LIBRARY_DIR})
 
+if (FALSE)
+# Unless we're doing a VISIT_DBIO_ONLY build then we need avtmir
+IF(NOT VISIT_DBIO_ONLY)
+    SET(AVTMIR_SER avtmir_ser)
+    SET(AVTMIR_PAR avtmir_par)
+ENDIF(NOT VISIT_DBIO_ONLY)
+endif ()
 
-IF(NOT VISIT_PARALLEL)
+if (NOT VISIT_PARALLEL)
 
 #********************************* SERIAL ************************************
-    VTK_ADD_LIBRARY(avtdatabase_ser ${AVTDATABASE_SOURCES})
-    target_link_libraries(avtdatabase_ser
-                         LINK_PUBLIC
-                            avtdbatts
-                            avtpipeline_ser
-                            visit_vtk
-                         LINK_PRIVATE
-                            ${AVTMIR_SER}
-                            )
-    VISIT_INSTALL_TARGETS(avtdatabase_ser)
+#ADD_LIBRARY(avtdatabase_ser ${AVTDATABASE_SOURCES})
+VTK_ADD_LIBRARY(avtdatabase_ser ${AVTDATABASE_SOURCES})
+#TARGET_LINK_LIBRARIES(avtdatabase_ser visitcommon avtdbatts ${AVTMIR_SER} avtpipeline_ser visit_vtk tess2)
+TARGET_LINK_LIBRARIES(avtdatabase_ser LINK_PUBLIC visitcommon avtdbatts ${AVTMIR_SER} avtpipeline_ser visit_vtk)
+VISIT_INSTALL_TARGETS(avtdatabase_ser)
 
-ELSE()
+else ()
 
 #********************************* PARALLEL **********************************
+#IF(VISIT_PARALLEL)
     ADD_PARALLEL_LIBRARY(avtdatabase_par ${AVTDATABASE_SOURCES})
-    target_link_libraries(avtdatabase_par
-                         LINK_PUBLIC
-                            avtdbatts
-                            avtpipeline_par
-                            visit_vtk
-                        LINK_PRIVATE
-                            ${AVTMIR_PAR}
-                            )
+    #TARGET_LINK_LIBRARIES(avtdatabase_par visitcommon avtdbatts ${AVTMIR_PAR} avtpipeline_par visit_vtk tess2)
+    TARGET_LINK_LIBRARIES(avtdatabase_par LINK_PUBLIC visitcommon avtdbatts ${AVTMIR_PAR} avtpipeline_par visit_vtk)
     VISIT_INSTALL_TARGETS(avtdatabase_par)
+#ENDIF(VISIT_PARALLEL)
 
-ENDIF()
+endif ()

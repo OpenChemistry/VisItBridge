@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -131,6 +131,15 @@ class DatabasePluginManager;
 //    Kathleen Biagas, Wed Aug  7 12:44:37 PDT 2013
 //    Add methods for setting/getting precision type specified by user.
 //
+//    Cameron Christensen, Wednesday, June 11, 2014
+//    Add methods for setting/getting backend type specified by user.
+//
+//    Brad Whitlock, Thu Sep 18 23:02:56 PDT 2014
+//    Added methods for bypassing file permission checks.
+//
+//    Kathleen Biagas, Mon Dec 22 10:59:56 PST 2014
+//    Added methods for setting the user preference for duplicate node removal.
+//
 // ****************************************************************************
 
 class DATABASE_API avtDatabaseFactory
@@ -140,7 +149,8 @@ class DATABASE_API avtDatabaseFactory
                                           const char * const *, int, int,
                                           std::vector<std::string> &,
                                           const char * = NULL, bool = false,
-                                          bool = false);
+                                          bool = false,
+                                          int = -1);
     static avtDatabase          *VisitFile(DatabasePluginManager *,
                                            const char *, int,
                                            std::vector<std::string> &,
@@ -166,9 +176,22 @@ class DATABASE_API avtDatabaseFactory
     static bool                  GetCreateVectorMagnitudeExpressions(void)
                                   {return createVectorMagnitudeExpressions;}
 
+    static void                  SetRemoveDuplicateNodes(bool f)
+                                     {removeDuplicateNodes = f;}
+    static bool                  GetRemoveDuplicateNodes()
+                                     { return removeDuplicateNodes;}
+
     static void                  SetPrecisionType(const int pType);
     static avtPrecisionType      GetPrecisionType()
                                      { return precisionType;}
+    static void                  SetBackendType(const int bType);
+    static avtBackendType        GetBackendType()
+                                     { return backendType;}
+
+    static void                  SetCheckFilePermissions(bool val)
+                                     { checkFilePermissions = val; }
+    static bool                  GetCheckFilePermissions()
+                                     { return checkFilePermissions; }
   protected:
     static avtDatabase          *SetupDatabase(CommonDatabasePluginInfo *,
                                                const char * const *, int,
@@ -179,7 +202,10 @@ class DATABASE_API avtDatabaseFactory
     static bool                  createMeshQualityExpressions;
     static bool                  createTimeDerivativeExpressions;
     static bool                  createVectorMagnitudeExpressions;
+    static bool                  checkFilePermissions;
+    static bool                  removeDuplicateNodes;
     static FileOpenOptions       defaultFileOpenOptions;
     static avtPrecisionType      precisionType;
+    static avtBackendType        backendType;
 };
 #endif

@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -134,6 +134,12 @@ class vtkDataArray;
 //    Add method for mangling names used for caching when selections are
 //    present.
 //
+//    Brad Whitlock, Thu Jun 19 10:50:25 PDT 2014
+//    Pass mesh name to PopulateIOInformation.
+//
+//    Burlen Loring, Tue Sep 29 13:39:15 PDT 2015
+//    Clean up some warnings
+//
 // ****************************************************************************
 
 class DATABASE_API avtFileFormat
@@ -144,11 +150,12 @@ class DATABASE_API avtFileFormat
                           avtFileFormat();
     virtual              ~avtFileFormat();
 
+
     virtual void          ActivateTimestep(void);
+    virtual void          ActivateTimestep(int) { ActivateTimestep(); }
 
     virtual void          FreeUpResources(void);
     void                  RegisterDatabaseMetaData(avtDatabaseMetaData *);
-    virtual void          PopulateIOInformation(avtIOInformation &);
     void                  SetCache(avtVariableCache *);
 
     void                  SetStrictMode(bool v) { strictMode = v;    }
@@ -176,7 +183,7 @@ class DATABASE_API avtFileFormat
 
     virtual void          RegisterDataSelections(
                               const std::vector<avtDataSelection_p>&,
-                              std::vector<bool> *wasApplied) {;};
+                              std::vector<bool> *) {;};
 
     void                  SetResultMustBeProducedOnlyOnThisProcessor(bool b)
                             { resultMustBeProducedOnlyOnThisProcessor = b; };
@@ -219,13 +226,14 @@ class DATABASE_API avtFileFormat
     static int        GuessCycle(const char *fname, const char *re = 0);
     static double     GuessTime(const char *fname, const char *re = 0);
 
-    virtual vtkDataSet    *GetMesh(int time, int domain, const char *) = 0;
-    virtual vtkDataArray  *GetVar(int time, int domain, const char *) = 0;
-    virtual vtkDataArray  *GetVectorVar(int time, int domain, const char *) = 0;
-    virtual void          *GetAuxiliaryData(const char *var, int time, 
-                              int domain, const char *type, void *args,
-                              DestructorFunction &df)=0;
+    virtual vtkDataSet    *GetMesh(int, int, const char *) = 0;
+    virtual vtkDataArray  *GetVar(int, int, const char *) = 0;
+    virtual vtkDataArray  *GetVectorVar(int, int, const char *) = 0;
 
+    virtual void          *GetAuxiliaryData(const char *var, int timestate,
+                                            int domain,
+                                            const char *type, void *args,
+                                            DestructorFunction &) = 0;
 
   protected:
     avtVariableCache     *cache;
@@ -274,8 +282,8 @@ class DATABASE_API avtFileFormat
     // NOT to be trusted, but a plugin's guesses are. So, we need to know
     // the difference.
     //
-    virtual int           GetCycleFromFilename(const char *f) const;                              
-    virtual double        GetTimeFromFilename(const char *f) const;                              
+    virtual int           GetCycleFromFilename(const char *f) const;
+    virtual double        GetTimeFromFilename(const char *f) const;
 
     void       AddMeshToMetaData(avtDatabaseMetaData *, std::string,
                                  avtMeshType, const double * = NULL, int = 1,

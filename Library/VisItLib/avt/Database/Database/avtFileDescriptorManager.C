@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -133,6 +133,7 @@ avtFileDescriptorManager::DeleteInstance(void)
     if (instance)
     {
         delete instance;
+        instance = 0;
     }
 }
 
@@ -194,7 +195,7 @@ avtFileDescriptorManager::RegisterFile(CloseFileCallback cback, void *args)
         CloseLeastRecentlyUsedFile();
     }    
 
-    int index = closeFileCallbacks.size();
+    int index = (int)closeFileCallbacks.size();
     closeFileCallbacks.push_back(cback);
     closeFileArgs.push_back(args);
     fileIsOpen.push_back(true);
@@ -293,7 +294,7 @@ avtFileDescriptorManager::CloseLeastRecentlyUsedFile(void)
     //
     int lowestTimestamp = 10000000;
     int indexForLowestTimestamp = -1;
-    int nFiles = fileTimestamp.size();
+    int nFiles = (int)fileTimestamp.size();
     for (int i = 0 ; i < nFiles ; i++)
     {
         if (fileIsOpen[i] && (fileTimestamp[i] < lowestTimestamp) )

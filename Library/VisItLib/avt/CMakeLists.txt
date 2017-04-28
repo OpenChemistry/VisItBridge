@@ -1,8 +1,8 @@
 #*****************************************************************************
 #
-# Copyright (c) 2000 - 2008, Lawrence Livermore National Security, LLC
+# Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 # Produced at the Lawrence Livermore National Laboratory
-# LLNL-CODE-400142
+# LLNL-CODE-442911
 # All rights reserved.
 #
 # This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -35,12 +35,46 @@
 # DAMAGE.
 #
 # Modifications:
+#   Hank Childs, Sat Aug 21 11:53:13 PDT 2010
+#   Rename directory DDF to DataBinning.
+#
+#   Brad Whitlock, Thu Jan 20 08:48:38 PST 2011
+#   Do not build QtVisWindow on engine-only or server-components-only builds.
 #
 #****************************************************************************/
 
-ADD_SUBDIRECTORY(Math)
-ADD_SUBDIRECTORY(DBAtts)
-ADD_SUBDIRECTORY(Pipeline)
-ADD_SUBDIRECTORY(Database)
-
-ADD_SUBDIRECTORY(IVP)
+# XXX(Kitware): only include directories necessary for ParaView.
+if (FALSE)
+IF(VISIT_DBIO_ONLY)
+    ADD_SUBDIRECTORY(DBAtts)
+    ADD_SUBDIRECTORY(Pipeline)
+    ADD_SUBDIRECTORY(Database)
+ELSE(VISIT_DBIO_ONLY)
+    ADD_SUBDIRECTORY(DBAtts)
+    ADD_SUBDIRECTORY(Math)
+    ADD_SUBDIRECTORY(IVP)
+    ADD_SUBDIRECTORY(Pipeline)
+    ADD_SUBDIRECTORY(DataBinning)
+    ADD_SUBDIRECTORY(MIR)
+    ADD_SUBDIRECTORY(Shapelets)
+    ADD_SUBDIRECTORY(View)
+    ADD_SUBDIRECTORY(Filters)
+    ADD_SUBDIRECTORY(Database)
+    ADD_SUBDIRECTORY(Plotter)
+    ADD_SUBDIRECTORY(Expressions)
+    ADD_SUBDIRECTORY(Queries)
+    ADD_SUBDIRECTORY(FileWriter)
+    ADD_SUBDIRECTORY(VisWindow)
+    IF(NOT VISIT_SERVER_COMPONENTS_ONLY AND NOT VISIT_ENGINE_ONLY)
+        ADD_SUBDIRECTORY(QtVisWindow)
+    ENDIF(NOT VISIT_SERVER_COMPONENTS_ONLY AND NOT VISIT_ENGINE_ONLY)
+    IF(VISIT_PYTHON_FILTERS)
+        ADD_SUBDIRECTORY(PythonFilters)
+    ENDIF(VISIT_PYTHON_FILTERS)
+ENDIF(VISIT_DBIO_ONLY)
+else ()
+add_subdirectory(Math)
+add_subdirectory(DBAtts)
+add_subdirectory(Pipeline)
+add_subdirectory(Database)
+endif ()

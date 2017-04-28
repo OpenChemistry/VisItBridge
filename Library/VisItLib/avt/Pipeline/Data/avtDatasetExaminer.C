@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -75,10 +75,14 @@
 //    Hank Childs, Sat Nov 21 13:16:09 PST 2009
 //    Calculate number of zones with a long long.
 //
+//    Kathleen Biagas, Thu Sep 11 08:49:01 PDT 2014
+//    Add 'originalOnly' arg, to call a method that only counts original
+//    zones (utilizes avtOriginalCellNumbers).
+//
 // ****************************************************************************
- 
+
 VISIT_LONG_LONG
-avtDatasetExaminer::GetNumberOfZones(avtDataset_p &ds)
+avtDatasetExaminer::GetNumberOfZones(avtDataset_p &ds, bool originalOnly)
 {
     avtDataTree_p dataTree = ds->dataTree;
 
@@ -86,7 +90,19 @@ avtDatasetExaminer::GetNumberOfZones(avtDataset_p &ds)
     if (*dataTree != NULL)
     {
         bool dummy;
-        dataTree->Traverse(CGetNumberOfZones, &numZones, dummy);
+        if (!originalOnly)
+        {
+            dataTree->Traverse(CGetNumberOfZones, &numZones, dummy);
+        }
+        else
+        {
+            OrigElementCountArgs args;
+            dataTree->Traverse(CGetNumberOfOriginalZones, (void *)&args, dummy);
+            if (args.elementCount.size() > 0)
+                numZones = args.elementCount.size();
+            else
+                numZones = GetNumberOfZones(ds);
+        }
     }
     return numZones;
 }
@@ -179,10 +195,9 @@ avtDatasetExaminer::GetSpatialExtents(avtDataset_p &ds, double *se)
 {
     avtDataTree_p dataTree = ds->dataTree;
 
-    int   i;
  
     bool foundExtents = false;
-    for (i = 0 ; i < 3 ; i++)
+    for (int i = 0 ; i < 3 ; i++)
     {
         se[2*i + 0] = +DBL_MAX;
         se[2*i + 1] = -DBL_MAX;
@@ -238,16 +253,15 @@ avtDatasetExaminer::GetSpatialExtents(avtDataset_p &ds, double *se)
 bool
 avtDatasetExaminer::GetSpatialExtents(std::vector<avtDataTree_p> &l,double *se)
 {
-    int   i;
  
     bool foundExtents = false;
-    for (i = 0 ; i < 3 ; i++)
+    for (size_t i = 0 ; i < 3 ; i++)
     {
         se[2*i + 0] = +DBL_MAX;
         se[2*i + 1] = -DBL_MAX;
     }
  
-    for (i = 0 ; i < l.size() ; i++)
+    for (size_t i = 0 ; i < l.size() ; i++)
     {
         // We don't have access to avtDataAttributes here, so assume
         // that there is no rectilinear transform applied
@@ -313,39 +327,42 @@ avtDatasetExaminer::GetSpatialExtents(std::vector<avtDataTree_p> &l,double *se)
 //    Hank Childs, Fri Jun  9 13:25:31 PDT 2006
 //    Remove unused variable
 //
+//    Kathleen Biagas, Wed May 28 17:38:40 MST 2014
+//    Added connectedNodesOnly.
+//
 // ****************************************************************************
  
 bool
 avtDatasetExaminer::GetDataExtents(avtDataset_p &ds, double *de,
-                                   const char *varname)
+                                   const char *varname,
+                                   bool connectedNodesOnly)
 {
-    if (*ds == NULL || *(ds->GetDataTree()) == NULL)
-        return false;
-
-    if (varname == NULL)
-    {
-        varname = ds->GetInfo().GetAttributes().GetVariableName().c_str();
-    }
-
-    avtDataTree_p dataTree = ds->dataTree;
-
     bool foundExtents = false;
+
     de[0] = +DBL_MAX;
     de[1] = -DBL_MAX;
- 
-    GetVariableRangeArgs gvra;
-    gvra.varname = varname;
-    gvra.extents = de;
-    if (*dataTree != NULL)
+
+    if (*ds != NULL && *(ds->GetDataTree()) != NULL)
     {
+        if (varname == NULL)
+            varname = ds->GetInfo().GetAttributes().GetVariableName().c_str();
+
+        avtDataTree_p dataTree = ds->dataTree;
+        
+        GetVariableRangeArgs gvra;
+        gvra.varname = varname;
+        gvra.extents = de;
+        gvra.connectedNodesOnly = connectedNodesOnly;
+
         dataTree->Traverse(CGetDataExtents, (void *) &gvra, foundExtents);
-    }
  
-    if (!foundExtents)
-    {
-        debug1 << "Unable to determine data extents -- dataset needs an "
-               << "update" << endl;
+        if (!foundExtents)
+        {
+            debug1 << "Unable to determine data extents -- dataset needs an "
+                   << "update" << endl;
+        }
     }
+    
     return foundExtents;
 }
 
@@ -622,10 +639,14 @@ avtDatasetExaminer::GetVariableCentering(avtDataset_p &ds, const char *varname)
 //    Hank Childs, Sat Nov 21 13:16:09 PST 2009
 //    Calculate number of nodes with a long long.
 //
+//    Kathleen Biagas, Thu Sep 11 08:49:01 PDT 2014
+//    Add 'originalOnly' arg, to call a method that only counts original
+//    nodes (utilizes avtOriginalNodeNumbers).
+//
 // ****************************************************************************
 
 VISIT_LONG_LONG
-avtDatasetExaminer::GetNumberOfNodes(avtDataset_p &ds)
+avtDatasetExaminer::GetNumberOfNodes(avtDataset_p &ds, bool originalOnly)
 {
     avtDataTree_p dataTree = ds->dataTree;
 
@@ -633,7 +654,19 @@ avtDatasetExaminer::GetNumberOfNodes(avtDataset_p &ds)
     if (*dataTree != NULL)
     {
         bool dummy;
-        dataTree->Traverse(CGetNumberOfNodes, &numNodes, dummy);
+        if (!originalOnly)
+        {
+            dataTree->Traverse(CGetNumberOfNodes, &numNodes, dummy);
+        }
+        else
+        {
+            OrigElementCountArgs args;
+            dataTree->Traverse(CGetNumberOfOriginalNodes, (void *)&args, dummy);
+            if (args.elementCount.size() > 0)
+                numNodes = args.elementCount.size();
+            else
+                numNodes = GetNumberOfNodes(ds);
+        }
     }
     return numNodes;
 }
@@ -658,22 +691,43 @@ avtDatasetExaminer::GetNumberOfNodes(avtDataset_p &ds)
 //    Hank Childs, Sat Nov 21 13:16:09 PST 2009
 //    Calculate number of zones with a long long.
 //
+//    Kathleen Biagas, Thu Sep 11 08:49:01 PDT 2014
+//    Add 'originalOnly' arg, to call a method that only counts original
+//    zones (utilizes avtOriginalCellNumbers).
+//
 // ****************************************************************************
 
 void
-avtDatasetExaminer::GetNumberOfZones(avtDataset_p &ds, VISIT_LONG_LONG &nReal, 
-                                     VISIT_LONG_LONG &nGhost)
+avtDatasetExaminer::GetNumberOfZones(avtDataset_p &ds, VISIT_LONG_LONG &nReal,
+                                     VISIT_LONG_LONG &nGhost, bool originalOnly)
 {
     avtDataTree_p dataTree = ds->dataTree;
 
-    VISIT_LONG_LONG numZones[2] = {0, 0} ;
+    VISIT_LONG_LONG numZones[2] = {0, 0};
     if (*dataTree != NULL)
     {
         bool dummy;
-        dataTree->Traverse(CGetNumberOfRealZones, numZones, dummy);
+        if (!originalOnly)
+        {
+            dataTree->Traverse(CGetNumberOfRealZones, numZones, dummy);
+            nReal = numZones[0];
+            nGhost = numZones[1];
+        }
+        else
+        {
+            OrigElementCountArgs args;
+            dataTree->Traverse(CGetNumberOfRealOriginalZones, (void*)&args, dummy);
+            if (args.elementCount.size() > 0 || args.ghostElementCount.size() > 0)
+            {
+                nReal = args.elementCount.size();
+                nGhost = args.ghostElementCount.size();
+            }
+            else
+            {
+                GetNumberOfZones(ds, nReal, nGhost);
+            }
+        }
     }
-    nReal = numZones[0];
-    nGhost = numZones[1];
 }
 
 
@@ -696,11 +750,15 @@ avtDatasetExaminer::GetNumberOfZones(avtDataset_p &ds, VISIT_LONG_LONG &nReal,
 //    Hank Childs, Sat Nov 21 13:16:09 PST 2009
 //    Calculate number of nodes with a long long.
 //
+//    Kathleen Biagas, Thu Sep 11 08:49:01 PDT 2014
+//    Add 'originalOnly' arg, to call a method that only counts original
+//    nodes (utilizes avtOriginalNodeNumbers).
+//
 // ****************************************************************************
 
 void
-avtDatasetExaminer::GetNumberOfNodes(avtDataset_p &ds, VISIT_LONG_LONG &nReal, 
-                                     VISIT_LONG_LONG &nGhost)
+avtDatasetExaminer::GetNumberOfNodes(avtDataset_p &ds, VISIT_LONG_LONG &nReal,
+                                     VISIT_LONG_LONG &nGhost, bool originalOnly)
 {
     avtDataTree_p dataTree = ds->dataTree;
 
@@ -708,10 +766,27 @@ avtDatasetExaminer::GetNumberOfNodes(avtDataset_p &ds, VISIT_LONG_LONG &nReal,
     if (*dataTree != NULL)
     {
         bool dummy;
-        dataTree->Traverse(CGetNumberOfRealNodes, numNodes, dummy);
+        if (!originalOnly)
+        {
+            dataTree->Traverse(CGetNumberOfRealNodes, numNodes, dummy);
+            nReal = numNodes[0];
+            nGhost = numNodes[1];
+        }
+        else
+        {
+            OrigElementCountArgs args;
+            dataTree->Traverse(CGetNumberOfRealOriginalNodes, (void*)&args, dummy);
+            if (args.elementCount.size() > 0 || args.ghostElementCount.size() > 0)
+            {
+                nReal = args.elementCount.size();
+                nGhost = args.ghostElementCount.size();
+            }
+            else
+            {
+                GetNumberOfNodes(ds, nReal, nGhost);
+            }
+        }
     }
-    nReal = numNodes[0];
-    nGhost = numNodes[1];
 }
 
 
@@ -737,14 +812,6 @@ avtDatasetExaminer::GetNumberOfNodes(avtDataset_p &ds, VISIT_LONG_LONG &nReal,
 //  Programmer: Hank Childs
 //  Creation:   May 21, 2010
 //
-//  Modifications:
-//    Brad Whitlock, Tue Jun 14 13:41:24 PST 2011
-//    Don't return early if any processors failed. Those processors will just
-//    not contribute to the results. We still return false in the event that
-//    any processors failed though so we can test for it. I made this change
-//    because I was calling this routine in a filter where some processors
-//    had no data and it caused me to have NO histogram information.
-//
 // ****************************************************************************
 
 bool
@@ -758,6 +825,7 @@ avtDatasetExaminer::CalculateHistogram(avtDataset_p &ds,
     bool err = false;
     CalculateHistogramArgs args;
     int t1 = visitTimer->StartTimer();
+
     if (*dataTree != NULL)
     {
         args.min      = min;
@@ -765,28 +833,13 @@ avtDatasetExaminer::CalculateHistogram(avtDataset_p &ds,
         args.variable = var;
         args.numVals.resize(numvals.size(), 0);
         dataTree->Traverse(CCalculateHistogram, (void *) &args, err);
-    }
-    visitTimer->StopTimer(t1, "Per-processor histogram calculation");
 
-    int t2 = visitTimer->StartTimer();
-    int iFailed        = (err ? 1 : 0);
-    int somebodyFailed = UnifyMaximumValue(iFailed);
-
-    // Create a vector that will serve as input to the global sum. We put
-    // zeroes if this processor has no data. Otherwise, we use the histogram.
-    std::vector<VISIT_LONG_LONG> input(numvals.size(), 0);
-    if(!err)
-    {
-        for(size_t i = 0; i < numvals.size(); ++i)
-            input[i] = args.numVals[i];
+        if( !err )
+        {
+            for(size_t i = 0; i < numvals.size(); ++i)
+                numvals[i] = args.numVals[i];
+        }
     }
-    
-    // Sum the vector element-wise, placing results in numvals.
-    SumLongLongArrayAcrossAllProcessors(&input[0], &(numvals[0]),
-                                        static_cast<int>(numvals.size()));
-    visitTimer->StopTimer(t2, "Parallel processing of histogram");
-    
-    return somebodyFailed;
+
+    return err;
 }
-
-

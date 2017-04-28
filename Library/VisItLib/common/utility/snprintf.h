@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -40,24 +40,11 @@
 #define SNPRINTF_H
 #include <stdio.h>
 
-#ifdef _WIN32
-#include <stdarg.h>
-#include "utility_exports.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int UTILITY_API c99_vsnprintf(char* str, size_t size, const char* format, va_list ap);
-int UTILITY_API c99_snprintf(char* str, size_t size, const char* format, ...);
-
-#ifdef __cplusplus
-}
-#endif
-
-#define SNPRINTF c99_snprintf
-#else //_WIN32
+/* Define the appropriate macro. */
+#if defined(_WIN32)
+#define SNPRINTF _snprintf
+#else
 #define SNPRINTF snprintf
-#endif //_WIN32
+#endif
 
-#endif // SNPRINTF_H
+#endif

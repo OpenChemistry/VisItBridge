@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -107,6 +107,7 @@ public:
     void SelectEnumStrings();
     void SelectEnumStringsSizes();
     void SelectObsoleteNames();
+    void SelectHelp();
 
     // Property setting methods
     void SetTypes(const intVector &types_);
@@ -120,6 +121,7 @@ public:
     void SetEnumStrings(const stringVector &enumStrings_);
     void SetEnumStringsSizes(const intVector &enumStringsSizes_);
     void SetObsoleteNames(const stringVector &obsoleteNames_);
+    void SetHelp(const std::string &help_);
 
     // Property getting methods
     const intVector    &GetTypes() const;
@@ -144,6 +146,8 @@ public:
           intVector    &GetEnumStringsSizes();
     const stringVector &GetObsoleteNames() const;
           stringVector &GetObsoleteNames();
+    const std::string  &GetHelp() const;
+          std::string  &GetHelp();
 
     // Persistence methods
     virtual bool CreateNode(DataNode *node, bool completeSave, bool forceAdd);
@@ -183,6 +187,7 @@ public:
     std::string GetName(int) const;
     void SetObsolete(const std::string &name);
     bool IsObsolete(const std::string &name) const;
+    bool Merge(const DBOptionsAttributes &obj);
 
     // IDs that can be used to identify fields in case statements
     enum {
@@ -197,6 +202,7 @@ public:
         ID_enumStrings,
         ID_enumStringsSizes,
         ID_obsoleteNames,
+        ID_help,
         ID__LAST
     };
 
@@ -212,11 +218,12 @@ private:
     stringVector enumStrings;
     intVector    enumStringsSizes;
     stringVector obsoleteNames;
+    std::string  help;
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
     static const private_tmfs_t TmfsStruct;
 };
-#define DBOPTIONSATTRIBUTES_TMFS "i*s*i*d*d*i*s*i*s*i*s*"
+#define DBOPTIONSATTRIBUTES_TMFS "i*s*i*d*d*i*s*i*s*i*s*s"
 
 #endif

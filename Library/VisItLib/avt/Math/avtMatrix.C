@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -40,7 +40,7 @@
 #include <avtVector.h>
 #include <math.h>
 
-#define MAX(a,b) ((a)>(b) ? (a) : (a))
+#define MAX(a,b) ((a)>(b) ? (a) : (b))
 #define MIN(a,b) ((a)>(b) ? (b) : (a))
 
 avtMatrix::avtMatrix()
@@ -539,9 +539,15 @@ lubksb(avtMatrix *a, int *indx, double *b)
 static int
 ludcmp(avtMatrix *a, int *indx, double *d)
 {
-    double      vv[4];               /* implicit scale for each row */
-    double      big, dum, sum, tmp;
-    int         i, imax, j, k;
+    double vv[4];               /* implicit scale for each row */
+    double big;
+    double dum;
+    double sum;
+    double tmp;
+    int i;
+    int imax = 0;
+    int j;
+    int k;
 
     *d = 1.0f;
     for (i=0; i<4; i++) {

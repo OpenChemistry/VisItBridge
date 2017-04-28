@@ -1,8 +1,8 @@
 #*****************************************************************************
 #
-# Copyright (c) 2000 - 2008, Lawrence Livermore National Security, LLC
+# Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 # Produced at the Lawrence Livermore National Laboratory
-# LLNL-CODE-400142
+# LLNL-CODE-442911
 # All rights reserved.
 #
 # This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -39,13 +39,14 @@
 #****************************************************************************/
 
 SET(AVTMATH_SOURCES
-avtFactorial.C
-avtHermitePolynomial.C
+#avtFactorial.C
+#avtHermitePolynomial.C
 avtMatrix.C
+#avtPlane.C
 avtPolynomial.C
-avtQuaternion.C
-avtTrackball.C
-avtVecArray.C
+#avtQuaternion.C
+#avtTrackball.C
+#avtVecArray.C
 avtVector.C
 )
 
@@ -58,7 +59,9 @@ ${VTK_INCLUDE_DIRS}
 # Add link directories
 LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS})
 
+#ADD_LIBRARY(avtmath ${AVTMATH_SOURCES})
+#TARGET_LINK_LIBRARIES(avtmath visitcommon vtkCommonCore)
 VTK_ADD_LIBRARY(avtmath ${AVTMATH_SOURCES})
-target_link_libraries(avtmath LINK_PRIVATE visitcommon vtkCommonCore)
+TARGET_LINK_LIBRARIES(avtmath LINK_PRIVATE visitcommon vtkCommonCore)
 
 VISIT_INSTALL_TARGETS(avtmath)

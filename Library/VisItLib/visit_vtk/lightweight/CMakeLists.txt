@@ -1,8 +1,8 @@
 #*****************************************************************************
 #
-# Copyright (c) 2000 - 2008, Lawrence Livermore National Security, LLC
+# Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 # Produced at the Lawrence Livermore National Laboratory
-# LLNL-CODE-400142
+# LLNL-CODE-442911
 # All rights reserved.
 #
 # This file is  part of VisIt. For  details, see https://visit.llnl.gov/.  The
@@ -39,32 +39,33 @@
 #****************************************************************************/
 
 SET(LIGHTWEIGHT_VISIT_VTK_SOURCES
-ClipCasesHex.C
-ClipCasesLin.C
-ClipCasesPix.C
-ClipCasesPyr.C
-ClipCasesQua.C
-ClipCasesTet.C
-ClipCasesTri.C
-ClipCasesWdg.C
-ClipCasesVox.C
-ClipCasesVtx.C
-ClipCasesPoly5.C
-ClipCasesPoly6.C
-ClipCasesPoly7.C
-ClipCasesPoly8.C
-InitVTKLite.C
-vtkCellIntersections.C
-vtkDataSetFromVolume.C
-vtkDebugStream.C
+ClipCasesHex.C  
+ClipCasesLin.C  
+ClipCasesPix.C  
+ClipCasesPyr.C  
+ClipCasesQua.C  
+ClipCasesTet.C  
+ClipCasesTri.C  
+ClipCasesWdg.C          
+ClipCasesVox.C          
+ClipCasesVtx.C          
+ClipCasesPoly5.C          
+ClipCasesPoly6.C          
+ClipCasesPoly7.C          
+ClipCasesPoly8.C          
+#InitVTKLite.C     
+vtkCellIntersections.C  
+vtkDataSetFromVolume.C  
+#vtkDebugStream.C        
 vtkEnumThreshold.C
+#vtkMultiLineSource.C
 vtkPolyDataRelevantPointsFilter.C
-vtkSkewLookupTable.C
+#vtkSkewLookupTable.C
 vtkTriangulationTables.C
 vtkUnstructuredGridBoundaryFilter.C
 vtkUnstructuredGridFacelistFilter.C
 vtkVisItCellLocator.C
-vtkVisItPointDataToCellData.C
+#vtkVisItPointDataToCellData.C
 vtkVisItPointLocator.C
 vtkVisItUtility.C
 )
@@ -72,23 +73,27 @@ vtkVisItUtility.C
 INCLUDE_DIRECTORIES(
 ${VISIT_SOURCE_DIR}/visit_vtk/full
 ${VISIT_SOURCE_DIR}/visit_vtk/lightweight
+${VISIT_SOURCE_DIR}/common/misc
+${VISIT_SOURCE_DIR}/common/utility
+${VTK_INCLUDE_DIRS}
 )
 
 # Add link directories needed to use our libraries and VTK.
 LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS})
 
+#ADD_LIBRARY(lightweight_visit_vtk
 VTK_ADD_LIBRARY(lightweight_visit_vtk
     ${LIGHTWEIGHT_VISIT_VTK_SOURCES}
 )
 
+#TARGET_LINK_LIBRARIES(lightweight_visit_vtk visitcommon vtkCommonCore vtkFiltersCore vtkIOLegacy)
 target_link_libraries(lightweight_visit_vtk
-  LINK_PUBLIC
-    visitcommon
-  LINK_PRIVATE
-    vtkCommonCore
-    vtkFiltersGeneral
-    vtkIOXML
-    vtkIOLegacy
-   )
+    LINK_PUBLIC
+        visitcommon
+    LINK_PRIVATE
+        vtkCommonCore
+        vtkFiltersGeneral
+        vtkIOXML
+        vtkIOLegacy)
 
 VISIT_INSTALL_TARGETS(lightweight_visit_vtk)

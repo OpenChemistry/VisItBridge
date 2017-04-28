@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -77,6 +77,44 @@ GlobalAttributes::PrecisionType_FromString(const std::string &s, GlobalAttribute
     return false;
 }
 
+//
+// Enum conversion methods for GlobalAttributes::BackendType
+//
+
+static const char *BackendType_strings[] = {
+"VTK", "EAVL", "VTKM"
+};
+
+std::string
+GlobalAttributes::BackendType_ToString(GlobalAttributes::BackendType t)
+{
+    int index = int(t);
+    if(index < 0 || index >= 3) index = 0;
+    return BackendType_strings[index];
+}
+
+std::string
+GlobalAttributes::BackendType_ToString(int t)
+{
+    int index = (t < 0 || t >= 3) ? 0 : t;
+    return BackendType_strings[index];
+}
+
+bool
+GlobalAttributes::BackendType_FromString(const std::string &s, GlobalAttributes::BackendType &val)
+{
+    val = GlobalAttributes::VTK;
+    for(int i = 0; i < 3; ++i)
+    {
+        if(s == BackendType_strings[i])
+        {
+            val = (BackendType)i;
+            return true;
+        }
+    }
+    return false;
+}
+
 // ****************************************************************************
 // Method: GlobalAttributes::GlobalAttributes
 //
@@ -122,6 +160,8 @@ void GlobalAttributes::Init()
     expandNewPlots = false;
     userRestoreSessionFile = false;
     precisionType = Native;
+    backendType = VTK;
+    removeDuplicateNodes = false;
 
     GlobalAttributes::SelectAll();
 }
@@ -169,6 +209,8 @@ void GlobalAttributes::Copy(const GlobalAttributes &obj)
     expandNewPlots = obj.expandNewPlots;
     userRestoreSessionFile = obj.userRestoreSessionFile;
     precisionType = obj.precisionType;
+    backendType = obj.backendType;
+    removeDuplicateNodes = obj.removeDuplicateNodes;
 
     GlobalAttributes::SelectAll();
 }
@@ -351,7 +393,9 @@ GlobalAttributes::operator == (const GlobalAttributes &obj) const
             (ignoreExtentsFromDbs == obj.ignoreExtentsFromDbs) &&
             (expandNewPlots == obj.expandNewPlots) &&
             (userRestoreSessionFile == obj.userRestoreSessionFile) &&
-            (precisionType == obj.precisionType));
+            (precisionType == obj.precisionType) &&
+            (backendType == obj.backendType) &&
+            (removeDuplicateNodes == obj.removeDuplicateNodes));
 }
 
 // ****************************************************************************
@@ -521,6 +565,8 @@ GlobalAttributes::SelectAll()
     Select(ID_expandNewPlots,                   (void *)&expandNewPlots);
     Select(ID_userRestoreSessionFile,           (void *)&userRestoreSessionFile);
     Select(ID_precisionType,                    (void *)&precisionType);
+    Select(ID_backendType,                      (void *)&backendType);
+    Select(ID_removeDuplicateNodes,             (void *)&removeDuplicateNodes);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -612,6 +658,9 @@ GlobalAttributes::SelectAll()
 //
 //   David Camp, Thu Aug  8 08:50:06 PDT 2013
 //   Added the restore from last session feature. 
+//
+//   Cameron Christensen, Tuesday, June 10, 2014 
+//   Add backend.
 //
 // ****************************************************************************
 
@@ -754,6 +803,20 @@ GlobalAttributes::CreateNode(DataNode *parentNode, bool completeSave, bool force
                       precisionType));
     }
 
+    if(completeSave || !FieldsEqual(ID_backendType, &defaultObject))
+    {
+        addToParent = true;
+        node->AddNode(new DataNode("backendType",
+                      backendType));
+    }
+
+    if(completeSave || !FieldsEqual(ID_removeDuplicateNodes, &defaultObject))
+    {
+        addToParent = true;
+        node->AddNode(new DataNode("removeDuplicateNodes",
+                      removeDuplicateNodes));
+    }
+
     // Add the node to the parent node.
     if(addToParent || forceAdd)
         parentNode->AddNode(node);
@@ -834,6 +897,9 @@ GlobalAttributes::CreateNode(DataNode *parentNode, bool completeSave, bool force
 //   David Camp, Thu Aug  8 08:50:06 PDT 2013
 //   Added the restore from last session feature. 
 //
+//   Cameron Christensen, Tuesday, June 10, 2014 
+//   Add backend.
+//
 // ****************************************************************************
 
 void
@@ -898,6 +964,23 @@ GlobalAttributes::SetFromNode(DataNode *parentNode)
                 SetPrecisionType(value);
         }
     }
+    if((node = searchNode->GetNode("backendType")) != 0)
+    {
+        if (node->GetNodeType() == INT_NODE)
+        {
+            int ival = node->AsInt();
+            if (ival >= 0 && ival < 4)
+                SetBackendType(BackendType(ival));
+        }
+        else if (node->GetNodeType() == STRING_NODE)
+        {
+            BackendType value;
+            if (BackendType_FromString(node->AsString(), value))
+                SetBackendType(value);
+        }
+    }
+    if((node = searchNode->GetNode("removeDuplicateNodes")) != 0)
+        SetRemoveDuplicateNodes(node->AsBool());
 }
 ///////////////////////////////////////////////////////////////////////////////
 // Set property methods
@@ -1085,6 +1168,20 @@ GlobalAttributes::SetPrecisionType(GlobalAttributes::PrecisionType precisionType
     Select(ID_precisionType, (void *)&precisionType);
 }
 
+void
+GlobalAttributes::SetBackendType(GlobalAttributes::BackendType backendType_)
+{
+    backendType = backendType_;
+    Select(ID_backendType, (void *)&backendType);
+}
+
+void
+GlobalAttributes::SetRemoveDuplicateNodes(bool removeDuplicateNodes_)
+{
+    removeDuplicateNodes = removeDuplicateNodes_;
+    Select(ID_removeDuplicateNodes, (void *)&removeDuplicateNodes);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Get property methods
 ///////////////////////////////////////////////////////////////////////////////
@@ -1257,6 +1354,18 @@ GlobalAttributes::GetPrecisionType() const
     return PrecisionType(precisionType);
 }
 
+GlobalAttributes::BackendType
+GlobalAttributes::GetBackendType() const
+{
+    return BackendType(backendType);
+}
+
+bool
+GlobalAttributes::GetRemoveDuplicateNodes() const
+{
+    return removeDuplicateNodes;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Select property methods
 ///////////////////////////////////////////////////////////////////////////////
@@ -1323,6 +1432,8 @@ GlobalAttributes::GetFieldName(int index) const
     case ID_expandNewPlots:                   return "expandNewPlots";
     case ID_userRestoreSessionFile:           return "userRestoreSessionFile";
     case ID_precisionType:                    return "precisionType";
+    case ID_backendType:                      return "backendType";
+    case ID_removeDuplicateNodes:             return "removeDuplicateNodes";
     default:  return "invalid index";
     }
 }
@@ -1373,6 +1484,8 @@ GlobalAttributes::GetFieldType(int index) const
     case ID_expandNewPlots:                   return FieldType_bool;
     case ID_userRestoreSessionFile:           return FieldType_bool;
     case ID_precisionType:                    return FieldType_enum;
+    case ID_backendType:                      return FieldType_enum;
+    case ID_removeDuplicateNodes:             return FieldType_bool;
     default:  return FieldType_unknown;
     }
 }
@@ -1423,6 +1536,8 @@ GlobalAttributes::GetFieldTypeName(int index) const
     case ID_expandNewPlots:                   return "bool";
     case ID_userRestoreSessionFile:           return "bool";
     case ID_precisionType:                    return "enum";
+    case ID_backendType:                      return "enum";
+    case ID_removeDuplicateNodes:             return "bool";
     default:  return "invalid index";
     }
 }
@@ -1577,6 +1692,16 @@ GlobalAttributes::FieldsEqual(int index_, const AttributeGroup *rhs) const
     case ID_precisionType:
         {  // new scope
         retval = (precisionType == obj.precisionType);
+        }
+        break;
+    case ID_backendType:
+        {  // new scope
+        retval = (backendType == obj.backendType);
+        }
+        break;
+    case ID_removeDuplicateNodes:
+        {  // new scope
+        retval = (removeDuplicateNodes == obj.removeDuplicateNodes);
         }
         break;
     default: retval = false;

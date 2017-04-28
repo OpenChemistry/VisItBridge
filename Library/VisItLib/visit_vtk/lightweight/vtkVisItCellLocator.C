@@ -98,10 +98,10 @@ vtkVisItCellLocator::vtkVisItCellLocator()
   this->NumberOfDivisions = 1;
 
   this->Buckets = new vtkNeighborCells(10, 10);
-  this->CacheCellBounds = 0;
+  this->CacheCellBounds = false;
   this->CellBounds = NULL;
-  this->IgnoreGhosts = 0;
-  this->IgnoreLines = 0;
+  this->IgnoreGhosts = false;
+  this->IgnoreLines = false;
 
   this->OctantBounds[0] = 0.;
   this->OctantBounds[1] = 0.;
@@ -1043,7 +1043,7 @@ int vtkVisItCellLocator::FindClosestPointWithinRadius(double x[3], double radius
   int leafStart;
   int ijk[3];
   double minDist2;
-  double pcoords[3], point[3], cachedPoint[3], weightsArray[6];
+  double pcoords[3], point[3], cachedPoint[3] = {0., 0., 0.}, weightsArray[6];
   double *weights = weightsArray;
   int nWeights = 6, nPoints;
   int returnVal = 0;
@@ -2176,7 +2176,7 @@ int vtkVisItCellLocator::IntersectWithLine(double a0[3], double a1[3],
   int bestDir, cellIsGhost;
   double stopDist, currDist;
   double length, maxLength = 0.0;
-  double tempT, tempX[3], pc[3] = {0., 0., 0.};
+  double tempT, tempX[3];
   vtkUnsignedCharArray *ghosts = 
     (vtkUnsignedCharArray *)this->DataSet->GetCellData()->GetArray("avtGhostZones");
 

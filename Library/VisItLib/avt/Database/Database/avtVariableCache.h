@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -9,7 +9,7 @@
 * full copyright notice is contained in the file COPYRIGHT located at the root
 * of the VisIt distribution or at http://www.llnl.gov/visit/copyright.html.
 *
-* Redistribution  and  use  in  source  and  binary  forms,  with  or  without
+* Redistribution  and  use  in  source  and  binary forms,  with  or  without
 * modification, are permitted provided that the following conditions are met:
 *
 *  - Redistributions of  source code must  retain the above  copyright notice,
@@ -51,7 +51,11 @@
 
 #include <void_ref_ptr.h>
 
+#include <vtkInformationStringKey.h>
+
 class   avtCachableItem;
+class   vtkDataSet;
+class   vtkDataArray;
 class   vtkObject;
 class   vtkInformationDoubleVectorKey;
 
@@ -153,6 +157,10 @@ class DATABASE_API avtVariableCache
     static vtkInformationDoubleVectorKey* OFFSET_3_COMPONENT_0();
     static vtkInformationDoubleVectorKey* OFFSET_3_COMPONENT_1();
     static vtkInformationDoubleVectorKey* OFFSET_3_COMPONENT_2();
+
+    // VTK keys for transmitting face/edge stagger information
+    
+    static vtkInformationStringKey* STAGGER();
   
     vtkObject             *GetVTKObject(const char *name, const char *type,
                                         int ts, int domain, const char *mat);
@@ -196,6 +204,10 @@ class DATABASE_API avtVariableCache
                                                 vtkObject *o2, int domain);
     bool                   RemoveObjectPointerPair(vtkObject *o1);
     vtkObject             *FindObjectPointerPair(vtkObject *o1) const;
+
+    static unsigned long   EstimateSize(vtkDataArray *, bool);
+    static unsigned long   EstimateSize(vtkDataSet *);
+    unsigned long          EstimateCacheSize() const;
     
     static void            SetVTKDebugMode(bool on){vtkDebugMode = on;}
 
@@ -213,6 +225,7 @@ class DATABASE_API avtVariableCache
         bool              GetItem(avtCachableItem *) const;
     
         void              Print(ostream &, int);
+        unsigned long     EstimateSize(const char *) const;
 
       protected:
         int               domain;
@@ -231,6 +244,7 @@ class DATABASE_API avtVariableCache
         int                         GetTimestep(void) const { return timestep; };
     
         void                        Print(ostream &, int);
+        unsigned long               EstimateSize(const char *) const;
 
       protected:
         int                         timestep;
@@ -255,6 +269,7 @@ class DATABASE_API avtVariableCache
         void                        ClearTimestep(int);
     
         void                        Print(ostream &, int);
+        unsigned long               EstimateSize(const char *) const;
 
       protected:
         char                       *material;
@@ -279,6 +294,7 @@ class DATABASE_API avtVariableCache
         void                         ClearVariablesWithString(const std::string &);
     
         void                         Print(ostream &, int);
+        unsigned long                EstimateSize(const char *) const;
 
       protected:
         char                        *var;

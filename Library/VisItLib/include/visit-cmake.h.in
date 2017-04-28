@@ -41,29 +41,47 @@
  * Optional libraries
  ******************************************************************************/
 
-/* Define if you have the GLEW library. */
-#cmakedefine HAVE_LIBGLEW
+/* Define if you have the boost library. */
+#cmakedefine HAVE_BOOST
 
-/* Define if you have the boost interval template library. */
-#cmakedefine HAVE_BILIB
+/* Define if you have the Damaris library. */
+#cmakedefine HAVE_DAMARIS
 
-/* Define to 1 if you have the `m' library (-lm). */
-#cmakedefine HAVE_LIBM 1
-
-/* Define to 1 if you have the `z' library (-lz). */
-#cmakedefine HAVE_LIBZ 1
+/* Define if you have the EAVL library. */
+#cmakedefine HAVE_LIBEAVL
 
 /* Define if you have the FastBit library. */
 #cmakedefine HAVE_LIBFASTBIT 
 
+/* Define if you have the FastQuery library. */
+#cmakedefine HAVE_LIBFASTQUERY
+
+/* Define if you have the GLEW library. */
+#cmakedefine HAVE_LIBGLEW
+
+/* Define to 1 if you have the `m' library (-lm). */
+#cmakedefine HAVE_LIBM 1
+
+/* Define if you have the MFEM library. */
+#cmakedefine HAVE_LIBMFEM
+
 /* Define if you have the R library. */
 #cmakedefine HAVE_LIB_R
 
-/* Define if you have the OSMESA */
-#cmakedefine HAVE_OSMESA
+/* Define if you have the VTKm library. */
+#cmakedefine HAVE_LIBVTKM
 
 /* Define if you have the X11 library */
 #cmakedefine HAVE_LIBX11
+
+/* Define to 1 if you have the `z' library (-lz). */
+#cmakedefine HAVE_LIBZ 1
+
+/* Define if you have the Nektar++ library. */
+#cmakedefine HAVE_NEKTAR_PP
+
+/* Define if you have the OSMESA */
+#cmakedefine HAVE_OSMESA
 
 /*******************************************************************************
  * Header file checks
@@ -154,7 +172,9 @@
 /* Define if you have the prototype for strtof in the <stdlib.h>. */
 #cmakedefine HAVE_STRTOF_PROTOTYPE
 
-
+/* defined for aligned_alloc function, a malloc substitute in cstdlib  */
+#cmakedefine HAVE_ALIGNED_ALLOC
+#define VISIT_MEM_ALIGN 64
 
 /*******************************************************************************
  * Package information
@@ -215,6 +235,9 @@
 /* The size of `unsigned int', as computed by sizeof. */
 #cmakedefine SIZEOF_UNSIGNED_INT @SIZEOF_UNSIGNED_INT@
 
+/* The size of `size_t', as computed by sizeof. */
+#cmakedefine SIZEOF_SIZE_T @SIZEOF_SIZE_T@
+
 /* The size of `unsigned long', as computed by sizeof. */
 #cmakedefine SIZEOF_UNSIGNED_LONG @SIZEOF_UNSIGNED_LONG@
 
@@ -256,11 +279,11 @@
 
 /* Plugin version macro */
 #define VISIT_PLUGIN_VERSION_NAME(A,B) A##B
-#ifdef _WIN32
+#ifdef WIN32
 /* We need the extern "C" on Windows. */
 #define VISIT_PLUGIN_VERSION(NAME, EXPORTMACRO) extern "C" EXPORTMACRO const char *VISIT_PLUGIN_VERSION_NAME(NAME,VisItPluginVersion) = VISIT_VERSION;
 #else
-#define VISIT_PLUGIN_VERSION(NAME, EXPORTMACRO) EXPORTMACRO const char *VISIT_PLUGIN_VERSION_NAME(NAME,VisItPluginVersion) = VISIT_VERSION;
+#define VISIT_PLUGIN_VERSION(NAME, EXPORTMACRO) EXPORTMACRO const char *NAME##VisItPluginVersion = VISIT_VERSION;
 #endif
 
 /* Define to 1 if your processor stores words with the most significant byte
@@ -299,3 +322,12 @@
 
 /* Force WinMain entry point on applications. */
 #cmakedefine VISIT_WINDOWS_APPLICATION
+
+/* Define a uniform socket buffer size that we can use in various places. */
+#define VISIT_SOCKET_BUFFER_SIZE 1024
+
+/* define control to intentionally leak things or not. my profiling shows it
+   saves on the order of 0.001 sec to undefine this. leaving it undefined
+   for now in case there's some issue with it when using a remote server.
+#define DEBUG_MEMORY_LEAKS
+*/

@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -49,14 +49,12 @@
 
 #include <avtDataObject.h>
 #include <avtDatabase.h>
+#include <GlobalAttributes.h>
 
 class    AttributeSubject;
 
 
 typedef   void  (*WarningCallback)(void *, const char *);
-typedef   void  (*ImageCallback)(void *, int, avtDataObject_p &);
-typedef   void  (*UpdatePlotAttributesCallback)(void *, const std::string &,
-                                                int, AttributeSubject*);
 typedef   ref_ptr<avtDatabase> (*GetDatabaseCallback)(void *,
                                        const std::string &, int, const char *);
 typedef   void  (*ResetTimeoutCallback)(void *, int);
@@ -107,6 +105,12 @@ typedef   void  (*ResetTimeoutCallback)(void *, int);
 //    Hank Childs, Tue Jan 18 07:38:18 PST 2011
 //    Add auxsessionkey support for UCHC folks.
 //
+//    Cameron Christensen, Thursday, July 3, 2014
+//    Add backend type callback.
+//
+//    Alok Hota, Tue Feb 23 19:10:32 PST 2016
+//    Add support for OSPRay.
+//
 // ****************************************************************************
 
 class PIPELINE_API avtCallback
@@ -116,9 +120,6 @@ class PIPELINE_API avtCallback
                                                          void *);
     static bool                  IssueWarning(const char *);
 
-    static void                  RegisterImageCallback(ImageCallback, void *);
-    static void                  GetImage(int, avtDataObject_p &);
-
     static void                  SetCurrentWindowAtts(const WindowAttributes&);
     static const WindowAttributes &
                                  GetCurrentWindowAtts(void);
@@ -126,15 +127,16 @@ class PIPELINE_API avtCallback
     static void                  SetCurrentLightList(const LightList&);
     static const LightList      &GetCurrentLightList(void);
 
-    static void                  RegisterUpdatePlotAttributesCallback(
-                                         UpdatePlotAttributesCallback, void *);
-    static void                  UpdatePlotAttributes(const std::string &, int,
-                                                      AttributeSubject *);
-
     static void                  SetNowinMode(bool b)
-                                     { nowinMode = b; };
+                                     { nowinMode = b; }
     static bool                  GetNowinMode(void)
-                                     { return nowinMode; };
+                                     { return nowinMode; }
+
+    static void                    SetNowinInteractionMode(bool b)
+                                     { nowinInteractionMode = b; }
+
+    static bool                  GetNowinInteractionMode()
+                                     { return nowinInteractionMode; }
 
     static void                  SetSoftwareRendering(bool b)
                                      { swRendering = b; };
@@ -145,6 +147,11 @@ class PIPELINE_API avtCallback
                                      { useManta = b; }
     static bool                  UseManta(void)
                                      { return useManta; }
+
+    static void                  SetOSPRayMode(bool b)
+                                     { useOSPRay = b; }
+    static bool                  UseOSPRay(void)
+                                     { return useOSPRay; }
 
     static void                  RegisterGetDatabaseCallback(
                                                   GetDatabaseCallback, void *);
@@ -173,26 +180,26 @@ class PIPELINE_API avtCallback
     static void                  SetAuxSessionKey(const std::string &k)
                                                   { auxSessionKey = k; };
 
+    static void                  SetBackendType(GlobalAttributes::BackendType type);
+    static GlobalAttributes::BackendType GetBackendType();
+
   protected:
     static WarningCallback       warningCallback;
     static void                 *warningCallbackArgs;
-
-    static ImageCallback         imageCallback;
-    static void                 *imageCallbackArgs;
 
     static WindowAttributes      windowAtts;
     static LightList             lightList;
 
     static bool                  nowinMode;
+    static bool                  nowinInteractionMode;
     static bool                  swRendering;
     static bool                  useManta;
+    static bool                  useOSPRay;
     static bool                  safeMode;
 
-    static std::string           auxSessionKey;
+    static GlobalAttributes::BackendType backendType;
 
-    static UpdatePlotAttributesCallback
-                                 updatePlotAttributesCallback;
-    static void                 *updatePlotAttributesCallbackArgs;
+    static std::string           auxSessionKey;
 
     static GetDatabaseCallback   getDatabaseCallback;
     static void                 *getDatabaseCallbackArgs;

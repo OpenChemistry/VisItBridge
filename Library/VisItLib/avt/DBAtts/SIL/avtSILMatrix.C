@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -156,7 +156,7 @@ avtSILMatrix::Initialize(const vector<int> &s1, SILCategoryRole r1,
     role2       = r2;
     category2   = n2;
 
-    int ii;
+    size_t ii;
     set1IsSequential = true;
     for (ii = 1; ii < set1.size(); ii++)
     {
@@ -313,7 +313,7 @@ avtSILMatrix::GetSILCollection(int index) const
     string name;
     SILCategoryRole role;
 
-    if (index < set1.size())
+    if ((size_t)index < set1.size())
     {
         int row    = index;
 
@@ -322,9 +322,9 @@ avtSILMatrix::GetSILCollection(int index) const
         role = role2;
 
         vector<int> s;
-        for (int i = 0 ; i < set2.size() ; i++)
+        for (size_t i = 0 ; i < set2.size() ; i++)
         {
-            s.push_back(setsStartAt + row*static_cast<int>(set2.size()) + i);
+            s.push_back(setsStartAt + row*static_cast<int>(set2.size()) + static_cast<int>(i));
         }
         ens = new avtSILEnumeratedNamespace(s);
     }
@@ -337,9 +337,9 @@ avtSILMatrix::GetSILCollection(int index) const
         role = role1;
 
         vector<int> s;
-        for (int i = 0 ; i < set1.size() ; i++)
+        for (size_t i = 0 ; i < set1.size() ; i++)
         {
-            s.push_back(setsStartAt + i*set2.size() + column);
+            s.push_back(setsStartAt + static_cast<int>(i*set2.size()) + column);
         }
         ens = new avtSILEnumeratedNamespace(s);
     }
@@ -624,10 +624,10 @@ avtSILMatrix::GetNumCollections(void) const
 int
 avtSILMatrix::SetIsInCollection(int set) const
 {
-    int ii;
+    size_t ii;
     if (set1IsSequential)
     {
-        if (set1[0] <= set && set < set1[0]+set1.size())
+        if (set1[0] <= set && (size_t)set < set1[0]+set1.size())
             return (GetStartCollection() + set - set1[0]);
     }
     else
@@ -635,12 +635,12 @@ avtSILMatrix::SetIsInCollection(int set) const
         for (ii = 0; ii < set1.size(); ii++)
         {
             if (set1[ii] == set)
-                return (GetStartCollection() + ii);
+                return (GetStartCollection() + (int)ii);
         }
     }
     if (set2IsSequential)
     {
-        if (set2[0] <= set && set < set2[0]+set2.size())
+        if (set2[0] <= set && (size_t)set < set2[0]+set2.size())
             return (GetStartCollection() + static_cast<int>(set1.size()) + set - set2[0]);
     }
     else
@@ -648,7 +648,7 @@ avtSILMatrix::SetIsInCollection(int set) const
         for (ii = 0; ii < set2.size(); ii++)
         {
             if (set2[ii] == set)
-                return (GetStartCollection() + static_cast<int>(set1.size()) + ii);
+                return (GetStartCollection() + static_cast<int>(set1.size() + ii));
         }
     }
     return -1;

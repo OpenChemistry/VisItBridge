@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -67,6 +67,12 @@ public:
         Native,
         Double
     };
+    enum BackendType
+    {
+        VTK,
+        EAVL,
+        VTKM
+    };
 
     // These constructors are for objects of this class
     GlobalAttributes();
@@ -123,6 +129,8 @@ public:
     void SetExpandNewPlots(bool expandNewPlots_);
     void SetUserRestoreSessionFile(bool userRestoreSessionFile_);
     void SetPrecisionType(PrecisionType precisionType_);
+    void SetBackendType(BackendType backendType_);
+    void SetRemoveDuplicateNodes(bool removeDuplicateNodes_);
 
     // Property getting methods
     const stringVector &GetSources() const;
@@ -153,6 +161,8 @@ public:
     bool               GetExpandNewPlots() const;
     bool               GetUserRestoreSessionFile() const;
     PrecisionType      GetPrecisionType() const;
+    BackendType        GetBackendType() const;
+    bool               GetRemoveDuplicateNodes() const;
 
     // Persistence methods
     virtual bool CreateNode(DataNode *node, bool completeSave, bool forceAdd);
@@ -163,6 +173,11 @@ public:
     static bool PrecisionType_FromString(const std::string &, PrecisionType &);
 protected:
     static std::string PrecisionType_ToString(int);
+public:
+    static std::string BackendType_ToString(BackendType);
+    static bool BackendType_FromString(const std::string &, BackendType &);
+protected:
+    static std::string BackendType_ToString(int);
 public:
 
     // Keyframing methods
@@ -200,6 +215,8 @@ public:
         ID_expandNewPlots,
         ID_userRestoreSessionFile,
         ID_precisionType,
+        ID_backendType,
+        ID_removeDuplicateNodes,
         ID__LAST
     };
 
@@ -230,11 +247,13 @@ private:
     bool         expandNewPlots;
     bool         userRestoreSessionFile;
     int          precisionType;
+    int          backendType;
+    bool         removeDuplicateNodes;
 
     // Static class format string for type map.
     static const char *TypeMapFormatString;
     static const private_tmfs_t TmfsStruct;
 };
-#define GLOBALATTRIBUTES_TMFS "s*i*ibbbbbbbibbbbbbbbbbbbbbi"
+#define GLOBALATTRIBUTES_TMFS "s*i*ibbbbbbbibbbbbbbbbbbbbbiib"
 
 #endif

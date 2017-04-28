@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -237,7 +237,6 @@ avtIsenburgSGG::StreamDataset(vtkDataSet *ds)
     Ghost3Dblock *block = blocks + curBlock;
     int origin_out[3];
     int size_out[3];
-    int sz = ds->GetNumberOfPoints();
     
     vtkDataArray *in_array  = rg_in->GetPointData()->GetScalars();
     void *data = in_array->GetVoidPointer(0);
@@ -941,7 +940,7 @@ int Ghost3Dmodule::selectBlock()
     for (i = 0; i < 5; i++)
     {
       block = 0;
-      j = candidate_queue[i]->size();
+      j = (int)candidate_queue[i]->size();
       if (DEBUG_OUTPUT) {printf("[%d] looking at queue %d with %d after processing %d of %d blocks\n",rank,i,j,num_processed_blocks,num_blocks); fflush(0);}
       while (j--)
       {
@@ -1022,7 +1021,7 @@ int Ghost3Dmodule::selectBlock()
   for (i = 0; i < 5; i++)
   {
     block = 0;
-    j = candidate_queue[i]->size();
+    j = (int)candidate_queue[i]->size();
     while (j--)
     {
       // get the front element

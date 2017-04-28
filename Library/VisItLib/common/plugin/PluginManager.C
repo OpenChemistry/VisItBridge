@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -82,10 +82,10 @@ using std::sort;
 
 #define MAX_PLUGINERROR 500
 
-#if defined VISIT_STATIC
-void* fake_dlsym(const string &){return NULL;};
-void StaticGetSupportedLibs(std::vector<std::pair<std::string, std::string> > &,
-                                   const string &){};
+#ifdef VISIT_STATIC
+extern void *fake_dlsym(const string &);
+extern void StaticGetSupportedLibs(std::vector<std::pair<std::string, std::string> > &,
+                                   const string &);
 #endif
 
 // ****************************************************************************
@@ -117,7 +117,7 @@ PluginManager::PluginManager(const string &mgr) : pluginDirs(), openPlugin(),
     managerName(mgr), loadOnDemand(false), 
     ids(), names(), versions(), libfiles(), enabled(),
     allindexmap(), loadedindexmap(), loadedhandles(), loadedids(),
-    pluginInitErrors()
+    issuedMessage(), pluginInitErrors()
 {
     pluginError = new char[MAX_PLUGINERROR];
 }
@@ -257,7 +257,7 @@ PluginManager::GetPluginName(const string &id)
     if(allindexmap.find(id) != allindexmap.end())
     {
         int index = allindexmap[id];
-        if(index < names.size())
+        if((size_t)index < names.size())
             retval = names[index];
     }
 
@@ -289,7 +289,7 @@ PluginManager::GetPluginVersion(const string &id)
     if(allindexmap.find(id) != allindexmap.end())
     {
         int index = allindexmap[id];
-        if(index < versions.size())
+        if((size_t)index < versions.size())
             retval = versions[index];
     }
 
@@ -434,7 +434,7 @@ PluginManager::DisablePlugin(const string &id)
     if(allindexmap.find(id) != allindexmap.end())
     {
         int index = allindexmap[id];
-        if(index < enabled.size())
+        if((size_t)index < enabled.size())
             enabled[index] = false;
     }
 }
@@ -464,7 +464,7 @@ PluginManager::EnablePlugin(const string &id)
     if(allindexmap.find(id) != allindexmap.end())
     {
         int index = allindexmap[id];
-        if(index < enabled.size())
+        if((size_t)index < enabled.size())
             enabled[index] = true;
     }
 }
@@ -514,9 +514,7 @@ PluginManager::GetPluginList(vector<pair<string,string> > &libs)
 {
 #ifdef VISIT_STATIC
     StaticGetSupportedLibs(libs, managerName);
-    return;
-#endif
-
+#else
     // Read the files in the plugin directory.
     vector< vector<pair<string,string> > > files;
     ReadPluginDir(files);
@@ -544,7 +542,7 @@ PluginManager::GetPluginList(vector<pair<string,string> > &libs)
 #define PLUGIN_MAX(A,B) (((A) < (B)) ? (B) : (A))
 
             // Ignore it if it does not end in the correct extension
-            if (filename.length() < PLUGIN_MAX((1 + prefixLen),extLen) ||
+            if (filename.length() < (size_t)PLUGIN_MAX((1 + prefixLen),extLen) ||
                 !(filename.substr(filename.length()-extLen,extLen) == ext))
             {
                 continue;
@@ -564,6 +562,7 @@ PluginManager::GetPluginList(vector<pair<string,string> > &libs)
         for (size_t f = 0 ; f < tmp[dir].size() ; f++)
             libs.push_back(tmp[dir][f]);
     }
+#endif
 }
 
 
@@ -1018,6 +1017,10 @@ PluginManager::LoadSinglePluginNow(const std::string& id)
 //
 //    Mark C. Miller, Wed Jun 17 14:27:08 PDT 2009
 //    Replaced CATCHALL(...) with CATCHALL.
+//
+//    Brad Whitlock, Thu Aug 20 22:21:19 PDT 2015
+//    Prevent the issued message from being written over and over.
+//
 // ****************************************************************************
 
 bool
@@ -1033,9 +1036,13 @@ PluginManager::LoadSinglePlugin(int index)
 
     if (PluginLoaded(ids[index]))
     {
-        debug1 << "Skipping already loaded "<<managerName.c_str()<<" plugin "
-               << names[index].c_str() << " version " << versions[index].c_str()
-               << endl;
+        if(issuedMessage.count(index) == 0)
+        {
+            debug1 << "Skipping already loaded "<<managerName.c_str()<<" plugin "
+                   << names[index].c_str() << " version " << versions[index].c_str()
+                   << endl;
+            issuedMessage[index] = 1;
+        }
         return false;
     }
 
@@ -1540,11 +1547,16 @@ PluginManager::ReadPluginDir(vector< vector<pair<string,string> > > &files)
 //    Hank Childs, Thu Nov 12 11:28:10 PST 2009
 //    Add support for static "plugins".
 //
+//    Brad Whitlock, Wed Oct 22 12:16:41 PDT 2014
+//    Change logic for static builds. Eliminate printing message because it
+//    so slows down the creation of engine debug logs.
+//
 // ****************************************************************************
 
 void
 PluginManager::PluginOpen(const string &pluginFile)
 {
+#if !defined(VISIT_STATIC)
 #if defined(_WIN32)
     HINSTANCE lib = LoadLibrary(pluginFile.c_str());
     if(!lib)
@@ -1557,8 +1569,6 @@ PluginManager::PluginOpen(const string &pluginFile)
     }
 
     handle = (void *)lib;
-#elif defined(VISIT_STATIC)
-    debug1 << "Not opening " << pluginFile << " because this is a static build." << endl;
 #else
     // dlopen the plugin
     handle = dlopen(pluginFile.c_str(), RTLD_LAZY);
@@ -1575,6 +1585,7 @@ PluginManager::PluginOpen(const string &pluginFile)
     void (*init)(void) = (void(*)(void))PluginSymbol("_GLOBAL__DI", true);
     if (init)
         init();
+#endif
 #endif
 
     openPlugin = pluginFile;
@@ -1669,7 +1680,9 @@ PluginManager::PluginSymbol(const string &symbol, bool noError)
 // Static
     retval = fake_dlsym(symbolName);
     if (retval == NULL)
+    {
         debug1 << "fake_dlsym was not able to return " << symbolName << endl;
+    }
 #else 
 // Dynamic
 #if defined(_WIN32)
@@ -1680,9 +1693,9 @@ PluginManager::PluginSymbol(const string &symbol, bool noError)
 #endif
 
     // If the symbol was not found, print the error message if appropriate.
-    if (retval == 0 && !noError)
+    if (retval == 0 && !noError) {
         debug5 << PluginError() << endl;
-
+    }
     return retval;
 }
 
@@ -1709,7 +1722,11 @@ PluginManager::PluginError() const
     FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, GetLastError(), 0,
                   pluginError, MAX_PLUGINERROR, va);
 #elif !defined(VISIT_STATIC)
-    strncpy(pluginError, dlerror(), MAX_PLUGINERROR);
+    const char *pe = dlerror();
+    if(pe == NULL)
+        pluginError[0] = '\0';
+    else
+        strncpy(pluginError, pe, MAX_PLUGINERROR);
 #endif
     return pluginError;
 }

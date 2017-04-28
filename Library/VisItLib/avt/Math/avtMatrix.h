@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -42,11 +42,20 @@
 #include <math_exports.h>
 #include <visitstream.h>
 
+//#ifdef DBIO_ONLY 
+#if 0
+#include <avtVector.h>
+#define STUB_VOID {}
+#define STUB_OP {return arg;}
+#define STUB_MAT {return avtMatrix();}
+#define STUB_OSTR {return ostr;}
+#else
 class avtVector;
 #define STUB_VOID
 #define STUB_OP
 #define STUB_MAT
 #define STUB_OSTR
+#endif
 
 // ****************************************************************************
 //  Class:  avtMatrix

@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -189,6 +189,9 @@ using     std::map;
 //    Brad Whitlock, Wed Jan  4 16:52:54 PST 2012
 //    Add missingDataBehavior.
 //
+//    Cyrus Harrison, Mon Jan 26 21:26:34 PST 2015
+//    Changed check from boost interval template lib to boost proper.
+//
 // ****************************************************************************
 
 avtDataRequest::avtDataRequest(const char *var, int ts,
@@ -224,7 +227,7 @@ avtDataRequest::avtDataRequest(const char *var, int ts,
     needNativePrecision = false;
     discTol = 0.01;
     flatTol = 0.05;
-#ifdef HAVE_BILIB
+#ifdef HAVE_BOOST
     discMode = 1; // adaptive
 #else
     discMode = 0; // uniform 
@@ -1040,8 +1043,8 @@ avtDataRequest::operator==(const avtDataRequest &ds)
     {
         return false;
     }
-    int i;
-    for (i = 0 ; i < secondaryVariables.size() ; i++)
+
+    for (size_t i = 0 ; i < secondaryVariables.size() ; i++)
     {
         const char *my_str  = *(secondaryVariables[i]);
         const char *his_str = *(ds.secondaryVariables[i]);
@@ -1055,7 +1058,7 @@ avtDataRequest::operator==(const avtDataRequest &ds)
     {
         return false;
     }
-    for (i = 0; i < selList.size(); i++)
+    for (size_t i = 0; i < selList.size(); i++)
     {
         if (*selList[i] != *(ds.selList[i]))
             return false;
@@ -1159,6 +1162,35 @@ avtDataRequest::SetOriginalVariable(const char *v)
 
 
 // ****************************************************************************
+//  Method: avtDataRequest::SetVariable
+//
+//  Purpose:
+//      Sets the variable
+//
+//  Programmer: Burlen Loring
+//  Creation:   Wed Aug  5 12:05:27 PDT 2015
+//
+//  Modifications:
+//
+// ****************************************************************************
+
+void
+avtDataRequest::SetVariable(const char *v)
+{
+    if (variable != NULL)
+    {
+        delete [] variable;
+        variable = NULL;
+    }
+    if (v != NULL)
+    {
+        variable = new char[strlen(v)+1];
+        strcpy(variable, v);
+    }
+}
+
+
+// ****************************************************************************
 //  Method: avtDataRequest::GetRestriction
 //
 //  Purpose:
@@ -1232,7 +1264,7 @@ avtDataRequest::AddSecondaryVariable(const char *var)
 bool
 avtDataRequest::HasSecondaryVariable(const char *var)
 {
-    for (int i = 0 ; i < secondaryVariables.size() ; i++)
+    for (size_t i = 0 ; i < secondaryVariables.size() ; i++)
     {
         if (strcmp(var, *(secondaryVariables[i])) == 0)
         {
@@ -1262,7 +1294,7 @@ void
 avtDataRequest::RemoveSecondaryVariable(const char *var)
 {
     vector<CharStrRef> newList;
-    for (int i = 0 ; i < secondaryVariables.size() ; i++)
+    for (size_t i = 0 ; i < secondaryVariables.size() ; i++)
     {
         if (strcmp(var, *(secondaryVariables[i])) != 0)
         {
@@ -1308,7 +1340,7 @@ avtDataRequest::VariablesAreTheSame(const avtDataRequest &ds)
     {
         return false;
     }
-    for (int i = 0 ; i < secondaryVariables.size() ; i++)
+    for (size_t i = 0 ; i < secondaryVariables.size() ; i++)
     {
         const char *my_str  = *(secondaryVariables[i]);
         const char *his_str = *(ds.secondaryVariables[i]);
@@ -1346,7 +1378,7 @@ vector<CharStrRef>
 avtDataRequest::GetSecondaryVariablesWithoutDuplicates(void)
 {
     vector<CharStrRef> newList;
-    for (int i = 0 ; i < secondaryVariables.size() ; i++)
+    for (size_t i = 0 ; i < secondaryVariables.size() ; i++)
     {
         bool duplicate = false;
 
@@ -1358,7 +1390,7 @@ avtDataRequest::GetSecondaryVariablesWithoutDuplicates(void)
 
         // don't allow duplicates of other secondary variables; just take
         // the first instance of it
-        for (int j = 0 ; j < i && !duplicate; j++)
+        for (size_t j = 0 ; j < i && !duplicate; j++)
         {
             if (strcmp(*(secondaryVariables[i]),*(secondaryVariables[j])) == 0)
             {
@@ -1457,7 +1489,7 @@ avtDataRequest::RemoveAllDataSelections()
 const avtDataSelection_p
 avtDataRequest::GetDataSelection(int id) const
 {
-    if (id < 0 || id >= selList.size())
+    if (id < 0 || (size_t)id >= selList.size())
         return 0;
     return selList[id];
 }
@@ -1683,13 +1715,17 @@ avtDataRequest::GetAdmissibleDataTypes() const
 //    Mark C. Miller, Wed Mar  3 07:59:15 PST 2010
 //    Changed form of conditional compilation check for HAVE_BILIB from
 //    numeric test to existence test.
+//
+//    Cyrus Harrison, Mon Jan 26 21:26:34 PST 2015
+//    Changed check from boost interval template lib to boost proper.
+//
 // ****************************************************************************
 
 void
 avtDataRequest::SetDiscMode(int mode)
 {
     discMode = mode;
-#ifndef HAVE_BILIB
+#ifndef HAVE_BOOST
     if (discMode == 1) // Adaptive
     {
         debug1 << "Adaptive not available. "
@@ -1962,7 +1998,7 @@ avtDataRequest::DebugDump(avtWebpage *webpage)
     if (secondaryVariables.size() > 0)
     {
         webpage->AddTableEntry2("Secondary variables", "");
-        for (int i = 0 ; i < secondaryVariables.size() ; i++)
+        for (size_t i = 0 ; i < secondaryVariables.size() ; i++)
             webpage->AddTableEntry2("", *(secondaryVariables[i]));
     }
     else
@@ -2046,5 +2082,3 @@ avtDataRequest::DebugDump(avtWebpage *webpage)
 
     webpage->EndTable();
 }
-
-

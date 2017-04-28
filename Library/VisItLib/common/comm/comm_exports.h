@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -41,20 +41,18 @@
 
 #if defined(_WIN32)
 # define DESCRIPTOR unsigned int
-
 #if defined(VISIT_BUILD_SHARED_LIBS)
-# if defined(visitcommon_EXPORTS)
+# if defined(COMM_EXPORTS) || defined(visitcommon_EXPORTS)
 #   define COMM_API  __declspec(dllexport)
 #   define COMM_API2 __declspec(dllexport)
 # else
 #   define COMM_API  __declspec(dllimport)
 #   define COMM_API2 __declspec(dllimport)
-# endif // visitcommon_EXPORTS
+# endif
 #else
-#   define COMM_API
-#   define COMM_API2
-#endif // _SHARED_LIBS
-
+#define COMM_API
+#define COMM_API2
+#endif
 # if defined(_MSC_VER)
 // Turn off warning about lack of DLL interface
 #   pragma warning(disable:4251)
@@ -62,9 +60,8 @@
 #   pragma warning(disable:4275)
 // Turn off warning about identifier truncation
 #   pragma warning(disable:4786)
-# endif //_MSC_VER
-
-#else //_WIN32
+# endif
+#else
 # define DESCRIPTOR int
 # if __GNUC__ >= 4
 #   if (defined(COMM_EXPORTS) || defined(visitcommon_EXPORTS))
@@ -73,10 +70,10 @@
 #     define COMM_API /* hidden by default */
 #   endif
 #   define COMM_API2 __attribute__ ((visibility("default"))) /* Always visible */
-# else //__GNUC__ < 4
+# else
 #   define COMM_API  /* hidden by default */
 #   define COMM_API2 /* hidden by default */
-# endif //__GNUC__ >= 4
-#endif //_WIN32
+# endif
+#endif
 
 #endif

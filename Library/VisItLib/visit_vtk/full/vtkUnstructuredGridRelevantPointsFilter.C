@@ -111,17 +111,17 @@ vtkUnstructuredGridRelevantPointsFilter::RequestData(
     }
   
   int *pointMap = new int[numInPts];
-  for (int i = 0 ; i < numInPts ; i++)
+  for (i = 0 ; i < numInPts ; i++)
     {
     pointMap[i] = -1;
     }
   vtkCellArray *cells = input->GetCells();
   vtkIdType *ptr = cells->GetPointer();
   int numOutPts = 0;
-  for (int i = 0 ; i < numCells ; i++)
+  for (i = 0 ; i < numCells ; i++)
     {
     int npts = *ptr++;
-    for (int j = 0 ; j < npts ; j++)
+    for (j = 0 ; j < npts ; j++)
       {
       int oldPt = *ptr++;
       if (pointMap[oldPt] == -1)
@@ -135,7 +135,7 @@ vtkUnstructuredGridRelevantPointsFilter::RequestData(
   vtkPointData *outputPD = output->GetPointData();
   outputPD->CopyAllocate(inputPD, numOutPts);
   
-  for (int j = 0 ; j < numInPts ; j++)
+  for (j = 0 ; j < numInPts ; j++)
     {
     if (pointMap[j] != -1)
       {
@@ -161,13 +161,13 @@ vtkUnstructuredGridRelevantPointsFilter::RequestData(
   vtkIdList *newIds = vtkIdList::New();
   int id, cellType;
   ptr = cells->GetPointer();
-  for (int i = 0; i < numCells; i++)
+  for (i = 0; i < numCells; i++) 
     {
     cellType = input->GetCellType(i);
     int npts = *ptr++;
 
     newIds->SetNumberOfIds(npts);
-    for (int j = 0; j < npts ; j++)
+    for (j = 0; j < npts ; j++)
       {
       id = *ptr++;
       newIds->SetId(j, pointMap[id]);

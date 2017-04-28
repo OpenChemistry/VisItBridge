@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -41,7 +41,9 @@
 // ************************************************************************* //
 
 #include <algorithm>
+#include <cmath>
 #include <float.h>
+#include <limits>
 #include <list>
 
 #include <vtkVisItUtility.h>
@@ -571,8 +573,8 @@ vtkVisItUtility::FindCell(vtkDataSet *ds, double x[3])
             return -1;
         }
 
-        vtkIdType ptId, cellId;
-        vtkCell *cell;
+        vtkIdType ptId = 0, cellId = 0;
+        vtkCell *cell = NULL;
         int walk, found = -1, subId;
         double pcoords[3], *weights = new double[8], diagLen, tol;
         double closestPoint[3], dist2;
@@ -1287,9 +1289,18 @@ void vtkVisItUtility::RegisterStaticVTKObject(vtkObject* obj)
 //  Creation:   September 27, 2011
 //
 //  Modifications:
+//
+//    Burlen Loring, Fri May  2 14:27:13 PDT 2014
+//    Set pointers to NULL after deletion to allow for libsim
+//    reconnections.
+//
 // ****************************************************************************
 namespace {
-  template <class T> static void DeleteVTK(T* t) { t->Delete(); }
+  template <class T> static void DeleteVTK(T* t)
+  {
+       t->Delete();
+       t = NULL;
+  }
 #ifndef NDEBUG
   template <class T> static void PrintVTK(T* t) {
     debug5 << "  obj: " << t->GetClassName() << "\n";
@@ -1304,4 +1315,24 @@ void vtkVisItUtility::CleanupStaticVTKObjects()
 #endif
   std::for_each(vtkobjects.begin(), vtkobjects.end(), DeleteVTK<vtkObject>);
   vtkobjects.clear();
+}
+
+// ****************************************************************************
+//  Function: SafeDoubleToFloat
+//
+//  Purpose: Safely convert a double precision value to float precision
+//  without triggering an FPE issue.
+//
+//  Programmer: Mark C. Miller
+//  Creation:   October 1, 2014
+// ****************************************************************************
+float vtkVisItUtility::SafeDoubleToFloat(double v)
+{
+    if (std::abs(v) < (double) std::numeric_limits<float>::min()) return 0;
+    if (std::abs(v) > (double) std::numeric_limits<float>::max())
+    {
+        if (v < 0) return -std::numeric_limits<float>::max();
+        if (v > 0) return  std::numeric_limits<float>::min();
+    }
+    return (float) v;
 }

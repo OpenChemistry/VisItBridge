@@ -1,6 +1,6 @@
 /*****************************************************************************
 *
-* Copyright (c) 2000 - 2013, Lawrence Livermore National Security, LLC
+* Copyright (c) 2000 - 2017, Lawrence Livermore National Security, LLC
 * Produced at the Lawrence Livermore National Laboratory
 * LLNL-CODE-442911
 * All rights reserved.
@@ -107,6 +107,16 @@ class avtSourceFromDatabase;
 //    Kathleen Biagas, Wed Aug  7 15:42:57 PDT 2013
 //    Add methods that test for insufficient precision.
 //
+//    Eric Brugger, Wed Nov 19 08:45:34 PST 2014
+//    I reduced the number of reads of CSG meshes to only once per CSG mesh
+//    instead of once per region in order to reduce the number of times the
+//    same CSG mesh was cached. Typically there is one CSG mesh with many
+//    regions, so this is a significant saving. CSG meshes with thousands
+//    of regions were exhausting memory in the previous scheme.
+//
+//    Kathleen Biagas, Mon Dec 22 10:10:29 PST 2014
+//    Added RemoveDuplicateNodes.
+//
 // ****************************************************************************
 
 class DATABASE_API avtTransformManager
@@ -146,7 +156,8 @@ class DATABASE_API avtTransformManager
                                    const avtDatabaseMetaData *const md,
                                    const avtDataRequest_p &dataRequest,
                                    const char *vname, const char *type,
-                                   int ts, int dom, const char *mat);
+                                   int ts, int csgdom, int dom,
+                                   const char *mat);
     vtkDataSet                *CSGToDiscrete(avtDatabaseMetaData *md,
                                              const avtDataRequest_p &spec,
                                              vtkDataSet *ds, int);
@@ -154,6 +165,8 @@ class DATABASE_API avtTransformManager
                                    vtkDataSet *ds, int dom);
     vtkDataSet                *ConvertCurvesToRectGrids(avtDatabaseMetaData *md,
                                    vtkDataSet *ds, int dom);
+
+    vtkDataSet                *RemoveDuplicateNodes(vtkDataSet *ds);
 
     avtVariableCache           cache;
     avtVariableCache          *gdbCache;
