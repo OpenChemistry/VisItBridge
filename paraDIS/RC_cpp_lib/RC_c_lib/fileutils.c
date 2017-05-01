@@ -1,13 +1,14 @@
 #include "fileutils.h"
 #include <stdlib.h>
 #include <string.h>
-#include <dirent.h>
+/* #include <dirent.h> */
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#if 0
 /* return 0 on success, perr, or -1 (internal failure) value on failure */
 int mkdir_recursive(const char *targetdir){
   char parentdir[1024]; 
@@ -41,6 +42,7 @@ int mkdir_recursive(const char *targetdir){
   }
   return 0; 
 }
+#endif
      
   
 /* read in a loop until done or fread returns zero (EOF)

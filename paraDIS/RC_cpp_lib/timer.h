@@ -16,7 +16,7 @@
 #endif
 #include <stdio.h>
 #include <ctime>
-#ifdef WIN32
+#ifdef _WIN32
 #include <sys/timeb.h>
 #include <Winsock2.h>
 #endif
@@ -26,8 +26,10 @@
 #define INVALID_TIME_STRING "INVALID_TIME_STRING"
 
 using namespace std; 
+#if 0
 string GetStandardTimeStringFromString(string s);
 bool GetTimeFromString(string s, struct tm &tms); 
+#endif
 
 int Progress(class timer &iTimer, double iNum, double iMax, 
              double &oPercent, double iPercentDelta, 
