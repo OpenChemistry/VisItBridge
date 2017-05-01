@@ -22,3 +22,4 @@ within a single process.
     ParaView.
   * Add the `ValidNETCDFFile.h` header.
   * Add CMake lists for databases imported into ParaView.
+  * Comment out unused functions in `RC_cpp_lib`.
