@@ -32,13 +32,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+/* #include <unistd.h> */
 #include <string.h>
 #include <math.h>
 #include <stdarg.h>
 #include "debugutil.h"
 #include <time.h>
-#include <sys/time.h>
+/* #include <sys/time.h> */
 
 static  int iVerbose = 0;
 static  int iCheck = 0;
