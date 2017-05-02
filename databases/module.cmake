@@ -10,6 +10,7 @@ vtk_module(vtkIOVisItBridge
     vtkhdf5
     vtkIOImage
     vtknetcdf
+    vtknetcdfcpp
     vtkRendering${VTK_RENDERING_BACKEND}
     vtksys
     vtkzlib
