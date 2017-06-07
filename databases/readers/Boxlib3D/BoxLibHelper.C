@@ -1,3 +1,8 @@
+#include "vtkPVConfig.h"
+#ifdef PARAVIEW_USE_MPI
+#define BL_USE_MPI 1
+#endif
+
 #include "BoxLibHelper.h"
 #include <BoxLib.H>
 
