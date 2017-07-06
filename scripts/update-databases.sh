@@ -115,6 +115,11 @@ cleanup_LAMMPS () {
     rm -v avtLAMMPSFileFormat.*
 }
 
+cleanup_H5Nimrod () {
+    # Remove the PDF file describing the format.
+    rm -v nimrod.pdf
+}
+
 cleanup_PLOT3D () {
     # Documentation tarball.
     rm -v plot3d_html.tar
