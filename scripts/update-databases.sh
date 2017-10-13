@@ -131,6 +131,11 @@ cleanup_VASP () {
     rm -v avtXDATFileFormat.*
 }
 
+cleanup_Vs () {
+    # Unused files.
+    rm -v VsStaggeredField.*
+}
+
 cleanup_paraDIS () {
     rm -v RC_cpp_lib/RC_c_lib/gethostname.c
     rm -v RC_cpp_lib/RC_c_lib/gprof-helper.c
