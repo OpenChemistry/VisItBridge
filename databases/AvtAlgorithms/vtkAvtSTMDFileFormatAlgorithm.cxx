@@ -115,6 +115,16 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestDataObject(vtkInformation *,
     return 0;
     }
 
+  // We do these here because we depend on mesh selections for the code
+  // below.
+
+  //setup user selection of meshes to load
+  this->SetupMeshSelections();
+  //setup user selection of arrays to load
+  this->SetupDataArraySelections();
+
+  //setup the materials that are on all the meshes
+  this->SetupMaterialSelections();
 
   int size = this->MetaData->GetNumMeshes();
   if ( size <= 0 )
@@ -134,6 +144,30 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestDataObject(vtkInformation *,
       this->OutputType = VTK_OVERLAPPING_AMR;
       }
     }
+
+  // The case where there are multiple blocks and only
+  // one that is an AMR is selected.
+  int numEnabled = this->MeshArraySelection->GetNumberOfArraysEnabled();
+  if (numEnabled == 1 && size > 1)
+    {
+    for(int i=0; i<size; i++)
+      {
+      const avtMeshMetaData meshMetaData =
+        this->MetaData->GetMeshes(i);
+      std::string name = meshMetaData.name;
+      if(!this->MeshArraySelection->ArrayIsEnabled(name.c_str()))
+        {
+        continue;
+        }
+      if ( meshMetaData.meshType == AVT_AMR_MESH &&
+           this->ValidAMR( &meshMetaData ) )
+        {
+        this->OutputType = VTK_OVERLAPPING_AMR;
+        break;
+        }
+      }
+    }
+
 
   vtkInformation* info = outputVector->GetInformationObject(0);
   vtkCompositeDataSet *output = vtkCompositeDataSet::SafeDownCast(
@@ -197,10 +231,30 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
            this->MeshArraySelection &&
            this->MeshArraySelection->GetNumberOfArraysEnabled()==1 )
     {
-    const avtMeshMetaData meshMetaData = this->MetaData->GetMeshes( 0 );
     vtkOverlappingAMR *output = vtkOverlappingAMR::
        SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
-    this->FillAMR( output, &meshMetaData, 0, 0 );
+    int size = this->MetaData->GetNumMeshes();
+    if (size == 1)
+      {
+      const avtMeshMetaData meshMetaData = this->MetaData->GetMeshes( 0 );
+      this->FillAMR( output, &meshMetaData, 0, 0 );
+      }
+    else
+      {
+      // The case where there are multiple blocks and only
+      // one that is an AMR is selected.
+      for(int i=0; i<size; i++)
+        {
+        const avtMeshMetaData meshMetaData =
+          this->MetaData->GetMeshes(i);
+        std::string name = meshMetaData.name;
+        if(this->MeshArraySelection->ArrayIsEnabled(name.c_str()))
+          {
+          this->FillAMR( output, &meshMetaData, 0, 0 );
+          break;
+          }
+        }
+      }
     }
 
   else if ( this->OutputType == VTK_MULTIBLOCK_DATA_SET )
@@ -233,8 +287,8 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
 
       switch(meshMetaData.meshType)
         {
-        case AVT_CSG_MESH:
         case AVT_AMR_MESH:
+        case AVT_CSG_MESH:
         case AVT_RECTILINEAR_MESH:
         case AVT_CURVILINEAR_MESH:
         case AVT_UNSTRUCTURED_MESH:
