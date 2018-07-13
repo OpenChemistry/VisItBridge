@@ -785,11 +785,11 @@ void vtkAvtFileFormatAlgorithm::SetupMeshSelections( )
     name = meshMetaData->name;
     if ( i == 0 && !this->MeshArraySelection->ArrayExists(name.c_str()))
       {
-      this->MeshArraySelection->EnableArray(name.c_str());
+      this->MeshArraySelection->AddArray(name.c_str());
       }
     else if (!this->MeshArraySelection->ArrayExists(name.c_str()))
       {
-      this->MeshArraySelection->DisableArray(name.c_str());
+      this->MeshArraySelection->AddArray(name.c_str(), false);
       }
     }
 }
@@ -816,7 +816,7 @@ void vtkAvtFileFormatAlgorithm::SetupMaterialSelections()
       name = materials.at(j);
       if (!this->MaterialArraySelection->ArrayExists(name.c_str()))
         {
-        this->MaterialArraySelection->DisableArray(name.c_str());
+        this->MaterialArraySelection->AddArray(name.c_str(), false);
         }
       }
     }
