@@ -324,8 +324,6 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     return 0;
     }
 
-  vtkOverlappingAMR *ghostedAMR = vtkOverlappingAMR::New();
-
   this->GetDomainRange(meshMetaData);
 
   //number of levels in the AMR
@@ -345,9 +343,11 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
 
   if (!(*vr))
     {
-    vtkErrorMacro("Unable to find cache for dataset");
+    vtkErrorMacro("Unable to find nesting information for AMR dataset");
     return 0;
     }
+
+  vtkOverlappingAMR *ghostedAMR = vtkOverlappingAMR::New();
 
   //determine the number of grids on each level of the AMR
   //and initialize the amr

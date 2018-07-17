@@ -26,7 +26,6 @@ set(DEFAULT_BRIDGE_READERS
   Curve2D
   DDCMD
   Dyna3D
-  Enzo
   ExtrudedVol
   FLASH
   Fluent
