@@ -747,19 +747,6 @@
     </SourceProxy>
 #endif
 
-    <SourceProxy name="VisItEnzoReader" class="vtkVisItEnzoReader"
-      base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
-      <Documentation
-       long_help="Reads enzo cosmological simulation AMR files">
-       Note this reader is automatically generated from wrapping a third party reader. For more information on the reader see https://wci.llnl.gov/codes/visit
-       The default file extensions are .boundary, and .hierarchy
-    </Documentation>
-     <Hints>
-       <ReaderFactory extensions="hierarchy boundary"
-                      file_description="Enzo Files (VisIt)" />
-     </Hints>
-     </SourceProxy>
-
     <SourceProxy name="VisItGGCMReader" class="vtkVisItGGCMReader"
       base_proxygroup="internal_readers" base_proxyname="VisItReaderBase">
      <Documentation
