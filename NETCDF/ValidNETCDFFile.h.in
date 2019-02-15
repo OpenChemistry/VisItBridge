@@ -1,7 +1,7 @@
 /*=========================================================================
 
    Program:   ParaView
-   Module:    $RCSfile: @PLUGIN_NAME@@ARG_VISIT_INTERFACE_FILE@.h,v $
+   Module:    $RCSfile: @_add_visit_reader_plugin_name@@_add_visit_reader_VISIT_INTERFACE_FILE@.h,v $
 
    Copyright (c) 2005-2008 Sandia Corporation, Kitware Inc.
    All rights reserved.
@@ -30,25 +30,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =========================================================================*/
 
-#ifndef _@PLUGIN_NAME@@ARG_VISIT_INTERFACE_FILE@_h
-#define _@PLUGIN_NAME@@ARG_VISIT_INTERFACE_FILE@_h
+#ifndef @_add_visit_reader_plugin_name@@_add_visit_reader_VISIT_INTERFACE_FILE@_h
+#define @_add_visit_reader_plugin_name@@_add_visit_reader_VISIT_INTERFACE_FILE@_h
 
 #include "NETCDFFileObject.h"
-#include "@ARG_VISIT_INCLUDE_NAME@.h"
-#cmakedefine VISIT_READER_USES_INTERFACE  
+#include "@_add_visit_reader_VISIT_INCLUDE_NAME@.h"
 
-namespace @PLUGIN_NAME@@ARG_VISIT_INTERFACE_FILE@
+namespace @_add_visit_reader_plugin_name@@_add_visit_reader_VISIT_INTERFACE_FILE@
 {
   bool ValidNETCDFFile(const char *fname)
     {
     bool valid = true;
-  #ifdef VISIT_READER_USES_INTERFACE
+#if _add_visit_reader_uses_interface
     NETCDFFileObject *f = new NETCDFFileObject(fname);  
-    valid = @ARG_VISIT_READER_NAME@::Identify(f);  
+    valid = @_add_visit_reader_name@::Identify(f);  
     delete f;  
-  #endif    
+#endif    
     return valid;
     }
 }
 #endif
-
