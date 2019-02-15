@@ -96,10 +96,8 @@ add_definitions("-DRC_CPP_VISIT_BUILD")
 #-----------------------------------------------------------------------------
 visit_include_reader_source(Silo OFF)
 if(VISIT_BUILD_READER_Silo)
-  if(NOT HAVE_LIBSILO)
-    #if we currently don't have silo setup make it required
-    find_package(SILO REQUIRED)
-  endif(NOT HAVE_LIBSILO)
+  #if we currently don't have silo setup make it required
+  find_package(SILO REQUIRED)
   if(NOT SILO_FOUND)
     message(FATAL_ERROR "Unable to locate Silo library.")
   endif(NOT SILO_FOUND)
@@ -122,10 +120,8 @@ visit_include_reader_source(Boxlib3D OFF)
 #-----------------------------------------------------------------------------
 visit_include_reader_source(Mili OFF)
 if(VISIT_BUILD_READER_Mili)
-  if(NOT HAVE_LIBMILI)
-    #if we currently don't have silo setup make it required
-    find_package(Mili REQUIRED)
-  endif(NOT HAVE_LIBMILI)
+  #if we currently don't have mili setup make it required
+  find_package(Mili REQUIRED)
   if(NOT Mili_FOUND)
     message(FATAL_ERROR "Unable to locate Mili library.")
   endif(NOT Mili_FOUND)
