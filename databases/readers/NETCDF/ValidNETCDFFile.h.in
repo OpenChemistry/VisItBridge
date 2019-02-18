@@ -1,13 +1,13 @@
 /*=========================================================================
 
    Program:   ParaView
-   Module:    $RCSfile: @PLUGIN_NAME@Export.h.in,v $
+   Module:    $RCSfile: @_add_visit_reader_plugin_name@@_add_visit_reader_VISIT_INTERFACE_FILE@.h,v $
 
    Copyright (c) 2005-2008 Sandia Corporation, Kitware Inc.
    All rights reserved.
 
    ParaView is a free software; you can redistribute it and/or modify it
-   under the terms of the ParaView license version 1.2.
+   under the terms of the ParaView license version 1.2. 
 
    See License_v1.2.txt for the full ParaView license.
    A copy of this license can be obtained by contacting
@@ -30,18 +30,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =========================================================================*/
 
-#ifndef _@PLUGIN_NAME@Export_h
-#define _@PLUGIN_NAME@Export_h
+#ifndef @_add_visit_reader_plugin_name@@_add_visit_reader_VISIT_INTERFACE_FILE@_h
+#define @_add_visit_reader_plugin_name@@_add_visit_reader_VISIT_INTERFACE_FILE@_h
 
-#if defined(WIN32) && defined(VISIT_BUILD_SHARED_LIBS)
-# if defined(@LIBRARY_NAME@_EXPORTS)
-#   define @PLUGIN_NAME@_EXPORT __declspec(dllexport)
-# else
-#   define @PLUGIN_NAME@_EXPORT __declspec(dllimport)
-# endif
-#else
-# define @PLUGIN_NAME@_EXPORT
+#include "NETCDFFileObject.h"
+#include "@_add_visit_reader_VISIT_INCLUDE_NAME@.h"
+
+namespace @_add_visit_reader_plugin_name@@_add_visit_reader_VISIT_INTERFACE_FILE@
+{
+  bool ValidNETCDFFile(const char *fname)
+    {
+    bool valid = true;
+#if _add_visit_reader_uses_interface
+    NETCDFFileObject *f = new NETCDFFileObject(fname);  
+    valid = @_add_visit_reader_name@::Identify(f);  
+    delete f;  
+#endif    
+    return valid;
+    }
+}
 #endif
-
-#endif
-

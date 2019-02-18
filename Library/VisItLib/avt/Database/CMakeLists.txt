@@ -89,6 +89,7 @@ ${FORMATS_SOURCES}
 ${GHOST_SOURCES}
 )
 
+if (FALSE)
 INCLUDE_DIRECTORIES(
 ${VISIT_COMMON_INCLUDES}
 ${CMAKE_CURRENT_SOURCE_DIR}/Database
@@ -117,7 +118,6 @@ ${VTK_INCLUDE_DIRS}
 # Add link directories
 LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${EAVL_LIBRARY_DIR} ${VTK_LIBRARY_DIRS} ${MESA_LIBRARY_DIR} ${GLEW_LIBRARY_DIR})
 
-if (FALSE)
 # Unless we're doing a VISIT_DBIO_ONLY build then we need avtmir
 IF(NOT VISIT_DBIO_ONLY)
     SET(AVTMIR_SER avtmir_ser)
@@ -128,10 +128,24 @@ endif ()
 if (NOT VISIT_PARALLEL)
 
 #********************************* SERIAL ************************************
-#ADD_LIBRARY(avtdatabase_ser ${AVTDATABASE_SOURCES})
-VTK_ADD_LIBRARY(avtdatabase_ser ${AVTDATABASE_SOURCES})
+ADD_LIBRARY(avtdatabase_ser ${AVTDATABASE_SOURCES})
 #TARGET_LINK_LIBRARIES(avtdatabase_ser visitcommon avtdbatts ${AVTMIR_SER} avtpipeline_ser visit_vtk tess2)
-TARGET_LINK_LIBRARIES(avtdatabase_ser LINK_PUBLIC visitcommon avtdbatts ${AVTMIR_SER} avtpipeline_ser visit_vtk)
+TARGET_LINK_LIBRARIES(avtdatabase_ser
+    PUBLIC
+        #visitcommon
+        #avtdbatts
+        #${AVTMIR_SER}
+        #avtpipeline_ser
+        #visit_vtk
+        VTK::CommonCore
+    PRIVATE
+        VTK::CommonDataModel
+        VTK::CommonExecutionModel)
+target_include_directories(avtpipeline_ser
+    PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Database>"
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Formats>"
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Ghost>")
 VISIT_INSTALL_TARGETS(avtdatabase_ser)
 
 else ()
@@ -140,8 +154,14 @@ else ()
 #IF(VISIT_PARALLEL)
     ADD_PARALLEL_LIBRARY(avtdatabase_par ${AVTDATABASE_SOURCES})
     #TARGET_LINK_LIBRARIES(avtdatabase_par visitcommon avtdbatts ${AVTMIR_PAR} avtpipeline_par visit_vtk tess2)
-    TARGET_LINK_LIBRARIES(avtdatabase_par LINK_PUBLIC visitcommon avtdbatts ${AVTMIR_PAR} avtpipeline_par visit_vtk)
+    TARGET_LINK_LIBRARIES(avtdatabase_par PUBLIC visitcommon avtdbatts ${AVTMIR_PAR} avtpipeline_par visit_vtk)
     VISIT_INSTALL_TARGETS(avtdatabase_par)
+    target_include_directories(avtpipeline_par
+        PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../VisWindow/VisWindow>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Database>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Formats>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Ghost>")
 #ENDIF(VISIT_PARALLEL)
 
 endif ()

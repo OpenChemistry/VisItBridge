@@ -107,6 +107,7 @@ vtkVolumeFromVolume.C
 )
 
 
+if (FALSE)
 INCLUDE_DIRECTORIES(
 ${VISIT_BINARY_DIR}/include
 ${VISIT_SOURCE_DIR}/include
@@ -119,34 +120,31 @@ ${VISIT_SOURCE_DIR}/visit_vtk/lightweight
 ${VTK_INCLUDE_DIRS}
 ${BOOST_INCLUDE_DIR}
 )
+endif ()
 
 IF(HAVE_BOOST)
     ADD_DEFINITIONS(-D__USE_ISOC99)
 ENDIF(HAVE_BOOST)
 
-# Add link directories needed to use our libraries and VTK.
-LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${VTK_LIBRARY_DIRS})
-
-#ADD_LIBRARY(visit_vtk ${VISIT_VTK_SOURCES})
-VTK_ADD_LIBRARY(visit_vtk ${VISIT_VTK_SOURCES})
+ADD_LIBRARY(visit_vtk ${VISIT_VTK_SOURCES})
 
 target_link_libraries(visit_vtk
-    LINK_PUBLIC
+    PUBLIC
         visitcommon
         lightweight_visit_vtk
-        vtkCommonCore
-        vtkCommonDataModel
-        vtkCommonExecutionModel
-        vtkIOImage
-    LINK_PRIVATE
-        vtkFiltersExtraction
-        vtkFiltersFlowPaths
-        vtkFiltersSources
-        vtkImagingHybrid
-        vtkInteractionStyle
-        vtkIOLegacy
-        vtkRendering${VTK_RENDERING_BACKEND}
+        VTK::CommonCore
+        VTK::CommonDataModel
+        VTK::CommonExecutionModel
+    PRIVATE
+        VTK::CommonTransforms
+        VTK::FiltersCore
+        VTK::FiltersGeneral
+        VTK::IOLegacy
+        VTK::ImagingHybrid
 )
+target_include_directories(visit_vtk
+    PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
 
 if (FALSE)
 IF(HAVE_LIB_R)

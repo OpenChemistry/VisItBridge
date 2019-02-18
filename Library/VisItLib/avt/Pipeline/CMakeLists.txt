@@ -229,6 +229,7 @@ ${SINKS_SOURCES}
 ${SOURCES_SOURCES}
 )
 
+if (FALSE)
 INCLUDE_DIRECTORIES(
 ${CMAKE_CURRENT_SOURCE_DIR}
 ${VISIT_COMMON_INCLUDES}
@@ -254,6 +255,7 @@ ${ZLIB_INCLUDE_DIR}
 
 # Add link directories
 LINK_DIRECTORIES(${LIBRARY_OUTPUT_DIRECTORY} ${EAVL_LIBRARY_DIR} ${VTK_LIBRARY_DIRS})
+endif ()
 
 # Unless we're doing a VISIT_DBIO_ONLY build then we need avtmath
 IF(NOT VISIT_DBIO_ONLY)
@@ -263,29 +265,38 @@ ENDIF(NOT VISIT_DBIO_ONLY)
 if (NOT VISIT_PARALLEL)
 
 #********************************* SERIAL ************************************
-#ADD_LIBRARY(avtpipeline_ser ${ALL_SOURCES})
+ADD_LIBRARY(avtpipeline_ser ${ALL_SOURCES})
     #TARGET_LINK_LIBRARIES(avtpipeline_ser visitcommon ${AVTMATH} avtdbatts 
     #                                       visit_vtk lightweight_visit_vtk vtkCommonCore 
     #                                       vtkCommonDataModel vtkFiltersGeometry 
     #                                       vtkRenderingOpenGL vtkRenderingFreeType 
     #                                       vtkRenderingFreeTypeOpenGL vtkInteractionStyle 
     #                                       ${ZLIB_LIB} ${EAVL_LIB} ${VTKM_LIB})
-VTK_ADD_LIBRARY(avtpipeline_ser ${ALL_SOURCES})
 target_link_libraries(avtpipeline_ser
-    LINK_PUBLIC
+    PUBLIC
         visitcommon
         avtmath
         avtdbatts
-    LINK_PRIVATE
+        VTK::CommonCore
+    PRIVATE
         lightweight_visit_vtk
         visit_vtk
-        vtkFiltersCore
-        vtkInteractionStyle
-        vtkIOLegacy
-        vtkIOXML
-        vtkRendering${VTK_RENDERING_BACKEND}
-        vtkFiltersGeometry
+        VTK::CommonDataModel
+        VTK::CommonExecutionModel
+        VTK::CommonMath
+        VTK::CommonTransforms
+        VTK::FiltersCore
+        VTK::FiltersGeometry
+        VTK::IOLegacy
+        VTK::RenderingCore
         ${ZLIB_LIB})
+target_include_directories(avtpipeline_ser
+    PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/AbstractFilters>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Data>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Pipeline>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Sinks>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Sources>")
 
 if (FALSE)
 IF(HAVE_LIB_R)
@@ -305,21 +316,31 @@ else ()
 #IF(VISIT_PARALLEL)
     ADD_PARALLEL_LIBRARY(avtpipeline_par ${ALL_SOURCES})
     target_link_libraries(avtpipeline_par
-        LINK_PUBLIC
+        PUBLIC
             visitcommon
             avtmath
             avtdbatts
-        LINK_PRIVATE
+            VTK::CommonCore
+        PRIVATE
             lightweight_visit_vtk
             visit_vtk
-            vtkFiltersCore
-            vtkInteractionStyle
-            vtkIOLegacy
-            vtkIOXML
-            vtkRendering${VTK_RENDERING_BACKEND}
-            vtkFiltersGeometry
+            VTK::CommonDataModel
+            VTK::CommonExecutionModel
+            VTK::CommonMath
+            VTK::CommonTransforms
+            VTK::FiltersCore
+            VTK::FiltersGeometry
+            VTK::IOLegacy
+            VTK::RenderingCore
             ${ZLIB_LIB}
     )
+    target_include_directories(avtpipeline_par
+        PUBLIC
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/AbstractFilters>"
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Data>"
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Pipeline>"
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Sinks>"
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Sources>")
 
         #TARGET_LINK_LIBRARIES(avtpipeline_par visitcommon ${AVTMATH} avtdbatts 
         #                                      visit_vtk lightweight_visit_vtk vtkCommonCore 

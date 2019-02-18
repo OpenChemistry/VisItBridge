@@ -8,14 +8,13 @@ readonly name="visit"
 readonly ownership="VisIt Upstream <kwrobot@kitware.com>"
 readonly subtree="Library/VisItLib"
 readonly repo="https://gitlab.kitware.com/third-party/visit.git"
-readonly tag="for/paraview-20181206-trunk-r30784"
+readonly tag="for/paraview-20190218-trunk-r30784"
 
 readonly paths="
 COPYRIGHT
 .gitattributes
 README.kitware.md
 CMakeLists.paraview.txt
-VisItBridgeUse.cmake.in
 
 CMake/FindBoxlib.cmake
 CMake/FindGFortran.cmake
@@ -23,7 +22,6 @@ CMake/FindMili.cmake
 CMake/testFStream.cxx
 CMake/TestSocklenT.c
 CMake/VisItCommon.cmake
-CMake/VisIt*.in
 
 avt/Database/Database/avtDatabase.*
 avt/Database/Database/avtDatabaseFactory.*

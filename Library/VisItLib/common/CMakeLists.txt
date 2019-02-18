@@ -340,12 +340,13 @@ IF(WIN32)
         PROPERTIES LANGUAGE CXX)
 ENDIF(WIN32)
 
+if (FALSE)
 INCLUDE_DIRECTORIES(
 ${VISIT_COMMON_INCLUDES}
 )
+endif ()
 
-#ADD_LIBRARY(visitcommon
-VTK_ADD_LIBRARY(visitcommon
+ADD_LIBRARY(visitcommon
     ${COMM_SOURCES} ${COMM_WIN32_SOURCES}
     ${EXCEPTION_SOURCES}
     ${EXPRESSION_SOURCES}
@@ -355,11 +356,18 @@ VTK_ADD_LIBRARY(visitcommon
     ${PROXYBASE_SOURCES}
     ${STATE_SOURCES}
     ${UTILITY_SOURCES} ${UTILITY_WIN32_SOURCES})
+target_link_libraries(visitcommon
+    PUBLIC
+        VTK::CommonCore
+        ${ZLIB_LIB})
+target_include_directories(visitcommon
+    PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
 
 # Specify the libraries to link against on Windows
 IF(WIN32)
     #TARGET_LINK_LIBRARIES(visitcommon ws2_32 shlwapi userenv ${ZLIB_LIB})
-    TARGET_LINK_LIBRARIES(visitcommon LINK_PUBLIC ws2_32 shlwapi userenv ${ZLIB_LIB})
+    TARGET_LINK_LIBRARIES(visitcommon PUBLIC ws2_32 shlwapi userenv ${ZLIB_LIB})
 #ELSE(WIN32)
 ELSEIF (FALSE)
     TARGET_LINK_LIBRARIES(visitcommon ${ZLIB_LIB} ${CMAKE_THREAD_LIBS} ${DL_LIB})

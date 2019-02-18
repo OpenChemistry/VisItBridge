@@ -1,7 +1,7 @@
 /*=========================================================================
 
    Program: ParaView
-   Module:    @PLUGIN_NAME@.h
+   Module:  @_add_visit_reader_plugin_name@.h
 
    Copyright (c) 2005,2006 Sandia Corporation, Kitware Inc.
    All rights reserved.
@@ -30,33 +30,33 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================*/
 
-#ifndef _@PLUGIN_NAME@_h
-#define _@PLUGIN_NAME@_h
+#ifndef @_add_visit_reader_plugin_name@_h
+#define @_add_visit_reader_plugin_name@_h
 #include "vtkIOVisItBridgeModule.h" //for export macro
-#include "vtkAvt@ARG_VISIT_READER_TYPE@FileFormatAlgorithm.h"
-#cmakedefine VISIT_READER_USES_INTERFACE
+#include "vtkAvt@_add_visit_reader_VISIT_READER_TYPE@FileFormatAlgorithm.h"
+#cmakedefine01 _add_visit_reader_uses_interface
 
-class VTKIOVISITBRIDGE_EXPORT @PLUGIN_NAME@ : public vtkAvt@ARG_VISIT_READER_TYPE@FileFormatAlgorithm
+class VTKIOVISITBRIDGE_EXPORT @_add_visit_reader_plugin_name@ : public vtkAvt@_add_visit_reader_VISIT_READER_TYPE@FileFormatAlgorithm
 {
 public:
-  static @PLUGIN_NAME@ *New();
-  vtkTypeMacro(@PLUGIN_NAME@,vtkAvt@ARG_VISIT_READER_TYPE@FileFormatAlgorithm );
+  static @_add_visit_reader_plugin_name@ *New();
+  vtkTypeMacro(@_add_visit_reader_plugin_name@,vtkAvt@_add_visit_reader_VISIT_READER_TYPE@FileFormatAlgorithm );
   void PrintSelf(ostream& os, vtkIndent indent) override;
   vtkSetStringMacro(FileName);
   vtkGetStringMacro(FileName);
-#ifdef VISIT_READER_USES_INTERFACE  
+#if _add_visit_reader_uses_interface
   int CanReadFile(const char* fname);
-#endif  
+#endif
 
 protected:
-  @PLUGIN_NAME@();
-  ~@PLUGIN_NAME@();
+  @_add_visit_reader_plugin_name@();
+  ~@_add_visit_reader_plugin_name@();
 
   bool InitializeAVTReader( const int& timestep ) override;
   char *FileName;
 
 private:
-  @PLUGIN_NAME@(const @PLUGIN_NAME@&);
-  void operator = (const @PLUGIN_NAME@&);
+  @_add_visit_reader_plugin_name@(const @_add_visit_reader_plugin_name@&) = delete;
+  void operator = (const @_add_visit_reader_plugin_name@&) = delete;
 };
 #endif
