@@ -49,3 +49,4 @@ target_include_directories(VisItLib
   INTERFACE
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
 add_library(ParaView::VisItLib ALIAS VisItLib)
+VISIT_INSTALL_TARGETS(VisItLib)
