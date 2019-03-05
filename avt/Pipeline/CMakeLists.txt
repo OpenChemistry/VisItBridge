@@ -296,7 +296,11 @@ target_include_directories(avtpipeline_ser
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Data>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Pipeline>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Sinks>"
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Sources>")
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Sources>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../VisWindow/VisWindow>"
+    PRIVATE
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../Database/Database>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../Database/Ghost>")
 
 if (FALSE)
 IF(HAVE_LIB_R)
@@ -340,7 +344,11 @@ else ()
             "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Data>"
             "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Pipeline>"
             "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Sinks>"
-            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Sources>")
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Sources>"
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../VisWindow/VisWindow>"
+        PRIVATE
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../Database/Database>"
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../Database/Ghost>")
 
         #TARGET_LINK_LIBRARIES(avtpipeline_par visitcommon ${AVTMATH} avtdbatts 
         #                                      visit_vtk lightweight_visit_vtk vtkCommonCore 
