@@ -16,4 +16,6 @@ PRIVATE_DEPENDS
   VTK::IOLegacy
   VTK::ImagingHybrid
   VTK::RenderingCore
+OPTIONAL_DEPENDS
+  VTK::mpi
 THIRD_PARTY
