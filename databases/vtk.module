@@ -23,3 +23,5 @@ PRIVATE_DEPENDS
   VTK::hdf5
   VTK::netcdf
   VTK::zlib
+OPTIONAL_DEPENDS
+  VTK::mpi
