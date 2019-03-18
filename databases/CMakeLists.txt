@@ -181,6 +181,10 @@ paraview_add_server_manager_xmls(
 # if you want to add vtk-module dependencies, simply add those in module.cmake,
 # rather than explicitly adding those by using target_link_libraries.
 
+# Required for paraDIS.
+find_package(Boost REQUIRED)
+vtk_module_link(ParaView::IOVisItBridge PRIVATE Boost::boost)
+
 if(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
   vtk_module_link(ParaView::IOVisItBridge PRIVATE ${SILO_LIBRARIES})
 endif(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
