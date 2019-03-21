@@ -8,7 +8,7 @@ readonly name="visit-databases"
 readonly ownership="VisIt Upstream <kwrobot@kitware.com>"
 readonly subtree="databases/readers"
 readonly repo="https://gitlab.kitware.com/third-party/visit.git"
-readonly tag="for/paraview-20190215-trunk-r30784"
+readonly tag="for/paraview-20190320-trunk-r34006"
 
 readonly paths="
 COPYRIGHT
@@ -87,7 +87,7 @@ database_cleanup () {
         Chombo|FLASH|GGCM|M3DC1|MFIXCDF|MFIX|Miranda|NASTRAN|Nek5000|OpenFOAM|paraDIS|Pixie|PLOT3D|ProteinDataBank|Vs)
             kind="reader_options"
             ;;
-        ExtrudedVol|Image|Silo|Tecplot|Xmdv)
+        BOV|Curve2D|ExtrudedVol|Image|Silo|Tecplot|Xmdv)
             kind="writer"
             ;;
         *)
