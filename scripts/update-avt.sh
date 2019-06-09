@@ -422,6 +422,7 @@ visit_vtk/lightweight/ClipCases*.C
 visit_vtk/lightweight/visit_vtk_light_exports.h
 visit_vtk/lightweight/vtkCellIntersections.*
 visit_vtk/lightweight/vtkDataSetFromVolume.*
+visit_vtk/lightweight/vtkElementLabelArray.*
 visit_vtk/lightweight/vtkEnumThreshold.*
 visit_vtk/lightweight/vtkPolyDataRelevantPointsFilter.*
 visit_vtk/lightweight/vtkTriangulationTables.*
