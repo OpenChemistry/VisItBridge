@@ -439,8 +439,8 @@ visit_vtk/CMakeLists.txt
 extract_source () {
     git_archive
     pushd "$extractdir/$name-reduced"
-    find -name "*.code" -delete
-    find -name "*.xml" -delete
+    find . -name "*.code" -delete
+    find . -name "*.xml" -delete
     mv CMakeLists.paraview.txt CMakeLists.txt
     popd
 }

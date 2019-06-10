@@ -157,8 +157,8 @@ extract_source () {
     git_archive
     pushd "$extractdir/$name-reduced"
     mv --target-directory=. databases/*
-    find -name "*.code" -delete
-    find -name "*.xml" -delete
+    find . -name "*.code" -delete
+    find . -name "*.xml" -delete
     for reader in *; do
         [ -d "$reader" ] || continue
         pushd "$reader"
