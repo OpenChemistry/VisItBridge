@@ -93,6 +93,10 @@ endforeach(db)
 
 add_definitions("-DRC_CPP_VISIT_BUILD")
 
+# set of xmls for readers enabled.
+set(visit_readers_xmls
+  visit_readers.xml)
+
 #-----------------------------------------------------------------------------
 visit_include_reader_source(Silo OFF)
 if(VISIT_BUILD_READER_Silo)
@@ -101,6 +105,8 @@ if(VISIT_BUILD_READER_Silo)
   if(NOT SILO_FOUND)
     message(FATAL_ERROR "Unable to locate Silo library.")
   endif(NOT SILO_FOUND)
+  list(APPEND visit_readers_xmls
+    visit_silo_reader.xml)
 endif(VISIT_BUILD_READER_Silo)
 
 #-----------------------------------------------------------------------------
@@ -117,6 +123,8 @@ if(VISIT_BUILD_READER_Boxlib3D)
   if(NOT MPI_Fortran_FOUND)
     find_package(MPI REQUIRED COMPONENTS Fortran)
   endif()
+  list(APPEND visit_readers_xmls
+    visit_boxlib3d_reader.xml)
 endif(VISIT_BUILD_READER_Boxlib3D)
 visit_include_reader_source(Boxlib3D OFF)
 
@@ -128,6 +136,8 @@ if(VISIT_BUILD_READER_Mili)
   if(NOT Mili_FOUND)
     message(FATAL_ERROR "Unable to locate Mili library.")
   endif(NOT Mili_FOUND)
+  list(APPEND visit_readers_xmls
+    visit_mili_reader.xml)
 endif(VISIT_BUILD_READER_Mili)
 
 if(HAVE_LIBSILO AND VISIT_BUILD_READER_Silo)
@@ -176,7 +186,7 @@ vtk_module_include(ParaView::IOVisItBridge
     ${visit_include_dirs})
 
 paraview_add_server_manager_xmls(
-  XMLS visit_readers.xml)
+  XMLS ${visit_readers_xmls})
 
 # if you want to add vtk-module dependencies, simply add those in module.cmake,
 # rather than explicitly adding those by using target_link_libraries.
