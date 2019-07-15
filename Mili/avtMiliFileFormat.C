@@ -1302,7 +1302,8 @@ avtMiliFileFormat::ReadMesh(int dom)
 #ifdef VTK_USE_64BIT_IDS
                 // Convert from int to idtype so we can compile with 64-bit support.
                 vtkIdType *connIdType = new vtkIdType[nelems * conn_count[i]];
-                for (int idx = 0; idx < nelems < conn_count[i]; ++idx)
+                int maxIdx = nelems * conn_count[i];
+                for (int idx = 0; idx < maxIdx; ++idx)
                 {
                     connIdType[idx] = conn[idx];
                 }
