@@ -16,9 +16,6 @@ COPYRIGHT
 README.kitware.md
 CMakeLists.paraview.txt
 
-CMake/FindBoxlib.cmake
-CMake/FindGFortran.cmake
-CMake/FindMili.cmake
 CMake/testFStream.cxx
 CMake/TestSocklenT.c
 CMake/VisItCommon.cmake
