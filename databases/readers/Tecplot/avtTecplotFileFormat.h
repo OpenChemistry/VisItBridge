@@ -47,7 +47,6 @@
 
 #include <vector>
 #include <map>
-#include <visitstream.h>
 #include <ExpressionList.h>
 #include <DBOptionsAttributes.h>
 
