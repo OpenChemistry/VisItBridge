@@ -44,7 +44,6 @@
 #define AVT_CTRL_FILE_FORMAT_H
 
 #include <avtSTSDFileFormat.h>
-#include <visitstream.h>
 #include <string>
 #include <vector>
 
