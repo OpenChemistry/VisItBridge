@@ -8,7 +8,7 @@ readonly name="visit-databases"
 readonly ownership="VisIt Upstream <kwrobot@kitware.com>"
 readonly subtree="databases/readers"
 readonly repo="https://gitlab.kitware.com/third-party/visit.git"
-readonly tag="for/paraview-20200205-trunk-r34006"
+readonly tag="for/paraview-20200212-trunk-r34006"
 
 readonly paths="
 COPYRIGHT
