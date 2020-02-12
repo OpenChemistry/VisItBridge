@@ -48,6 +48,8 @@
 #include <vtkPointData.h>
 #include <FileFunctions.h>
 
+#include <vtksys/FStream.hxx>
+
 #include <sys/stat.h>
 
 #ifndef STRNCEQUAL
@@ -104,7 +106,6 @@ int vtkStimulateReader::OpenFile(void)
   // Close file from any previous image
   if (this->File)
     {
-    this->File->close();
     delete this->File;
     this->File = NULL;
     }
@@ -122,9 +123,9 @@ int vtkStimulateReader::OpenFile(void)
   if ( !FileFunctions::VisItStat( sdt_name, &fs) )
     {
 #ifdef _WIN32
-    this->File = new ifstream(sdt_name, ios::in | ios::binary);
+    this->File = new vtksys::ifstream(sdt_name, ios::in | ios::binary);
 #else
-    this->File = new ifstream(sdt_name, ios::in);
+    this->File = new vtksys::ifstream(sdt_name, ios::in);
 #endif
     }
   if (! this->File || this->File->fail())
@@ -246,7 +247,7 @@ int vtkStimulateReader::CanReadFile(const char* fname)
     return 0;
     }
   
-  ifstream sdt_file(sdt_name);
+  vtksys::ifstream sdt_file(sdt_name);
   if (sdt_file.fail())
     {
     vtkErrorMacro(<<"Cannot read file: invalid sdt_file " << sdt_name);
@@ -266,7 +267,7 @@ bool vtkStimulateReader::ReadSPRFile(const char *spr_name)
   haveReadSPRFile = true;
   validSPRFile = false;
 
-  ifstream spr_file(spr_name);
+  vtksys::ifstream spr_file(spr_name);
   if (spr_file.fail())
     {
     vtkErrorMacro(<<"Unable to read SPR file " << spr_name << ": file "
