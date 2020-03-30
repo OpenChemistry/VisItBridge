@@ -349,6 +349,8 @@ src/common/state/PickAttributes.*
 src/common/state/PickVarInfo.*
 src/common/state/Plot.*
 src/common/state/PlotInfoAttributes.*
+src/common/state/QueryAttributes.*
+src/common/state/QueryOverTimeAttributes.*
 src/common/state/RenderingAttributes.*
 src/common/state/SILArrayAttributes.*
 src/common/state/SILAttributes.*
