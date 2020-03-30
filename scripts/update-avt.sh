@@ -438,7 +438,7 @@ extract_source () {
     pushd "$extractdir/$name-reduced"
     find . -name "*.code" -delete
     find . -name "*.xml" -delete
-    mv CMakeLists.paraview.txt CMakeLists.txt
+    mv -v CMakeLists.paraview.txt CMakeLists.txt
     popd
 }
 

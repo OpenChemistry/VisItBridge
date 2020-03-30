@@ -162,7 +162,7 @@ extract_source () {
     for reader in *; do
         [ -d "$reader" ] || continue
         pushd "$reader"
-        mv "CMakeLists.paraview.txt" "CMakeLists.txt"
+        mv -v "CMakeLists.paraview.txt" "CMakeLists.txt"
         database_cleanup "$reader"
         if type "cleanup_$reader" >/dev/null 2>/dev/null; then
             "cleanup_$reader"
