@@ -11,7 +11,7 @@ readonly repo="https://gitlab.kitware.com/third-party/visit.git"
 readonly tag="for/paraview-20200317-trunk-r34006"
 
 readonly paths="
-COPYRIGHT
+LICENSE
 .gitattributes
 README.kitware.md
 src/CMakeLists.paraview.txt
