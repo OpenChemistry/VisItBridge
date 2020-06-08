@@ -665,6 +665,13 @@ bool vtkAvtSTMDFileFormatAlgorithm::ValidAMR( const avtMeshMetaData *meshMetaDat
       return false;
       }
 
+      if (!(this->Cache->HasVoidRef(
+            meshMetaData->name.c_str(), AUXILIARY_DATA_DOMAIN_NESTING_INFORMATION, 0, -1)) &&
+        !(this->Cache->HasVoidRef("any_mesh", AUXILIARY_DATA_DOMAIN_NESTING_INFORMATION, 0, -1)))
+      {
+        return false;
+      }
+
     //verify the spacing of the grid is uniform
     if (!this->IsEvenlySpacedDataArray( rgrid->GetXCoordinates()) )
       {
