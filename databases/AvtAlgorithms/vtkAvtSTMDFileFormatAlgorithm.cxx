@@ -308,6 +308,7 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
     }
 
   this->CleanupAVTReader();
+  this->SetupGhostInformation(outInfo);
   return 1;
 }
 
