@@ -173,5 +173,5 @@ paraview_add_server_manager_xmls(
 find_package(Boost REQUIRED)
 vtk_module_link(ParaView::IOVisItBridge
   PRIVATE
-    Boost::boost
+    "$<BUILD_INTERFACE:Boost::boost>"
     ${visit_libraries})
