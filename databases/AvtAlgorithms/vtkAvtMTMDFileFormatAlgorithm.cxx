@@ -70,9 +70,7 @@ vtkAvtMTMDFileFormatAlgorithm::vtkAvtMTMDFileFormatAlgorithm()
 }
 
 //-----------------------------------------------------------------------------
-vtkAvtMTMDFileFormatAlgorithm::~vtkAvtMTMDFileFormatAlgorithm()
-{
-}
+vtkAvtMTMDFileFormatAlgorithm::~vtkAvtMTMDFileFormatAlgorithm() = default;
 
 //-----------------------------------------------------------------------------
 int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
