@@ -19,6 +19,7 @@ bugprone-*,\
 -bugprone-reserved-identifier,\
 -bugprone-signed-char-misuse,\
 -bugprone-sizeof-expression,\
+-bugprone-string-constructor,\
 -bugprone-suspicious-include,\
 -bugprone-suspicious-missing-comma,\
 -bugprone-suspicious-semicolon,\
