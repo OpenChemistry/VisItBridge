@@ -71,9 +71,7 @@ vtkAvtMTSDFileFormatAlgorithm::vtkAvtMTSDFileFormatAlgorithm()
 }
 
 //-----------------------------------------------------------------------------
-vtkAvtMTSDFileFormatAlgorithm::~vtkAvtMTSDFileFormatAlgorithm()
-{
-}
+vtkAvtMTSDFileFormatAlgorithm::~vtkAvtMTSDFileFormatAlgorithm() = default;
 
 //-----------------------------------------------------------------------------
 int vtkAvtMTSDFileFormatAlgorithm::RequestData(vtkInformation *request,

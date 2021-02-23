@@ -271,7 +271,7 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
       }
     output->SetNumberOfBlocks( size );
 
-    vtkMultiBlockDataSet* tempData = NULL;
+    vtkMultiBlockDataSet* tempData = nullptr;
     int blockIndex=0;
     for ( int i=0; i < this->MetaData->GetNumMeshes(); ++i)
       {
@@ -299,7 +299,7 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
           this->FillBlock( tempData, &meshMetaData, 0 );
           output->SetBlock(blockIndex,tempData);
           tempData->Delete();
-          tempData = NULL;
+          tempData = nullptr;
           break;
         }
       output->GetMetaData(blockIndex)->Set(vtkCompositeDataSet::NAME(),name.c_str());
@@ -400,7 +400,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
   int meshIndex=0;
   for (int j=0; j < numDataSets[0]; ++j)
     {
-    vtkRectilinearGrid *rgrid = NULL;
+    vtkRectilinearGrid *rgrid = nullptr;
     //get the rgrid from the VisIt reader
     //so we have the origin/spacing/dims
     CATCH_VISIT_EXCEPTIONS(rgrid,
@@ -449,7 +449,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     bool spacingSet = false;
     for (int j=0; j < numDataSets[i]; ++j)
       {
-      vtkRectilinearGrid *rgrid = NULL;
+      vtkRectilinearGrid *rgrid = nullptr;
       //get the rgrid from the VisIt reader
       //so we have the origin/spacing/dims
       CATCH_VISIT_EXCEPTIONS(rgrid,
@@ -486,7 +486,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
 
       //don't need the rgrid anymoe
       rgrid->Delete();
-      rgrid = NULL;
+      rgrid = nullptr;
 
       vtkAMRBox box(origin, dims, spacing, globalOrigin, ghostedAMR->GetGridDescription());
       if (!spacingSet)
@@ -551,7 +551,7 @@ void vtkAvtSTMDFileFormatAlgorithm::FillBlock(
       {
       continue;
       }
-    vtkDataSet *data=NULL;
+    vtkDataSet *data=nullptr;
     CATCH_VISIT_EXCEPTIONS(data,
       this->AvtFile->GetMesh(timestep, i, name.c_str()) );
     if ( data )
@@ -622,7 +622,7 @@ void vtkAvtSTMDFileFormatAlgorithm::FillBlockWithCSG(
     this->MetaData->ConvertCSGDomainToBlockAndRegion(meshName.c_str(),
       &blockIndex, &csgRegion);
 
-    vtkDataSet *data=NULL;
+    vtkDataSet *data=nullptr;
     CATCH_VISIT_EXCEPTIONS(data,
       this->AvtFile->GetMesh(timestep, i, meshName.c_str()) );
     vtkCSGGrid *csgGrid = vtkCSGGrid::SafeDownCast(data);
@@ -652,12 +652,12 @@ bool vtkAvtSTMDFileFormatAlgorithm::ValidAMR( const avtMeshMetaData *meshMetaDat
 
   //I can't find an easy way to determine the type of a sub mesh
   std::string name = meshMetaData->name;
-  vtkRectilinearGrid *rgrid = NULL;
+  vtkRectilinearGrid *rgrid = nullptr;
 
   for ( int i=0; i < meshMetaData->numBlocks; ++i )
     {
     //lets get the mesh for each amr box
-    vtkRectilinearGrid *rgrid = NULL;
+    vtkRectilinearGrid *rgrid = nullptr;
     CATCH_VISIT_EXCEPTIONS(rgrid, vtkRectilinearGrid::SafeDownCast(
       this->AvtFile->GetMesh(0, i, name.c_str()) ) );
     if ( !rgrid )

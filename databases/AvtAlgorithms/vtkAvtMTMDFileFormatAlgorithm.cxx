@@ -70,9 +70,7 @@ vtkAvtMTMDFileFormatAlgorithm::vtkAvtMTMDFileFormatAlgorithm()
 }
 
 //-----------------------------------------------------------------------------
-vtkAvtMTMDFileFormatAlgorithm::~vtkAvtMTMDFileFormatAlgorithm()
-{
-}
+vtkAvtMTMDFileFormatAlgorithm::~vtkAvtMTMDFileFormatAlgorithm() = default;
 
 //-----------------------------------------------------------------------------
 int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
@@ -117,7 +115,7 @@ int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
       }
 
     output->SetNumberOfBlocks( size );
-    vtkMultiBlockDataSet* tempData = NULL;
+    vtkMultiBlockDataSet* tempData = nullptr;
     int blockIndex=0;
     for ( int i=0; i < this->MetaData->GetNumMeshes(); ++i)
       {
@@ -145,7 +143,7 @@ int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
           this->FillBlock( tempData, &meshMetaData, TimeIndex );
           output->SetBlock(blockIndex,tempData);
           tempData->Delete();
-          tempData = NULL;
+          tempData = nullptr;
           break;
         }
       output->GetMetaData(blockIndex)->Set(vtkCompositeDataSet::NAME(),name.c_str());

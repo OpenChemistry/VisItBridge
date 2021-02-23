@@ -72,9 +72,7 @@ vtkAvtSTSDFileFormatAlgorithm::vtkAvtSTSDFileFormatAlgorithm()
 }
 
 //-----------------------------------------------------------------------------
-vtkAvtSTSDFileFormatAlgorithm::~vtkAvtSTSDFileFormatAlgorithm()
-{
-}
+vtkAvtSTSDFileFormatAlgorithm::~vtkAvtSTSDFileFormatAlgorithm() = default;
 
 //-----------------------------------------------------------------------------
 int vtkAvtSTSDFileFormatAlgorithm::RequestDataObject(vtkInformation *,
@@ -154,7 +152,7 @@ void vtkAvtSTSDFileFormatAlgorithm::FillMultiBlock(vtkMultiBlockDataSet *output,
       continue;
       }
 
-    vtkDataSet *data=NULL;
+    vtkDataSet *data=nullptr;
     CATCH_VISIT_EXCEPTIONS(data,
       this->AvtFile->GetMesh(timestep, 0, name.c_str()) );
 

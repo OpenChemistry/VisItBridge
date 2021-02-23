@@ -72,9 +72,9 @@ vtkAvtFileFormatAlgorithm::vtkAvtFileFormatAlgorithm()
   this->SetNumberOfInputPorts(0);
   this->SetNumberOfOutputPorts(1);
 
-  this->AvtFile = NULL;
-  this->MetaData = NULL;
-  this->Cache = NULL;
+  this->AvtFile = nullptr;
+  this->MetaData = nullptr;
+  this->Cache = nullptr;
 
   this->PointDataArraySelection = vtkDataArraySelection::New();
   this->CellDataArraySelection = vtkDataArraySelection::New();
@@ -135,19 +135,19 @@ void vtkAvtFileFormatAlgorithm::CleanupAVTReader()
     {
     this->AvtFile->FreeUpResources();
     delete this->AvtFile;
-    this->AvtFile = NULL;
+    this->AvtFile = nullptr;
     }
 
   if ( this->MetaData )
     {
     delete this->MetaData;
-    this->MetaData = NULL;
+    this->MetaData = nullptr;
     }
 
   if ( this->Cache )
     {
     delete this->Cache;
-    this->Cache = NULL;
+    this->Cache = nullptr;
     }
 }
 
@@ -267,7 +267,7 @@ void vtkAvtFileFormatAlgorithm::AssignProperties( vtkDataSet *data,
 
     //some readers will throw exceptions when they can't find
     //the file containing properties, so we have to ignore that property
-    vtkDataArray *scalar = NULL;
+    vtkDataArray *scalar = nullptr;
     CATCH_VISIT_EXCEPTIONS(scalar,
       this->AvtFile->GetVar(timestep,domain,name.c_str()));
     if ( !scalar )
@@ -329,7 +329,7 @@ void vtkAvtFileFormatAlgorithm::AssignProperties( vtkDataSet *data,
       continue;
       }
 
-    vtkDataArray *vector = NULL;
+    vtkDataArray *vector = nullptr;
     CATCH_VISIT_EXCEPTIONS(vector,
       this->AvtFile->GetVectorVar(timestep,domain,name.c_str()));
     if ( !vector )
@@ -371,7 +371,7 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
   //now we check for materials
   int size = this->MetaData->GetNumMaterials();
   void_ref_ptr vr;
-  avtMaterial *material = NULL;
+  avtMaterial *material = nullptr;
   for ( int i=0; i < size; ++i)
     {
     const avtMaterialMetaData* materialMetaData = this->MetaData->GetMaterial(i);
@@ -391,7 +391,7 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
       //data wasn't cached! time to ask dataset itself
       DestructorFunction df;
       void* ref = this->AvtFile->GetAuxiliaryData(name.c_str(),timestep,domain,
-        AUXILIARY_DATA_MATERIAL,NULL,df);
+        AUXILIARY_DATA_MATERIAL,nullptr,df);
       if ( !ref )
         {
         continue;
@@ -500,7 +500,7 @@ void vtkAvtFileFormatAlgorithm::SetupBlockBoundsInformation(
       {
 
       //create the block for this domain
-      childDS->SetBlock(dom,NULL);
+      childDS->SetBlock(dom,nullptr);
       vtkInformation* piece_metadata = childDS->GetMetaData(dom);
 
       double bounds[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
@@ -544,7 +544,7 @@ bool vtkAvtFileFormatAlgorithm::GetDataSpatialExtents(const char* meshName,
       //everything failed we don't have information!
       return false;
       }
-    avtIntervalTree *tree = NULL;
+    avtIntervalTree *tree = nullptr;
     tree = reinterpret_cast<avtIntervalTree*>(*vr);
     if ( tree )
       {
