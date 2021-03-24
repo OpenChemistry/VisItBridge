@@ -605,7 +605,7 @@ void vtkAvtFileFormatAlgorithm::SetupGhostInformation(vtkInformation* outInfo)
     {
       return;
     }
-    auto ghostArray = fieldData->GetArray("avtGhostZones");
+    auto* ghostArray = fieldData->GetArray("avtGhostZones");
     if (!ghostArray)
     {
       ghostArray = fieldData->GetArray("avtGhostNodes");
@@ -616,13 +616,13 @@ void vtkAvtFileFormatAlgorithm::SetupGhostInformation(vtkInformation* outInfo)
     }
   };
 
-  if (auto cDs = vtkCompositeDataSet::SafeDownCast(obj))
+  if (auto* cDs = vtkCompositeDataSet::SafeDownCast(obj))
   {
     vtkSmartPointer<vtkCompositeDataIterator> iter;
     iter.TakeReference(cDs->NewIterator());
     for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
     {
-      if (auto childDs = vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()))
+      if (auto* childDs = vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()))
       {
         // Cell ghost data
         renameGhostArray(childDs->GetCellData());

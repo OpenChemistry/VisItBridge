@@ -25,7 +25,6 @@ readability-*,\
 -readability-implicit-bool-conversion,\
 -readability-magic-numbers,\
 -readability-named-parameter,\
--readability-qualified-auto,\
 "
 #WarningsAsErrors: "*"
 ...
