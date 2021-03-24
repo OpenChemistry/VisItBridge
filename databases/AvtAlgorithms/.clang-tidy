@@ -6,7 +6,6 @@ bugprone-*,\
 -bugprone-narrowing-conversions,\
 clang-analyzer-*,\
 -clang-analyzer-cplusplus.NewDeleteLeaks,\
--clang-analyzer-optin.cplusplus.VirtualCall,\
 misc-*,\
 -misc-non-private-member-variables-in-classes,\
 modernize-*,\

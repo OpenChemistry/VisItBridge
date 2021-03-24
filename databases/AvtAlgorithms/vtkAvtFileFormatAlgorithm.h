@@ -117,7 +117,7 @@ protected:
   //the visit readers that support time will overrid the ActivateTimestep method
   virtual bool ActivateTimestep(const int &) {return false;}
 
-  virtual void CleanupAVTReader();
+  void CleanupAVTReader();
 
   //Used to support requests for block and domain
   //level piece loading
