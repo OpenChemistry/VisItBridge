@@ -461,11 +461,17 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
         {
         vtkFloatArray* tempMaterial = vtkFloatArray::New();
         tempMaterial->SetName( mNames.at(i).c_str() );
-        tempMaterial->SetArray(materials[i],numCells,0);
+        tempMaterial->SetArray(materials[i],numCells,0, vtkFloatArray::VTK_DATA_ARRAY_DELETE);
         data->GetCellData()->AddArray( tempMaterial );
         tempMaterial->Delete();
         }
+      else
+        {
+        delete[] materials[i];
+        }
       }
+
+    delete[] materials;
     }
 }
 

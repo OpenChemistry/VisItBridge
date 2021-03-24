@@ -5,7 +5,6 @@ bugprone-*,\
 -bugprone-branch-clone,\
 -bugprone-narrowing-conversions,\
 clang-analyzer-*,\
--clang-analyzer-cplusplus.NewDeleteLeaks,\
 misc-*,\
 -misc-non-private-member-variables-in-classes,\
 modernize-*,\
