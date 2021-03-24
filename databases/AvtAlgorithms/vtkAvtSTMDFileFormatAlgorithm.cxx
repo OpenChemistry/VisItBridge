@@ -177,7 +177,7 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestDataObject(vtkInformation *,
     {
     return 1;
     }
-  else if ( !output || output->GetDataObjectType() != this->OutputType )
+  if ( !output || output->GetDataObjectType() != this->OutputType )
     {
     switch( this->OutputType )
       {

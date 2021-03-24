@@ -92,7 +92,7 @@ int vtkAvtSTSDFileFormatAlgorithm::RequestDataObject(vtkInformation *,
     {
     return 1;
     }
-  else if ( !output || output->GetDataObjectType() != this->OutputType )
+  if ( !output || output->GetDataObjectType() != this->OutputType )
     {
     output = vtkMultiBlockDataSet::New();
     }
