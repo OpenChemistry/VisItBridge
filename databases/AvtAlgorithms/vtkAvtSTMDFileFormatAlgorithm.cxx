@@ -75,14 +75,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 struct vtkAvtSTMDFileFormatAlgorithm::vtkAvtSTMDFileFormatAlgorithmInternal
 {
-  unsigned int MinDataset;
-  unsigned int MaxDataset;
-  bool HasUpdateRestriction;
+  unsigned int MinDataset{0};
+  unsigned int MaxDataset{0};
+  bool HasUpdateRestriction{false};
   std::set<int> UpdateIndices;
   vtkAvtSTMDFileFormatAlgorithmInternal():
-    MinDataset(0),
-    MaxDataset(0),
-    HasUpdateRestriction(false),
     UpdateIndices()
     {}
 };
