@@ -358,7 +358,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     numDataSets[i] = 0; //clear the array
     }
   intVector groupIdsBasedOnRange = meshMetaData->groupIdsBasedOnRange;
-  if (groupIdsBasedOnRange.size() > 0)
+  if (!groupIdsBasedOnRange.empty())
     {
       for (int i = 0; i < groupIdsBasedOnRange.size() - 1; ++i)
         {

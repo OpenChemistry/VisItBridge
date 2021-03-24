@@ -22,7 +22,6 @@ openmp-*,\
 performance-*,\
 portability-*,\
 readability-*,\
--readability-container-size-empty,\
 -readability-convert-member-functions-to-static,\
 -readability-implicit-bool-conversion,\
 -readability-magic-numbers,\

@@ -654,8 +654,8 @@ void vtkAvtFileFormatAlgorithm::SetupTemporalInformation(
     return;
     }
 
-  bool hasTime = timesteps.size() > 0;
-  bool hasCycles = cycles.size() > 0;
+  bool hasTime = !timesteps.empty();
+  bool hasCycles = !cycles.empty();
   bool hasTimeAndCycles = hasTime && hasCycles;
 
   //in some case the times and cycles have all zero values,
