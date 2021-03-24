@@ -184,8 +184,8 @@ int vtkAvtFileFormatAlgorithm::RequestInformation(vtkInformation *vtkNotUsed(req
 
   if ( this->MetaData->GetNumMeshes() > 0 )
     {
-    int maxPieces = (this->MetaData->GetMeshes(0).numBlocks > 1)?
-      -1:1;
+    //int maxPieces = (this->MetaData->GetMeshes(0).numBlocks > 1)?
+    //  -1:1;
     //only MD classes have blocks inside a mesh, and therefore
     //we can use that to determine if we support reading on each processor
     //outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(),
