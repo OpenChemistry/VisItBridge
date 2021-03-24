@@ -26,7 +26,6 @@ readability-*,\
 -readability-magic-numbers,\
 -readability-named-parameter,\
 -readability-qualified-auto,\
--readability-redundant-member-init,\
 "
 #WarningsAsErrors: "*"
 ...

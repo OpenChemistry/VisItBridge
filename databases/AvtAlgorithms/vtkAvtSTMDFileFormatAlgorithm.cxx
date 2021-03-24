@@ -79,9 +79,7 @@ struct vtkAvtSTMDFileFormatAlgorithm::vtkAvtSTMDFileFormatAlgorithmInternal
   unsigned int MaxDataset{0};
   bool HasUpdateRestriction{false};
   std::set<int> UpdateIndices;
-  vtkAvtSTMDFileFormatAlgorithmInternal():
-    UpdateIndices()
-    {}
+  vtkAvtSTMDFileFormatAlgorithmInternal() = default;
 };
 
 vtkStandardNewMacro(vtkAvtSTMDFileFormatAlgorithm);
