@@ -73,8 +73,8 @@ vtkAvtMTMDFileFormatAlgorithm::vtkAvtMTMDFileFormatAlgorithm()
 vtkAvtMTMDFileFormatAlgorithm::~vtkAvtMTMDFileFormatAlgorithm() = default;
 
 //-----------------------------------------------------------------------------
-int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
-        vtkInformationVector **inputVector, vtkInformationVector *outputVector)
+int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *vtkNotUsed(request),
+        vtkInformationVector **vtkNotUsed(inputVector), vtkInformationVector *outputVector)
   {
   vtkInformation* outInfo = outputVector->GetInformationObject(0);
 

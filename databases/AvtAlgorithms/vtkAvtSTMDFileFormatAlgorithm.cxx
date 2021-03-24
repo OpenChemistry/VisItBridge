@@ -200,8 +200,8 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestDataObject(vtkInformation *,
   }
 
 //-----------------------------------------------------------------------------
-int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
-        vtkInformationVector **inputVector, vtkInformationVector *outputVector)
+int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *vtkNotUsed(request),
+        vtkInformationVector **vtkNotUsed(inputVector), vtkInformationVector *outputVector)
   {
   if (!this->InitializeAVTReader())
     {

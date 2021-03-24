@@ -123,7 +123,7 @@ vtkAvtFileFormatAlgorithm::~vtkAvtFileFormatAlgorithm()
 }
 
 //-----------------------------------------------------------------------------
-bool vtkAvtFileFormatAlgorithm::InitializeAVTReader( const int &timestep )
+bool vtkAvtFileFormatAlgorithm::InitializeAVTReader( const int &vtkNotUsed(timestep) )
 {
   return false;
 }
@@ -173,8 +173,8 @@ int vtkAvtFileFormatAlgorithm::ProcessRequest(vtkInformation* request,
 
 
 //-----------------------------------------------------------------------------
-int vtkAvtFileFormatAlgorithm::RequestInformation(vtkInformation *request,
-    vtkInformationVector **inputVector, vtkInformationVector *outputVector)
+int vtkAvtFileFormatAlgorithm::RequestInformation(vtkInformation *vtkNotUsed(request),
+    vtkInformationVector **vtkNotUsed(inputVector), vtkInformationVector *outputVector)
 {
   if (!this->InitializeAVTReader())
     {
@@ -210,15 +210,15 @@ int vtkAvtFileFormatAlgorithm::RequestInformation(vtkInformation *request,
 
 
 //-----------------------------------------------------------------------------
-int vtkAvtFileFormatAlgorithm::RequestData(vtkInformation *request,
-    vtkInformationVector **inputVector, vtkInformationVector *outputVector)
+int vtkAvtFileFormatAlgorithm::RequestData(vtkInformation *vtkNotUsed(request),
+    vtkInformationVector **vtkNotUsed(inputVector), vtkInformationVector *vtkNotUsed(outputVector))
 {
   return 1;
 }
 
 //-----------------------------------------------------------------------------
-int vtkAvtFileFormatAlgorithm::RequestUpdateExtent(vtkInformation *request,
-    vtkInformationVector **inputVector, vtkInformationVector *outputVector)
+int vtkAvtFileFormatAlgorithm::RequestUpdateExtent(vtkInformation *vtkNotUsed(request),
+    vtkInformationVector **vtkNotUsed(inputVector), vtkInformationVector *vtkNotUsed(outputVector))
 {
   return 1;
 }
