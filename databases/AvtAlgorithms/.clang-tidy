@@ -13,7 +13,6 @@ misc-*,\
 modernize-*,\
 -modernize-avoid-c-arrays,\
 -modernize-loop-convert,\
--modernize-use-emplace,\
 -modernize-use-trailing-return-type,\
 mpi-*,\
 openmp-*,\

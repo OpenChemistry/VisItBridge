@@ -561,7 +561,7 @@ void vtkAvtFileFormatAlgorithm::CreateAVTDataSelections()
   auto* selectWholeMesh = new avtSpatialBoxSelection();
 
   std::vector<avtDataSelection_p> selections;
-  selections.push_back(selectWholeMesh);
+  selections.emplace_back(selectWholeMesh);
   this->SelectionResults.resize (selections.size ());
 
   this->AvtFile->RegisterDataSelections(selections,&this->SelectionResults);
