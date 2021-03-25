@@ -411,7 +411,7 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
     //that we will than push into vtkFloatArrays and place on the dataset
     int numCells = material->GetNZones();
     int mats = material->GetNMaterials();
-    float** materials = new float*[mats];
+    auto** materials = new float*[mats];
     for ( int i=0; i < mats; ++i)
       {
       materials[i] = new float[numCells];
@@ -558,7 +558,7 @@ void vtkAvtFileFormatAlgorithm::CreateAVTDataSelections()
 {
   //by default the box selection is a box from FLT MIN to FLT MAX so
   //we will be asking the reader to load everything in.
-  avtSpatialBoxSelection* selectWholeMesh = new avtSpatialBoxSelection();
+  auto* selectWholeMesh = new avtSpatialBoxSelection();
 
   std::vector<avtDataSelection_p> selections;
   selections.push_back(selectWholeMesh);

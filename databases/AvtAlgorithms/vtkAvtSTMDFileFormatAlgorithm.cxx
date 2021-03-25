@@ -372,7 +372,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
 
   ghostedAMR->Initialize(numGroups, numDataSets);
 
-  avtDomainNesting *domainNesting = reinterpret_cast<avtDomainNesting*>(*vr);
+  auto *domainNesting = reinterpret_cast<avtDomainNesting*>(*vr);
   for ( int i=1; i < numGroups; ++i) //don't need a ratio for level 0
     {
     intVector ratios = domainNesting->GetRatiosForLevel(i,domain);
