@@ -123,7 +123,7 @@ int vtkAvtSTSDFileFormatAlgorithm::RequestData(vtkInformation *vtkNotUsed(reques
 
   this->FillMultiBlock(output, 0);
   this->CleanupAVTReader();
-  this->SetupGhostInformation(outInfo);
+  vtkAvtFileFormatAlgorithm::SetupGhostInformation(outInfo);
   return 1;
 }
 

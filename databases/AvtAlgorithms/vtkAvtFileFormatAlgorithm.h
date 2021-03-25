@@ -157,10 +157,10 @@ protected:
   void SetupTemporalInformation(vtkInformation *outInfo);
 
   //method seupts the ghost cells/points information
-  void SetupGhostInformation(vtkInformation *outInfo);
+  static void SetupGhostInformation(vtkInformation *outInfo);
 
   //this method is used to get the current time step from the pipeline
-  unsigned int GetCurrentTimeStep(vtkInformation *outInfo);
+  static unsigned int GetCurrentTimeStep(vtkInformation *outInfo);
 
   // Callback registered with the SelectionObserver.
   static void SelectionModifiedCallback(vtkObject* caller, unsigned long eid,

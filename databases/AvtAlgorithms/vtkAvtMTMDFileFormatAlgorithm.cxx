@@ -78,7 +78,7 @@ int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *vtkNotUsed(reques
   {
   vtkInformation* outInfo = outputVector->GetInformationObject(0);
 
-  unsigned int TimeIndex = this->GetCurrentTimeStep(outInfo);
+  unsigned int TimeIndex = vtkAvtFileFormatAlgorithm::GetCurrentTimeStep(outInfo);
 
   if (!this->InitializeAVTReader( TimeIndex ))
     {
@@ -151,7 +151,7 @@ int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *vtkNotUsed(reques
       }
     }
   this->CleanupAVTReader();
-  this->SetupGhostInformation(outInfo);
+  vtkAvtFileFormatAlgorithm::SetupGhostInformation(outInfo);
   return 1;
 }
 

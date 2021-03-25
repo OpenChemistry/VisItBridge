@@ -482,7 +482,7 @@ void vtkAvtFileFormatAlgorithm::SetupBlockBoundsInformation(
   unsigned int index = 0; //converting the multiblock to a flat index
 
   int size = this->MetaData->GetNumMeshes();
-  int timeStep = this->GetCurrentTimeStep(outInfo);
+  int timeStep = vtkAvtFileFormatAlgorithm::GetCurrentTimeStep(outInfo);
   for ( int i=0; i < size; ++i)
     {
     const avtMeshMetaData *meshMetaData = this->MetaData->GetMesh(i);

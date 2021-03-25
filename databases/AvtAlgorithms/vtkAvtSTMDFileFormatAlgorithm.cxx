@@ -303,7 +303,7 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *vtkNotUsed(reques
     }
 
   this->CleanupAVTReader();
-  this->SetupGhostInformation(outInfo);
+  vtkAvtFileFormatAlgorithm::SetupGhostInformation(outInfo);
   return 1;
 }
 
@@ -641,6 +641,30 @@ void vtkAvtSTMDFileFormatAlgorithm::FillBlockWithCSG(
       }
     }
 }
+
+//-----------------------------------------------------------------------------
+static bool IsEvenlySpacedDataArray(vtkDataArray *data)
+{
+  if ( !data )
+    {
+    return false;
+    }
+
+  //if we have less than 3 values it is evenly spaced
+  vtkIdType size = data->GetNumberOfTuples();
+  bool valid = true;
+  if ( size > 2 )
+    {
+    double spacing = data->GetTuple1(1)-data->GetTuple1(0);
+    double tolerance = 0.000001;
+    for (vtkIdType j = 2; j < data->GetNumberOfTuples() && valid; ++j )
+      {
+      double temp = data->GetTuple1(j) - data->GetTuple1(j-1);
+      valid = ( (temp - tolerance) <= spacing ) && ( (temp + tolerance) >= spacing ) ;
+      }
+    }
+  return valid;
+}
 //-----------------------------------------------------------------------------
 bool vtkAvtSTMDFileFormatAlgorithm::ValidAMR( const avtMeshMetaData *meshMetaData )
 {
@@ -669,17 +693,17 @@ bool vtkAvtSTMDFileFormatAlgorithm::ValidAMR( const avtMeshMetaData *meshMetaDat
       }
 
     //verify the spacing of the grid is uniform
-    if (!this->IsEvenlySpacedDataArray( rgrid->GetXCoordinates()) )
+    if (!IsEvenlySpacedDataArray( rgrid->GetXCoordinates()) )
       {
       rgrid->Delete();
       return false;
       }
-    if (!this->IsEvenlySpacedDataArray( rgrid->GetYCoordinates()) )
+    if (!IsEvenlySpacedDataArray( rgrid->GetYCoordinates()) )
       {
       rgrid->Delete();
       return false;
       }
-    if (!this->IsEvenlySpacedDataArray( rgrid->GetZCoordinates()) )
+    if (!IsEvenlySpacedDataArray( rgrid->GetZCoordinates()) )
       {
       rgrid->Delete();
       return false;
@@ -688,29 +712,6 @@ bool vtkAvtSTMDFileFormatAlgorithm::ValidAMR( const avtMeshMetaData *meshMetaDat
     }
 
   return true;
-}
-//-----------------------------------------------------------------------------
-bool vtkAvtSTMDFileFormatAlgorithm::IsEvenlySpacedDataArray(vtkDataArray *data)
-{
-  if ( !data )
-    {
-    return false;
-    }
-
-  //if we have less than 3 values it is evenly spaced
-  vtkIdType size = data->GetNumberOfTuples();
-  bool valid = true;
-  if ( size > 2 )
-    {
-    double spacing = data->GetTuple1(1)-data->GetTuple1(0);
-    double tolerance = 0.000001;
-    for (vtkIdType j = 2; j < data->GetNumberOfTuples() && valid; ++j )
-      {
-      double temp = data->GetTuple1(j) - data->GetTuple1(j-1);
-      valid = ( (temp - tolerance) <= spacing ) && ( (temp + tolerance) >= spacing ) ;
-      }
-    }
-  return valid;
 }
 
 //----------------------------------------------------------------------------

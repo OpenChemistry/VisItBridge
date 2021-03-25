@@ -92,7 +92,6 @@ protected:
   //ETX
 
   bool ShouldReadDataSet(const int &index);
-  bool IsEvenlySpacedDataArray(vtkDataArray *data);
 
 
   unsigned int UpdatePiece;
