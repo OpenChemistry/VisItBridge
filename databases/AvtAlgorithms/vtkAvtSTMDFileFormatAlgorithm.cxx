@@ -364,9 +364,9 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     {
     //count the grids at each level
     intVector gids = meshMetaData->groupIds;
-    for ( int i=0; i < gids.size(); ++i )
+    for (int gid : gids)
       {
-      ++numDataSets[gids.at(i)];
+      ++numDataSets[gid];
       }
     }
 

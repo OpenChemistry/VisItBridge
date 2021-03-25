@@ -12,7 +12,6 @@ misc-*,\
 -misc-non-private-member-variables-in-classes,\
 modernize-*,\
 -modernize-avoid-c-arrays,\
--modernize-loop-convert,\
 -modernize-use-trailing-return-type,\
 mpi-*,\
 openmp-*,\

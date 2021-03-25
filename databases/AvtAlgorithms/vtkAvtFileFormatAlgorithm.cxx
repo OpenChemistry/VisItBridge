@@ -724,9 +724,9 @@ void vtkAvtFileFormatAlgorithm::SetupTemporalInformation(
   else if( hasCycles )
     {
     //convert the cycles over to time steps now
-    for ( unsigned int i=0; i < cycles.size(); ++i)
+    for (int cycle : cycles)
       {
-      timesteps.push_back( static_cast<double>(cycles[i]) );
+      timesteps.push_back( static_cast<double>(cycle) );
       }
 
     numTimeValues = static_cast<int>(timesteps.size());
@@ -850,9 +850,8 @@ void vtkAvtFileFormatAlgorithm::SetupMaterialSelections()
     //we are going to decompose the material into a separate array for each
     //component in the material collection.
     stringVector materials = matMetaData->materialNames;
-    for ( int j=0; j < materials.size(); ++j )
+    for (const auto& name : materials)
       {
-      name = materials.at(j);
       if (!this->MaterialArraySelection->ArrayExists(name.c_str()))
         {
         this->MaterialArraySelection->AddArray(name.c_str(), false);
