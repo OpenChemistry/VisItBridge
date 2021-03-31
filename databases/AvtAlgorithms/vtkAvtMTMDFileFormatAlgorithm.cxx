@@ -60,7 +60,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "avtVectorMetaData.h"
 #include "TimingsManager.h"
 
-#include "limits.h"
+#include <climits>
 
 vtkStandardNewMacro(vtkAvtMTMDFileFormatAlgorithm);
 //-----------------------------------------------------------------------------
@@ -73,12 +73,12 @@ vtkAvtMTMDFileFormatAlgorithm::vtkAvtMTMDFileFormatAlgorithm()
 vtkAvtMTMDFileFormatAlgorithm::~vtkAvtMTMDFileFormatAlgorithm() = default;
 
 //-----------------------------------------------------------------------------
-int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
-        vtkInformationVector **inputVector, vtkInformationVector *outputVector)
+int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *vtkNotUsed(request),
+        vtkInformationVector **vtkNotUsed(inputVector), vtkInformationVector *outputVector)
   {
   vtkInformation* outInfo = outputVector->GetInformationObject(0);
 
-  unsigned int TimeIndex = this->GetCurrentTimeStep(outInfo);
+  unsigned int TimeIndex = vtkAvtFileFormatAlgorithm::GetCurrentTimeStep(outInfo);
 
   if (!this->InitializeAVTReader( TimeIndex ))
     {
@@ -151,7 +151,7 @@ int vtkAvtMTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
       }
     }
   this->CleanupAVTReader();
-  this->SetupGhostInformation(outInfo);
+  vtkAvtFileFormatAlgorithm::SetupGhostInformation(outInfo);
   return 1;
 }
 

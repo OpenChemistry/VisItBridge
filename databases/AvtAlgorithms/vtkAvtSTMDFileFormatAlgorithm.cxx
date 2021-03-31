@@ -70,21 +70,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "avtVectorMetaData.h"
 #include "TimingsManager.h"
 
-#include "limits.h"
+#include <climits>
 #include <set>
 
 struct vtkAvtSTMDFileFormatAlgorithm::vtkAvtSTMDFileFormatAlgorithmInternal
 {
-  unsigned int MinDataset;
-  unsigned int MaxDataset;
-  bool HasUpdateRestriction;
+  unsigned int MinDataset{0};
+  unsigned int MaxDataset{0};
+  bool HasUpdateRestriction{false};
   std::set<int> UpdateIndices;
-  vtkAvtSTMDFileFormatAlgorithmInternal():
-    MinDataset(0),
-    MaxDataset(0),
-    HasUpdateRestriction(false),
-    UpdateIndices()
-    {}
+  vtkAvtSTMDFileFormatAlgorithmInternal() = default;
 };
 
 vtkStandardNewMacro(vtkAvtSTMDFileFormatAlgorithm);
@@ -177,7 +172,7 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestDataObject(vtkInformation *,
     {
     return 1;
     }
-  else if ( !output || output->GetDataObjectType() != this->OutputType )
+  if ( !output || output->GetDataObjectType() != this->OutputType )
     {
     switch( this->OutputType )
       {
@@ -200,8 +195,8 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestDataObject(vtkInformation *,
   }
 
 //-----------------------------------------------------------------------------
-int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
-        vtkInformationVector **inputVector, vtkInformationVector *outputVector)
+int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *vtkNotUsed(request),
+        vtkInformationVector **vtkNotUsed(inputVector), vtkInformationVector *outputVector)
   {
   if (!this->InitializeAVTReader())
     {
@@ -308,7 +303,7 @@ int vtkAvtSTMDFileFormatAlgorithm::RequestData(vtkInformation *request,
     }
 
   this->CleanupAVTReader();
-  this->SetupGhostInformation(outInfo);
+  vtkAvtFileFormatAlgorithm::SetupGhostInformation(outInfo);
   return 1;
 }
 
@@ -358,7 +353,7 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     numDataSets[i] = 0; //clear the array
     }
   intVector groupIdsBasedOnRange = meshMetaData->groupIdsBasedOnRange;
-  if (groupIdsBasedOnRange.size() > 0)
+  if (!groupIdsBasedOnRange.empty())
     {
       for (int i = 0; i < groupIdsBasedOnRange.size() - 1; ++i)
         {
@@ -369,15 +364,15 @@ int vtkAvtSTMDFileFormatAlgorithm::FillAMR(
     {
     //count the grids at each level
     intVector gids = meshMetaData->groupIds;
-    for ( int i=0; i < gids.size(); ++i )
+    for (int gid : gids)
       {
-      ++numDataSets[gids.at(i)];
+      ++numDataSets[gid];
       }
     }
 
   ghostedAMR->Initialize(numGroups, numDataSets);
 
-  avtDomainNesting *domainNesting = reinterpret_cast<avtDomainNesting*>(*vr);
+  auto *domainNesting = reinterpret_cast<avtDomainNesting*>(*vr);
   for ( int i=1; i < numGroups; ++i) //don't need a ratio for level 0
     {
     intVector ratios = domainNesting->GetRatiosForLevel(i,domain);
@@ -646,6 +641,30 @@ void vtkAvtSTMDFileFormatAlgorithm::FillBlockWithCSG(
       }
     }
 }
+
+//-----------------------------------------------------------------------------
+static bool IsEvenlySpacedDataArray(vtkDataArray *data)
+{
+  if ( !data )
+    {
+    return false;
+    }
+
+  //if we have less than 3 values it is evenly spaced
+  vtkIdType size = data->GetNumberOfTuples();
+  bool valid = true;
+  if ( size > 2 )
+    {
+    double spacing = data->GetTuple1(1)-data->GetTuple1(0);
+    double tolerance = 0.000001;
+    for (vtkIdType j = 2; j < data->GetNumberOfTuples() && valid; ++j )
+      {
+      double temp = data->GetTuple1(j) - data->GetTuple1(j-1);
+      valid = ( (temp - tolerance) <= spacing ) && ( (temp + tolerance) >= spacing ) ;
+      }
+    }
+  return valid;
+}
 //-----------------------------------------------------------------------------
 bool vtkAvtSTMDFileFormatAlgorithm::ValidAMR( const avtMeshMetaData *meshMetaData )
 {
@@ -674,17 +693,17 @@ bool vtkAvtSTMDFileFormatAlgorithm::ValidAMR( const avtMeshMetaData *meshMetaDat
       }
 
     //verify the spacing of the grid is uniform
-    if (!this->IsEvenlySpacedDataArray( rgrid->GetXCoordinates()) )
+    if (!IsEvenlySpacedDataArray( rgrid->GetXCoordinates()) )
       {
       rgrid->Delete();
       return false;
       }
-    if (!this->IsEvenlySpacedDataArray( rgrid->GetYCoordinates()) )
+    if (!IsEvenlySpacedDataArray( rgrid->GetYCoordinates()) )
       {
       rgrid->Delete();
       return false;
       }
-    if (!this->IsEvenlySpacedDataArray( rgrid->GetZCoordinates()) )
+    if (!IsEvenlySpacedDataArray( rgrid->GetZCoordinates()) )
       {
       rgrid->Delete();
       return false;
@@ -693,29 +712,6 @@ bool vtkAvtSTMDFileFormatAlgorithm::ValidAMR( const avtMeshMetaData *meshMetaDat
     }
 
   return true;
-}
-//-----------------------------------------------------------------------------
-bool vtkAvtSTMDFileFormatAlgorithm::IsEvenlySpacedDataArray(vtkDataArray *data)
-{
-  if ( !data )
-    {
-    return false;
-    }
-
-  //if we have less than 3 values it is evenly spaced
-  vtkIdType size = data->GetNumberOfTuples();
-  bool valid = true;
-  if ( size > 2 )
-    {
-    double spacing = data->GetTuple1(1)-data->GetTuple1(0);
-    double tolerance = 0.000001;
-    for (vtkIdType j = 2; j < data->GetNumberOfTuples() && valid; ++j )
-      {
-      double temp = data->GetTuple1(j) - data->GetTuple1(j-1);
-      valid = ( (temp - tolerance) <= spacing ) && ( (temp + tolerance) >= spacing ) ;
-      }
-    }
-  return valid;
 }
 
 //----------------------------------------------------------------------------

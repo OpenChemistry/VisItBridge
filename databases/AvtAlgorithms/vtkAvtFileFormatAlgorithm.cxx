@@ -62,7 +62,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "avtVectorMetaData.h"
 #include "TimingsManager.h"
 
-#include "limits.h"
+#include <climits>
 
 vtkStandardNewMacro(vtkAvtFileFormatAlgorithm);
 
@@ -123,7 +123,7 @@ vtkAvtFileFormatAlgorithm::~vtkAvtFileFormatAlgorithm()
 }
 
 //-----------------------------------------------------------------------------
-bool vtkAvtFileFormatAlgorithm::InitializeAVTReader( const int &timestep )
+bool vtkAvtFileFormatAlgorithm::InitializeAVTReader( const int &vtkNotUsed(timestep) )
 {
   return false;
 }
@@ -173,8 +173,8 @@ int vtkAvtFileFormatAlgorithm::ProcessRequest(vtkInformation* request,
 
 
 //-----------------------------------------------------------------------------
-int vtkAvtFileFormatAlgorithm::RequestInformation(vtkInformation *request,
-    vtkInformationVector **inputVector, vtkInformationVector *outputVector)
+int vtkAvtFileFormatAlgorithm::RequestInformation(vtkInformation *vtkNotUsed(request),
+    vtkInformationVector **vtkNotUsed(inputVector), vtkInformationVector *outputVector)
 {
   if (!this->InitializeAVTReader())
     {
@@ -184,8 +184,8 @@ int vtkAvtFileFormatAlgorithm::RequestInformation(vtkInformation *request,
 
   if ( this->MetaData->GetNumMeshes() > 0 )
     {
-    int maxPieces = (this->MetaData->GetMeshes(0).numBlocks > 1)?
-      -1:1;
+    //int maxPieces = (this->MetaData->GetMeshes(0).numBlocks > 1)?
+    //  -1:1;
     //only MD classes have blocks inside a mesh, and therefore
     //we can use that to determine if we support reading on each processor
     //outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(),
@@ -210,15 +210,15 @@ int vtkAvtFileFormatAlgorithm::RequestInformation(vtkInformation *request,
 
 
 //-----------------------------------------------------------------------------
-int vtkAvtFileFormatAlgorithm::RequestData(vtkInformation *request,
-    vtkInformationVector **inputVector, vtkInformationVector *outputVector)
+int vtkAvtFileFormatAlgorithm::RequestData(vtkInformation *vtkNotUsed(request),
+    vtkInformationVector **vtkNotUsed(inputVector), vtkInformationVector *vtkNotUsed(outputVector))
 {
   return 1;
 }
 
 //-----------------------------------------------------------------------------
-int vtkAvtFileFormatAlgorithm::RequestUpdateExtent(vtkInformation *request,
-    vtkInformationVector **inputVector, vtkInformationVector *outputVector)
+int vtkAvtFileFormatAlgorithm::RequestUpdateExtent(vtkInformation *vtkNotUsed(request),
+    vtkInformationVector **vtkNotUsed(inputVector), vtkInformationVector *vtkNotUsed(outputVector))
 {
   return 1;
 }
@@ -411,7 +411,7 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
     //that we will than push into vtkFloatArrays and place on the dataset
     int numCells = material->GetNZones();
     int mats = material->GetNMaterials();
-    float** materials = new float*[mats];
+    auto** materials = new float*[mats];
     for ( int i=0; i < mats; ++i)
       {
       materials[i] = new float[numCells];
@@ -461,11 +461,17 @@ void vtkAvtFileFormatAlgorithm::AssignMaterials( vtkDataSet *data,
         {
         vtkFloatArray* tempMaterial = vtkFloatArray::New();
         tempMaterial->SetName( mNames.at(i).c_str() );
-        tempMaterial->SetArray(materials[i],numCells,0);
+        tempMaterial->SetArray(materials[i],numCells,0, vtkFloatArray::VTK_DATA_ARRAY_DELETE);
         data->GetCellData()->AddArray( tempMaterial );
         tempMaterial->Delete();
         }
+      else
+        {
+        delete[] materials[i];
+        }
       }
+
+    delete[] materials;
     }
 }
 
@@ -482,7 +488,7 @@ void vtkAvtFileFormatAlgorithm::SetupBlockBoundsInformation(
   unsigned int index = 0; //converting the multiblock to a flat index
 
   int size = this->MetaData->GetNumMeshes();
-  int timeStep = this->GetCurrentTimeStep(outInfo);
+  int timeStep = vtkAvtFileFormatAlgorithm::GetCurrentTimeStep(outInfo);
   for ( int i=0; i < size; ++i)
     {
     const avtMeshMetaData *meshMetaData = this->MetaData->GetMesh(i);
@@ -558,10 +564,10 @@ void vtkAvtFileFormatAlgorithm::CreateAVTDataSelections()
 {
   //by default the box selection is a box from FLT MIN to FLT MAX so
   //we will be asking the reader to load everything in.
-  avtSpatialBoxSelection* selectWholeMesh = new avtSpatialBoxSelection();
+  auto* selectWholeMesh = new avtSpatialBoxSelection();
 
   std::vector<avtDataSelection_p> selections;
-  selections.push_back(selectWholeMesh);
+  selections.emplace_back(selectWholeMesh);
   this->SelectionResults.resize (selections.size ());
 
   this->AvtFile->RegisterDataSelections(selections,&this->SelectionResults);
@@ -605,7 +611,7 @@ void vtkAvtFileFormatAlgorithm::SetupGhostInformation(vtkInformation* outInfo)
     {
       return;
     }
-    auto ghostArray = fieldData->GetArray("avtGhostZones");
+    auto* ghostArray = fieldData->GetArray("avtGhostZones");
     if (!ghostArray)
     {
       ghostArray = fieldData->GetArray("avtGhostNodes");
@@ -616,13 +622,13 @@ void vtkAvtFileFormatAlgorithm::SetupGhostInformation(vtkInformation* outInfo)
     }
   };
 
-  if (auto cDs = vtkCompositeDataSet::SafeDownCast(obj))
+  if (auto* cDs = vtkCompositeDataSet::SafeDownCast(obj))
   {
     vtkSmartPointer<vtkCompositeDataIterator> iter;
     iter.TakeReference(cDs->NewIterator());
     for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
     {
-      if (auto childDs = vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()))
+      if (auto* childDs = vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()))
       {
         // Cell ghost data
         renameGhostArray(childDs->GetCellData());
@@ -654,8 +660,8 @@ void vtkAvtFileFormatAlgorithm::SetupTemporalInformation(
     return;
     }
 
-  bool hasTime = timesteps.size() > 0;
-  bool hasCycles = cycles.size() > 0;
+  bool hasTime = !timesteps.empty();
+  bool hasCycles = !cycles.empty();
   bool hasTimeAndCycles = hasTime && hasCycles;
 
   //in some case the times and cycles have all zero values,
@@ -724,9 +730,9 @@ void vtkAvtFileFormatAlgorithm::SetupTemporalInformation(
   else if( hasCycles )
     {
     //convert the cycles over to time steps now
-    for ( unsigned int i=0; i < cycles.size(); ++i)
+    for (int cycle : cycles)
       {
-      timesteps.push_back( static_cast<double>(cycles[i]) );
+      timesteps.push_back( static_cast<double>(cycle) );
       }
 
     numTimeValues = static_cast<int>(timesteps.size());
@@ -850,9 +856,8 @@ void vtkAvtFileFormatAlgorithm::SetupMaterialSelections()
     //we are going to decompose the material into a separate array for each
     //component in the material collection.
     stringVector materials = matMetaData->materialNames;
-    for ( int j=0; j < materials.size(); ++j )
+    for (const auto& name : materials)
       {
-      name = materials.at(j);
       if (!this->MaterialArraySelection->ArrayExists(name.c_str()))
         {
         this->MaterialArraySelection->AddArray(name.c_str(), false);
