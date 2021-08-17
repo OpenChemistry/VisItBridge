@@ -762,6 +762,16 @@ bool vtkAvtSTMDFileFormatAlgorithm::ShouldReadDataSet(const int &index)
   return shouldRead;
 }
 
+
+//-----------------------------------------------------------------------------
+int vtkAvtSTMDFileFormatAlgorithm::RequestInformation(vtkInformation* request,
+                         vtkInformationVector** inputVector,
+                         vtkInformationVector* outputVector)
+{
+  outputVector->GetInformationObject(0)->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
+  return this->Superclass::RequestInformation(request, inputVector, outputVector);
+}
+
 //-----------------------------------------------------------------------------
 void vtkAvtSTMDFileFormatAlgorithm::PrintSelf(ostream& os, vtkIndent indent)
 {
